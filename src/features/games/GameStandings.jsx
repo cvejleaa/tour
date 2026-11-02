@@ -14,7 +14,7 @@ import {
 import { faerdigeRunder } from './rundeSejre';
 import { ligaOpdeling } from './ligaOpdeling';
 import {
-  ligaPoint, harRundeVektor, puljenTaeller, vektorStemmer,
+  ligaPointFor, harRundeVektor, puljenTaeller, vektorStemmer, puljeMaksStartRunde,
 } from '../../lib/ligaPoint';
 import { GAME_TYPE } from '../../lib/constants';
 import GameTabLink from './GameTabLink';
@@ -135,7 +135,8 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null, ga
   // væk ALLE tre steder — overskrift, celler og forklaringslinjen. En
   // forklaring på en kolonne, der ikke findes, er samme slags modsigelse som
   // to skalaer i én tabel.
-  const rubrikker = liga && !puljenTaeller(startRunde)
+  const puljeMaks = puljeMaksStartRunde(game);
+  const rubrikker = liga && !puljenTaeller(startRunde, puljeMaks)
     ? RUBRIKKER.filter(({ key }) => key !== 'pulje')
     : RUBRIKKER;
   // Rubrikkerne pr. række. null betyder «har vi ikke» og bliver til en streg —
@@ -143,7 +144,7 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null, ga
   const dele = rows.map((r) => {
     if (!liga) return r.opdeling;
     if (r.klar === false) return null;
-    return ligaOpdeling(r.perRound, r.opdelingPerRunde, startRunde, r.bonusPoints);
+    return ligaOpdeling(r.perRound, r.opdelingPerRunde, startRunde, r.bonusPoints, puljeMaks);
   });
   const harNogen = dele.some(Boolean);
   // Afvigelserne regnes med SAMME funktion som kortet, så noten siger det
@@ -347,9 +348,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // (ligaRanking); uden er den bare en delmængde af spillet (subsetRanking).
   const standings = useMemo(
     () => (valgt
-      ? ligaRanking(alleMine, valgt, ligaPoint, harRundeVektor, vektorStemmer)
+      ? ligaRanking(alleMine, valgt, ligaPointFor(game), harRundeVektor, vektorStemmer)
       : alleMine),
-    [alleMine, valgt],
+    [alleMine, valgt, game],
   );
 
   // RUNDENS POINT. Regnes af det VISTE felt (standings), ikke af hele kredsen:
@@ -379,9 +380,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // ellers beholder cykelspil og spil uden runder serverens billede.
   const raekker = useMemo(
     () => (visRunde
-      ? rundePile(standings, rundeNr, ligaStart, ligaPoint, harRundeVektor)
+      ? rundePile(standings, rundeNr, ligaStart, ligaPointFor(game), harRundeVektor)
       : standings),
-    [visRunde, standings, rundeNr, ligaStart],
+    [visRunde, standings, rundeNr, ligaStart, game],
   );
 
   // VISNINGEN UDLEDES, DEN GEMMES IKKE RÅT (QC på planen). Skifter man til
@@ -542,7 +543,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // spillets og ikke ligaens. Samme fejl som gaten selv, gentaget i teksten.
   const ligaGate = valgt
     ? (Number.isFinite(valgt.startRound)
-      ? ` Tæller fra ${rundeOrd(game, valgt.startRound)}${puljenTaeller(valgt.startRound) ? '' : ' — puljen tæller ikke'}.`
+      ? ` Tæller fra ${rundeOrd(game, valgt.startRound)}${puljenTaeller(valgt.startRound, puljeMaksStartRunde(game)) ? '' : ' — puljen tæller ikke'}.`
       : '')
     : ` Tæller fra ${rundeOrd(game, 1)} — spillets egen skala, ikke en ligas.`;
   const opsummering = (valgt
@@ -808,7 +809,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   at skalaen ikke er en ligas. */}
               {ligaStart != null ? (
                 <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
-                  {`Regnskabet tæller som ligaen: kun point fra ${rundeOrd(game, ligaStart)} og frem${puljenTaeller(ligaStart) ? '' : ', uden puljen'}. `
+                  {`Regnskabet tæller som ligaen: kun point fra ${rundeOrd(game, ligaStart)} og frem${puljenTaeller(ligaStart, puljeMaksStartRunde(game)) ? '' : ', uden puljen'}. `
                     + 'I alt er derfor det samme tal som i stillingen. Hele sæsonen for en spiller: tryk på navnet.'}
                 </p>
               ) : ligaGate && (

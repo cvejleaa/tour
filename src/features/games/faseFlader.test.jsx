@@ -125,6 +125,24 @@ describe('FootballHelp — faserne læses af kalenderen', () => {
     expect(t).not.toContain('efter runde 3');
   });
 
+  it('håndbold med egen puljegrænse: «Starter ligaen efter dag 8»', () => {
+    const { container } = medSpil({ ...HB, pulje: { maksStartRunde: 8 } });
+    const t = container.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Starter ligaen efter dag 8, tæller puljebonussen ikke med');
+    expect(t).not.toContain('efter dag 3');
+  });
+
+  // Runde-puljen (semifinalisterne): HVORNÅR den afgøres står i kalenderen,
+  // og liga-sproget ("står lige nu") må ikke stå i en turnerings regelbog.
+  it('håndbold med runde-pulje: afgøres, når semifinalerne er lagt ind', () => {
+    const { container } = medSpil({ ...HB, pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' } });
+    const t = container.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('forudsiger du de 4 hold, der står i semifinalerne.');
+    expect(t).toContain('Puljen afgøres, når semifinalerne er lagt ind — de spilles fredag 29. januar. Hvert hold, der står rigtigt, giver +4 point');
+    expect(t).toContain('og når semifinalerne er lagt ind, hvordan det gik i din liga.');
+    expect(t).not.toMatch(/Afgøres på|grundspillets slutstilling|står lige nu i din liga/);
+  });
+
   it('Superligaen med pulje: «Starter ligaen efter runde 3» som før', () => {
     const { container } = medSpil({ ...SL, pulje: { type: 'top' } });
     const t = container.textContent.replace(/\s+/g, ' ');

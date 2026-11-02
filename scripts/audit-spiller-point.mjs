@@ -44,7 +44,9 @@
 import { readFileSync } from 'fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { ligaPoint, harRundeVektor, vektorStemmer, puljenTaeller } from '../src/lib/ligaPoint.js';
+import {
+  ligaPoint, harRundeVektor, vektorStemmer, puljenTaeller, puljeMaksStartRunde,
+} from '../src/lib/ligaPoint.js';
 import { buildRoundContext, opdelPoint, kickoffMs } from '../src/lib/pointOpdeling.js';
 import { startRundeFor, gatedeKampe } from '../src/lib/startGate.js';
 
@@ -219,8 +221,8 @@ async function main() {
       const sr = Number.isFinite(l.startRound) ? l.startRound : null;
       const klar = harRundeVektor(per) && vektorStemmer(per, p.totalPoints, bonus);
       console.log(`  ${String(l.name || l.id).padEnd(26)} startrunde=${String(sr ?? '–').padStart(2)}`
-        + `  viser ${klar ? r1(ligaPoint(per, sr, bonus)) : '0 (IKKE KLAR)'}`
-        + (puljenTaeller(sr) ? '' : '  [puljen tæller ikke med]'));
+        + `  viser ${klar ? r1(ligaPoint(per, sr, bonus, puljeMaksStartRunde(game))) : '0 (IKKE KLAR)'}`
+        + (puljenTaeller(sr, puljeMaksStartRunde(game)) ? '' : '  [puljen tæller ikke med]'));
     }
 
     // --- 5. Chancen — den eneste mekanik, der kan trække point fra ----------

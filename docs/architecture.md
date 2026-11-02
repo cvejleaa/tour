@@ -111,8 +111,12 @@ som rundeSejre) og stemmer summen mod ligaens total med samme
 `opdelingsAfvigelse` som spillets regnskab: en åben rest giver en stjerne
 (totalen er den rigtige), mens en spiller uden feltet — eller uden en talt
 runde i det — får «–» og en henvisning til 🔄 Genberegn point. Puljebonussen tæller kun
-for ligaer med startrunde <= `PULJE_MAKS_STARTRUNDE` (3): den tippes før
-sæsonen, så senere medlemmer kunne ikke være med. Saldoen (banken for Chancen)
+for ligaer med startrunde <= spillets puljegrænse (`puljeMaksStartRunde(game)`:
+`game.pulje.maksStartRunde`, ellers `PULJE_MAKS_STARTRUNDE` = 3): den tippes før
+sæsonen, så senere medlemmer kunne ikke være med. En runde-pulje
+(`facitKilde: 'runde'`, "hvem når semifinalerne?") afgøres af holdene i en fase
+af kalenderen; HVORNÅR er ét prædikat for server og flade
+(`src/lib/puljeFacit.js` ⇄ `functions-platform/puljeFacit.js`). Saldoen (banken for Chancen)
 er ALTID spillets samlede — der er ét bet pr. kamp, delt af alle ligaer.
 Runde-Botten springer runder før ligaens start over og skriver ligaens egne
 totaler.

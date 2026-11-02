@@ -29,7 +29,9 @@
  * og det hjælper ikke mod en slettet kamp — resten er permanent. Strukturen
  * vogtes her, summen dér.
  */
-import { harRundeVektor, puljenTaeller, UDEN_RUNDE } from '../../lib/ligaPoint';
+import {
+  harRundeVektor, puljenTaeller, UDEN_RUNDE, PULJE_MAKS_STARTRUNDE,
+} from '../../lib/ligaPoint';
 
 /** De tre rubrikker, serveren gemmer pr. runde. Puljen er spil-niveau. */
 export const RUNDE_RUBRIKKER = ['p1x2', 'chance', 'combi'];
@@ -64,7 +66,7 @@ function taeller(noegle, startRunde) {
  * @param {number} puljeBonus             players/{uid}.bonusPoints
  * @returns {{p1x2:number, chance:number, combi:number, pulje:number}|null}
  */
-export function ligaOpdeling(perRound, opdelingPerRunde, startRunde, puljeBonus = 0) {
+export function ligaOpdeling(perRound, opdelingPerRunde, startRunde, puljeBonus = 0, maks = PULJE_MAKS_STARTRUNDE) {
   if (!harRundeVektor(perRound) || !harRundeVektor(opdelingPerRunde)) return null;
   const sum = { p1x2: 0, chance: 0, combi: 0 };
   for (const noegle of Object.keys(perRound)) {
@@ -85,6 +87,6 @@ export function ligaOpdeling(perRound, opdelingPerRunde, startRunde, puljeBonus 
     // Puljen tæller kun i ligaer fra sæsonens start (puljenTaeller). 0 og ikke
     // null: `opdelingsAfvigelse` summerer alle fire rubrikker, og fladen
     // skjuler kolonnen, når ligaen ikke tæller den.
-    pulje: puljenTaeller(startRunde) ? round1(Number(puljeBonus) || 0) : 0,
+    pulje: puljenTaeller(startRunde, maks) ? round1(Number(puljeBonus) || 0) : 0,
   };
 }

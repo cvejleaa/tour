@@ -16,6 +16,7 @@ import { resolve } from 'path';
 import { GAMES } from './games.mjs';
 import { SPORT_PROFILER, ukendtSport } from '../src/lib/superligaScoring.js';
 import { faseKalenderFejl } from '../src/lib/faser.js';
+import { puljeKonfigFejl } from '../src/lib/puljeFacit.js';
 import { ADMIN_OWNED } from './seed-payload.mjs';
 import { SEED_FILER } from './seed-filer.mjs';
 
@@ -262,6 +263,31 @@ describe('seed-filer pr. spil', () => {
   it('ingen GAMES-post bærer filstier (de ville blive seedet ud i produktionsdata)', () => {
     for (const g of GAMES) {
       for (const k of ['teams', 'fixtures', 'runder', 'seedFiler']) expect(g, `${g.id}.${k}`).not.toHaveProperty(k);
+    }
+  });
+});
+
+// En RUNDE-pulje ("hvem når semifinalerne?", facitKilde: 'runde') afgøres af
+// holdene i en fase af kalenderen. Står fasen ikke i kalenderen, har den intet
+// antalKampe, eller passer poolSize ikke til fasens hold, kan puljen ALDRIG
+// afgøres — og det ville først vise sig ved semifinalerne. Skrevet med merge,
+// så den første kørsel er den eneste gode chance (se toppen af filen).
+describe('runde-puljer på spillene', () => {
+  it('hver pulje i listen kan afgøres', () => {
+    for (const g of GAMES.filter((x) => x.pulje)) {
+      expect(puljeKonfigFejl(g), g.id).toEqual([]);
+    }
+  });
+
+  // FRAVÆRS-ASSERTION MED VILJE: Superligaen og Premier League skal have
+  // præcis de puljer, de har i dag. maksStartRunde er en turnerings-knap
+  // (dage, ikke uger); facitFase findes kun på en runde-pulje.
+  it('Superligaen og Premier League har hverken maksStartRunde eller facitFase', () => {
+    for (const id of ['superliga2627', 'pl2627-efteraar']) {
+      const g = GAMES.find((x) => x.id === id);
+      expect(g.pulje, id).not.toHaveProperty('maksStartRunde');
+      expect(g.pulje, id).not.toHaveProperty('facitFase');
+      expect(g.pulje.facitKilde, id).not.toBe('runde');
     }
   });
 });

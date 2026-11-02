@@ -7,12 +7,16 @@
  * Facit-kilden SPEJLER serverens (settlePuljeBets): 'officiel' læser
  * game.standings; 'egneKampe' beregner af spillets egne kampe og rører aldrig
  * standings. Klienten regnede før sit eget facit med en 12-holds-antagelse og
- * ville ALDRIG have vist facit-kortet for PL (QC-fund).
+ * ville ALDRIG have vist facit-kortet for PL (QC-fund). 'runde' (fx "hvem når
+ * semifinalerne?") er holdene i en fase af kalenderen — HVORNÅR den er
+ * afgjort, spørges der om ét sted for både server og flade
+ * (lib/puljeFacit.js: puljeKanAfregnes).
  */
 import { useEffect, useMemo, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { puljenTaeller } from '../../../lib/ligaPoint';
+import { puljenTaeller, puljeMaksStartRunde, PULJE_MAKS_STARTRUNDE } from '../../../lib/ligaPoint';
+import { puljeKanAfregnes, rundeFacit, rundePuljeTekster } from '../../../lib/puljeFacit';
 import { useGameStandings } from '../useGameStandings';
 import PuljeAfsloering from './PuljeAfsloering';
 import { useAuth } from '../../../context/AuthContext';
@@ -26,14 +30,6 @@ import { toMillis } from './footballRounds';
 import ClubBadge from '../../../components/ClubBadge';
 import { fmtPoints } from '../../../lib/daNum';
 import { formatKickoff, relativeDeadline } from '../../../lib/daDate';
-
-/** Er ALLE spillets kampe spillet (samme kriterium som serverens self-guard)? */
-function alleSpillet(matches) {
-  const goalOf = (g) => (g == null || g === '' ? NaN : Number(g));
-  return (matches || []).length > 0 && matches.every(
-    (m) => Number.isFinite(goalOf(m.homeGoals)) && Number.isFinite(goalOf(m.awayGoals)),
-  );
-}
 
 /**
  * Sektionens navn i DETTE spil.
@@ -105,10 +101,11 @@ function opremsning(navne) {
  * for alt, der ikke er et endeligt tal.
  *
  * @param {Array<{name?:string, startRound?:number}>} ligaer seerens ligaer i spillet
+ * @param {number} [maks] spillets puljegrænse (puljeMaksStartRunde)
  * @returns {string|null} sætningen, eller null når der intet er at tage forbehold for
  */
-export function puljeLigaForbehold(ligaer) {
-  const uden = (ligaer || []).filter((l) => !puljenTaeller(l.startRound));
+export function puljeLigaForbehold(ligaer, maks = PULJE_MAKS_STARTRUNDE) {
+  const uden = (ligaer || []).filter((l) => !puljenTaeller(l.startRound, maks));
   if (!uden.length) return null;
   const navne = uden.map((l) => l.name || 'en liga uden navn');
   // "men ikke i X" ville sige det samme, men uden strengen "tæller ikke", som
@@ -129,7 +126,9 @@ export default function PuljeTip({ game, matches }) {
   // (QC-fund). Prisen: stillingens lyttere (players, users) er nu også åbne
   // på pulje-fanen, ikke kun på Stilling.
   const { standings, leagues, loading: stillingHenter } = useGameStandings(gameId);
-  const ligaForbehold = useMemo(() => puljeLigaForbehold(leagues), [leagues]);
+  const ligaForbehold = useMemo(
+    () => puljeLigaForbehold(leagues, puljeMaksStartRunde(game)), [leagues, game],
+  );
   const [bet, setBet] = useState(undefined); // undefined = indlæser, null = intet tip
   const [picks, setPicks] = useState([]);    // toppen
   const [nedPicks, setNedPicks] = useState([]); // bunden (kun når nedSize > 0)
@@ -156,11 +155,17 @@ export default function PuljeTip({ game, matches }) {
   // garanteret fejlede (QC-fund).
   const ikkeAabnet = lockMs == null;
 
-  // Facit — SAMME kilde som serverens afregning.
+  // Facit — SAMME kilde og SAMME prædikat som serverens afregning.
   const facit = useMemo(() => {
     if (!konfig) return null;
+    if (konfig.facitKilde === 'runde') {
+      // Holdene i facit-fasen, når den er HELT lagt ind — ellers intet.
+      // "Alle kampe har mål" er ikke kriteriet her (se puljeFacit.js).
+      if (!puljeKanAfregnes(konfig, game, matches)) return null;
+      return { top: rundeFacit(konfig, game, matches), bund: null };
+    }
     if (konfig.facitKilde === 'egneKampe') {
-      if (!alleSpillet(matches)) return null;
+      if (!puljeKanAfregnes(konfig, game, matches)) return null;
       return {
         top: championshipTeams(matches, konfig.poolSize),
         bund: konfig.nedSize > 0 ? bundTeams(matches, konfig.nedSize) : null,
@@ -185,8 +190,12 @@ export default function PuljeTip({ game, matches }) {
   // "Lige nu"-status (spilfører-krav: puljen skal have puls hele sæsonen).
   // Beregnes af de SPILLEDE kampe — samme tal som facit ville give, hvis
   // tabellen sluttede i dag. Ordet "lige nu" er bærende: intet her er afregnet.
+  //
+  // IKKE for en runde-pulje: i en turnering er "tabellen, hvis den sluttede i
+  // dag" en tabel på tværs af grupper, der intet siger om, hvem der når
+  // semifinalerne. Et tal dér ville være en løgn med en decimal.
   const ligeNu = useMemo(() => {
-    if (!konfig || seasonDone) return null;
+    if (!konfig || seasonDone || konfig.facitKilde === 'runde') return null;
     const spillede = (matches || []).filter((m) => {
       const goalOf = (g) => (g == null || g === '' ? NaN : Number(g));
       return Number.isFinite(goalOf(m.homeGoals)) && Number.isFinite(goalOf(m.awayGoals));
@@ -199,9 +208,19 @@ export default function PuljeTip({ game, matches }) {
   }, [konfig, seasonDone, matches]);
 
   if (!konfig) return null; // fanen er data-gated, men bæltet OG selerne
+  const rundeTekst = rundePuljeTekster(game, konfig);
   if (bet === undefined) return <div className="spinner" role="status" aria-label="Indlæser" />;
 
   const valg = { antal: konfig.poolSize, perTeam: konfig.perTeam, perfectBonus: konfig.perfectBonus };
+  // EN RUNDE-PULJE ER AFGJORT, FØR DEN ER AFREGNET. Fladen ser facit i det
+  // øjeblik, semifinalerne er lagt ind; serveren afregner, når en kamps facit
+  // ændrer sig (recomputeGameMatch → settlePuljeBets) — tidligst ved den
+  // første semifinale. Uden denne gren stod der "0/4 rigtige · +0" i timevis
+  // på et tip, der havde ramt alle fire. Liga-puljerne afgøres af den sidste
+  // kamp og afregnes af samme kørsel, så de har ingen ventetid at vise.
+  const ventetPaaAfregning = Boolean(seasonDone && bet && konfig.facitKilde === 'runde'
+    && !Number.isFinite(Number(bet.points ?? NaN)));
+  const foreloebig = ventetPaaAfregning ? puljeScore(bet.championship, facit.top, valg) : null;
   const ligeNuTop = ligeNu && bet ? puljeScore(picks, ligeNu.top, valg) : null;
   const ligeNuBund = ligeNu?.bund && bet
     ? puljeScore(nedPicks, ligeNu.bund, { ...valg, antal: konfig.nedSize }) : null;
@@ -312,6 +331,19 @@ export default function PuljeTip({ game, matches }) {
     <div>
       <div className="card mb-2">
         <h3 className="card__title">{konfig.labels.overskrift}</h3>
+        {rundeTekst ? (
+          <>
+            <p style={{ marginTop: 0 }} data-testid="pulje-spoergsmaal"><strong>{rundeTekst.spoergsmaal}</strong></p>
+            <p style={{ color: 'var(--c-muted)' }}>
+              Vælg de <strong>{konfig.poolSize} hold</strong>, du tror når <strong>{konfig.labels.top}</strong>:{' '}
+              <strong>+{konfig.perTeam} point</strong> pr. hold, du rammer
+              {konfig.perfectBonus > 0 && (
+                <>, og <strong>+{konfig.perfectBonus} bonus</strong> hvis du rammer alle</>
+              )}
+              .{' '}<span data-testid="pulje-afgoeres">{rundeTekst.afgoeres}</span>
+            </p>
+          </>
+        ) : (
         <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
           Vælg de <strong>{konfig.poolSize} hold</strong> du tror står i <strong>{konfig.labels.top}</strong>
           {konfig.nedSize > 0 && (
@@ -323,6 +355,7 @@ export default function PuljeTip({ game, matches }) {
           )}
           .
         </p>
+        )}
         {/* VED LØFTET, ikke nederst på kortet: ellers lover kortet i ét blik
             og trækker i land i et andet (Spilfører-fund). */}
         {ligaForbehold && (
@@ -350,10 +383,21 @@ export default function PuljeTip({ game, matches }) {
         <div className="card mb-2" style={{ borderLeft: '4px solid var(--c-pitch)' }}>
           <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
             <strong>Facit: {konfig.labels.top}</strong>
-            <span className="badge badge--green">
-              {bet.correct ?? 0}/{konfig.poolSize} rigtige · +{fmtPoints(bet.points ?? 0)}
-            </span>
+            {ventetPaaAfregning ? (
+              <span className="badge badge--yellow" data-testid="pulje-afventer">
+                {foreloebig.correct}/{konfig.poolSize} rigtige · +{fmtPoints(foreloebig.points)} på vej
+              </span>
+            ) : (
+              <span className="badge badge--green">
+                {bet.correct ?? 0}/{konfig.poolSize} rigtige · +{fmtPoints(bet.points ?? 0)}
+              </span>
+            )}
           </div>
+          {ventetPaaAfregning && (
+            <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0.35rem 0 0' }}>
+              {`${konfig.labels.top.charAt(0).toUpperCase()}${konfig.labels.top.slice(1)} er lagt ind. Pointene skrives på stillingen senest ved næste afgjorte kamp.`}
+            </p>
+          )}
           {konfig.nedSize > 0 && (
             <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
               <strong>Facit: {konfig.labels.ned}</strong>

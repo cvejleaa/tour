@@ -50,7 +50,10 @@ bevarede kodeord.
      tidligste kickoff. **Sæt ALDRIG en placeholder-dato i deadline-feltet på et
      rundebaseret spil** — passerer den, inden synken kører, låser
      genåbnings-forbuddet, og deadlinen kan så aldrig sættes til den rigtige
-     runde-dato (fejlen ender som en drift-alarm, ikke tavst).
+     runde-dato (fejlen ender som en drift-alarm, ikke tavst). Har spillet
+     `puljeLockRound` men **ingen kickoff-synk**, er feltet redigerbart med en
+     forklaring ved siden af — så sættes deadlinen dér, til rundens første
+     kickoff.
 4. Inviter spillere. Ligaer oprettes af spillerne selv; koden i invitationslinket
    tilmelder dem i ét klik.
 5. **Backfill liga-adgang** — kun nødvendig hvis liga-medlemskaber er kommet ind

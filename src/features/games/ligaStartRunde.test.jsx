@@ -222,6 +222,24 @@ describe('liga-kortet', () => {
     expect(badge.textContent).not.toContain('puljen tæller ikke');
   });
 
+  // SPILLETS GRÆNSE (game.pulje.maksStartRunde). En turnering med én runde
+  // pr. dag kan flytte grænsen; kortet og forklaringen skal følge med, og
+  // uden feltet er de præcis som ovenfor.
+  it('følger spillets puljegrænse — badge og forklaring', () => {
+    render(
+      <MemoryRouter initialEntries={['/spil/sl/ligaer?liga=kon']}>
+        <GameLeagues gameId="sl" game={{ id: 'sl', type: 'football', pulje: { poolSize: 6, maksStartRunde: 25 } }} />
+      </MemoryRouter>,
+    );
+    const badge = screen.getByTestId('liga-startrunde');
+    expect(badge.textContent).toContain('Tæller fra runde 20');
+    expect(badge.textContent).not.toContain('puljen tæller ikke');
+    fireEvent.click(screen.getByRole('button', { name: /Startrunde/ }));
+    const t = document.body.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Starter ligaen efter runde 25, tæller puljebonussen ikke med');
+    expect(t).not.toContain('efter runde 3');
+  });
+
   it('ejeren kan sætte runden, og den gemmes som TAL', async () => {
     tegn();
     fireEvent.click(screen.getByRole('button', { name: /Startrunde/ }));

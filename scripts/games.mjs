@@ -31,6 +31,22 @@
 //   pulje  Findes KUN på ligaer med et mesterskabsspil at tippe om. Mangler
 //          feltet, har spillet ingen pulje. Superligaens top-6 er en egenskab
 //          ved den liga — ikke ved fodbold, og ikke ved platformen.
+//          En TURNERING kan have en runde-pulje: `facitKilde: 'runde'` og
+//          `facitFase: 'Semifinaler'` (et navn i `faser`) — facit er holdene i
+//          den fases kampe, og den afgøres, så snart fasen er HELT lagt ind
+//          (src/lib/puljeFacit.js). poolSize skal være fasens antal hold
+//          (2 × antalKampe); games.test.mjs afviser andet. Ordene (fx
+//          "semifinalerne") kommer af kalenderen, ikke af labels.
+//          `maksStartRunde` er den sidste startrunde, en liga må have og stadig
+//          få puljen med (standard 3 — se ligaPoint.js). I en turnering er en
+//          runde en DAG, så 3 betyder, at en liga oprettet på 4. spilledag
+//          mister puljebonussen. Feltet sættes kun efter ejerens valg.
+//          DEADLINEN: `puljeLockRound` udledes KUN af en kickoff-synk. Har
+//          spillet ingen (provideren er ikke i drift), sættes `puljeLockAt` i
+//          hånden under Spil-tidsplan — feltet bliver redigerbart af sig selv
+//          (GameScheduleTab: puljeRundeUdenSynk). Skriv `pulje` og deadlinen
+//          i SAMME seed: en pulje uden deadline står "Endnu ikke åbnet", og en
+//          deadline uden pulje er en deadline uden fane (GamePage: kraever).
 //
 // ET SPIL UDEN IMPLEMENTERET PROVIDER SYNKES IKKE — OG INGEN OPDAGER DET.
 // Synk, sweep og strandede-alarm løber over SYNCED_GAMES i functions-

@@ -8,7 +8,8 @@ import GameTabLink from '../GameTabLink';
 import {
   CHANCE, COMBI, eloExpectedHome, puljeKonfig, roundComboBonus, sportProfil, TRAEF_BONUS,
 } from '../../../lib/superligaScoring';
-import { PULJE_MAKS_STARTRUNDE } from '../../../lib/ligaPoint';
+import { puljeMaksStartRunde } from '../../../lib/ligaPoint';
+import { rundePuljeTekster } from '../../../lib/puljeFacit';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
@@ -69,6 +70,9 @@ export default function FootballHelp({ game }) {
   // 'mesterskabsspillet', PL 'Juletabellen'; hardkodede 6-taller ville lyve
   // i det ene af spillene (QC-fund på planen).
   const pulje = puljeKonfig(game);
+  // En RUNDE-pulje ("hvem når semifinalerne?") afgøres af en fase, ikke af en
+  // slutstilling — og dens tekst og dato kommer af kalenderen. null for SL/PL.
+  const rundePulje = rundePuljeTekster(game, pulje);
   // Elo- og odds-tallene kommer fra SPILLETS sportsprofil, ikke fra de globale
   // konstanter — så guiden siger det, spillets odds faktisk er regnet med.
   const profil = sportProfil(game);
@@ -300,7 +304,7 @@ export default function FootballHelp({ game }) {
         sin egen <strong>startrunde</strong>: så tæller kun
         runder fra den og frem i ligaens stilling — hele runder, aldrig halve, så en udsat kamp
         følger sin runde. Ligaens ejer sætter den under <Tab fane="ligaer">👥 Ligaer</Tab>, og den
-        står på liga-kortet.{game?.pulje && <>{' '}Starter ligaen efter {rundeOrd(game, PULJE_MAKS_STARTRUNDE)}, tæller
+        står på liga-kortet.{game?.pulje && <>{' '}Starter ligaen efter {rundeOrd(game, puljeMaksStartRunde(game))}, tæller
         puljebonussen ikke med — den blev tippet før sæsonen, så nye medlemmer kunne ikke være med.</>}
         {' '}Din <strong>saldo</strong> øverst er altid spillets samlede — det er den, Chancen må satse af.
         <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
@@ -557,7 +561,7 @@ export default function FootballHelp({ game }) {
           På <Tab fane="pulje">🎖️ Pulje</Tab> forudsiger du de <strong>{pulje.poolSize} hold</strong>, der står i
           <strong> {pulje.labels.top}</strong>
           {pulje.nedSize > 0 && <> — og de <strong>{pulje.nedSize}</strong>, der hænger i <strong>{pulje.labels.ned}</strong></>}.
-          Afgøres på {pulje.labels.facit}: hvert hold, der står rigtigt, giver
+          {rundePulje ? <>{' '}{rundePulje.afgoeres} Hvert</> : <>Afgøres på {pulje.labels.facit}: hvert</>} hold, der står rigtigt, giver
           {' '}<strong>+{pulje.perTeam} point</strong>
           {pulje.perfectBonus > 0 && <>, og en perfekt række giver <strong>+{pulje.perfectBonus}</strong> i bonus</>}.
           Deadline sættes af arrangøren og vises på fanen.
@@ -569,7 +573,9 @@ export default function FootballHelp({ game }) {
               love mere fortrolighed, end reglen bærer. */}
           {' '}Indtil deadline er dit tip skjult for alle andre. Efter deadline kan alle i spillet
           se hinandens pulje-tip på fanen — hvilke hold flest tror på, hvem der står alene med
-          et hold, og hvordan puljen står lige nu i din liga.
+          et hold, og {rundePulje
+            ? <>når {pulje.labels.top} er lagt ind, hvordan det gik i din liga</>
+            : <>hvordan puljen står lige nu i din liga</>}.
         </Section>
       )}
 

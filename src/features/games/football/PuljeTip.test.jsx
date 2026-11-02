@@ -58,6 +58,7 @@ vi.mock('../gameActions', () => ({ setPuljeBet: (...a) => mockSetPuljeBet(...a) 
 import PuljeTip, { topTitel, sektionsNavn, puljeLigaForbehold } from './PuljeTip';
 import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
+import { HAANDBOLD_SPIL } from '../../../test/faseKalender';
 
 beforeEach(() => {
   vi.clearAllMocks(); mockBet.current = null; mockLeagues.current = []; mockStand.current = [];
@@ -467,5 +468,108 @@ describe('PuljeTip — afsløringen får det, den skal regne på', () => {
     expect(p.facit.top).toHaveLength(4);
     expect(p.facit.bund).toHaveLength(3);
     expect(p.ligeNu).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RUNDE-PULJEN ("semifinalisterne", håndbold-VM). Facit er holdene i en fase
+// af kalenderen; teksterne og datoen kommer af kalenderen. Gaten er
+// konfigurationen (facitKilde: 'runde'), aldrig sporten.
+// ---------------------------------------------------------------------------
+describe('PuljeTip — runde-puljen (semifinalisterne)', () => {
+  const VM_HOLD = ['DK', 'NO', 'FR', 'ES', 'SE', 'DE', 'HR', 'IS'].map((n) => ({ name: n, short: n }));
+  const hvm = (over = {}) => ({
+    ...HAANDBOLD_SPIL, teams: VM_HOLD, puljeLockAt: Date.now() + 86400000,
+    pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', labels: { overskrift: '🏆 Semifinalisterne' } },
+    ...over,
+  });
+  const k = (id, round, home, away, hg = null, ag = null) => ({ id, round, home, away, homeGoals: hg, awayGoals: ag });
+  // Kvartfinalerne spillet (runde 14-15). NO taber, men scorer flest — en
+  // tabel ville sætte NO i toppen.
+  const KVART = [
+    k('q1', 14, 'DK', 'NO', 31, 30), k('q2', 14, 'FR', 'ES', 25, 20),
+    k('q3', 15, 'SE', 'DE', 27, 26), k('q4', 15, 'HR', 'IS', 24, 23),
+  ];
+  const SEMI = [k('s1', 16, 'DK', 'FR'), k('s2', 16, 'SE', 'HR')];
+
+  it('spørgsmålet, reglen og HVORNÅR puljen afgøres — fra kalenderen', () => {
+    render(<PuljeTip game={hvm()} matches={[]} />);
+    expect(screen.getByText('🏆 Semifinalisterne')).toBeInTheDocument();
+    expect(screen.getByTestId('pulje-spoergsmaal').textContent).toBe('Hvilke fire hold når semifinalerne?');
+    expect(screen.getByTestId('pulje-afgoeres').textContent)
+      .toBe('Puljen afgøres, når semifinalerne er lagt ind — de spilles fredag 29. januar.');
+    const kort = screen.getByTestId('pulje-spoergsmaal').closest('.card').textContent;
+    expect(kort).toContain('Vælg de 4 hold, du tror når semifinalerne');
+    expect(kort).toContain('+4 point pr. hold, du rammer');
+    expect(kort).toContain('+10 bonus hvis du rammer alle');
+    // Liga-sproget må IKKE stå på en turnering.
+    expect(kort).not.toMatch(/står i|mesterskabsspillet|slutstilling|Afgøres på/);
+    expect(screen.getByRole('heading', { name: '🏆 Semifinalerne — vælg 4' })).toBeInTheDocument();
+    expect(screen.queryByText(/Bunden — vælg/)).toBeNull();
+  });
+
+  it('efter kvartfinalerne — alle kampe har mål — er der INTET facit og ingen "lige nu"', () => {
+    mockBet.current = { championship: ['DK', 'FR', 'SE', 'HR'] };
+    render(<PuljeTip game={hvm()} matches={KVART} />);
+    expect(screen.queryByText(/^Facit:/)).toBeNull();
+    // En tabel på tværs af grupper siger intet om semifinalerne.
+    expect(screen.queryByTestId('pulje-ligenu')).toBeNull();
+    expect(document.body.textContent).not.toContain('Lige nu');
+    expect(document.body.textContent).not.toContain('hvis tabellen sluttede i dag');
+  });
+
+  it('semifinalerne lagt ind, endnu IKKE afregnet: facit med de point, der er på vej', () => {
+    mockBet.current = { championship: ['DK', 'FR', 'SE', 'NO'] }; // 3 rigtige, ingen points endnu
+    render(<PuljeTip game={hvm()} matches={[...KVART, ...SEMI]} />);
+    expect(screen.getByText('Facit: semifinalerne')).toBeInTheDocument();
+    const afventer = screen.getByTestId('pulje-afventer');
+    expect(afventer.textContent).toBe('3/4 rigtige · +12 på vej');
+    expect(screen.getByText(/Semifinalerne er lagt ind\. Pointene skrives på stillingen senest ved næste afgjorte kamp\./)).toBeInTheDocument();
+    // "0/4 rigtige · +0" var løgnen, før grenen fandtes.
+    expect(document.body.textContent).not.toContain('0/4 rigtige');
+    // Pokalen står på holdene i semifinalerne — og ikke på NO, der tabte.
+    const pokal = (navn) => screen.getAllByText(navn)[0].closest('button').querySelector('[title="Facit"]');
+    expect(pokal('DK')).not.toBeNull();
+    expect(pokal('HR')).not.toBeNull();
+    expect(pokal('NO')).toBeNull();
+  });
+
+  it('afregnet: serverens tal, ikke fladens', () => {
+    mockBet.current = { championship: ['DK', 'FR', 'SE', 'NO'], correct: 3, points: 12 };
+    render(<PuljeTip game={hvm()} matches={[...KVART, ...SEMI]} />);
+    expect(screen.getByText(/3\/4 rigtige · \+12/)).toBeInTheDocument();
+    expect(screen.queryByTestId('pulje-afventer')).toBeNull();
+    expect(document.body.textContent).not.toContain('på vej');
+  });
+
+  it('en halv semifinale-dag giver intet facit', () => {
+    mockBet.current = { championship: ['DK', 'FR', 'SE', 'HR'] };
+    render(<PuljeTip game={hvm()} matches={[...KVART, SEMI[0]]} />);
+    expect(screen.queryByText(/^Facit:/)).toBeNull();
+  });
+
+  it('uden fasen i kalenderen loves ingen dato', () => {
+    render(<PuljeTip game={hvm({ faser: undefined })} matches={[]} />);
+    expect(screen.getByTestId('pulje-afgoeres').textContent).toBe('Puljen afgøres, når semifinaler er lagt ind.');
+  });
+
+  // FORBEHOLDET følger SPILLETS grænse. Med maksStartRunde 8 beholder en liga
+  // fra dag 5 puljen; uden feltet (standard 3) mister den den.
+  it('liga-forbeholdet bruger spillets puljegrænse', () => {
+    mockLeagues.current = [{ name: 'Kontoret', startRound: 5 }];
+    const { unmount } = render(<PuljeTip game={hvm()} matches={[]} />);
+    expect(screen.getByTestId('pulje-liga-forbehold').textContent).toContain('tæller ikke i Kontoret');
+    unmount();
+    render(<PuljeTip game={hvm({ pulje: { ...hvm().pulje, maksStartRunde: 8 } })} matches={[]} />);
+    expect(screen.queryByTestId('pulje-liga-forbehold')).toBeNull();
+  });
+});
+
+describe('puljeLigaForbehold — grænsen er et argument', () => {
+  it('standarden er den gamle (3); en anden grænse flytter den', () => {
+    const ligaer = [{ name: 'Kontoret', startRound: 5 }];
+    expect(puljeLigaForbehold(ligaer)).toBe('Puljen tæller i spillets samlede stilling, men tæller ikke i Kontoret.');
+    expect(puljeLigaForbehold(ligaer, 8)).toBeNull();
+    expect(puljeLigaForbehold(ligaer, 4)).toBe('Puljen tæller i spillets samlede stilling, men tæller ikke i Kontoret.');
   });
 });

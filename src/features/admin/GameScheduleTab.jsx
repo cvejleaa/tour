@@ -19,6 +19,7 @@ import { erKampspil, uenigTekst } from '../../lib/facit';
 import ManuelFacit from './ManuelFacit';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { rundeEtiket, rundeFlertal, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
+import { puljeKonfigFejl } from '../../lib/puljeFacit';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
 
@@ -195,7 +196,18 @@ function GameRow({ game }) {
   // bliver overskrevet ved næste synk, og en for tidligt sat placeholder, der
   // passerer inden da, låser genåbnings-forbuddet, så den rigtige dato aldrig
   // kan sættes. For sådanne spil er feltet ren oplysning + 🗓️-knappen nedenfor.
-  const harPuljeRunde = Number.isFinite(game.puljeLockRound);
+  //
+  // MEN KUN NÅR NOGET FAKTISK UDLEDER DEN. `puljeLockRound` alene er en
+  // proxy: det er kickoff-synken, der sætter puljeLockAt, og et spil uden
+  // kickoff-synk (en turnering, hvis provider ikke er i drift endnu) ville
+  // ellers stå med en deadline, der aldrig kommer, og et felt, der ikke kan
+  // redigeres — puljen ville være "Endnu ikke åbnet" til første kickoff og
+  // derefter for evigt. Gaten er evnen (harKickoffSynk), ikke feltet.
+  const puljeRundeUdenSynk = Number.isFinite(game.puljeLockRound) && !harKickoffSynk(game);
+  const harPuljeRunde = Number.isFinite(game.puljeLockRound) && !puljeRundeUdenSynk;
+  // En runde-pulje ("hvem når semifinalerne?"), der aldrig kan afgøres, er en
+  // tavs fejl indtil semifinalerne — derfor står den her, ved spillet.
+  const puljeFejl = harPulje ? puljeKonfigFejl(game) : [];
   const statusChanged = gameStatus && gameStatus !== game.status;
   // Synlighed læses direkte af spillet — ikke af en lokal kopi. Knappen
   // skriver med det samme, og etiketten vender, når snapshottet kommer
@@ -459,6 +471,13 @@ function GameRow({ game }) {
           sige «sæsonen er slut» efter den indledende runde. Her ser admin
           hvorfor (serveren logger det samme). Et spil uden faser-felt
           (Superligaen, Premier League) får ingen linje. */}
+      {puljeFejl.length > 0 && (
+        <p className="badge badge--red" data-testid="pulje-ugyldig" role="alert"
+          style={{ display: 'block', whiteSpace: 'normal', marginTop: '0.5rem' }}>
+          {`⚠️ Puljen kan ikke afgøres: ${puljeFejl.join('; ')}. Pulje-tippene bliver aldrig afregnet, før det er rettet. Ret pulje (og faser) i scripts/games.mjs og kør Deploy platform med seedGames.`}
+        </p>
+      )}
+
       {kalenderFejl && (
         <p className="badge badge--red" data-testid="fasekalender-ugyldig" role="alert"
           style={{ display: 'block', whiteSpace: 'normal', marginTop: '0.5rem' }}>
@@ -522,6 +541,12 @@ function GameRow({ game }) {
               onChange={(e) => { setPuljeLockAt(e.target.value); setSaveMsg(null); }}
               style={{ width: '100%' }}
             />
+            {puljeRundeUdenSynk && (
+              <span data-testid="pulje-runde-uden-synk"
+                style={{ display: 'block', fontSize: '0.78rem', color: 'var(--c-muted)', marginTop: '0.25rem' }}>
+                {`Spillet har puljeLockRound (${rundeEtiket(game, game.puljeLockRound)}), men ingen kickoff-synk, så intet udleder deadlinen. Sæt den her — til rundens første kickoff. Får spillet senere en kickoff-synk, flytter den deadlinen til rundens tidligste kickoff, så længe den ikke er passeret.`}
+              </span>
+            )}
           </label>
         )}
 

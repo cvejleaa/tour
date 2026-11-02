@@ -178,7 +178,12 @@ describe('superligaScoring (server-spejl)', () => {
       { home: 'C', away: 'D', homeGoals: 0, awayGoals: 1 },
     ];
     expect(bundTeams(kampe, 2)).toEqual(src.bundTeams(kampe, 2));
-    for (const g of [{ pulje: { poolSize: 6 } }, { pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe', tabelDeling: false } }, {}]) {
+    // + runde-puljen (semifinalisterne), med og uden kalender: ordene kommer
+    // af game.faser, så normalizeren læser kalenderen ens begge steder.
+    const RUNDE = { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', labels: { overskrift: '🏆 Semifinalisterne' } };
+    const FASER = [{ navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 1, til: 1, start: '2027-01-29', antalKampe: 2 }];
+    for (const g of [{ pulje: { poolSize: 6 } }, { pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe', tabelDeling: false } }, {},
+      { pulje: RUNDE, faser: FASER }, { pulje: RUNDE }, { pulje: { ...RUNDE, nedSize: 3, tabelDeling: true } }]) {
       expect(puljeKonfig(g)).toEqual(src.puljeKonfig(g));
     }
     // Superligaens LITERALE dokument giver PRÆCIS dagens adfærd — bliver

@@ -17,7 +17,9 @@ const {
   harFaseKalender, faseKalenderAdvarsel, rundeEtiket, naesteKalenderRunde, faseFor, fmtFaseStart,
 } = require('./faser');
 const { gatedeKampe, startRundeFor } = require('./startGate');
-const { ligaPoint, harRundeVektor, vektorStemmer } = require('./ligaPoint');
+const {
+  ligaPoint, harRundeVektor, vektorStemmer, puljeMaksStartRunde,
+} = require('./ligaPoint');
 const { aktiveSpillere } = require('./forladSpil');
 
 // 'in' tager højst 30 værdier pr. forespørgsel.
@@ -487,6 +489,8 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     if (ligaStart != null && round < ligaStart) continue;
     // Totalen på ligaens skala: summen af runde-vektoren fra ligaens start,
     // med puljen efter dens egen regel — samme modul som fladen bruger.
+    // Puljegrænsen er SPILLETS (en turnerings dage er ikke en ligas uger).
+    const puljeMaks = puljeMaksStartRunde(game);
     // Pilene ("overtog føringen") skal regnes på LIGAENS skala — spillets
     // previousRank er en anden. Før-stillingen er ligaens total UDEN den
     // aktuelle runde, af samme vektor: nøjagtig det greb, fladen bruger
@@ -504,14 +508,14 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
         if (Number(k) === round) continue;
         uden[k] = v;
       }
-      return ligaPoint(uden, ligaStart, p.bonusPoints || 0);
+      return ligaPoint(uden, ligaStart, p.bonusPoints || 0, puljeMaks);
     };
     let medlemmer = rawMedlemmer;
     if (ligaStart != null) {
       const omregnede = rawMedlemmer.map((p) => ({
         ...p,
         totalPoints: klarNok(p)
-          ? ligaPoint(p.perRound, ligaStart, p.bonusPoints || 0)
+          ? ligaPoint(p.perRound, ligaStart, p.bonusPoints || 0, puljeMaks)
           : 0,
         _foer: foerTotal(p),
       }));

@@ -1277,3 +1277,70 @@ describe('✍️ Sæt eller ret facit i hånden — hvilke spil har knappen', ()
     expect(mockGetDocs).not.toHaveBeenCalled();
   });
 });
+
+// --- Runde-puljen (semifinalisterne) og deadlinen uden kickoff-synk ----------
+describe('pulje i en turnering', () => {
+  const FASER = [
+    { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 1, til: 2, start: '2027-01-27', knockout: true, antalKampe: 4 },
+    { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 3, til: 3, start: '2027-01-29', knockout: true, antalKampe: 2 },
+  ];
+  // Intet sync-felt: provideren er ikke i drift endnu (D8). Det er netop det
+  // spil, fælden rammer.
+  const HVM = {
+    id: 'hvm', name: 'Håndbold-VM', emoji: '🤾', type: 'football', status: 'open', faser: FASER,
+    pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' }, puljeLockRound: 1,
+  };
+
+  it('en runde-pulje, der aldrig kan afgøres, siges højt ved spillet', () => {
+    mockGames.mockReturnValue({ games: [{ ...HVM, pulje: { ...HVM.pulje, facitFase: 'Ottendedele' } }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getByTestId('pulje-ugyldig').textContent).toBe('⚠️ Puljen kan ikke afgøres: fasen «Ottendedele» findes ikke i kalenderen. '
+      + 'Pulje-tippene bliver aldrig afregnet, før det er rettet. Ret pulje (og faser) i scripts/games.mjs og kør Deploy platform med seedGames.');
+  });
+
+  it('ingen pulje-linje for en gyldig runde-pulje, for Superligaen eller for et spil uden pulje', () => {
+    mockGames.mockReturnValue({
+      games: [HVM, { id: 'sl', name: 'SL', type: 'football', pulje: { poolSize: 6 } }, { id: 'x', name: 'X', type: 'football' }],
+      loading: false,
+    });
+    render(<GameScheduleTab />);
+    expect(screen.queryByTestId('pulje-ugyldig')).toBeNull();
+    expect(document.body.textContent).not.toContain('Puljen kan ikke afgøres');
+  });
+
+  // FÆLDEN: puljeLockRound uden kickoff-synk. Før var feltet låst ("udledt af
+  // runde 1"), og knappen, teksten henviste til, fandtes ikke for spillet —
+  // så deadlinen kunne hverken udledes eller sættes, og puljen stod "Endnu
+  // ikke åbnet" for evigt.
+  it('puljeLockRound UDEN kickoff-synk: deadlinen kan sættes i hånden, og det siges hvorfor', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getByText('🎖️ Bonus-/pulje-deadline')).toBeInTheDocument();
+    expect(screen.queryByText(/udledt af runde/i)).toBeNull();
+    expect(screen.queryByText(/kør 🗓️ Synk kamptider nu/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Synk kamptider nu/i })).toBeNull();
+    expect(screen.getByTestId('pulje-runde-uden-synk').textContent).toBe(
+      'Spillet har puljeLockRound (Kvartfinaler · dag 1), men ingen kickoff-synk, så intet udleder deadlinen. '
+      + 'Sæt den her — til rundens første kickoff. Får spillet senere en kickoff-synk, flytter den deadlinen til '
+      + 'rundens tidligste kickoff, så længe den ikke er passeret.',
+    );
+  });
+
+  it('… og et Gem skriver den håndsatte deadline', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.change(screen.getByLabelText(/Bonus-\/pulje-deadline/), { target: { value: '2027-01-13T17:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
+    await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
+    const [, patch] = mockSetGameSchedule.mock.calls.at(-1);
+    expect(patch).toHaveProperty('puljeLockAt', new Date('2027-01-13T17:00').getTime());
+  });
+
+  it('MED kickoff-synk er deadlinen stadig udledt og låst (Premier League-formen)', () => {
+    mockGames.mockReturnValue({ games: [{ ...HVM, sync: { provider: 'pulselive' } }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.getByText(/udledt af runde 1/i)).toBeInTheDocument();
+    expect(screen.queryByText('🎖️ Bonus-/pulje-deadline')).toBeNull();
+    expect(screen.queryByTestId('pulje-runde-uden-synk')).toBeNull();
+  });
+});

@@ -1335,6 +1335,83 @@ describe('settlePuljeBets', () => {
     // Efter egne kampe er A/B toppen og D bunden — standings ville sige det modsatte.
     expect(db._pulje.P1).toMatchObject({ correct: 2, points: 18, nedCorrect: 1, nedPoints: 14 });
   });
+
+  // --- Runde-puljen (semifinalisterne, håndbold-VM): facit = holdene i en fase -
+  //
+  // Det gamle kriterium "alle kampe har mål" er FORKERT her i begge retninger:
+  // efter kvartfinalerne har alle oprettede kampe mål, før semifinalerne er
+  // lagt ind — og så ville puljen blive afregnet mod en TABEL over turneringen.
+  const SF_FASER = [
+    { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 1, til: 2, start: '2027-01-27', knockout: true, antalKampe: 4 },
+    { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 3, til: 3, start: '2027-01-29', knockout: true, antalKampe: 2 },
+  ];
+  const SF_SPIL = { faser: SF_FASER, pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' } };
+  const kv = (id, round, home, away, hg, ag) => ({ id, round, home, away, homeGoals: hg, awayGoals: ag });
+  // Kvartfinalerne: DK, FR, SE og HR vinder. NO taber men scorer flest mål,
+  // så en beregnet tabel ville sætte NO i toppen — og det må den aldrig.
+  const KVART = [
+    kv('q1', 1, 'DK', 'NO', 31, 30), kv('q2', 1, 'FR', 'ES', 25, 20),
+    kv('q3', 2, 'SE', 'DE', 27, 26), kv('q4', 2, 'HR', 'NO', 24, 40),
+  ];
+  const SEMI = [kv('s1', 3, 'DK', 'FR', null, null), kv('s2', 3, 'SE', 'HR', null, null)];
+
+  it("'runde': afregner IKKE efter kvartfinalerne, selv om hver kamp har mål", async () => {
+    const db = makeDb([], KVART, SF_SPIL, { P1: {} }, { P1: { championship: ['DK', 'FR', 'SE', 'HR'] } });
+    const res = await settlePuljeBets(db, FieldValue, 'g1', KVART);
+    expect(res.settled).toBe(0);
+    expect(db._pulje.P1.points).toBeUndefined();
+    expect(db._players.P1?.bonusPoints).toBeUndefined();
+  });
+
+  it("'runde': afregner, så snart semifinalerne er lagt ind — før de er spillet", async () => {
+    const alle = [...KVART, ...SEMI];
+    const db = makeDb([], alle, SF_SPIL, { P1: {}, P2: {} }, {
+      P1: { championship: ['DK', 'FR', 'SE', 'HR'] }, // 4 × 4 + 10 = 26
+      P2: { championship: ['DK', 'NO', 'ES', 'DE'] }, // 1 × 4 = 4 — NO stod øverst i en tabel
+    });
+    const res = await settlePuljeBets(db, FieldValue, 'g1', alle);
+    expect(res.settled).toBe(2);
+    expect(db._pulje.P1).toMatchObject({ correct: 4, points: 26 });
+    expect(db._pulje.P2).toMatchObject({ correct: 1, points: 4 });
+    expect(db._players.P1.bonusPoints).toBe(26);
+    // Ingen bund-felter på en runde-pulje.
+    expect(db._pulje.P1.nedPoints).toBeUndefined();
+  });
+
+  it("'runde': en HALV semifinale-dag afregner intet", async () => {
+    const alle = [...KVART, SEMI[0]];
+    const db = makeDb([], alle, SF_SPIL, { P1: {} }, { P1: { championship: ['DK', 'FR', 'SE', 'HR'] } });
+    expect((await settlePuljeBets(db, FieldValue, 'g1', alle)).settled).toBe(0);
+    expect(db._pulje.P1.points).toBeUndefined();
+  });
+
+  it("'runde': et semifinalehold, der mangler, afregner intet", async () => {
+    const alle = [...KVART, SEMI[0], { ...SEMI[1], away: '' }];
+    const db = makeDb([], alle, SF_SPIL, { P1: {} }, { P1: { championship: ['DK', 'FR', 'SE', 'HR'] } });
+    expect((await settlePuljeBets(db, FieldValue, 'g1', alle)).settled).toBe(0);
+  });
+
+  it("'runde': en fase, kalenderen ikke kender, afregner aldrig — og siger det i loggen", async () => {
+    const alle = [...KVART, ...SEMI];
+    const spil = { ...SF_SPIL, pulje: { ...SF_SPIL.pulje, facitFase: 'Ottendedele' } };
+    const db = makeDb([], alle, spil, { P1: {} }, { P1: { championship: ['DK', 'FR', 'SE', 'HR'] } });
+    const fejl = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect((await settlePuljeBets(db, FieldValue, 'g1', alle)).settled).toBe(0);
+      expect(fejl).toHaveBeenCalledWith(expect.stringContaining('fasen «Ottendedele» findes ikke i kalenderen'));
+    } finally {
+      fejl.mockRestore();
+    }
+  });
+
+  // Liga-puljen må IKKE begynde at bruge fase-kriteriet. Et SL-spil med en
+  // (fejlagtig) kalender og "semifinaler" i runde 3 afregnes stadig først,
+  // når ALLE kampe har mål.
+  it('liga-puljen afregner stadig først, når alle kampe har mål — også med en kalender', async () => {
+    const alle = [...KVART, ...SEMI];
+    const db = makeDb([], alle, { faser: SF_FASER, pulje: { poolSize: 4 } }, { P1: {} }, { P1: { championship: ['DK'] } });
+    expect((await settlePuljeBets(db, FieldValue, 'g1', alle)).settled).toBe(0);
+  });
 });
 
 describe('puljeTipKomplet', () => {

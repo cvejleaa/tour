@@ -417,25 +417,46 @@ function puljeKonfig(game) {
   if (!p) return null;
   const tal = (v, fallback) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : fallback);
   const labels = (p.labels && typeof p.labels === 'object') ? p.labels : {};
+  // 'officiel': facit fra game.standings (Superligaen — grundspillet slutter
+  // med den officielle tabel). 'egneKampe': facit BEREGNES af spillets egne
+  // kampe og rører ALDRIG standings — et halvsæson-spil (PL-efterår) må
+  // ikke kunne genafregnes mod forårets officielle tabel (QC-fund).
+  // 'runde': facit er HOLDENE i en fase af turneringen (`facitFase`, slået op
+  // i game.faser) — "hvem når semifinalerne?". Hvornår den er afgjort, står i
+  // puljeFacit.js (ét prædikat for server og flade). Alt andet er 'officiel'.
+  const facitKilde = p.facitKilde === 'egneKampe' || p.facitKilde === 'runde' ? p.facitKilde : 'officiel';
+  const runde = facitKilde === 'runde';
+  // Fasens NAVN i kalenderen ('Semifinaler'). Kun en runde-pulje har en; for
+  // alle andre er den null, så SL og PL får præcis de tal, de altid har fået.
+  const facitFase = runde && typeof p.facitFase === 'string' && p.facitFase.trim() ? p.facitFase.trim() : null;
+  // ORDENE KOMMER FRA KALENDEREN, ikke fra en kopi i labels: fasens bestemte
+  // form ('Semifinalerne') er skrevet ét sted, og omdøbes fasen, følger
+  // teksterne med. Står fasen ikke i kalenderen, bruges navnet — og
+  // puljeKonfigFejl melder fejlen under Spil-tidsplan.
+  const fase = facitFase && Array.isArray(game.faser)
+    ? game.faser.find((f) => f && f.navn === facitFase) : null;
+  const bestemt = fase && typeof fase.bestemt === 'string' && fase.bestemt.trim() ? fase.bestemt.trim() : facitFase;
+  const faseOrd = bestemt ? bestemt.toLowerCase() : null;
   return {
     poolSize: tal(p.poolSize, PULJE.POOL_SIZE),
-    nedSize: tal(p.nedSize, 0), // 0 = intet bundspørgsmål (Superligaen)
+    // 0 = intet bundspørgsmål (Superligaen). En runde-pulje har aldrig et:
+    // der er ingen "bund" i en udslagsfase at afgøre det på.
+    nedSize: runde ? 0 : tal(p.nedSize, 0),
     perTeam: tal(p.perTeam, PULJE.PER_TEAM),
     perfectBonus: Number.isFinite(Number(p.perfectBonus)) && Number(p.perfectBonus) >= 0
       ? Number(p.perfectBonus) : PULJE.PERFECT_BONUS,
-    // 'officiel': facit fra game.standings (Superligaen — grundspillet slutter
-    // med den officielle tabel). 'egneKampe': facit BEREGNES af spillets egne
-    // kampe og rører ALDRIG standings — et halvsæson-spil (PL-efterår) må
-    // ikke kunne genafregnes mod forårets officielle tabel (QC-fund).
-    facitKilde: p.facitKilde === 'egneKampe' ? 'egneKampe' : 'officiel',
+    facitKilde,
+    facitFase,
     // Deler tabellen sig i mesterskabs-/nedrykningsspil (SL), eller er den
-    // flad (PL)? Puljen på PL må ikke flippe Tabel-fanen (QC-fund).
-    tabelDeling: p.tabelDeling === undefined ? true : !!p.tabelDeling,
+    // flad (PL)? Puljen på PL må ikke flippe Tabel-fanen (QC-fund). En
+    // turnering deler aldrig sin tabel efter puljen.
+    tabelDeling: p.tabelDeling === undefined ? !runde : !!p.tabelDeling,
     labels: {
       overskrift: typeof labels.overskrift === 'string' ? labels.overskrift : '🏆 Pulje-tip',
-      top: typeof labels.top === 'string' ? labels.top : 'mesterskabsspillet',
+      top: typeof labels.top === 'string' ? labels.top : (runde ? faseOrd || 'næste fase' : 'mesterskabsspillet'),
       ned: typeof labels.ned === 'string' ? labels.ned : 'nedrykningsspillet',
-      facit: typeof labels.facit === 'string' ? labels.facit : 'grundspillets slutstilling',
+      facit: typeof labels.facit === 'string' ? labels.facit
+        : (runde ? `holdene i ${faseOrd || 'fasen'}` : 'grundspillets slutstilling'),
     },
   };
 }

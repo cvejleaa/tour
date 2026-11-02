@@ -229,3 +229,39 @@ describe('invitationsHtml — linket escapes i href (Security-fund F2)', () => {
     expect(l.navn).toBe('Ligaen X'); // falder til name, ikke til et objekt
   });
 });
+
+// Runde-puljen (semifinalisterne): afgøres, når en fase er lagt ind — ikke
+// "til allersidst". Datoen kommer af kalenderen.
+describe('invitationsHtml — en turnering med runde-pulje', () => {
+  const FASER = [
+    { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 1, til: 2, start: '2027-01-27', knockout: true, antalKampe: 4 },
+    { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 3, til: 3, start: '2027-01-29', knockout: true, antalKampe: 2 },
+  ];
+  const spil = {
+    name: 'Håndbold-VM 2027', shortName: 'VM', faser: FASER,
+    pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' },
+  };
+  const html = invitationsHtml({ liga: ligaProfil(spil), intro: 'Klar?', joinLink: 'https://tip.vejleaa.dk/x' });
+
+  it('siger, hvornår puljen afgøres — med kalenderens dato', () => {
+    expect(ligaProfil(spil).puljeDato).toBe('fredag 29. januar');
+    expect(html).toContain('afgjort, s&aring; snart semifinalerne er lagt ind (de spilles fredag 29. januar).');
+    expect(html).toContain('st&aring;r i semifinalerne');
+    expect(html).not.toContain('afgjort til allersidst');
+    expect(html).not.toContain('mesterskabsspillet');
+  });
+
+  it('uden fasen i kalenderen: ingen dato, men stadig ikke "til allersidst"', () => {
+    const udenSpil = { ...spil, faser: undefined };
+    const uden = invitationsHtml({ liga: ligaProfil(udenSpil), intro: 'x', joinLink: 'https://tip.vejleaa.dk/x' });
+    expect(ligaProfil(udenSpil).puljeDato).toBeNull();
+    expect(uden).toContain('afgjort, s&aring; snart semifinaler er lagt ind.');
+    expect(uden).not.toContain('afgjort til allersidst');
+  });
+
+  it('liga-puljerne lover stadig "til allersidst"', () => {
+    const sl = invitationsHtml({ liga: ligaProfil(null), intro: 'x', joinLink: 'https://tip.vejleaa.dk/x' });
+    expect(sl).toContain('afgjort til allersidst');
+    expect(ligaProfil(null).puljeDato).toBeUndefined();
+  });
+});

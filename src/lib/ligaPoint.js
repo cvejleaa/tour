@@ -39,10 +39,33 @@ export const PULJE_MAKS_STARTRUNDE = 3;
 /** Nøglen i `perRound` for kampe uden rundenummer. De tæller altid med. */
 export const UDEN_RUNDE = 'uden';
 
-/** Tæller puljen med i en liga, der starter ved `startRunde`? */
-export function puljenTaeller(startRunde) {
+/**
+ * SPILLETS grænse: `game.pulje.maksStartRunde`, ellers PULJE_MAKS_STARTRUNDE.
+ *
+ * HVORFOR EN KONFIGURATION. Tallet 3 er valgt til en LIGA, hvor en runde er
+ * en uge: en liga, der samles i sæsonens første tre uger, beholder puljen. I
+ * en turnering med én runde pr. DAG betyder samme tal tre dage — en liga, der
+ * oprettes på turneringens fjerde dag, mister puljebonussen. Grænsen er derfor
+ * spillets, ikke platformens. Uden feltet (Superligaen, Premier League) er den
+ * præcis den gamle.
+ *
+ * Kun et positivt heltal tæller. Alt andet (0, 2.5, "5", null) giver
+ * standarden: en tastefejl må ikke tavst slå puljen fra i alle ligaer.
+ */
+export function puljeMaksStartRunde(game) {
+  const v = game?.pulje?.maksStartRunde;
+  return Number.isInteger(v) && v >= 1 ? v : PULJE_MAKS_STARTRUNDE;
+}
+
+/**
+ * Tæller puljen med i en liga, der starter ved `startRunde`?
+ * `maks` er spillets grænse (puljeMaksStartRunde) — ALLE kaldere med en
+ * startrunde skal give den med; ligaPoint.test.js læser kildekoden og holder
+ * øje med, at ingen glemmer det.
+ */
+export function puljenTaeller(startRunde, maks = PULJE_MAKS_STARTRUNDE) {
   if (!Number.isFinite(startRunde)) return true;
-  return startRunde <= PULJE_MAKS_STARTRUNDE;
+  return startRunde <= maks;
 }
 
 /**
@@ -51,9 +74,10 @@ export function puljenTaeller(startRunde) {
  * @param {object|null} perRound     runde → point (inkl. rundens combi), fra serveren
  * @param {number|null} startRunde   ligaens startrunde; null = hele spillet
  * @param {number} puljeBonus        players/{uid}.bonusPoints
+ * @param {number} [maks]            spillets puljegrænse (puljeMaksStartRunde)
  * @returns {number}
  */
-export function ligaPoint(perRound, startRunde, puljeBonus = 0) {
+export function ligaPoint(perRound, startRunde, puljeBonus = 0, maks = PULJE_MAKS_STARTRUNDE) {
   let sum = 0;
   for (const [noegle, v] of Object.entries(perRound || {})) {
     const tal = Number(v) || 0;
@@ -63,11 +87,23 @@ export function ligaPoint(perRound, startRunde, puljeBonus = 0) {
     if (Number.isFinite(startRunde) && r < startRunde) continue;
     sum += tal;
   }
-  if (puljenTaeller(startRunde)) sum += Number(puljeBonus) || 0;
+  if (puljenTaeller(startRunde, maks)) sum += Number(puljeBonus) || 0;
   // GULVET LÆGGES ÉN GANG, PÅ SUMMEN — præcis som `opdelPoint` gør for spillet.
   // Gulvedes hver runde for sig, kunne en tabt Chancen i runde 5 forsvinde, og
   // ligaens total ville blive HØJERE end spillets for den samme kampe.
   return Math.max(0, Math.round(sum * 10) / 10);
+}
+
+/**
+ * ligaPoint MED SPILLETS PULJEGRÆNSE, til de flader, der får regnefunktionen
+ * som argument (ligaRanking, rundePile). En bar `ligaPoint` dér ville regne
+ * med standardgrænsen og tavst give en turnerings ligaer et andet tal end
+ * Ligaer-fanen — ligaPoint.test.js holder øje med, at den ikke sendes bar.
+ * @returns {(perRound: object|null, startRunde: number|null, puljeBonus?: number) => number}
+ */
+export function ligaPointFor(game) {
+  const maks = puljeMaksStartRunde(game);
+  return (perRound, startRunde, puljeBonus = 0) => ligaPoint(perRound, startRunde, puljeBonus, maks);
 }
 
 /**

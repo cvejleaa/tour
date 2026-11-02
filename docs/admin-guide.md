@@ -50,10 +50,13 @@ Liga-admin følger med at have oprettet ligaen.
   ikke, giver ingen point og udløser ingen påmindelser — så en sæson kan starte
   midt i, fx fra runde 2.
 - **Bonus-deadline** lukker pulje-tippet. Den behøver ikke ligge før runde 1;
-  giv gerne tid til at få spillere med. **Men aldrig senere end runde 3:**
-  ligaer med senere startrunde tæller ikke puljebonussen med (den blev tippet
-  før deres start), så en deadline efter runde 3 ville tage bonuspoint fra
-  ligaer, der ellers kunne have været med.
+  giv gerne tid til at få spillere med. **Men aldrig senere end puljegrænsen**
+  (runde 3, medmindre spillet har sin egen — `pulje.maksStartRunde` i
+  `scripts/games.mjs`): ligaer med senere startrunde tæller ikke puljebonussen
+  med (den blev tippet før deres start), så en senere deadline ville tage
+  bonuspoint fra ligaer, der ellers kunne have været med. I en turnering er en
+  runde en **dag**, så standardgrænsen betyder dér, at en liga oprettet på
+  turneringens 4. dag mister puljebonussen.
 
   Et spil kan i stedet få deadlinen **udledt af en runde** (`puljeLockRound` i
   `scripts/games.mjs` — sådan er Premier League sat op): så sættes bonus-
@@ -64,6 +67,19 @@ Liga-admin følger med at have oprettet ligaen.
   åbnet". En passeret deadline skubbes aldrig ud i fremtiden igen, selv om en
   kamp flyttes frem — så puljen ikke kan genåbnes, efter alle har set
   hinandens tip.
+
+  Har spillet `puljeLockRound`, men **ingen kickoff-synk** (en turnering, hvis
+  kilde ikke er i drift endnu), udleder intet deadlinen. Så er feltet
+  redigerbart, og der står hvorfor: sæt det til rundens første kickoff — aldrig
+  en placeholder. Får spillet senere en kickoff-synk, flytter den deadlinen til
+  rundens tidligste kickoff, så længe den ikke er passeret.
+- **Runde-pulje (turnering):** en pulje med `facitKilde: 'runde'` og
+  `facitFase: 'Semifinaler'` spørger "hvilke hold når semifinalerne?". Den
+  afgøres, så snart **alle** fasens kampe (fasens `antalKampe`) er lagt ind med
+  begge hold — ikke når kampene er spillet. Pointene skrives på stillingen ved
+  den næste kamp, der får et facit. Kan puljen aldrig afgøres (fasen findes ikke
+  i kalenderen, forkert antal hold …), står det med rødt øverst på spillet
+  her under Spil-tidsplan.
 - **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
   automatisk starttidspunktet eller sidste kamp:
 

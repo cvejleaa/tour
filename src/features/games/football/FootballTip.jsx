@@ -17,7 +17,7 @@ import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta, ligaRanking } from '../gameStandings';
 import { rundePile } from '../rundePoint';
 import { rundensVildeste } from './xgRunde';
-import { ligaPoint, harRundeVektor, vektorStemmer } from '../../../lib/ligaPoint';
+import { ligaPointFor, harRundeVektor, vektorStemmer } from '../../../lib/ligaPoint';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
 import { teamsOf, visOf, teamInfo } from './teamInfo';
@@ -439,7 +439,7 @@ export default function FootballTip({ game, me, matches }) {
     ? leagues[0]
     : null;
   const ligaSkala = enesteLiga
-    ? ligaRanking(standings, enesteLiga, ligaPoint, harRundeVektor, vektorStemmer)
+    ? ligaRanking(standings, enesteLiga, ligaPointFor(game), harRundeVektor, vektorStemmer)
     : standings;
   // En spiller uden brugbar runde-vektor kan ikke rangeres. Uden filteret
   // stod han med 0 point nederst og talte med i "af N" — et felt, han ikke er
@@ -447,7 +447,7 @@ export default function FootballTip({ game, me, matches }) {
   // og det er det rigtige: hellere ingen placering end en påstået.
   const rangerbare = ligaSkala.filter((r) => r.klar !== false);
   const raekker = Number.isFinite(current?.round)
-    ? rundePile(rangerbare, current.round, enesteLiga?.startRound ?? null, ligaPoint, harRundeVektor)
+    ? rundePile(rangerbare, current.round, enesteLiga?.startRound ?? null, ligaPointFor(game), harRundeVektor)
     : rangerbare;
   const myIdx = raekker.findIndex((r) => r.uid === me?.uid);
   const myRow = myIdx >= 0 ? raekker[myIdx] : null;

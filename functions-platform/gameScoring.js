@@ -17,6 +17,7 @@ const {
 // beslutning før lå fem steder i DEN HER fil alene.
 const { gatedeKampe, startRundeFor, foerStart } = require('./startGate');
 const { aktiveSpillere } = require('./forladSpil');
+const { puljeKanAfregnes, rundeFacit, puljeKonfigFejl } = require('./puljeFacit');
 // kickoffMs, matchOutcome og buildRoundContext bor i pointOpdeling, fordi
 // KLIENTEN skal bruge samme runde-kontekst for at kunne kalde opdelPoint.
 // Ét sted, ikke to — ellers driver serverens og fladens forestilling om
@@ -480,20 +481,34 @@ function officielTop(standings, expectedPlayed, poolSize, antalHold) {
 }
 
 /**
- * Afregn pulje-tip (mesterskabsspil-forudsigelse) NÅR hele grundspillet er
- * spillet. Beregner top-6 fra slutstillingen, scorer hvert pulje-tip, gemmer
- * point/correct på tippet + bonusPoints på spilleren, og genberegner totalerne.
- * Self-guardet (gør intet før alle kampe har mål) og idempotent.
+ * Afregn pulje-tip NÅR puljen er afgjort. For en liga-pulje er det, når hele
+ * grundspillet er spillet (top-6 fra slutstillingen); for en runde-pulje, når
+ * facit-fasen er HELT lagt ind (holdene i semifinalerne). Scorer hvert
+ * pulje-tip, gemmer point/correct på tippet + bonusPoints på spilleren, og
+ * genberegner totalerne. Self-guardet og idempotent.
  * @returns {Promise<{settled:number}>}
  */
 async function settlePuljeBets(db, FieldValue, gameId, matches) {
-  const goalOf = (g) => (g == null || g === '' ? NaN : Number(g));
-  const complete = matches.length > 0 && matches.every(
-    (m) => Number.isFinite(goalOf(m.homeGoals)) && Number.isFinite(goalOf(m.awayGoals)),
-  );
-  if (!complete) return { settled: 0 };
-
+  // HVORNÅR puljen er afgjort, afhænger af dens facit-kilde — og den står på
+  // spillet. Derfor læses spillet FØRST. Før stod "alle kampe har mål" her
+  // som eneste vagt, og det er forkert for en runde-pulje i BEGGE retninger:
+  // efter kvartfinalerne har alle oprettede kampe mål, før semifinalerne er
+  // lagt ind (for tidligt — og facit ville blive en tabel over hele
+  // turneringen), og når de er lagt ind, mangler de mål til efter finalen.
+  // Prædikatet er DELT med fladen (puljeFacit.puljeKanAfregnes), så PuljeTip
+  // ikke kan vise et facit, serveren ikke afregner — eller omvendt.
   const gameRef = db.collection('games').doc(gameId);
+  const gameSnap = await gameRef.get();
+  const spil = gameSnap.exists ? gameSnap.data() : null;
+  const konfig = puljeKonfig(spil);
+  if (!puljeKanAfregnes(konfig, spil, matches)) {
+    // En runde-pulje, der ALDRIG kan afgøres (fasen findes ikke, forkert
+    // antal hold …), er en tavs fejl. Den står også under Spil-tidsplan.
+    const fejl = puljeKonfigFejl(spil);
+    if (fejl.length) console.error(`settlePuljeBets(${gameId}): puljen kan ikke afgøres — ${fejl.join('; ')}`);
+    return { settled: 0 };
+  }
+
   const puljeSnap = await gameRef.collection('puljeBets').get();
   if (puljeSnap.empty) return { settled: 0 };
 
@@ -505,8 +520,6 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   // Spil-tidsplan), accepterer firestore.rules puljetips, og de blev afregnet
   // her mod en top-6 af Premier Leagues tabel. Bonuspoint i en liga uden
   // pulje, én tastefejl væk. CLAUDE.md: serveren er eneste autoritet.
-  const gameSnap = await gameRef.get();
-  const konfig = puljeKonfig(gameSnap.exists ? gameSnap.data() : null);
   if (!konfig) {
     console.log(`settlePuljeBets(${gameId}): spillet har ingen pulje — ${puljeSnap.size} tip afregnes IKKE.`);
     return { settled: 0, ingenPulje: true };
@@ -526,11 +539,17 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   // 'egneKampe' (PL-efterår) beregner ALTID af spillets egne kampe og rører
   // aldrig standings — et halvsæson-spil må ikke kunne genafregnes mod
   // forårets officielle tabel og tavst overskrive december-resultatet.
+  // 'runde' (semifinalisterne): holdene i facit-fasens kampe — samme
+  // funktion, som prædikatet ovenfor har godkendt, og som fladen viser.
   const standings = gameSnap.data().standings;
-  const top = new Set(konfig.facitKilde === 'egneKampe'
-    ? championshipTeams(matches, konfig.poolSize)
-    : (officielTop(standings, expectedPlayed, konfig.poolSize, antalHold)
-      || championshipTeams(matches, konfig.poolSize)));
+  let topListe;
+  if (konfig.facitKilde === 'runde') topListe = rundeFacit(konfig, spil, matches);
+  else if (konfig.facitKilde === 'egneKampe') topListe = championshipTeams(matches, konfig.poolSize);
+  else {
+    topListe = officielTop(standings, expectedPlayed, konfig.poolSize, antalHold)
+      || championshipTeams(matches, konfig.poolSize);
+  }
+  const top = new Set(topListe);
   const bund = konfig.nedSize > 0 ? new Set(bundTeams(matches, konfig.nedSize)) : null;
 
   const batch = db.batch();
