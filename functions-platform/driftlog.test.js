@@ -168,8 +168,9 @@ describe('meldAlarm + loesDriftAlarmer', () => {
 // efter en flade, der ikke findes — fejlen fra 'Korrekt er ikke komplet').
 describe('strandetBesked', () => {
   const { strandetBesked } = require('./driftlog');
+  const KAMP = { round: 5, home: 'AGF', away: 'OB', kickoff: new Date('2026-09-01T17:00:00Z') };
 
-  it('navngiver kampen, konsekvensen, remediet og hånd-vejen', () => {
+  it('med synk: navngiver kampen, konsekvensen, synk-knappen og hånd-knappen', () => {
     const b = strandetBesked('r5-agf-ob');
     expect(b).toContain('r5-agf-ob');
     expect(b).toContain('point er ikke afregnet');
@@ -177,11 +178,41 @@ describe('strandetBesked', () => {
     expect(b).toContain('🗓️ Spil-tidsplan');
     // Knappen finder som regel intet i netop alarm-scenariet (sweep'et har
     // selv skannet) — næste skridt SKAL stå der, ellers er alarmen en løkke.
-    expect(b).toContain('sæt det i hånden');
+    expect(b).toContain('✍️ Sæt eller ret facit i hånden');
+    // Den gamle henvisning pegede på en vej, der kun gik gennem konsollen.
+    expect(b).not.toContain('admin-guiden');
   });
 
-  it('lover ikke, at knappen løser det — kilden kan mangle facit', () => {
+  it('lover ikke, at synk-knappen løser det — kilden kan mangle facit', () => {
     expect(strandetBesked('x')).toMatch(/finder den intet/);
+  });
+
+  it('holdnavne og runde står i teksten, når kampen er med', () => {
+    expect(strandetBesked('r5-agf-ob', { kamp: KAMP })).toContain('Kampen AGF – OB, runde 5 (r5-agf-ob) mangler facit');
+  });
+
+  // Et spil uden kilde har ingen "Synk resultater nu"-knap. At nævne den ville
+  // sende ejeren efter en flade, der ikke findes for netop det spil.
+  it('uden synk: nævner IKKE synk-knappen, men hånd-knappen og fanen', () => {
+    const b = strandetBesked('r1-1', { harSynk: false, kamp: KAMP });
+    expect(b).toContain('ingen resultat-synk');
+    expect(b).toContain('✍️ Sæt eller ret facit i hånden');
+    expect(b).toContain('🗓️ Spil-tidsplan');
+    expect(b).not.toContain('Synk resultater nu');
+    expect(b).not.toContain('admin-guiden');
+  });
+
+  // QC-fundet (superligaSync.js: strandedMatches melder kickoff:null straks).
+  // Facit i hånden afviser en sådan kamp, så teksten må ikke sende ejeren dertil.
+  it('uden kickoff: remediet er kickoff — ikke facit, og ikke synk-knappen', () => {
+    for (const harSynk of [true, false]) {
+      const b = strandetBesked('r7-x', { harSynk, kamp: { round: 7, kickoff: null } });
+      expect(b).toMatch(/intet læseligt kickoff/);
+      expect(b).toContain('Synk kamptider nu');
+      expect(b).not.toContain('Sæt eller ret facit');
+      expect(b).not.toContain('Synk resultater nu');
+    }
+    expect(strandetBesked('r7-x', { kamp: { kickoff: 'skrald' } })).toMatch(/intet læseligt kickoff/);
   });
 });
 
@@ -378,7 +409,7 @@ describe('ALARM_TYPER — titel og hast ét sted', () => {
   it('DÆKKER hver alarm-type, serveren faktisk melder — og melder ikke typer, der ikke findes (tripwire begge veje)', () => {
     // index.js kan ikke importeres i en test — så læs kilden. Samme mønster som
     // strandetBesked-vagten: koden er sandheden, ikke en håndskrevet liste.
-    const kilder = ['./index.js', './superligaSync.js', './postbud.js']
+    const kilder = ['./index.js', './superligaSync.js', './postbud.js', './facitVagt.js']
       .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
     // `meld(` er den injicerede meldAlarm i superligaSync.tjekLivePuls.
     const alarmTyper = new Set([...kilder.matchAll(/\b(?:meldAlarm|meld)\([^)]*?type: '([A-Za-z0-9]+)'/gs)].map((m) => m[1]));

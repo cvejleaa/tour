@@ -38,6 +38,8 @@ vi.mock('./adminActions', () => ({
   callSyncGameKickoffs: (...a) => mockSyncKickoffs(...a),
   callSyncGameResults: (...a) => mockSyncResults(...a),
   callSyncGameKampdetaljer: (...a) => mockSyncDetaljer(...a),
+  callSaetFacitManuelt: vi.fn(),
+  callFrigivFacitTilSynk: vi.fn(),
 }));
 
 // Kamplisten til rundevælgeren hentes med getDocs — den hentes FØRST når
@@ -448,8 +450,30 @@ describe('⬇️ Synk resultater nu — manuel udløsning af resultat-synken', (
     render(<GameScheduleTab />);
     fireEvent.click(knap());
     await waitFor(() => expect(screen.getByText(/Intet manglede/)).toBeInTheDocument());
-    expect(screen.getByText(/sæt facit i hånden/)).toBeInTheDocument();
+    // Næste skridt er KNAPPEN lige nedenfor — ikke en guide, der beskrev en
+    // vej, som kun gik gennem Firebase-konsollen.
+    expect(screen.getByText(/brug ✍️ Sæt eller ret facit i hånden nedenfor/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sæt eller ret facit i hånden/ })).toBeInTheDocument();
+    expect(screen.queryByText(/admin-guiden/)).not.toBeInTheDocument();
     expect(screen.queryByText(/fik nyt facit/)).not.toBeInTheDocument();
+    // Ingen manuelle kampe → ingen sætning om dem (støj en almindelig dag).
+    expect(screen.queryByText(/sat i hånden og røres ikke/)).not.toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  it('nævner kampe sat i hånden — og hvilke kilden er uenig om', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true,
+      data: {
+        gameId: 'superliga2627', checked: 12, updated: 0, rettede: [],
+        manuelle: ['r4-a', 'r5-b'], manuelleUenige: ['r5-b'], standings: { rows: 12, changed: false },
+      },
+    });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    await waitFor(() => expect(screen.getByText(/2 kampe er sat i hånden og røres ikke af synken — kilden siger noget andet om 1: r5-b\./)).toBeInTheDocument());
     bekraeft.mockRestore();
   });
 
@@ -1135,5 +1159,49 @@ describe('⚽ Synk kampdetaljer nu', () => {
     render(<GameScheduleTab />);
     fireEvent.click(knap());
     expect(await screen.findByText('permission-denied')).toBeInTheDocument();
+  });
+});
+
+// ✍️ Sæt eller ret facit i hånden — nødbremsen. Selve dialogen er testet i
+// ManuelFacit.test.jsx; her bevises KUN render-betingelsen pr. spil: den
+// gælder ALLE kampspil (også uden synk), og den sidder ved synk-knappen.
+describe('✍️ Sæt eller ret facit i hånden — hvilke spil har knappen', () => {
+  const knapper = () => screen.queryAllByRole('button', { name: /Sæt eller ret facit i hånden/ });
+  const SL_SYNK = { id: 'superliga2627', name: 'Superligaen 2026/27', type: 'football', status: 'live', sync: { provider: 'superliga' } };
+  const PL_SYNK = { ...PL, sync: { provider: 'pulselive' } };
+  // Håndboldspillet, før provideren er i drift: INGEN synk — og derfor
+  // ingen "Synk resultater nu". Det er netop det spil, nødbremsen er til.
+  const HB = { id: 'hvm2027', name: 'Håndbold-VM 2027', type: 'football', status: 'open', sport: 'haandbold' };
+
+  it('Superligaen og Premier League har den — ved siden af synk-knappen', () => {
+    mockGames.mockReturnValue({ games: [SL_SYNK, PL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Synk resultater nu/ })).toHaveLength(2);
+  });
+
+  it('et kampspil UDEN synk har den — men ikke synk-knappen', () => {
+    mockGames.mockReturnValue({ games: [HB], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Synk resultater nu/ })).not.toBeInTheDocument();
+  });
+
+  it('også et afsluttet kampspil — en rettelse kan komme efter sidste kamp', () => {
+    mockGames.mockReturnValue({ games: [{ ...HB, status: 'finished' }], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(1);
+  });
+
+  it('Touren (ikke et kampspil) har den ikke', () => {
+    mockGames.mockReturnValue({ games: [TOUR], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(0);
+  });
+
+  it('henter ingen kampe, før knappen trykkes', () => {
+    mockGames.mockReturnValue({ games: [SL_SYNK, PL_SYNK, HB], loading: false });
+    render(<GameScheduleTab />);
+    expect(mockGetDocs).not.toHaveBeenCalled();
   });
 });

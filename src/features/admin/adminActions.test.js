@@ -43,6 +43,8 @@ import {
   callGenerateLeagueRecapNow,
   callRepriceGameOdds,
   callSyncGameResults,
+  callSaetFacitManuelt,
+  callFrigivFacitTilSynk,
   callSyncGameKampdetaljer,
   callGenerateStageTip,
   saveStageTip,
@@ -201,6 +203,55 @@ describe('adminActions', () => {
       const res = await callSyncGameResults('superliga2627');
       expect(res.ok).toBe(false);
       expect(res.error).toMatch(/Kun admin/);
+    });
+  });
+
+  // Facit i hånden: navnet skal ramme serverens export (index.js), timeouten
+  // skal matche dens timeoutSeconds: 120, og standarden er TØR-KØRSEL — et
+  // kald uden dryRun må aldrig skrive i produktionsdata.
+  describe('callSaetFacitManuelt og callFrigivFacitTilSynk', () => {
+    it('kalder saetFacitManuelt med 120 s timeout og tørkører som standard', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { dryRun: true } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const res = await callSaetFacitManuelt({ gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1 });
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'saetFacitManuelt', { timeout: 120000 });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1, slut: null, dryRun: true });
+      expect(res).toEqual({ ok: true, data: { dryRun: true } });
+    });
+
+    it('sender slut og dryRun:false videre, når de gives', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: {} });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const slut = { home: 35, away: 34, afgjort: 'forlaenget' };
+      await callSaetFacitManuelt({ gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut, dryRun: false });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut, dryRun: false });
+    });
+
+    it('kalder frigivFacitTilSynk og tørkører som standard', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { varManuel: true } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      await callFrigivFacitTilSynk({ gameId: 'g1', matchId: 'k1' });
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'frigivFacitTilSynk');
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'g1', matchId: 'k1', dryRun: true });
+    });
+
+    it('giver serverens fejl videre i stedet for at kaste', async () => {
+      mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('Kampen er ikke begyndt endnu')));
+      expect(await callSaetFacitManuelt({ gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0 }))
+        .toEqual({ ok: false, error: 'Kampen er ikke begyndt endnu' });
+      mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('nej')));
+      expect((await callFrigivFacitTilSynk({ gameId: 'g1', matchId: 'k1' })).error).toBe('nej');
+    });
+
+    // Navnene er bundet til serverens exports — en omdøbning dér uden her
+    // ville give functions/not-found ved hvert klik med grøn suite.
+    it('navnene findes som exports i functions-platform/index.js', async () => {
+      const { readFileSync } = await import('node:fs');
+      const { resolve, dirname } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const kilde = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../functions-platform/index.js'), 'utf8');
+      expect(kilde).toMatch(/^exports\.saetFacitManuelt = onCall\(\{ region: REGION, timeoutSeconds: 120 \}/m);
+      expect(kilde).toMatch(/^exports\.frigivFacitTilSynk = onCall\(/m);
     });
   });
 

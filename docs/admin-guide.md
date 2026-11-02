@@ -71,7 +71,7 @@ Liga-admin følger med at have oprettet ligaen.
   |---|---|
   | **Åben** | Kan tilmeldes. Spillerne kan også forlade spillet igen, også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende kampe slettes, men point og historik arkiveres (`forladt: true` på deltagelsen) — kommer de tilbage i sæsonen, får de stillingen igen. Ejer spilleren en liga i spillet, skal ligaen slettes først. |
   | **I gang** | Forlad-knappen er væk. Påmindelser sendes — medmindre de er sat på pause under 🔔 Påmindelser. |
-  | **Afsluttet** | Ude af "Åbne spil — deltag" og af 🔔 Påmindelser-fanen, og det daglige påmindelses-job springer spillet over. Stilling og historik kan stadig ses, og du kan stadig rette facit og genberegne. |
+  | **Afsluttet** | Ude af "Åbne spil — deltag" og af 🔔 Påmindelser-fanen, og det daglige påmindelses-job springer spillet over. Stilling og historik kan stadig ses, og du kan stadig rette facit (✍️ Sæt eller ret facit i hånden) og genberegne. Strandet-alarmen vogter ikke længere et afsluttet spil uden synk. |
 
   Et **eksternt** spil (fx Touren, der kører i sin egen app) bliver stående på
   oversigten som link-ud, også når det er afsluttet — bare med grå etiket.
@@ -116,6 +116,9 @@ Liga-admin følger med at have oprettet ligaen.
   før der er regnet noget. Står `sport` i `scripts/games.mjs`, så ret det
   dér og kør `seedGames`; skal feltet væk (fodbold), så fjern det i
   Firebase-konsollen — `seedGames` kan ikke fjerne et felt. Kør så igen.
+- **✍️ Sæt eller ret facit i hånden** — på hvert kampspil, lige under
+  **⬇️ Synk resultater nu**. Nødbremsen til en kamp, kilden ikke leverer, eller
+  et forkert facit; tør-kørsel først. Se *Facit i hånden* under Resultater.
 - **🔐 Genopbyg liga-adgang til stillingen** — kun nødvendig, hvis stillingen
   står tom. Se [drift.md](drift.md).
 
@@ -242,8 +245,8 @@ eller om natten og formiddagen, hvor times-sweep'et holder pause), findes
 spil. Den
 gør præcis det samme som automatikken — hele sæsonen tjekkes, og nye facit
 afregner point og kan få Runde-Botten til at poste **med det samme**. Melder
-den "intet manglede", har kilden ikke facit endnu: så er hånd-vejen nedenfor
-svaret.
+den "intet manglede", har kilden ikke facit endnu: så er **✍️ Sæt eller ret
+facit i hånden** lige nedenfor svaret (se *Facit i hånden* herunder).
 
 Står kampkortene med **⏸ Opdatering afbrudt**, mens en kamp kører, er det
 kun den *levende* stilling, der er gået i stå — facit og point kommer stadig.
@@ -253,9 +256,46 @@ er pulsen frisk, og det er din egen forbindelse — genindlæs siden. Alarmen
 bliver stående, til du kvitterer — også når udfaldet for længst er ovre, for
 ellers ville et udfald, der helede sig selv, slette sit eget spor.
 
-Er noget gået galt, kan du sætte facit manuelt; point genberegnes ved hver
-ændring. Bemærk: **fjerner** du et facit igen, nulstilles pointene ikke
-automatisk.
+### Facit i hånden — nødbremsen
+
+**✍️ Sæt eller ret facit i hånden** står under **Admin → 🗓️ Spil-tidsplan**
+på **hvert kampspil** — også et spil uden resultat-synk, hvor det er den eneste
+vej til et facit. Den er til en strandet kamp, kilden aldrig leverer, og til
+at rette et forkert facit.
+
+1. Vælg kampen. Listen viser kun kampe, der er begyndt (et facit før kickoff
+   ville afregne tips, mens andre stadig kunne afgive deres), med dem uden
+   facit øverst.
+2. Tast **målene efter ordinær tid** — det er dem, der tippes på. Er kampen en
+   **knockout-kamp** (spillets fasekalender siger det), og står den lige efter
+   ordinær tid, skal du også taste **slutresultatet efter forlængelse/straffekast**
+   og hvordan kampen blev afgjort. Det vises separat og flytter ingen point;
+   X er et gyldigt facit i knockout.
+3. **Vis hvad der ændrer sig** er en tør-kørsel: 1/X/2 før → efter, hvor mange
+   tips og spillere der får ændret point, hvor mange point der flytter sig i
+   alt (inkl. combi), og om det er rundens sidste kamp. Først derefter dukker
+   **Skriv facit** op.
+
+Når du skriver, sker det samme som ved en synk: tippene scores, Elo og odds på
+kommende kampe regnes om, og er det rundens sidste kamp, skriver Runde-Botten
+**straks** på alle ligavægge — det kan ikke trækkes tilbage. Rettes kun målene
+(2-1 → 3-1, samme 1X2), flytter intet point.
+
+**Synken overskriver ikke en kamp, du har sat i hånden** — heller ikke hvis
+kilden siger noget andet. En tastefejl rettes derfor kun her. **⬇️ Synk
+resultater nu** fortæller, hvor mange kampe der står i hånden, og hvilke kilden
+er uenig om. Skal kilden bestemme igen, så vælg kampen og tryk **↩️ Lad synken
+overtage igen** (kun på spil med synk); facit bliver stående, til synken
+skriver kildens.
+
+Kan facit **fjernes** igen? Ikke fra fladen. Fjerner man `result`,
+`homeGoals` og `awayGoals` i Firebase-konsollen, rulles pointene for kampen
+tilbage af sig selv (tippene scores til 0, og totalerne regnes om). Begge mål
+skal væk: står de, udleder afregningen stadig et udfald af dem. Og en kamp uden
+facit længe efter kickoff melder sig som strandet igen.
+
+En kamp **uden kickoff** kan hverken tippes eller få facit; strandet-alarmen
+siger da "ret kickoff" i stedet.
 
 ### Halvleg, målscorere og tilskuertal
 

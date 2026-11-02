@@ -21,6 +21,8 @@ const { kickoffPlan } = require('./seedFootball');
 // driftlog er afhængighedsfrit, så der opstår ingen cyklus.
 const { meldAlarm } = require('./driftlog');
 const { puljeLockFraRunde } = require('./pointOpdeling');
+// Facit-kontrakten: HVAD et facit-dokument er, ét sted for synk og hånd-vej.
+const { facitFelter, erManuelFacit } = require('./facit');
 
 const GAME_ID = 'superliga2627';
 
@@ -136,7 +138,8 @@ function providerAfOpts(opts) {
  * @param {{fetchFn?:Function, gameId?:string, seasonId?:number,
  *          provider?:object, sync?:object,
  *          only?:Array<{id:string,data:object}>}} [opts]
- * @returns {Promise<{checked:number, updated:number, rettede:string[]}>}
+ * @returns {Promise<{checked:number, updated:number, rettede:string[],
+ *          manuelle:string[], manuelleUenige:string[]}>}
  */
 async function syncResultsCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
@@ -167,12 +170,30 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
 
   const batch = db.batch();
   const rettede = [];
+  // Kampe med facit sat i hånden, som kilden OGSÅ har et facit for. De røres
+  // ikke (se nedenfor), men tælles, så "⬇️ Synk resultater nu" kan sige det —
+  // og `uenige` er dem, hvor kilden siger noget ANDET end hånden. Det er dem,
+  // et menneske skal kigge på: enten var tastningen forkert, eller kilden er.
+  const manuelle = [];
+  const manuelleUenige = [];
   for (const e of events) {
     const id = resolved.get(e.sourceKey);
     const cur = id == null ? null : current.get(id);
     if (!cur) continue; // ukendt kamp (bør ikke ske — samme kilde som seedet)
-    const result = outcomeFromScore(e.homeGoals, e.awayGoals);
-    if (!result) continue;
+    const felter = facitFelter({ home: e.homeGoals, away: e.awayGoals });
+    if (!felter) continue;
+    const { result } = felter;
+    // FACIT I HÅNDEN ER FREDET. Uden vagten ville en kilde, der fejlparser,
+    // vinde over nødbremsen ved næste kørsel — hvert minut i kampvinduet og
+    // hver time i sweep'et — og hver gang afregne point om. Kampen gives
+    // tilbage til synken med "Lad synken overtage igen" (manuelFacit.js).
+    if (erManuelFacit(cur)) {
+      manuelle.push(id);
+      if (cur.result !== result || cur.homeGoals !== e.homeGoals || cur.awayGoals !== e.awayGoals) {
+        manuelleUenige.push(id);
+      }
+      continue;
+    }
     // Sammenlign på BÅDE facit og mål. Så længe kun facit talte, kunne en
     // rettet score aldrig komme ind: 2-1 → 3-1 er samme 1X2, så dokumentet
     // blev sprunget over for altid — også ved manuel synk. Usynligt dengang
@@ -186,10 +207,8 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
         && cur.live == null
         && cur.liveMaal == null) continue;
     batch.set(matchesCol.doc(id), {
-      result,
-      homeGoals: e.homeGoals,
-      awayGoals: e.awayGoals,
-      status: 'finished',
+      // result, homeGoals, awayGoals, status — facit-kontrakten (facit.js).
+      ...felter,
       resultSyncedAt: FieldValue.serverTimestamp(),
       // Facit slår live. Rydningen ligger HER og ikke i live-stien, fordi
       // sweep'et også sætter facit — og så er det den eneste kørsel, der kan
@@ -208,7 +227,7 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
   // rettede: hvilke kampe der netop fik facit. Sweep'et bruger listen til at
   // lade være med at melde dem strandet i samme åndedrag — så slipper det for
   // at skanne alle 132 kampe en ekstra gang bare for at få et friskt billede.
-  return { checked: events.length, updated: rettede.length, rettede };
+  return { checked: events.length, updated: rettede.length, rettede, manuelle, manuelleUenige };
 }
 
 /**

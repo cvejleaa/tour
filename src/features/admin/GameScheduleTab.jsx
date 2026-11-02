@@ -15,6 +15,8 @@ import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameAc
 import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds,
   callSyncGameKickoffs, callSyncGameResults, callSyncGameKampdetaljer } from './adminActions';
 import { harKickoffSynk, harResultatSynk, harKampdetaljer } from '../games/spilEvner';
+import { erKampspil } from '../../lib/facit';
+import ManuelFacit from './ManuelFacit';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { rundeEtiket, rundeFlertal, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
 import { fmtDec } from '../../lib/daNum';
@@ -353,12 +355,19 @@ function GameRow({ game }) {
     const tabel = d.standings?.error
       ? `Tabellen kunne ikke synkes: ${d.standings.error}`
       : `Tabellen: ${d.standings?.rows ?? '?'} hold, ${d.standings?.changed ? 'opdateret' : 'uændret'}`;
+    // Kampe med facit sat i hånden rører synken ikke. Siger kilden noget
+    // ANDET om dem, skal et menneske se på det — enten var tastningen forkert,
+    // eller kilden er. Nævnes kun, når der er nogen.
+    const manuelle = d.manuelle?.length
+      ? ` ${d.manuelle.length} kampe er sat i hånden og røres ikke af synken${d.manuelleUenige?.length ? ` — kilden siger noget andet om ${d.manuelleUenige.length}: ${d.manuelleUenige.join(', ')}` : ''}.`
+      : '';
     // "Intet manglede" er sandt og alligevel en halv besked i alarm-scenariet:
     // den strandede kamp er netop IKKE blandt kildens færdige kampe. Sig
-    // næste skridt, ellers er alarm → knap → "intet manglede" en blindgyde.
+    // næste skridt — og peg på KNAPPEN, ikke på en guide — ellers er alarm →
+    // knap → "intet manglede" en blindgyde.
     setResMsg(d.updated > 0
-      ? { kind: 'ok', text: `${d.updated} kampe fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.` }
-      : { kind: 'ok', text: `Intet manglede — de ${d.checked} færdige kampe hos kilden står allerede rigtigt. ${tabel}. Står en kamp stadig uden facit, har kilden det ikke endnu — sæt facit i hånden (se admin-guiden → Resultater).` });
+      ? { kind: 'ok', text: `${d.updated} kampe fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.${manuelle}` }
+      : { kind: 'ok', text: `Intet manglede — de ${d.checked} færdige kampe hos kilden står allerede rigtigt. ${tabel}. Står en kamp stadig uden facit, har kilden det ikke endnu — brug ✍️ Sæt eller ret facit i hånden nedenfor.${manuelle}` });
     setResBusy(false);
   }
 
@@ -729,6 +738,16 @@ function GameRow({ game }) {
           )}
         </div>
       )}
+
+      {/* ✍️ Sæt eller ret facit i hånden — NØDBREMSEN. Lige under "⬇️ Synk
+          resultater nu", fordi det er dér, man leder, når et facit mangler
+          eller er forkert, og dér alarmen og synk-knappens "intet manglede"
+          sender ejeren hen (trin 0b). For ALLE kampspil — gate't på
+          erKampspil, ikke på en synk-evne: et spil uden kilde har mest brug
+          for den. "Lad synken overtage igen" vises derimod kun for spil MED
+          resultat-synk (harResultatSynk) — uden synk er der intet at give
+          kampen tilbage til. */}
+      {erKampspil(game) && <ManuelFacit game={game} harSynk={harResultatSynk(game)} />}
 
       {/* ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal, og
           live-målene for kampe i gang.

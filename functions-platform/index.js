@@ -31,14 +31,16 @@ const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore, syncXgCore,
 
   tjekLivePuls,
-  strandedMatches, allMatches, WINDOW_MS,
+  allMatches, WINDOW_MS,
 } = require('./superligaSync');
 const { PROVIDERS, SYNCED_GAMES } = require('./syncProviders');
 const { adminDeleteUserCore, SLET_ERR, sletFejl } = require('./adminDeleteUser');
 const { forladSpilCore, FORLAD_ERR, aktiveSpillere } = require('./forladSpil');
 const {
-  statusSamler, meldAlarm, loesDriftAlarmer, kvitteringFor, naesteKoerselFoerMs, strandetBesked,
+  statusSamler, meldAlarm, loesDriftAlarmer, kvitteringFor, naesteKoerselFoerMs,
 } = require('./driftlog');
+const { meldStrandede, facitVagtUdenSynk } = require('./facitVagt');
+const { saetFacitCore, frigivFacitCore, tilHttpsFejl: facitHttpsFejl } = require('./manuelFacit');
 const { koerPostbud, testAlarmBesked, testAlarmTilladt } = require('./postbud');
 const {
   syncKampDetaljerCore, efterFacitDetaljer, sweepKampDetaljer,
@@ -609,6 +611,23 @@ exports.syncSuperligaSweep = onSchedule(
   },
   async () => {
     const db = getFirestore();
+    // FØRST: strandede-vagten for kampspil UDEN resultat-synk (facitVagt.js).
+    // Den står før løkken over de synkede spil med vilje: dér ligger xG og
+    // kampdetaljer, der kan bruge budgettet op, og en platform-timeout kan
+    // ikke fanges af try/catch. Vagten er billig (ét opslag af spillene og
+    // ét af hvert spils kampe), så den skal ikke kunne dø af naboens kilde.
+    try {
+      await facitVagtUdenSynk(db, FieldValue, {
+        synkedeIds: SYNCED_GAMES.map((g) => g.gameId),
+        naesteForventetFoerMs: () => naesteKoerselFoerMs(Date.now(), { timer: SWEEP_TIMER }),
+        skriv: (st, o) => skrivDriftStatus(st, db, o),
+      });
+    } catch (err) {
+      // Kun spil-opslaget selv kan nå herud (hvert spil har sin egen
+      // try/catch og sit eget kort). Konsollen er bagstopperen; de synkede
+      // spil nedenfor skal stadig sweepes.
+      console.error('Facit-vagten for spil uden synk fejlede (ignoreret):', err?.message || err);
+    }
     // Sweep'et — og strandede-alarmen — løber over SAMME spil-liste som
     // minut-synken. Før dækkede alarmen kun Superligaen, så en strandet
     // PL-kamp ville have stået uafregnet uden en lyd.
@@ -656,29 +675,17 @@ exports.syncSuperligaSweep = onSchedule(
         if (alle) {
           // Kampene, sweep'et lige har reddet, er ikke strandede — de står bare
           // stadig uden facit i listen fra før gen-synken.
-          const strandede = strandedMatches(
-            alle.filter((m) => !netopRettet.has(m.id)), Date.now(),
-          );
+          // Melding, tekst og auto-luk bor i facitVagt.meldStrandede — samme
+          // kerne som spillene uden synk, så de to veje ikke kan drive fra
+          // hinanden (og så de kan unit-testes; index.js kan ikke).
+          const strandede = await meldStrandede(db, FieldValue, {
+            gameId: g.gameId, kampe: alle.filter((m) => !netopRettet.has(m.id)), harSynk: true,
+          });
           if (strandede.length > 0) {
             console.error(`${g.gameId}: kampe UDEN facit længe efter kickoff — point er ikke afregnet:`,
               strandede.map((m) => m.id).join(', '));
             st.fejl(`${strandede.length} kampe uden facit længe efter kickoff — point er ikke afregnet.`);
-            for (const m of strandede) {
-              await meldAlarm(db, FieldValue, {
-                type: 'strandet', gameId: g.gameId, kampId: m.id,
-                // Remediet står I alarmen — en alarm uden næste skridt er en
-                // blindgyde. Teksten bor i driftlog.js, hvor den kan testes
-                // på indhold (index.js kan ikke unit-testes).
-                besked: strandetBesked(m.id),
-              });
-            }
           }
-          // Auto-luk: en strandet kamp, der siden fik facit, er løst — ellers
-          // hober døde røde kort sig op, og ejeren lærer at ignorere fladen.
-          await loesDriftAlarmer(db, FieldValue, {
-            type: 'strandet', gameId: g.gameId,
-            aktuelleKampIds: strandede.map((m) => m.id),
-          });
         }
       } catch (err) {
         console.error(`Kunne ikke tjekke for strandede kampe i ${g.gameId} (ignoreret):`, err?.message || err);
@@ -1106,6 +1113,67 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION, timeoutSeconds: 300 }
   const results = await syncResultsCore(db, FieldValue, opts);
   const standings = await syncStandingsCore(db, FieldValue, opts).catch((e) => ({ error: e?.message }));
   return { gameId: g.gameId, ...results, standings };
+});
+
+// ---------------------------------------------------------------------------
+// saetFacitManuelt — FACIT I HÅNDEN (nødbremsen). Admin: sæt eller ret facit
+// på én kamp i et kampspil. Kernen (validering, prognose, skrivning) bor i
+// manuelFacit.js, hvor den er unit-testet — index.js kan ikke testes.
+//
+// TØR-KØRSEL ER STANDARD (dryRunFraKald): kun et eksplicit dryRun:false
+// skriver. Tør-kørslen viser 1/X/2 før → efter og de point, der flytter sig.
+//
+// Den skriver KUN facit-felterne + mærket facitKilde:'manuel'. Point, Elo,
+// odds og Runde-Botten klares af recomputeGameMatch ovenfor, som reagerer på,
+// at `result` ændrer sig — der er ingen parallel afregning. Mærket fredner
+// kampen for resultat-synken (syncResultsCore), til frigivFacitTilSynk fjerner
+// det igen.
+//
+// Hvem og hvad logges ved en rigtig skrivning: der findes ingen facitHistory,
+// så Cloud-loggen ER kvitteringen for det gamle facit.
+// ---------------------------------------------------------------------------
+exports.saetFacitManuelt = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const d = request.data || {};
+  const dryRun = dryRunFraKald(d);
+  try {
+    const out = await saetFacitCore(db, FieldValue, {
+      gameId: d.gameId,
+      matchId: d.matchId,
+      homeGoals: d.homeGoals,
+      awayGoals: d.awayGoals,
+      slut: d.slut ?? null,
+      uid: request.auth.uid,
+      dryRun,
+    });
+    if (out.skrevet) {
+      console.log(`saetFacitManuelt(${d.gameId}/${d.matchId}) af ${request.auth.uid}:`,
+        JSON.stringify({ foer: out.foer, efter: out.efter, point: out.point, botPoster: out.botPoster }));
+    }
+    return out;
+  } catch (err) {
+    throw facitHttpsFejl(err, HttpsError);
+  }
+});
+
+// frigivFacitTilSynk — "Lad synken overtage igen": fjern facitKilde:'manuel'
+// fra én kamp. Facit bliver stående; synken overskriver det ved næste
+// kørsel, hvis kilden siger noget andet. Tør-kørsel er standard her også.
+exports.frigivFacitTilSynk = onCall({ region: REGION }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const d = request.data || {};
+  const dryRun = dryRunFraKald(d);
+  try {
+    const out = await frigivFacitCore(db, FieldValue, { gameId: d.gameId, matchId: d.matchId, dryRun });
+    if (out.frigivet) {
+      console.log(`frigivFacitTilSynk(${d.gameId}/${d.matchId}) af ${request.auth.uid}:`, JSON.stringify(out.facit));
+    }
+    return out;
+  } catch (err) {
+    throw facitHttpsFejl(err, HttpsError);
+  }
 });
 
 // ---------------------------------------------------------------------------

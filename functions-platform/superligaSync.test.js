@@ -249,6 +249,80 @@ describe('syncResultsCore', () => {
     await expect(syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([], false) }))
       .rejects.toThrow(/HTTP 500/);
   });
+
+  // Facit-kontrakten (facit.js) er flyttet ud af synken. Superligaen og
+  // Premier League SKAL skrive præcis de samme felter som før — hverken
+  // `slut` eller `facitKilde` må snige sig med. toEqual afviser en ekstra nøgle.
+  it('skriver præcis de samme felter som før kontrakten — intet slut, intet mærke', async () => {
+    const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, home: 'Viborg FF', away: 'OB' } }]);
+    const skrevet = [];
+    const oprindelig = db.batch.bind(db);
+    db.batch = () => {
+      const b = oprindelig();
+      const set = b.set.bind(b);
+      b.set = (ref, data, opts) => { skrevet.push(data); set(ref, data, opts); };
+      return b;
+    };
+    await syncResultsCore(db, FieldValue, {
+      fetchFn: fakeFetch([{ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home: 1, away: 1 } }]),
+    });
+    expect(skrevet).toEqual([{
+      result: 'X', homeGoals: 1, awayGoals: 1, status: 'finished',
+      resultSyncedAt: '@ts', live: '@delete', liveMaal: '@delete',
+    }]);
+  });
+});
+
+// FACIT I HÅNDEN ER FREDET. Uden vagten ville en fejlparsende kilde vinde
+// over nødbremsen ved næste kørsel — og afregne point om hver gang.
+describe('syncResultsCore — kampe med facit sat i hånden', () => {
+  const event = (home, away) => ({ statusType: 'finished', round: 1, homeName: 'Viborg FF', awayName: 'OB', score: { home, away } });
+
+  it('overskriver IKKE en manuelt sat kamp, selv om kilden siger noget andet', async () => {
+    const db = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, facitKilde: 'manuel' } },
+    ]);
+    const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(0, 3)]) });
+    expect(res.updated).toBe(0);
+    expect(res.rettede).toEqual([]);
+    expect(db._docs.get('r1-viborgff-ob')).toMatchObject({ result: '1', homeGoals: 2, awayGoals: 0, facitKilde: 'manuel' });
+    // ...men fortæller det: kilden er uenig, og det skal et menneske se.
+    expect(res.manuelle).toEqual(['r1-viborgff-ob']);
+    expect(res.manuelleUenige).toEqual(['r1-viborgff-ob']);
+  });
+
+  it('en manuel kamp, kilden er ENIG i, tælles — men ikke som uenig', async () => {
+    const db = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, facitKilde: 'manuel' } },
+    ]);
+    const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(2, 0)]) });
+    expect(res.manuelle).toEqual(['r1-viborgff-ob']);
+    expect(res.manuelleUenige).toEqual([]);
+  });
+
+  // Hver halvdel af uenigheds-tjekket skal kunne drive alene.
+  it('uenig på kun udeholdets mål med samme 1X2 tælles som uenig', async () => {
+    const db = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 3, awayGoals: 1, facitKilde: 'manuel' } },
+    ]);
+    expect((await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(3, 2)]) })).manuelleUenige).toEqual(['r1-viborgff-ob']);
+    const db2 = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 3, awayGoals: 1, facitKilde: 'manuel' } },
+    ]);
+    expect((await syncResultsCore(db2, FieldValue, { fetchFn: fakeFetch([event(2, 1)]) })).manuelleUenige).toEqual(['r1-viborgff-ob']);
+  });
+
+  // Nærværs-modstykket: en kamp UDEN mærket (Superligaen og PL i dag) synkes
+  // præcis som før — og en kamp, der er givet tilbage (mærket fjernet), også.
+  it('en kamp uden mærket — eller med et andet mærke — synkes som altid', async () => {
+    const db = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, facitKilde: 'synk' } },
+    ]);
+    const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(0, 3)]) });
+    expect(res.updated).toBe(1);
+    expect(res.manuelle).toEqual([]);
+    expect(db._docs.get('r1-viborgff-ob').result).toBe('2');
+  });
 });
 
 // --- Officiel stilling-synk --------------------------------------------------

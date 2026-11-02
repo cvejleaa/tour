@@ -275,18 +275,46 @@ function naesteKoerselFoerMs(nowMs, { timer, minut = 25, slaekMin = 45, tz = 'Eu
 
 /**
  * Beskeden på en strandet-alarm — udskilt som ren funktion, så REMEDIET kan
- * testes på indhold (index.js kan ikke unit-testes). Teksten navngiver knappen
+ * testes på indhold (index.js kan ikke unit-testes). Teksten navngiver knapperne
  * og fanen; omdøbes de, skal testen i driftlog.test.js rettes I SAMME PR —
  * det er tripwiren mod, at alarmen sender ejeren efter en flade, der ikke
- * findes. Og fordi sweep'et, der rejser alarmen, netop selv HAR skannet hele
- * sæsonen, vil knappen som regel svare "intet manglede" — derfor står
- * hånd-vejen også i teksten.
+ * findes.
+ *
+ * TRE TEKSTER, fordi der er tre forskellige remedier:
+ *   harSynk       Synk resultater nu først. Sweep'et, der rejser alarmen, har
+ *                 netop selv skannet hele sæsonen, så knappen svarer som regel
+ *                 "intet manglede" — derfor står hånd-knappen også i teksten.
+ *   uden synk     Spillet har ingen kilde (fx et håndseedet spil), så facit
+ *                 kommer aldrig af sig selv. Synk-knappen findes ikke for det
+ *                 spil og må ikke nævnes — det ville være en blindgyde.
+ *   uden kickoff  Kampen kan aldrig komme i et synk-vindue, og reglerne lader
+ *                 ingen tippe den. Facit i hånden afviser den også
+ *                 (manuelFacit.js), så remediet er kickoff, ikke facit.
+ * Før henviste teksten til "admin-guiden → Resultater", som beskrev en vej,
+ * der kun gik gennem Firebase-konsollen.
+ *
  * @param {string} kampId
+ * @param {{harSynk?:boolean, kamp?:object|null}} [opts]  kamp = dokumentets data
  * @returns {string}
  */
-function strandetBesked(kampId) {
-  return `Kampen ${kampId} mangler facit længe efter kickoff — point er ikke afregnet. `
-    + 'Kør ⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan); finder den intet, har kilden ikke facit endnu — sæt det i hånden (admin-guiden → Resultater).';
+function strandetBesked(kampId, { harSynk = true, kamp = null } = {}) {
+  const runde = Number.isFinite(kamp?.round) ? `, runde ${kamp.round}` : '';
+  const navn = kamp?.home && kamp?.away ? `${kamp.home} – ${kamp.away}${runde} (${kampId})` : kampId;
+  const k = kamp?.kickoff;
+  const ms = k == null ? NaN : (typeof k.toMillis === 'function' ? k.toMillis() : new Date(k).getTime());
+  if (kamp && !Number.isFinite(ms)) {
+    return `Kampen ${navn} har intet læseligt kickoff, så ingen synk kan nå den, og ingen kan tippe den — point er ikke afregnet. `
+      + 'Ret kickoff: 🗓️ Synk kamptider nu (Admin → 🗓️ Spil-tidsplan) henter det, hvis spillet har en kickoff-synk; ellers i Firebase-konsollen. '
+      + 'Er kampen ikke fastlagt endnu, så opret den først, når tiden kendes.';
+  }
+  const hoved = `Kampen ${navn} mangler facit længe efter kickoff — point er ikke afregnet. `;
+  if (!harSynk) {
+    return hoved
+      + 'Spillet har ingen resultat-synk, så facit kommer ikke af sig selv: sæt det med ✍️ Sæt eller ret facit i hånden (Admin → 🗓️ Spil-tidsplan).';
+  }
+  return hoved
+    + 'Kør ⬇️ Synk resultater nu (Admin → 🗓️ Spil-tidsplan); finder den intet, har kilden ikke facit endnu — '
+    + 'sæt det med ✍️ Sæt eller ret facit i hånden samme sted.';
 }
 
 module.exports = {

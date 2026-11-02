@@ -60,6 +60,34 @@ describe('forventedeKoersler — matrixen maskineri × spil', () => {
     expect(typer({ id: 'tour', name: 'Touren', type: 'cycling', status: 'finished' })).toEqual([]);
   });
 
+  // Strandede-alarmen gælder nu ALLE aktive kampspil (facitVagt.js). Et
+  // kampspil uden synk har intet sweep-kort — derfor sit eget facit-vagt-kort,
+  // ellers var en vagt, der aldrig har kørt, usynlig.
+  it('et aktivt kampspil UDEN synk får facit-vagt-kortet (og påmindelser) — intet sweep', () => {
+    const HB = { id: 'hvm2027', name: 'Håndbold-VM 2027', type: 'football', status: 'open' };
+    expect(typer(HB)).toEqual(['reminder', 'facitvagt']);
+    expect(typer({ ...HB, status: 'finished' })).toEqual([]);
+  });
+
+  // Fraværs-modstykket: et SYNKET spil vogtes af sweep'et og må ikke få to
+  // kort for samme vagt.
+  it('et synket spil får IKKE facit-vagt-kortet — sweep-kortet er dets vagt', () => {
+    expect(typer(SL)).not.toContain('facitvagt');
+  });
+
+  it('tegner facit-vagt-kortet med det danske navn', () => {
+    mockDrift.mockReturnValue({
+      ...basis,
+      status: [{
+        id: 'facitvagt-hvm2027', type: 'facitvagt', gameId: 'hvm2027', gameNavn: 'Håndbold-VM 2027',
+        niveau: 'fejl', besked: '✖ 1 kampe uden facit længe efter kickoff — point er ikke afregnet.', koertAt: Date.now(), naesteForventetFoer: null,
+      }],
+    });
+    render(<DriftTab />);
+    expect(screen.getByText(/Facit-vagt \(spil uden synk\) · Håndbold-VM 2027/)).toBeInTheDocument();
+    expect(screen.queryByText(/^facitvagt/)).toBeNull();
+  });
+
   it('tegner Live-mål-kortet med det danske navn og kørslens linje', () => {
     // useGames-attrappen ovenfor kender kun 'sl'/'pl' — så kortet bevises via
     // status-dokumentet (orphan-grenen), som fladen viser med TYPE_NAVN.

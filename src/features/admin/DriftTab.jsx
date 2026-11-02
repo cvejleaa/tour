@@ -14,6 +14,7 @@ import { useGames } from '../games/useGames';
 import { useDriftStatus, ukvitterede } from './useDriftStatus';
 import { callSendDriftAlarmMailNu, callFyrTestAlarm } from './adminActions';
 import { harKickoffSynk, harKampdetaljer, forventerPaamindelser } from '../games/spilEvner';
+import { forventerFacit } from '../../lib/facit';
 import { formatKickoff } from '../../lib/daDate';
 
 const TYPE_NAVN = {
@@ -22,6 +23,7 @@ const TYPE_NAVN = {
   livemaal: 'Live-mål (kampe i gang)',
   kickoff: 'Daglig kickoff-synk',
   reminder: 'Daglig tip-påmindelse',
+  facitvagt: 'Facit-vagt (spil uden synk)',
   postbud: 'Alarm-mail (hvert 15. min)',
 };
 
@@ -180,6 +182,14 @@ export function globaleKoersler() {
  *              naesteForventetFoer er null, og kortet bliver aldrig rødt af
  *              stilhed — kun af en fejlet kørsel.
  *   reminder   egen gate (samme prædikat som 09-jobbet, IKKE sync.provider)
+ *   facitvagt  aktive kampspil UDEN synk (forventerFacit, src/lib/facit.js —
+ *              spejl af serverens). Strandede-alarmen for dem kører i
+ *              sweep'et (facitVagt.js), men de har intet sweep-kort, og en
+ *              vagt, der aldrig har kørt, må ikke være usynlig. Serveren
+ *              udelukker spillene i SYNCED_GAMES; klienten udelukker spil med
+ *              sync.provider — samme sæt, fordi tripwiren i
+ *              syncProviders.test.js binder games.mjs' `sync` til
+ *              SYNCED_GAMES begge veje.
  *
  * Holdes som ét sæt, så en tredje kilde er én rettelse — ikke endnu et
  * hardkodet provider-navn spredt i fladen.
@@ -194,6 +204,8 @@ export function forventedeKoersler(games) {
     // Et pauset spil beholder sit påmindelses-kort: pausen er kortets
     // indhold, ikke dets fravær.
     ...(games || []).filter(forventerPaamindelser).map((g) => ({ type: 'reminder', gameId: g.id, gameNavn: g.name })),
+    ...(games || []).filter((g) => forventerFacit(g) && !g.sync?.provider)
+      .map((g) => ({ type: 'facitvagt', gameId: g.id, gameNavn: g.name })),
   ];
 }
 
