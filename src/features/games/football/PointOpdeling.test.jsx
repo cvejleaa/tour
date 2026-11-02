@@ -102,3 +102,14 @@ describe('PointOpdeling', () => {
     expect(opdelingsAfvigelse(null, 42)).toBeNull();
   });
 });
+
+describe('RUBRIKKER: pulje-hjælpen er spil-neutral', () => {
+  // Rubrikteksten deles af alle spil (og genbruges i FootballHelp). Den sagde
+  // «sæsonens bonusspørgsmål» — forkert i en turnering. Den må ikke nævne en
+  // sæson eller en turnering, for den kender ikke spillet.
+  it('nævner hverken sæson eller turnering', () => {
+    const pulje = RUBRIKKER.find((r) => r.key === 'pulje');
+    expect(pulje.hjaelp).toBe('Point fra pulje-tippet — bonusspørgsmålet ved siden af kampene.');
+    expect(pulje.hjaelp).not.toMatch(/sæson|turnering/i);
+  });
+});

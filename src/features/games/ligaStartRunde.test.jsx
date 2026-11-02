@@ -196,11 +196,23 @@ describe('liga-kortet', () => {
     mockLigaer = [{ id: 'kon', name: 'Kontoret', code: 'KODE12', ownerUid: 'A', memberUids: ['A', 'B'], startRound: 20 }];
   });
 
-  const tegn = () => render(
+  // Spillet HAR en pulje — ellers er der ingen puljebonus at miste, og
+  // badgen må ikke nævne den (se testen «uden pulje» nedenfor).
+  const tegn = (game = { id: 'sl', type: 'football', pulje: { poolSize: 6 } }) => render(
     <MemoryRouter initialEntries={['/spil/sl/ligaer?liga=kon']}>
-      <GameLeagues gameId="sl" game={{ id: 'sl', type: 'football' }} />
+      <GameLeagues gameId="sl" game={game} />
     </MemoryRouter>,
   );
+
+  // FASTFROSSET FØR: den første test herunder tegnede et spil UDEN pulje og
+  // krævede «puljen tæller ikke» — grøn, fordi den forsvarede fejlen. Et spil
+  // uden pulje har ingen puljebonus, så kortet må ikke advare om at miste den.
+  it('nævner IKKE puljen, når spillet slet ikke har en pulje', () => {
+    tegn({ id: 'sl', type: 'football' });
+    const badge = screen.getByTestId('liga-startrunde');
+    expect(badge.textContent).toContain('Tæller fra runde 20');
+    expect(badge.textContent).not.toContain('puljen');
+  });
 
   it('viser startrunden på kortet — og at puljen ikke tæller', () => {
     tegn();

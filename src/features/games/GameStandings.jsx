@@ -549,7 +549,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // spillets og ikke ligaens. Samme fejl som gaten selv, gentaget i teksten.
   const ligaGate = valgt
     ? (Number.isFinite(valgt.startRound)
-      ? ` Tæller fra ${rundeOrd(game, valgt.startRound)}${puljenTaeller(valgt.startRound, puljeMaksStartRunde(game)) ? '' : ' — puljen tæller ikke'}.`
+      ? ` Tæller fra ${rundeOrd(game, valgt.startRound)}${!game?.pulje || puljenTaeller(valgt.startRound, puljeMaksStartRunde(game)) ? '' : ' — puljen tæller ikke'}.`
       : '')
     : ` Tæller fra ${rundeOrd(game, 1)} — spillets egen skala, ikke en ligas.`;
   const opsummering = (valgt

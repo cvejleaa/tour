@@ -80,6 +80,7 @@ const { puljeKonfig } = require('./superligaScoring');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { hentSpoergsmaalStatus } = require('./gameLeagues');
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
+const { puljeRykMail } = require('./puljeRykMail');
 const { validerBroadcastBillede, broadcastBilledeSti } = require('./broadcastImage');
 
 initializeApp();
@@ -1759,17 +1760,13 @@ exports.gamePuljeStatus = onCall(
       for (const m of missing) {
         const email = emailOf.get(m.uid);
         if (!email || optOut.has(m.uid)) continue;
-        const html = `
-          <p>Hej ${escapeHtml(m.name)} 👋</p>
-          <p>Du mangler at sætte dit <strong>pulje-tip</strong> (sæsonens bonusspørgsmål) i ${escapeHtml(gameName)} —
-          det er dér, de store bonuspoint ligger til sæsonafslutningen.</p>
-          ${deadlineTxt ? `<p>Deadline: <strong>${escapeHtml(deadlineTxt)}</strong>.</p>` : ''}
-          <p><a href="${APP_URL}">Sæt dit pulje-tip på tip.vejleaa.dk</a> — det tager to minutter.</p>
-          <p style="color:#888;font-size:12px">Du kan slå påmindelser fra på din profilside.</p>`;
+        const { subject, html } = puljeRykMail({
+          navn: m.name, gameName, deadlineTxt, game, konfig, appUrl: APP_URL, escapeHtml,
+        });
         try {
           await sendEmail(db, transporter, {
             to: email,
-            subject: `Husk pulje-tippet i ${gameName}${deadlineTxt ? ` — deadline ${deadlineTxt}` : ''}`,
+            subject,
             html,
             type: 'pulje-reminder',
           });

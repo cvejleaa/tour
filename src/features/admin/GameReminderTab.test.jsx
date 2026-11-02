@@ -224,6 +224,25 @@ describe('pause-nødstop', () => {
   });
 });
 
+describe('pulje-status: ordet følger spillet', () => {
+  // Hjælpeteksten sagde «sæsonens bonusspørgsmål» om alle spil — også en
+  // turnering, hvor puljen afgøres midt i forløbet. Ordet kommer nu fra
+  // rundeOrdene, så ligaen er uændret og turneringen siger «turneringens».
+  const tekst = () => screen.getByRole('heading', { name: /Pulje-status/ }).parentElement.textContent.replace(/\s+/g, ' ');
+
+  it('liga: «sæsonens bonusspørgsmål», som før', () => {
+    render(<GameReminderTab />);
+    expect(tekst()).toContain('(sæsonens bonusspørgsmål)');
+  });
+
+  it('turnering: «turneringens bonusspørgsmål», og aldrig «sæson»', () => {
+    mockSpil.mockReturnValue({ games: [{ ...HAANDBOLD_SPIL, id: 'sl', status: 'open' }], myGameIds: [], loading: false });
+    render(<GameReminderTab />);
+    expect(tekst()).toContain('(turneringens bonusspørgsmål)');
+    expect(tekst()).not.toMatch(/sæson/i);
+  });
+});
+
 describe('gate mod det daglige job', () => {
   // Et spil uden for jobbets gate må ikke have aktive påmindelses-knapper —
   // ellers lover fanen en udsendelse, automatikken aldrig ville lave. Men

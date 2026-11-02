@@ -4,7 +4,7 @@
 // én giver præcis 3 (kun podie). Ellers ville assertions ramme podiet, mens
 // man tror, man læser tabellen.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('../../firebase', () => ({ db: {} }));
@@ -344,6 +344,18 @@ describe('GameStandings — liga-filter', () => {
     it('siger HVILKEN skala tallene er på', () => {
       setup({ standings: MED_VEKTOR, leagues: LIGA12 });
       expect(screen.getByText(/Tæller fra runde 12/)).toBeInTheDocument();
+    });
+
+    // Puljeforbeholdet følger PULJEN: en liga fra runde 12 mister puljebonussen
+    // i et spil med pulje (grænsen er 3), men et spil uden pulje har ingen
+    // bonus at miste, og så må teksten ikke advare om den.
+    it('nævner, at puljen ikke tæller — kun når spillet har en pulje', () => {
+      setup({ standings: MED_VEKTOR, leagues: LIGA12, game: { id: 'sl', type: 'football', pulje: { poolSize: 6 } } });
+      expect(screen.getByText(/Tæller fra runde 12 — puljen tæller ikke\./)).toBeInTheDocument();
+      cleanup();
+      setup({ standings: MED_VEKTOR, leagues: LIGA12, game: { id: 'sl', type: 'football' } });
+      expect(screen.getByText(/Tæller fra runde 12\./)).toBeInTheDocument();
+      expect(screen.queryByText(/puljen tæller ikke/)).toBeNull();
     });
 
     it('siger i spillerpanelet, at DETS tal er på en anden skala', () => {

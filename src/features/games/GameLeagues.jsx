@@ -241,7 +241,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
             {Number.isFinite(league.startRound) && (
               <span className="badge badge--muted" data-testid="liga-startrunde">
                 Tæller fra {rundeOrd(game, league.startRound)}
-                {!puljenTaeller(league.startRound, puljeMaksStartRunde(game)) && ' · puljen tæller ikke'}
+                {game?.pulje && !puljenTaeller(league.startRound, puljeMaksStartRunde(game)) && ' · puljen tæller ikke'}
               </span>
             )}
           </div>
