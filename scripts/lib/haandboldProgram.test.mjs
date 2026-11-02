@@ -15,7 +15,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { byggProgram, byggFaser, klassificer, programFil, VM_FASER } from './haandboldProgram.mjs';
+import { byggProgram, byggFaser, klassificer, programFil, VM_FASER, VM2027_FORMAT } from './haandboldProgram.mjs';
 import { faseKalenderFejl, dagTaeller, rundeEtiket, erKnockout, ventetekst } from '../../src/lib/faser.js';
 import { docId, tjekDubletter, kickoffMs } from '../../src/lib/seedFootball.js';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
@@ -207,6 +207,39 @@ describe('strukturvagterne', () => {
     // Uruguay byttes ud med Tunesien: stadig 48 kampe, men gruppe A er skæv.
     const t = retKasse(SIDE, SRB_URU, (k) => k.replace('{{hb|URU}}', '{{hb|TUN}}'));
     expect(() => byggProgram(t)).toThrow(/Gruppe A har 4 hold og 6 kampe — ikke 4 hold, der møder hinanden én gang/);
+  });
+
+  // Italien byttes ud med Serbien i hele gruppe B: begge grupper er stadig
+  // fire hold, der møder hinanden én gang — men Serbien står i to.
+  it('KASTER på et hold i to grupper', () => {
+    const b = SIDE.indexOf('===Group B===');
+    const c = SIDE.indexOf('===Group C===');
+    const t = SIDE.slice(0, b) + SIDE.slice(b, c).replaceAll('|ITA}}', '|SRB}}') + SIDE.slice(c);
+    expect(() => byggProgram(t)).toThrow('Serbien står i to grupper.');
+  });
+
+  // De to næste kan kun nås, hvis FORMATET er selvmodsigende (8 grupper à 4
+  // er 32). Vagterne står der, så et rettet format ikke stille giver et
+  // program, der ikke passer til det.
+  it('KASTER, når antallet af hold ikke er formatets', () => {
+    expect(() => byggProgram(SIDE, { format: { ...VM2027_FORMAT, antalHold: 30 } })).toThrow('Programmet har 32 hold, ikke 30.');
+  });
+
+  it('KASTER, når grupperne ikke er formatets bogstaver', () => {
+    const grupper = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'X'];
+    expect(() => byggProgram(SIDE, { format: { ...VM2027_FORMAT, grupper } }))
+      .toThrow('Grupperne på siden er A, B, C, D, E, F, G, H, ikke A, B, C, D, E, F, G, X.');
+  });
+
+  // Dag 7's fire kampe flyttes til den kampløse 28/1: ingen dag blander
+  // faser, men den indledende runde ender nu EFTER hovedrunden — kalenderen
+  // overlapper, og formkontrollen i src/lib/faser.js skal sige det.
+  it('KASTER, når faserne overlapper (formkontrollen i faser.js)', () => {
+    let t = SIDE;
+    for (const [team1, team2] of [['BHR', 'JPN'], ['USA', 'ANG'], ['DEN', 'SLO'], ['ISL', 'MKD']]) {
+      t = retKasse(t, { team1: `{{hb-rt|${team1}}}`, team2: `{{hb|${team2}}}`, dato: '19 January 2027' }, (k) => k.replace('|date=19 January 2027', '|date=28 January 2027'));
+    }
+    expect(() => byggProgram(t)).toThrow(/Fasekalenderen består ikke formkontrollen \(src\/lib\/faser\.js\):\n {2}- fase 2: starter i runde 7/);
   });
 
   it('KASTER på et hold, der møder sig selv', () => {
