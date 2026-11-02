@@ -272,6 +272,9 @@ describe('Holdsiden og guiden kender evnen, ikke sporten', () => {
     );
     expect(container.textContent).toContain('Sådan forløber en dag');
     expect(container.textContent).toContain('1 (hjemmesejr)');
-    expect(within(container).getByTestId('hjaelp-knockout').textContent).toContain('efter 90 min');
+    // Reglen bærer SPORTENS spilletid — fodboldens 90 min, ikke håndboldens 60.
+    expect(within(container).getByTestId('hjaelp-knockout').textContent)
+      .toContain('Knockout: vi tipper stillingen efter 90 min. Uafgjort er X, også når nogen vinder i forlængelsen.');
+    expect(within(container).getByTestId('hjaelp-knockout').textContent).not.toContain('60 min');
   });
 });

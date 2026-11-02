@@ -156,7 +156,9 @@ function facitFelter({ home, away, slut = null } = {}) {
  */
 function kampSlut(kamp) {
   const slut = kamp?.slut;
-  if (slut == null || typeof slut !== 'object') return null;
+  // Kun null-vagten her: alt andet, der ikke er et gyldigt slut (en tekst, et
+  // tal, et ufuldstændigt objekt), afviser facitFejl — én vagt pr. regel.
+  if (slut == null) return null;
   if (facitFejl({ home: kamp.homeGoals, away: kamp.awayGoals, slut }, { knockout: true }) != null) return null;
   return { home: slut.home, away: slut.away, afgjort: slut.afgjort };
 }
