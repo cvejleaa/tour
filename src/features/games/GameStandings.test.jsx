@@ -491,9 +491,12 @@ describe('GameStandings — liga-filter', () => {
           aabn();
           expect(screen.getByText(
             'Regnskabet tæller som ligaen: kun point fra dag 12 og frem, uden puljen. '
-            + 'I alt er derfor det samme tal som i stillingen. Hele sæsonen for en spiller: tryk på navnet.',
+            + 'I alt er derfor det samme tal som i stillingen. Hele turneringen for en spiller: tryk på navnet.',
           )).toBeInTheDocument();
           expect(container.textContent).not.toMatch(/fra runde 12/);
+          // VENDT (D12): testen fastholdt «Hele sæsonen» om en turnering —
+          // grøn, fordi den forsvarede fejlen.
+          expect(container.textContent).not.toMatch(/sæson/);
         });
 
         it('stregens forklaring: «ikke delt op fra dag 12»', () => {

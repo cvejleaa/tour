@@ -235,7 +235,10 @@ const ORDENE_TURNERING = Object.freeze({
  * udledes af grundformen, så de står skrevet. Uden kalender: ligaens ord,
  * præcis som teksterne altid har stået.
  * @returns {runde:string, runden:string, rundens:string, runder:string, runderne:string,
- *   Runde:string, Runden:string, Rundens:string, saesonen:string, saesonens:string}
+ *   Runde:string, Runden:string, Rundens:string, saesonen:string, saesonens:string,
+ *   i:string, iRunden:string, iDenneRunde:string}
+ *   `i` er forholdsordet alene («i»/«på»); `iRunden` og `iDenneRunde` er
+ *   færdige led med forholdsord («i runden»/«på dagen», «i denne runde»/«på denne dag»).
  */
 function rundeOrdene(game) {
   return harFaseKalender(game) ? ORDENE_TURNERING : ORDENE_LIGA;

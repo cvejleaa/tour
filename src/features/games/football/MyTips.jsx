@@ -14,6 +14,7 @@ import { teamsOf } from './teamInfo';
 import { buildTipsHistory } from './tipsHistory';
 import TipsHistorik from './TipsHistorik';
 import GameTabLink from '../GameTabLink';
+import { rundeOrdene } from '../../../lib/faser';
 
 export default function MyTips({ game, matches, me }) {
   const gameId = game?.id;
@@ -52,7 +53,7 @@ export default function MyTips({ game, matches, me }) {
         <div className="empty-state">
           <div className="empty-state__icon">📋</div>
           <div className="empty-state__title">Du har ikke tippet endnu.</div>
-          <p style={{ color: 'var(--c-muted)' }}>Sæt dine 1X2 for den kommende runde.</p>
+          <p style={{ color: 'var(--c-muted)' }}>Sæt dine 1X2 for den kommende {rundeOrdene(game).runde}.</p>
           <p style={{ marginTop: '0.6rem' }}>
             <GameTabLink fane="tip" className="btn btn--sm">Gå til Tip</GameTabLink>
           </p>

@@ -269,8 +269,12 @@ export default function FootballHelp({ game }) {
           <strong>Combi-bonussen</strong> ganger de <strong>rene odds</strong> sammen: rammer du
           to overraskelser til odds 4,5, giver den{' '}
           <strong>{fmtDec(roundComboBonus([4.5, 4.5], 2))}</strong>; rammer du fem favoritter til odds 1,6,
-          giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>. Den er
-          nu det eneste sted i spillet, der stadig har et loft — på{' '}
+          giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>.
+          {/* «nu … stadig» henviser til loftets historie — uden den
+              (en turnering) er det bare et loft. */}
+          {loftHistorie
+            ? <> Den er nu det eneste sted i spillet, der stadig har et loft — på{' '}</>
+            : <> Den er det eneste sted i spillet, der har et loft — på{' '}</>}
           <strong>{COMBI.LOFT}</strong>.
         </p>
       </Section>
@@ -380,7 +384,7 @@ export default function FootballHelp({ game }) {
         {' '}{o.runder} fra den og frem i ligaens stilling — hele {o.runder}, aldrig halve, så en udsat kamp
         følger sin {o.runde}. Ligaens ejer sætter den under <Tab fane="ligaer">👥 Ligaer</Tab>, og den
         står på liga-kortet.{game?.pulje && <>{' '}Starter ligaen efter {rundeOrd(game, puljeMaksStartRunde(game))}, tæller
-        puljebonussen ikke med — den blev tippet før sæsonen, så nye medlemmer kunne ikke være med.</>}
+        puljebonussen ikke med — den blev tippet før {o.saesonen}, så nye medlemmer kunne ikke være med.</>}
         {' '}Din <strong>saldo</strong> øverst er altid spillets samlede — det er den, Chancen må satse af.
         <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
@@ -619,7 +623,9 @@ export default function FootballHelp({ game }) {
       </Section>
 
       <Section emoji="🏟️" title="Holdsiden">
-        <strong>Klik på et holdnavn</strong> — i Elo-tabellen, i den officielle tabel, i
+        {/* «den officielle tabel» kun, hvor fanen findes (samme gate som
+            Tabel-fanen og guidens øvrige henvisninger til den). */}
+        <strong>Klik på et holdnavn</strong> — i Elo-tabellen,{game?.standings ? ' i den officielle tabel,' : ''} i
         trøjeoversigten under <Tab fane="profil">🙂 Mit hold</Tab> eller på et kampkort — så får du
         holdets egne tal i dette spil: form, {hjemme ? 'hjemme og ude, ' : ''}mål, og hvor stort holdet vinder,
         når det vinder. Nederst står holdets kampe i dette spil — klik på en række, og du lander
@@ -630,10 +636,14 @@ export default function FootballHelp({ game }) {
             ofte det vandt som udfordrer. Favoritten er den, der havde lavest odds i kampen.
             Har holdet aldrig været favorit, står der ingenting — en brøk med nul i nævneren er
             ikke et resultat.</li>
+          {/* Kortet findes kun med målchancer (HoldSide: xgTal) — samme
+              evne som guidens xG-afsnit. */}
+          {harXg(game) && (
           <li><strong>Mål og målchancer (xG).</strong> Hvad holdet scorede og lukkede ind, ved
             siden af hvor gode chancer der var i begge ender. Begge kolonner dækker de samme
             kampe — ellers ville en manglende måling ligne en overpræstation. Der står ingen dom
             om, hvorvidt holdet har været heldigt; to rækker tal, og så dømmer du selv.</li>
+          )}
           <li><strong>Mod modellens forventning.</strong> Holdets point målt mod det, styrketallene
             ventede. Står der <em>+4 point efter 12 kampe</em>, har holdet hentet fire point mere,
             end modellen regnede med. Det er <strong>vores egen model</strong>, ikke rigtige

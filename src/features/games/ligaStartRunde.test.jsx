@@ -258,6 +258,7 @@ describe('liga-kortet', () => {
     const t = document.body.textContent.replace(/\s+/g, ' ');
     expect(t).toContain('Runder før den valgte tæller ikke i ligaens stilling');
     expect(t).toContain('tæller puljebonussen ikke med');
+    expect(t).toContain('tæller puljebonussen ikke med — den blev tippet før sæsonen.');
   });
 
   // LIGA-TABELLEN INDE PÅ KORTET skal også bruge ligaens tal — den har sin
@@ -301,8 +302,9 @@ describe('fasekalender: liga-kortet og stillingen siger «dag»', () => {
     expect(screen.getByLabelText(/Ligaen tæller fra dag/)).toBeInTheDocument();
     const t = document.body.textContent.replace(/\s+/g, ' ');
     expect(t).toContain('Dage før den valgte tæller ikke i ligaens stilling');
-    expect(t).toContain('Starter ligaen efter dag 3, tæller puljebonussen ikke med');
+    expect(t).toContain('Starter ligaen efter dag 3, tæller puljebonussen ikke med — den blev tippet før turneringen.');
     expect(t).not.toContain('Runder før den valgte');
+    expect(t).not.toContain('sæson');
   });
 
   it('liga-kortet UDEN kalender: «runde» som før', () => {

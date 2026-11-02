@@ -931,6 +931,14 @@ describe('Runde-Botten med fasekalender', () => {
     expect(sys.split(KNOCKOUT_ANKER).length).toBe(2);
   });
 
+  // SPORTENS spilletid, ikke håndboldens: et fodbold-VM med knockout ville
+  // ellers få «60 min» i prompten (modstanderens S13 — samme form som A8).
+  it('knockout i en fodbold-turnering: forklaringen siger 90 min begge steder', () => {
+    const sys = recapSystem({ ...HAANDBOLD_SPIL, sport: undefined });
+    expect(sys).toContain('var den uafgjort efter ordinær tid (90 min) og blev afgjort bagefter: "score" er stillingen efter 90 min');
+    expect(sys).not.toContain('60 min');
+  });
+
   it('kalender UDEN knockout-faser: ingen knockout-forklaring', () => {
     const udenKo = { ...HAANDBOLD_SPIL, faser: TEST_FASER.slice(0, 2) };
     expect(recapSystem(udenKo)).not.toContain('"slut"');

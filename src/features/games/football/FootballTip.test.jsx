@@ -1116,6 +1116,41 @@ describe('FootballTip — kuponen i en splittet runde', () => {
     expect(note).not.toHaveTextContent('F.C. København');
   });
 
+  // LIGAENS ORDLYD BYTE FOR BYTE. Ordene blev gjort til variable, da en
+  // turnering fik sine egne (D12), så hele sætningen og mærkernes title
+  // bindes her — en ombytning af to variable ville ellers stå grøn.
+  it('Superligaen: noten og mærkerne står ord for ord som før', () => {
+    setup({}, '/spil/sl?runde=3', splittet);
+    expect(screen.getByTestId('combi-udenfor').textContent.replace(/\(.*?\)/, '(…)')).toBe(
+      '🕒 2 kampe i runden ligger uden for rundens uge (…) og står derfor uden for kuponen: '
+      + 'AGF–FC Midtjylland, F.C. København–AGF. De giver 1X2-point som altid — men runde-bonussen '
+      + 'venter ikke på dem, og Chancen følger RUNDEN: har du brugt din ⚡ i denne runde, er den brugt, også her.',
+    );
+    expect(screen.getAllByTestId('kupon-med')[0]).toHaveAttribute('title', 'Tæller med i runde-bonussen');
+    expect(screen.getAllByTestId('kupon-uden')[0])
+      .toHaveAttribute('title', 'Uden for rundens uge — giver point, men tæller ikke i runde-bonussen');
+  });
+
+  // EN TURNERING har ingen «runde» og ingen «rundens uge». Guiden henviser
+  // til netop dette kort, efter at «udsat kamp»-afsnittet er gatet væk dér
+  // (FootballHelp), så kortet skal tale dagens sprog.
+  it('turnering: dagens ord — og intet om runden eller rundens uge', () => {
+    vi.setSystemTime(new Date('2027-01-26T08:00:00Z'));
+    const dag = [
+      { id: 'h1', round: 14, home: 'AGF', away: 'F.C. København', kickoff: new Date(kl18('2027-01-27')), odds: null, result: null },
+      { id: 'h2', round: 14, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: new Date(kl18('2027-01-27') + 7200000), odds: null, result: null },
+      { id: 'h3', round: 14, home: 'AGF', away: 'FC Midtjylland', kickoff: new Date(kl18('2027-02-10')), odds: null, result: null },
+    ];
+    setup({ ...HAANDBOLD_SPIL }, '/spil/hvm?runde=14', dag);
+    const note = screen.getByTestId('combi-udenfor').textContent;
+    expect(note).toContain('🕒 Én kamp på dagen ligger i en anden uge end dagens øvrige kampe (');
+    expect(note).toContain('men dagens bonus venter ikke på den, og Chancen følger DAGEN: har du brugt din ⚡ på denne dag, er den brugt, også her.');
+    expect(note).not.toMatch(/runde|RUNDEN|rundens uge/i);
+    expect(screen.getAllByTestId('kupon-med')[0]).toHaveAttribute('title', 'Tæller med i dagens bonus');
+    expect(screen.getByTestId('kupon-uden'))
+      .toHaveAttribute('title', 'I en anden uge end dagens øvrige kampe — giver point, men tæller ikke i dagens bonus');
+  });
+
   it('viser ingen udsat-note, når runden er hel', () => {
     setup({}, '/spil/sl?runde=3', samlet);
     expect(screen.queryByTestId('combi-udenfor')).toBeNull();
@@ -2136,6 +2171,20 @@ describe('FootballTip — knockout', () => {
     expect(screen.getByTestId('ko-regel').textContent).toBe(REGEL);
   });
 
+  // Halvlegen er en kvalifikator på stillingen — den må ikke forsvinde af
+  // oplæsningen, fordi kampen gik i forlængelse (den står jo på skærmen).
+  it('med halvleg: oplæsningen siger pausen også efter en forlængelse', () => {
+    vi.setSystemTime(new Date('2027-01-28T08:00:00Z'));
+    const { container } = setup(hb, '/spil/hvm?runde=14', kvart({
+      homeGoals: 30, awayGoals: 30, result: 'X', slut: { home: 35, away: 34, afgjort: 'forlaenget' },
+      halvlegHome: 14, halvlegAway: 15,
+    }));
+    expect(container.querySelector('.match-card__score').getAttribute('aria-label')).toBe(
+      'Stillingen efter 60 min: AGF 30, F.C. København 30. Slutresultat efter forlænget spilletid: AGF 35, F.C. København 34.'
+      + ' Ved pausen stod den 14-15.',
+    );
+  });
+
   it('straffekast: «e.str.» og «efter straffekast»', () => {
     vi.setSystemTime(new Date('2027-01-28T08:00:00Z'));
     const { container } = setup(hb, '/spil/hvm?runde=14', kvart({
@@ -2193,5 +2242,13 @@ describe('FootballTip — knockout', () => {
     setup(hb, '/spil/hvm?runde=14', kvart());
     expect(screen.getByText(/^Dagen er låst — Chancen kan ikke ændres nu\.$/)).toBeInTheDocument();
     expect(screen.queryByText(/Rundeen|Dagen en|Dagen er låst en/)).toBeNull();
+  });
+
+  it('en brugt Chance på en låst kamp: «på denne dag» — ikke «i denne runde»', () => {
+    vi.setSystemTime(new Date('2027-01-28T08:00:00Z'));
+    mockBets.mockReturnValue({ betsByMatch: { q1: { pick: '1', chanceStake: 4 } }, loading: false });
+    setup(hb, '/spil/hvm?runde=14', kvart());
+    expect(screen.getByText(/^Chancen er brugt på denne dag — kampen er låst/)).toBeInTheDocument();
+    expect(screen.queryByText(/i denne runde/)).toBeNull();
   });
 });

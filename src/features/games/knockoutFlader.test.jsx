@@ -36,6 +36,7 @@ import Indbyrdes from './football/Indbyrdes';
 import HoldSide from './football/HoldSide';
 import EloTable from './football/EloTable';
 import FootballHelp from './football/FootballHelp';
+import Pokaler from './Pokaler';
 import { groupByRound } from './football/footballRounds';
 import { buildTipsHistory } from './football/tipsHistory';
 
@@ -100,6 +101,15 @@ describe('Jer to imellem (Indbyrdes): stillingen ved den uenige kamp', () => {
     expect(screen.getByTestId('h2h-slut-k1').textContent).toBe('30-30 · 35-34 e.f.');
   });
 
+  // DATA-GATEN er kampSlut (et slut, der hænger sammen med stillingen), ikke
+  // bare et slut-felt — samme regel som kampkortet og Mine tips.
+  it('et slut, der modsiger stillingen: ingen stillingslinje', async () => {
+    const forkert = { ...KO, homeGoals: 31, awayGoals: 30, result: '1', slut: { home: 31, away: 30, afgjort: 'forlaenget' } };
+    render(<Indbyrdes game={{ ...HB, id: 'g1' }} rounds={[{ round: 14, matches: [forkert] }]} minUid="mig" dueUid="dem" dueNavn="Morten" />);
+    await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
+    expect(screen.queryByTestId('h2h-slut-k1')).toBeNull();
+  });
+
   it('uden slut: ingen stillingslinje', async () => {
     const uden = { ...KO, slut: undefined, homeGoals: 31, awayGoals: 30, result: '1' };
     render(<Indbyrdes game={{ id: 'g1' }} rounds={[{ round: 14, matches: [uden] }]} minUid="mig" dueUid="dem" dueNavn="Morten" />);
@@ -139,6 +149,13 @@ describe('Holdsiden: neutral bane, «Dag N» og V-U-T efter 60 min', () => {
   it('uden en kamp ud over ordinær tid: ingen note', () => {
     vis(HB, [{ ...KO, slut: undefined, homeGoals: 31, awayGoals: 30, result: '1' }], 'DEN');
     expect(screen.queryByTestId('holdside-ordinaer')).toBeNull();
+  });
+
+  // Udeholdets side af en kamp UDEN slut: stillingen vendes også dér —
+  // egne mål først (stillingTekst med vend, uden slut).
+  it('udeholdet, afgjort i ordinær tid: «30-31» fra Norges side', () => {
+    vis(HB, [{ ...KO, slut: undefined, homeGoals: 31, awayGoals: 30, result: '1' }], 'NOR');
+    expect(kampListe()[0]).toBe('Dag 14Danmark30-31T');
   });
 
   it('Superligaen: «Hjemme og ude», H/U og «R14» som før — ingen V-U-T-linje og ingen note', () => {
@@ -241,6 +258,38 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
     expect(t).not.toMatch(/omkring \d+ % til hvert|takket være/);
   });
 
+  // Holdsidens afsnit lover kun det, spillet har: «den officielle tabel»
+  // kræver standings (fanen), og «Mål og målchancer (xG)» kræver xG fra
+  // kilden (kortet på holdsiden findes ikke uden).
+  it('holdsiden: ingen officiel tabel og ingen xG-kort i et spil uden dem', () => {
+    const t = vis({ ...HB, sync: { provider: 'highlightly' } });
+    expect(t).toContain('— i Elo-tabellen, i trøjeoversigten under');
+    expect(t).not.toContain('den officielle tabel');
+    expect(t).not.toContain('Mål og målchancer (xG)');
+    expect(t).not.toMatch(/xG/);
+  });
+
+  it('Superligaen med tabel og xG: begge henvisninger står, som før', () => {
+    const t = vis({ ...SL, standings: true });
+    expect(t).toContain('— i Elo-tabellen, i den officielle tabel, i trøjeoversigten under');
+    expect(t).toContain('Mål og målchancer (xG).');
+  });
+
+  // Pulje-forbeholdet: «tippet før turneringen» (D10 fastlægger grænsen).
+  it('med pulje: «tippet før turneringen» — ikke «før sæsonen»', () => {
+    const t = vis({ ...HB, pulje: { poolSize: 4 } });
+    expect(t).toContain('den blev tippet før turneringen, så nye medlemmer');
+    expect(t).not.toContain('før sæsonen');
+    expect(vis({ ...SL, pulje: { poolSize: 4 } })).toContain('den blev tippet før sæsonen, så nye medlemmer');
+  });
+
+  // «nu … stadig» henviser til loftets historie, som kun ligaen får.
+  it('combi-loftet: «nu … stadig» kun med loftets historie', () => {
+    expect(vis(HB)).toContain('Den er det eneste sted i spillet, der har et loft — på');
+    expect(vis(HB)).not.toMatch(/nu det eneste sted|stadig har et loft/);
+    expect(vis(SL)).toContain('Den er nu det eneste sted i spillet, der stadig har et loft — på');
+  });
+
   it('en kalender uden knockout-faser: ingen knockout-afsnit', () => {
     vis({ ...HB, faser: TEST_FASER.slice(0, 2) });
     expect(screen.queryByTestId('hjaelp-knockout')).toBeNull();
@@ -257,6 +306,42 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
     expect(t).toContain('Når en kamp bliver udsat');
     expect(t).toContain('Combi-runde-bonus');
     expect(t).not.toMatch(/Knockout|e\.f\.|60 min/);
+  });
+});
+
+// CHANCE-KONGENS SKALA. Guiden citerer kortets overskrift («derfor står der
+// "hele …" på kortet»), så de to skal sige det samme ord — i en liga og i en
+// turnering. Før kortet fik turneringens ord, sagde guiden «hele turneringen»
+// og kortet «hele sæsonen» (modstanderens blokerende fund).
+describe('Chance-kongen: kortet og guiden siger samme skala', () => {
+  const RAEKKER = [{ uid: 'a', name: 'Anne', perRound: { 3: 5 }, opdeling: { chance: 12.5 } }];
+  const skalaPaaKortet = (game) => {
+    const { container, unmount } = render(<Pokaler game={game} rows={RAEKKER} matches={[]} startRunde={3} />);
+    const tekst = container.textContent;
+    unmount();
+    return tekst;
+  };
+  const citatIGuiden = (game) => {
+    const { container, unmount } = render(
+      <MemoryRouter initialEntries={['/spil/x?fane=hjaelp']}>
+        <Routes><Route path="/spil/:gameId" element={<FootballHelp game={game} />} /></Routes>
+      </MemoryRouter>,
+    );
+    const m = container.textContent.match(/derfor står der "(hele [a-zæøå]+)" på kortet/);
+    unmount();
+    return m?.[1];
+  };
+
+  it('turnering: «hele turneringen» begge steder — og aldrig «hele sæsonen»', () => {
+    expect(citatIGuiden(HB)).toBe('hele turneringen');
+    const kort = skalaPaaKortet(HB);
+    expect(kort).toContain('⚡ Chance-kongen (hele turneringen)');
+    expect(kort).not.toContain('sæson');
+  });
+
+  it('Superligaen: «hele sæsonen» begge steder, som før', () => {
+    expect(citatIGuiden(SL)).toBe('hele sæsonen');
+    expect(skalaPaaKortet(SL)).toContain('⚡ Chance-kongen (hele sæsonen)');
   });
 });
 

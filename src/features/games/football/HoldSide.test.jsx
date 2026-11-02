@@ -108,6 +108,30 @@ describe('HoldSide', () => {
     expect(screen.getByText(/ikke\s+af de odds, kampene blev prissat med/i)).toBeInTheDocument();
   });
 
+  // Ordet følger kalenderen (D12): en turnering regner «før hver dag».
+  it('forventningen: «før hver runde» i en liga — «før hver dag» i en turnering', () => {
+    const matches = [kamp('a', 1, 'FC København', 'AGF', { result: '1' })];
+    const { unmount } = vis(<HoldSide game={spil()} matches={matches} short="FCK" />);
+    expect(screen.getByText(/styrketal før hver runde — ikke/)).toBeInTheDocument();
+    unmount();
+    vis(<HoldSide game={spil({ faser: [{ navn: 'Indledende runde', fra: 1, til: 6, start: '2027-01-13' }] })} matches={matches} short="FCK" />);
+    expect(screen.getByText(/styrketal før hver dag — ikke/)).toBeInTheDocument();
+    expect(screen.queryByText(/før hver runde/)).toBeNull();
+  });
+
+  // Et stadion er en HJEMMEBANE kun, hvor sporten har en (harHjemmebane).
+  // På neutral bane er det bare en arena, holdet ikke spiller i.
+  it('«Hjemmebane: stadion» i en liga — ikke på neutral bane', () => {
+    const medStadion = TEAMS.map((t) => (t.short === 'FCK' ? { ...t, stadion: 'Parken' } : t));
+    const matches = [kamp('a', 1, 'FC København', 'AGF', { result: '1' })];
+    const { container, unmount } = vis(<HoldSide game={spil({ teams: medStadion })} matches={matches} short="FCK" />);
+    expect(container.textContent).toContain('1 kamp spillet i dette spil. Hjemmebane: Parken.');
+    unmount();
+    const r = vis(<HoldSide game={spil({ teams: medStadion, sport: 'haandbold' })} matches={matches} short="FCK" />);
+    expect(r.container.textContent).toContain('1 kamp spillet i dette spil.');
+    expect(r.container.textContent).not.toMatch(/Hjemmebane:|Parken/);
+  });
+
   it('viser en LISTE frem for en graf under gulvet, og siger hvorfor', () => {
     const matches = [
       kamp('a', 1, 'FC København', 'AGF', { result: '1', homeGoals: 2, awayGoals: 0 }),

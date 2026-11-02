@@ -24,10 +24,10 @@ import { RUBRIKKER, opdelingsAfvigelse, afvigelsesTekst } from './football/Point
 import SpillerDetalje from './football/SpillerDetalje';
 import Pokaler from './Pokaler';
 import { rundeKort, rundeOrd, rundeOrdene } from '../../lib/faser';
+import { useKlubFarver } from './football/useKlubFarver';
 
 // Ligaens ord — standarden for de små celler, der ikke kender spillet.
 const LIGA_ORD = rundeOrdene(null);
-import { useKlubFarver } from './football/useKlubFarver';
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
 // et manglende valg.
@@ -816,7 +816,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               {ligaStart != null ? (
                 <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
                   {`Regnskabet tæller som ligaen: kun point fra ${rundeOrd(game, ligaStart)} og frem${puljenTaeller(ligaStart, puljeMaksStartRunde(game)) ? '' : ', uden puljen'}. `
-                    + 'I alt er derfor det samme tal som i stillingen. Hele sæsonen for en spiller: tryk på navnet.'}
+                    + `I alt er derfor det samme tal som i stillingen. Hele ${o.saesonen} for en spiller: tryk på navnet.`}
                 </p>
               ) : ligaGate && (
                 <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>

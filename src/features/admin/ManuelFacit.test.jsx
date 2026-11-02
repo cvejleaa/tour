@@ -216,6 +216,15 @@ describe('✍️ felterne — ordinær tid og knockout', () => {
     expect(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' })).toBeEnabled();
   });
 
+  // SPORTENS spilletid: en fodbold-turnering (samme kalender, ingen sport)
+  // siger 90 min. Uden testen kunne «60 min» hardkodes (modstanderens C40).
+  it('knockout i en fodbold-turnering: feltet siger 90 min — ikke 60', async () => {
+    kampe([{ id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME }]);
+    vaelg(await aabn({ ...HB, sport: undefined }), 'r7-dk-se');
+    expect(screen.getByText(/^Mål efter ordinær tid \(90 min, uden forlængelse og straffekast — det, der tippes på\):$/)).toBeInTheDocument();
+    expect(screen.queryByText(/60 min/)).not.toBeInTheDocument();
+  });
+
   it('knockout + uafgjort: slutresultat og afgørelse kræves, før serveren spørges', async () => {
     kampe([{ id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME }]);
     vaelg(await aabn(HB), 'r7-dk-se');

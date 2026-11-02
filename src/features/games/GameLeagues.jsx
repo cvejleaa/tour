@@ -19,7 +19,7 @@ import LeagueQuestions from './LeagueQuestions';
 import { formatPoints } from './GameLayout';
 import { useKlubFarver } from './football/useKlubFarver';
 import { relativeTime } from '../../lib/daDate';
-import { rundeOrd, rundeNavneord } from '../../lib/faser';
+import { rundeOrd, rundeNavneord, rundeOrdene } from '../../lib/faser';
 import {
   createLeague, joinLeagueByCode, leaveLeague, renameLeague, deleteLeague,
   setLeagueStartRound,
@@ -264,7 +264,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
               <span style={{ flexBasis: '100%', fontSize: '0.78rem', color: 'var(--c-muted)' }}>
                 {rundeNavneord(game) === 'dag' ? 'Dage' : 'Runder'} før den valgte tæller ikke i ligaens stilling. Tomt felt = hele spillet.
                 Starter ligaen efter {rundeOrd(game, puljeMaksStartRunde(game))}, tæller puljebonussen ikke med
-                — den blev tippet før sæsonen.
+                — den blev tippet før {rundeOrdene(game).saesonen}.
               </span>
             </div>
           )}

@@ -51,6 +51,16 @@ describe('MyTips', () => {
     expect(screen.getByText(/ikke tippet endnu/i)).toBeInTheDocument();
   });
 
+  // Ordet følger kalenderen: «runde» i en liga, «dag» i en turnering (D12).
+  it('tomtilstanden: «den kommende runde» i en liga — «den kommende dag» i en turnering', () => {
+    const { unmount } = setup();
+    expect(screen.getByText('Sæt dine 1X2 for den kommende runde.')).toBeInTheDocument();
+    unmount();
+    setup({ game: { id: 'sl', type: 'football', faser: [{ navn: 'Indledende runde', fra: 1, til: 6, start: '2027-01-13' }] } });
+    expect(screen.getByText('Sæt dine 1X2 for den kommende dag.')).toBeInTheDocument();
+    expect(screen.queryByText(/kommende runde/)).toBeNull();
+  });
+
   // Tomme tilstande skal have en vej videre, ikke bare en anvisning.
   it('sender én uden tips videre til Tip-fanen', () => {
     setup();

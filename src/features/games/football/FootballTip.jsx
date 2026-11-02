@@ -368,6 +368,13 @@ export default function FootballTip({ game, me, matches }) {
   };
   const [rangeFrom, rangeTo] = spaend(kuponKampe.length ? kuponKampe : roundMatches);
   const [udenforFra, udenforTil] = spaend(udenforKupon);
+  // Ordene om kuponen. «Rundens uge» og «runde-bonussen» er liga-ord: en
+  // spilledag i en turnering har ingen uge af sin egen, og dens bonus hedder
+  // «dagens bonus» (som på combi-kortet). Uden kalender: præcis som før.
+  const kuponOrd = harFaseKalender(game)
+    ? { uden: 'ligger i en anden uge end dagens øvrige kampe', Uden: 'I en anden uge end dagens øvrige kampe', bonussen: 'dagens bonus' }
+    : { uden: 'ligger uden for rundens uge', Uden: 'Uden for rundens uge', bonussen: 'runde-bonussen' };
+  const kuponRunde = rundeOrdene(game);
   // Tælleren skal se de SAMME kampe som listen — også den udsatte kamp fra en
   // anden runde, der spilles i denne uge. Ejeren så "låser om 23 t" over et
   // kort, der låste om en time (FCK–FCN, runde 3, vist på runde 7).
@@ -723,12 +730,12 @@ export default function FootballTip({ game, me, matches }) {
             {/* "Uden for rundens uge", ikke "udsat": en kamp kan være programsat
                 i næste uge helt legitimt, og så er "udsat" en påstand, vi ikke
                 kan bakke op. Det første holder altid. */}
-            🕒 {udenforKupon.length === 1 ? 'Én kamp i runden ligger' : `${udenforKupon.length} kampe i runden ligger`}
-            {' '}uden for rundens uge ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
+            🕒 {udenforKupon.length === 1 ? 'Én kamp' : `${udenforKupon.length} kampe`} {kuponRunde.iRunden}
+            {' '}{kuponOrd.uden} ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
             kuponen: {udenforKupon.map((m) => `${visOf(hold, m.home)}–${visOf(hold, m.away)}`).join(', ')}.
-            {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point som altid — men runde-bonussen
-            venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}, og Chancen følger RUNDEN:
-            har du brugt din ⚡ i denne runde, er den brugt, også her.
+            {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point som altid — men {kuponOrd.bonussen}
+            {' '}venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}, og Chancen følger {kuponRunde.runden.toUpperCase()}:
+            har du brugt din ⚡ {kuponRunde.iDenneRunde}, er den brugt, også her.
           </p>
         )}
         {efterslaeb.length > 0 && (
@@ -821,8 +828,8 @@ export default function FootballTip({ game, me, matches }) {
                     className={`kupon-maerke ${paaKupon ? 'kupon-maerke--med' : 'kupon-maerke--uden'}`}
                     data-testid={paaKupon ? 'kupon-med' : 'kupon-uden'}
                     title={paaKupon
-                      ? 'Tæller med i runde-bonussen'
-                      : 'Uden for rundens uge — giver point, men tæller ikke i runde-bonussen'}
+                      ? `Tæller med i ${kuponOrd.bonussen}`
+                      : `${kuponOrd.Uden} — giver point, men tæller ikke i ${kuponOrd.bonussen}`}
                   >
                     {paaKupon ? '🎯 På kuponen' : '🕒 Uden for kuponen'}
                   </span>
@@ -946,10 +953,12 @@ export default function FootballTip({ game, me, matches }) {
                   // MED et slut er det store tal IKKE slutresultatet, men
                   // stillingen efter ordinær tid — og oplæsningen siger det.
                   // Uden slut: præcis som før.
-                  aria-label={slut
+                  // Halvlegen hænger på BEGGE grene: den er en kvalifikator
+                  // på stillingen, uanset om kampen gik i forlængelse.
+                  aria-label={(slut
                     ? `Stillingen efter ${sportOrd(game).ordinaerTid}: ${m.home} ${score.home}, ${m.away} ${score.away}.`
                       + ` Slutresultat ${AFGJORT_NAVN[slut.afgjort]}: ${m.home} ${slut.home}, ${m.away} ${slut.away}.`
-                    : `Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}.`
+                    : `Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}.`)
                     + `${harHalvleg(m) ? ` Ved pausen stod den ${m.halvlegHome}-${m.halvlegAway}.` : ''}`}
                 >
                   <span aria-hidden="true">{score.home} – {score.away}</span>

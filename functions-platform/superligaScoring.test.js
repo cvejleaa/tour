@@ -468,4 +468,23 @@ describe('sportEvner/harHjemmebane: server-spejlet er identisk med src', () => {
     expect(harHjemmebane({ sport: 'haandbold' })).toBe(false);
     expect(harHjemmebane({})).toBe(true);
   });
+
+  // MODELLENS HALVDEL af evnen. Fodbold har HFA > 0 og håndbold ingen
+  // evne-post, så uden en sport med evnen JA og HFA 0 kunne serveren droppe
+  // `HFA > 0` med grøn suite (modstanderens S6). Prøvesporten (samme tal som
+  // src/test/proeveSport.js) lægges i BEGGE ender, og de skal svare ens.
+  it('en model uden hjemmebanefordel (HFA 0): nej — i begge ender', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const { PROEVE } = await import('../src/test/proeveSport.js');
+    SPORT_PROFILER.proeve = PROEVE;
+    src.SPORT_PROFILER.proeve = PROEVE;
+    try {
+      expect(sportEvner({ sport: 'proeve' })).toBe(SPORT_EVNER.fodbold);
+      expect(harHjemmebane({ sport: 'proeve' })).toBe(false);
+      expect(src.harHjemmebane({ sport: 'proeve' })).toBe(false);
+    } finally {
+      delete SPORT_PROFILER.proeve;
+      delete src.SPORT_PROFILER.proeve;
+    }
+  });
 });
