@@ -16,6 +16,7 @@ import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds
   callSyncGameKickoffs, callSyncGameResults, callSyncGameKampdetaljer } from './adminActions';
 import { harKickoffSynk, harResultatSynk, harKampdetaljer } from '../games/spilEvner';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
+import { rundeEtiket } from '../../lib/faser';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
 
@@ -111,7 +112,7 @@ function StartRundeVaelger({ game, vaerdi, onVaelg }) {
         </option>
         {runder.map(({ round, matches }) => (
           <option key={round} value={String(round)}>
-            {`Runde ${round} · ${rundeSpaend(matches)}`}
+            {`${rundeEtiket(game, round)} · ${rundeSpaend(matches)}`}
           </option>
         ))}
       </select>
@@ -477,7 +478,7 @@ function GameRow({ game }) {
               onClick={() => setVaelgRunde(true)}
               style={{ width: '100%' }}
             >
-              {startRound === '' ? 'Udledes af datoen — vælg runde…' : `Runde ${startRound} — skift`}
+              {startRound === '' ? 'Udledes af datoen — vælg runde…' : `${rundeEtiket(game, Number(startRound))} — skift`}
             </button>
           )}
         </div>

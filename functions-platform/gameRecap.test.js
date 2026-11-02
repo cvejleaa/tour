@@ -1,9 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
+import { createHash } from 'crypto';
+import { HAANDBOLD_SPIL, TEST_FASER, kl18 } from '../src/test/faseKalender.js';
 
 const require = createRequire(import.meta.url);
 const {
   sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap, RECAP_SYSTEM,
+  recapSystem, KALENDER_UDSKIFTNING,
 } = require('./gameRecap');
 // Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
 const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
@@ -740,5 +743,148 @@ describe('Runde-Botten kender ikke xG — endnu', () => {
       expect(json, `${felt} er kommet ind i bottens fakta — læs kommentaren over denne test`)
         .not.toContain(felt);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FASEKALENDEREN OG RUNDE-BOTTEN (delopgave 5, QC's blokerende fund 2).
+//
+// Efter den indledende runde findes hovedrundens kampe ikke endnu — de
+// oprettes, når holdene kendes. Botten regnede næste runde af de OPRETTEDE
+// kampe, fik null og læste det (via prompten) som "sæsonen er slut". Med en
+// fasekalender kommer næste runde fra kalenderen.
+//
+// Uden kalender (SL, PL) skal ALT være som før: samme prompt byte for byte,
+// samme nøgler i fakta, samme nextRound. Det bevises her med literaler.
+// ---------------------------------------------------------------------------
+describe('Runde-Botten uden fasekalender — uændret', () => {
+  it('prompten er RECAP_SYSTEM byte for byte (SL, PL og fodbold uden felt)', () => {
+    for (const game of [{}, null, undefined, { id: 'superliga2627' }, { sport: 'fodbold' }, { sport: 'curling' },
+      { faser: [{ ...TEST_FASER[0], fra: 2 }] }]) {
+      expect(recapSystem(game), JSON.stringify(game)).toBe(RECAP_SYSTEM);
+    }
+    // Og RECAP_SYSTEM selv er den, SL fik før delopgave 5: hashen er taget af
+    // prompten på origin/main 4d2fedd. En utilsigtet rettelse bliver rød her.
+    expect(createHash('sha256').update(RECAP_SYSTEM).digest('hex').slice(0, 16)).toBe('58869be25478d851');
+  });
+
+  it('fakta har præcis de nøgler, de altid har haft — ingen kalender-felter', () => {
+    const f = buildRoundRecapFacts({
+      round: 1, roundMatches: twoMatches,
+      players: [{ uid: 'A', name: 'Anna', totalPoints: 5, rank: 1 }],
+      betsByUid: new Map(), nextRound: 2,
+    });
+    expect(Object.keys(f)).toEqual([
+      'round', 'matches', 'udsatte', 'standings', 'standout', 'standoutTie', 'roundWinners', 'combi',
+      'leader', 'previousLeader', 'leadChanged', 'chancer', 'stoersteGevinst', 'stoersteTab',
+      'ingenChancer', 'nextRound',
+    ]);
+  });
+
+  it('nextRound er stadig næste OPRETTEDE runde, og null efter sidste', async () => {
+    const kald = [];
+    const anth = { messages: { create: async (a) => { kald.push(a); return { content: [{ type: 'text', text: 'ok' }] }; } } };
+    const r2 = twoMatches.map((m) => ({ ...m, id: `${m.id}b`, round: 2, result: null, homeGoals: null, awayGoals: null, kickoff: 900 }));
+    await runGameRoundRecap(makeDb({ ...base, matches: [...twoMatches, ...r2] }), FieldValue, anth, 'g1', 1);
+    expect(JSON.parse(kald[0].messages[0].content).nextRound).toBe(2);
+    expect(kald[0].system).toBe(RECAP_SYSTEM);
+    kald.length = 0;
+    await runGameRoundRecap(makeDb(base), FieldValue, anth, 'g1', 1);
+    const f = JSON.parse(kald[0].messages[0].content);
+    expect(f.nextRound).toBeNull();
+    expect(f).not.toHaveProperty('rundeNavn');
+    expect(kald[0].system).toBe(RECAP_SYSTEM);
+  });
+});
+
+describe('Runde-Botten med fasekalender', () => {
+  // Indledende rundes sidste dag (6) er spillet; hovedrunden er IKKE oprettet.
+  const dag6 = [
+    { id: 'h1', round: 6, home: 'Danmark', away: 'Egypten', kickoff: kl18('2027-01-18'), result: '1', homeGoals: 33, awayGoals: 21, odds: { 1: 1.2, X: 9, 2: 8 } },
+    { id: 'h2', round: 6, home: 'Norge', away: 'Spanien', kickoff: kl18('2027-01-18') + 9000000, result: '2', homeGoals: 34, awayGoals: 35, odds: { 1: 2.1, X: 8, 2: 2.3 } },
+  ];
+  const hb = { ...base, game: { ...HAANDBOLD_SPIL }, matches: dag6, bets: [{ uid: 'A', matchId: 'h1', pick: '1', points: 1.2 }] };
+  const optag = () => {
+    const kald = [];
+    return { kald, anth: { messages: { create: async (a) => { kald.push(a); return { content: [{ type: 'text', text: 'ok' }] }; } } } };
+  };
+
+  it('nextRound kommer fra KALENDEREN — hovedrunden findes, selv om dens kampe ikke gør', async () => {
+    const { kald, anth } = optag();
+    const out = await runGameRoundRecap(makeDb(hb), FieldValue, anth, 'g1', null);
+    expect(out.round).toBe(6);
+    const f = JSON.parse(kald[0].messages[0].content);
+    expect(f.nextRound).toBe(7);
+    expect(f.rundeNavn).toBe('Indledende runde · dag 6 · man 18/1');
+    expect(f.naesteRundeNavn).toBe('Hovedrunde · dag 1');
+    expect(f.naesteRundeStart).toBe('onsdag 20. januar');
+    expect(f.naesteKampeLagtInd).toBe(false);
+  });
+
+  it('naesteKampeLagtInd er sand, når næste dags kampe findes', async () => {
+    const { kald, anth } = optag();
+    const dag7 = [{ id: 'h3', round: 7, home: 'Danmark', away: 'Norge', kickoff: kl18('2027-01-20'), result: null, odds: { 1: 2, X: 8, 2: 2.5 } }];
+    await runGameRoundRecap(makeDb({ ...hb, matches: [...dag6, ...dag7] }), FieldValue, anth, 'g1', 6);
+    const f = JSON.parse(kald[0].messages[0].content);
+    expect(f.nextRound).toBe(7);
+    expect(f.naesteKampeLagtInd).toBe(true);
+  });
+
+  it('midt i en fase: ingen startdato (kalenderen kender kun fasens første dag)', async () => {
+    const { kald, anth } = optag();
+    const dag8 = dag6.map((m) => ({ ...m, id: `${m.id}8`, round: 8 }));
+    await runGameRoundRecap(makeDb({ ...hb, matches: dag8, bets: [] }), FieldValue, anth, 'g1', 8);
+    const f = JSON.parse(kald[0].messages[0].content);
+    expect(f.nextRound).toBe(9);
+    expect(f.naesteRundeNavn).toBe('Hovedrunde · dag 3');
+    expect(f.naesteRundeStart).toBeNull();
+  });
+
+  it('finaledagen: turneringen ER slut — nextRound null', async () => {
+    const { kald, anth } = optag();
+    const finale = dag6.map((m) => ({ ...m, id: `${m.id}f`, round: 17 }));
+    await runGameRoundRecap(makeDb({ ...hb, matches: finale, bets: [] }), FieldValue, anth, 'g1', 17);
+    const f = JSON.parse(kald[0].messages[0].content);
+    expect(f.nextRound).toBeNull();
+    expect(f.naesteRundeNavn).toBeNull();
+    expect(f.naesteKampeLagtInd).toBeNull();
+    expect(f.rundeNavn).toBe('Finaledag · man 18/1');
+  });
+
+  it('kickoff som Firestore-Timestamp giver samme dato som et tal', async () => {
+    const { kald, anth } = optag();
+    const ts = dag6.map((m) => ({ ...m, kickoff: { toMillis: () => m.kickoff } }));
+    await runGameRoundRecap(makeDb({ ...hb, matches: ts }), FieldValue, anth, 'g1', 6);
+    expect(JSON.parse(kald[0].messages[0].content).rundeNavn).toBe('Indledende runde · dag 6 · man 18/1');
+  });
+
+  it('prompten: håndbold, spilledag, og "slut" KUN når nextRound mangler', async () => {
+    const { kald, anth } = optag();
+    await runGameRoundRecap(makeDb(hb), FieldValue, anth, 'g1', null);
+    const sys = kald[0].system;
+    expect(sys).toBe(recapSystem(HAANDBOLD_SPIL));
+    expect(sys).toContain('privat håndbold-tippeliga');
+    expect(sys).not.toContain('fodbold-tippeliga');
+    expect(sys).toContain('"rundeNavn"');
+    expect(sys).toContain('Turneringen er KUN slut, når "nextRound" mangler');
+    // De gamle sætninger må IKKE stå tilbage — især ikke "hvis sæsonen er slut".
+    expect(KALENDER_UDSKIFTNING.length).toBe(4);
+    for (const [gammel, ny] of KALENDER_UDSKIFTNING) {
+      expect(sys, gammel).not.toContain(gammel);
+      expect(sys, ny).toContain(ny);
+    }
+    expect(sys).not.toContain('kan mangle, hvis sæsonen er slut');
+    expect(sys).not.toContain('en rundes egen uge er spillet');
+  });
+
+  it('hver udskiftning står præcis én gang i grund-prompten (ellers kaster recapSystem)', () => {
+    for (const [gammel] of KALENDER_UDSKIFTNING) expect(RECAP_SYSTEM.split(gammel).length, gammel).toBe(2);
+    expect(RECAP_SYSTEM.split('privat fodbold-tippeliga').length).toBe(2);
+  });
+
+  it('håndbold UDEN kalender: kun sportens ord skifter', () => {
+    const sys = recapSystem({ sport: 'haandbold' });
+    expect(sys).toBe(RECAP_SYSTEM.replace('privat fodbold-tippeliga', 'privat håndbold-tippeliga'));
+    expect(sys).toContain('en rundes egen uge er spillet');
   });
 });

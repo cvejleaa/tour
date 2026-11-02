@@ -38,6 +38,7 @@ export default defineConfig({
       'forladSpil.test.js',
       'adminDeleteUser.test.js',
       'ihfParse.test.js',
+      'faser.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

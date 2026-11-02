@@ -9,6 +9,7 @@
 import { visOf } from './teamInfo';
 import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
+import { rundeEtiket } from '../../../lib/faser';
 import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
@@ -82,7 +83,7 @@ function ResultCell({ row }) {
  *          kunAfgjorte?: boolean, tom?: import('react').ReactNode}} props
  */
 export default function TipsHistorik({
-  history, opdeling = null, total, kunAfgjorte = false, tom = null, teams = null,
+  history, opdeling = null, total, kunAfgjorte = false, tom = null, teams = null, game = null,
 }) {
   const played = history.rounds.filter((r) => r.tippedCount > 0);
   const { totals } = history;
@@ -131,7 +132,8 @@ export default function TipsHistorik({
       {[...played].reverse().map((r) => (
         <div className="card mb-2" key={r.round}>
           <div className="mytips__head">
-            <span className="mytips__round">Runde {r.round}</span>
+            {/* Dagens navn i en turnering med fasekalender; ellers «Runde N». */}
+            <span className="mytips__round">{rundeEtiket(game, r.round)}</span>
             <span className="mytips__meta">
               {r.tippedCount}/{r.total} tippet · {r.hitCount} ramt
               {/* 🔗 og ikke ⚡: ⚡ er Chancen, og den står på rækkerne nedenfor.

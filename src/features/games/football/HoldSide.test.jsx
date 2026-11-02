@@ -145,7 +145,22 @@ describe('HoldSide', () => {
     });
     vis(<HoldSide game={game} matches={[]} short="FCK" />);
     expect(screen.getByText(/Målt efter runde 1, 3/)).toBeInTheDocument();
-    expect(screen.getByText(/endnu ikke spillet færdig/)).toBeInTheDocument();
+    expect(screen.getByText(/En runde uden tal er endnu ikke spillet færdig/)).toBeInTheDocument();
+  });
+
+  // Fasekalender (delopgave 5): i en turnering er «runde» et fase-ord.
+  it('siger «dag» i en turnering med fasekalender — ikke «runde»', () => {
+    const game = spil({
+      faser: [{ navn: 'Indledende runde', fra: 1, til: 3, start: '2027-01-13' }],
+      eloHistory: [
+        { round: 1, elo: { 'FC København': 1610 } },
+        { round: 3, elo: { 'FC København': 1625 } },
+      ],
+    });
+    const { container } = vis(<HoldSide game={game} matches={[]} short="FCK" />);
+    expect(screen.getByText(/Målt efter dag 1, 3\./)).toBeInTheDocument();
+    expect(screen.getByText(/En dag uden tal er endnu ikke spillet færdig/)).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/Målt efter runde|En runde uden tal/);
   });
 
   it('viser kampene med runde, side og resultat', () => {

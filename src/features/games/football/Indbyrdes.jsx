@@ -23,6 +23,7 @@ import { bygIndbyrdes, indbyrdesLinje, udenForLinje } from './h2h';
 import { useSpillerOpdeling } from './useSpillerOpdeling';
 import { visOf } from './teamInfo';
 import { fmtSignedPoints } from '../../../lib/daNum';
+import { rundeNavneord } from '../../../lib/faser';
 
 /** Ét resultat som 1/X/2 med et mærke for, hvem der ramte. */
 function Valg({ pick, ret }) {
@@ -106,7 +107,8 @@ export default function Indbyrdes({ game, rounds, minUid, dueUid, dueNavn, teams
               <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Runde</th>
+                    {/* «Dag» i en turnering med fasekalender, ellers «Runde». */}
+                    <th style={{ textAlign: 'left' }}>{rundeNavneord(game) === 'dag' ? 'Dag' : 'Runde'}</th>
                     <th style={{ textAlign: 'left' }}>Kamp</th>
                     <th>Dig</th>
                     <th>{dueNavn}</th>

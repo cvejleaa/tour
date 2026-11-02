@@ -16,9 +16,10 @@
  */
 import EloDelta from './EloDelta';
 import GameTabLink from '../GameTabLink';
+import { rundeEtiket } from '../../../lib/faser';
 
 /** Én side af kampen: rating + de seneste udviklingspunkter. */
-function Side({ navn, elo, align }) {
+function Side({ navn, elo, align, game }) {
   if (!elo) return <span />;
   const { current, form } = elo;
   return (
@@ -42,7 +43,7 @@ function Side({ navn, elo, align }) {
             : `${navn}: udvikling over de seneste ${form.length} runder`}
         >
           {form.map((c) => (
-            <EloDelta key={c.round} d={c.delta} title={`Runde ${c.round}`} />
+            <EloDelta key={c.round} d={c.delta} title={rundeEtiket(game, c.round)} />
           ))}
         </span>
       )}
@@ -56,7 +57,7 @@ function Side({ navn, elo, align }) {
  * @param {string} o.away
  * @param {Record<string, object>} o.eloByTeam – fra eloFormByTeam()
  */
-export default function MatchElo({ home, away, eloByTeam }) {
+export default function MatchElo({ home, away, eloByTeam, game = null }) {
   const h = eloByTeam?.[home];
   const a = eloByTeam?.[away];
   if (!h && !a) return null;
@@ -71,7 +72,7 @@ export default function MatchElo({ home, away, eloByTeam }) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-        <Side navn={home} elo={h} align="left" />
+        <Side navn={home} elo={h} align="left" game={game} />
         <span style={{ fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center', whiteSpace: 'nowrap' }}>
           {/* Her står man og undrer sig over tallet — så herfra skal man kunne
               komme videre til hele sæsonen. */}
@@ -85,7 +86,7 @@ export default function MatchElo({ home, away, eloByTeam }) {
             </>
           )}
         </span>
-        <Side navn={away} elo={a} align="right" />
+        <Side navn={away} elo={a} align="right" game={game} />
       </div>
       <p style={{ margin: '0.3rem 0 0', fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center' }}>
         {spilletRunder === 0

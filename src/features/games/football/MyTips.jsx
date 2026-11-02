@@ -35,6 +35,7 @@ export default function MyTips({ game, matches, me }) {
   return (
     <TipsHistorik
       history={history}
+      game={game}
       // Holdene kommer fra SPILLET. Uden dem faldt kortkoderne tilbage på den
       // danske liste, og et engelsk spil ville vise fulde holdnavne.
       teams={teamsOf(game)}

@@ -117,6 +117,18 @@ er ALTID spillets samlede — der er ét bet pr. kamp, delt af alle ligaer.
 Runde-Botten springer runder før ligaens start over og skriver ligaens egne
 totaler.
 
+**En turnering har en fasekalender.** `games/{id}.faser`
+(`[{navn, bestemt?, fra, til, start, knockout?, antalKampe?}]`, seedet fra
+`scripts/games.mjs`) er den eneste kilde til, hvad en runde (= spilledag)
+hedder ("Indledende runde · dag 2"), hvor mange der er ("Dag 7 af 17"), om
+en fase kommer, før dens kampe er oprettet, og om en runde er knockout. En kamp
+har intet fase-felt — det udledes af `round`. Logikken bor i `faser.js`
+(spejlet src/lib ⇄ functions-platform); fladerne og Runde-Botten gater på
+evnen `harFaseKalender`, og uden kalender (Superligaen, Premier League) — eller
+med en, der ikke består `faseKalenderFejl` — er hver tekst den gamle ("Runde N
+af M"). Sportens ord ("Dagens konge" i håndbold) står i `SPORT_ORD` ved siden
+af sportsprofilen, ikke i den.
+
 **2. `leagueIds` styrer, hvem der ser hvad.** Både stillingen og andres tips er
 jeres indbyrdes opgør: man ser kun spillere, man deler mindst én liga med.
 Feltet står to steder, fordi reglen skal kunne afgøres ud fra dokumentet alene.

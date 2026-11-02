@@ -774,6 +774,22 @@ describe('startrunde-vælgeren', () => {
     await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
     expect(mockSetGameSchedule.mock.calls[0][1].startRound).toBeNull();
   });
+
+  // Fasekalender (delopgave 5): vælgeren og knappen bærer dagens navn, så
+  // ejeren kan se, at «3» er den indledende rundes tredje dag.
+  it('viser dagens navn i en turnering med fasekalender', async () => {
+    const faser = [
+      { navn: 'Indledende runde', fra: 1, til: 2, start: '2026-08-01' },
+      { navn: 'Hovedrunde', bestemt: 'Hovedrunden', fra: 3, til: 4, start: '2026-08-07' },
+    ];
+    mockGames.mockReturnValue({ games: [{ ...SPIL, faser, startRound: 3 }], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Hovedrunde · dag 1 — skift/ }));
+    const r3 = await screen.findByRole('option', { name: /^Hovedrunde · dag 1 · / });
+    expect(r3.textContent).toMatch(/aug/);
+    expect(screen.getByRole('option', { name: /^Indledende runde · dag 1 · / })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /^Runde \d/ })).toBeNull();
+  });
 });
 
 // --- Rundebaseret pulje-deadline + 🗓️ Synk kamptider nu --------------------

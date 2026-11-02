@@ -12,7 +12,10 @@
 // stillingen, uden at én test falder.
 const { buildRoundContext, combiBonus } = require('./pointOpdeling');
 const { rensTekst } = require('./rensTekst');
-const { outcomePoints } = require('./superligaScoring');
+const { outcomePoints, sportOrd, SPORT_ORD } = require('./superligaScoring');
+const {
+  harFaseKalender, rundeEtiket, naesteKalenderRunde, faseFor, fmtFaseStart,
+} = require('./faser');
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const { ligaPoint, harRundeVektor, vektorStemmer } = require('./ligaPoint');
 const { aktiveSpillere } = require('./forladSpil');
@@ -99,6 +102,84 @@ Tone over for rundens bedste:
 - Er "standoutTie" false (ÉN klar rundevinder = "standout"), så lykønsk vedkommende med et glimt i øjet — gerne let drillende og hoverende på en venlig, humoristisk måde (en kærlig stikpille til de andre om at hænge på). Godmodigt, aldrig hånligt.
 - Er "standoutTie" true, så hold tonen neutral og varm: nævn "roundWinners" ligeværdigt og undlad at drille nogen.`;
 
+// Udskiftningerne i en turnering MED fasekalender. Hver nøgle skal stå præcis
+// én gang i RECAP_SYSTEM — ellers kaster recapSystem, i stedet for tavst at
+// sende den gamle sætning med (testet: gameRecap.test.js).
+const KALENDER_UDSKIFTNING = [
+  [
+    'lige efter kampene i en rundes egen uge er spillet.',
+    'lige efter en spilledags kampe er spillet.',
+  ],
+  [
+    '- "round": rundens nummer — opslaget handler om denne runde.',
+    '- "round": spilledagens nummer i turneringens kalender — opslaget handler om denne dag.\n'
+      + '- "rundeNavn": hvad dagen hedder, fx "Indledende runde · dag 2 · tor 14/1". Brug navnet, når du omtaler dagen — skriv ALDRIG "runde 7" om en spilledag: i en turnering er "runde" et fase-ord (indledende runde, hovedrunde).',
+  ],
+  [
+    '- "nextRound": næste rundes nummer (kan mangle, hvis sæsonen er slut).',
+    '- "nextRound": næste spilledags nummer ifølge turneringens kalender. Den findes, selv om dagens kampe ikke er lagt ind endnu — "naesteKampeLagtInd": false betyder, at næste fase venter på, at holdene kendes. Turneringen er KUN slut, når "nextRound" mangler; skriv aldrig, at den er slut, ellers.\n'
+      + '- "naesteRundeNavn": hvad næste spilledag hedder. "naesteRundeStart": datoen for første kamp, når næste dag begynder en ny fase.',
+  ],
+  [
+    'mind om at tippe næste runde, hvis "nextRound" findes.',
+    'mind om at tippe næste spilledag (brug "naesteRundeNavn"), hvis "nextRound" findes. Er "naesteKampeLagtInd" false, så sig, at kampene kommer, når holdene kendes — og nævn "naesteRundeStart", hvis den findes.',
+  ],
+];
+
+/**
+ * System-prompten for ÉT spil. Uden fasekalender og med fodboldens ord er
+ * den RECAP_SYSTEM byte for byte — Superligaen og Premier League får præcis
+ * den prompt, de altid har fået.
+ *
+ * Sporten kommer fra sportOrd (ikke `sport === 'haandbold'`), og kalenderen
+ * fra evnen harFaseKalender: uden den læste botten en manglende næste runde
+ * som "sæsonen er slut" efter den indledende runde (QC).
+ */
+function recapSystem(game) {
+  const ord = sportOrd(game);
+  const kalender = harFaseKalender(game);
+  if (!kalender && ord === SPORT_ORD.fodbold) return RECAP_SYSTEM;
+  const erstat = (tekst, gammel, ny) => {
+    if (tekst.split(gammel).length !== 2) throw new Error(`recapSystem: "${gammel}" står ikke præcis én gang i prompten`);
+    return tekst.replace(gammel, ny);
+  };
+  let s = erstat(RECAP_SYSTEM, 'privat fodbold-tippeliga', `privat ${ord.sport}-tippeliga`);
+  if (kalender) {
+    for (const [gammel, ny] of KALENDER_UDSKIFTNING) s = erstat(s, gammel, ny);
+  }
+  return s;
+}
+
+/** Et kickoff som ms — tal (tests) eller Firestore-Timestamp (drift). */
+function kickoffMs(k) {
+  if (typeof k === 'number') return Number.isFinite(k) ? k : null;
+  if (k && typeof k.toMillis === 'function') return k.toMillis();
+  if (k instanceof Date) return k.getTime();
+  return null;
+}
+
+/**
+ * Kalender-felterne til fakta — KUN for et spil med fasekalender. Uden
+ * kalender returneres null, og fakta får ikke én ny nøgle (SL og PL uændret).
+ * @param {object} game
+ * @param {number} round
+ * @param {Array<object>} roundMatches rundens kampe (første kickoff → dato)
+ * @param {Set<number>} oprettedeRunder runder, der har kampe
+ */
+function kalenderFakta(game, round, roundMatches, oprettedeRunder) {
+  if (!harFaseKalender(game)) return null;
+  const ms = roundMatches.map((m) => kickoffMs(m.kickoff)).filter((x) => x != null);
+  const foerste = ms.length ? Math.min(...ms) : undefined;
+  const naeste = naesteKalenderRunde(game, round);
+  const fase = naeste != null ? faseFor(game, naeste) : null;
+  return {
+    rundeNavn: rundeEtiket(game, round, foerste),
+    naesteRundeNavn: naeste != null ? rundeEtiket(game, naeste) : null,
+    naesteRundeStart: fase && fase.dag === 1 ? fmtFaseStart(fase.start) : null,
+    naesteKampeLagtInd: naeste != null ? oprettedeRunder.has(naeste) : null,
+  };
+}
+
 /**
  * Rens et spiller-navn før det lægges i AI-fakta (værn mod prompt-injection via
  * frit displayName — fjerner kontroltegn/kontekst-brydende tegn, klipper længde).
@@ -121,7 +202,7 @@ function isSurprise(m) {
  * @param {{round:number, roundMatches:Array<object>, players:Array<{uid:string,name:string,totalPoints:number,rank?:number,previousRank?:number}>, betsByUid:Map<string,Array<object>>, nextRound:number|null}} args
  */
 function buildRoundRecapFacts({
-  round, roundMatches, players, betsByUid, nextRound = null, udsatte = [],
+  round, roundMatches, players, betsByUid, nextRound = null, udsatte = [], kalender = null,
 }) {
   const roundIds = new Set(roundMatches.map((m) => m.id));
   const roundCtx = buildRoundContext(roundMatches);
@@ -219,6 +300,9 @@ function buildRoundRecapFacts({
     stoersteTab,
     ingenChancer: chancer.length === 0,
     nextRound,
+    // Kun i en turnering med fasekalender (kalenderFakta). Uden er det null,
+    // og fakta har præcis de nøgler, de altid har haft.
+    ...(kalender || {}),
   };
 }
 
@@ -339,9 +423,18 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     }
   }
 
-  const nextRound = settledRounds.length && byRound.size
-    ? ([...byRound.keys()].sort((a, b) => a - b).find((r) => r > round) ?? null)
-    : null;
+  // NÆSTE RUNDE. I en liga er det den næste OPRETTEDE runde. I en turnering
+  // med fasekalender er det kalenderens næste dag — også når dens kampe ikke
+  // findes endnu. Uden det sagde botten "sæsonen er slut" efter den
+  // indledende runde, fordi hovedrundens kampe først oprettes, når holdene
+  // kendes (QC, blokerende fund 2).
+  const nextRound = harFaseKalender(game)
+    ? naesteKalenderRunde(game, round)
+    : (settledRounds.length && byRound.size
+      ? ([...byRound.keys()].sort((a, b) => a - b).find((r) => r > round) ?? null)
+      : null);
+  const kalender = kalenderFakta(game, round, roundMatches, new Set(byRound.keys()));
+  const system = recapSystem(game);
 
   // ÉT OPSLAG PR. LIGA — ikke ét pr. spil.
   //
@@ -422,8 +515,9 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
       betsByUid,
       nextRound,
       udsatte,
+      kalender,
     });
-    const text = await generateRecapText(anthropic, facts);
+    const text = await generateRecapText(anthropic, facts, system);
     if (!text) continue;
 
     if (dryRun) {
@@ -453,4 +547,5 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
 
 module.exports = {
   RECAP_SYSTEM, sanitizeName, isSurprise, buildRoundRecapFacts, generateRecapText, runGameRoundRecap,
+  recapSystem, kalenderFakta, KALENDER_UDSKIFTNING,
 };

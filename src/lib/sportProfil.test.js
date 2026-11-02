@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ELO, ODDS, OUTCOME, SPORT_PROFILER, STANDARD_SPORT, sportProfil, ukendtSport, oddsParametre, eloParametre,
-  outcomeOdds, outcomeProbabilities, fairOdds, updateElo,
+  outcomeOdds, outcomeProbabilities, fairOdds, updateElo, SPORT_ORD, sportOrd,
 } from './superligaScoring';
 import { buildMatch, buildMatches, teamElo } from './superligaSeed';
 import { pointModForventning } from '../features/games/football/holdStatistik';
@@ -417,5 +417,48 @@ describe('kaldestederne bruger SPILLETS profil (prøvesport)', () => {
     const p = outcomeProbabilities({ eloHome: 1300, eloAway: 1000, ...PROEVE_ARGS });
     expect(r.ventede).toBe(Math.round((3 * p['2'] + p.X) * 10) / 10);
     expect(r.ventede).toBeLessThan(1);
+  });
+});
+
+// --- Sportens ORD -----------------------------------------------------------
+// Et eget register (SPORT_ORD), ikke et felt på profilen: håndboldens ord er
+// besluttet (§11.2), dens Elo-tal er ikke (delopgave 4). Se kommentaren ved
+// SPORT_ORD for begrundelsen.
+describe('sportOrd — hvad tingene hedder i sporten', () => {
+  it('fodboldens ord er dagens — literaler, så en ændring bliver rød', () => {
+    expect(sportOrd()).toEqual({
+      sport: 'fodbold', rundeKonge: 'Rundekongen', rundeSejr: 'rundesejr', rundeSejre: 'rundesejre',
+    });
+  });
+
+  it('håndbold: "Dagens konge" (ejerens beslutning) — UDEN en håndboldprofil', () => {
+    expect(sportOrd({ sport: 'haandbold' })).toEqual({
+      sport: 'håndbold', rundeKonge: 'Dagens konge', rundeSejr: 'dagssejr', rundeSejre: 'dagssejre',
+    });
+    // Ordene gør IKKE håndbold til en kendt sport for Elo og seed: den må
+    // stadig afvises, indtil profilen er målt (delopgave 4).
+    expect(ukendtSport({ sport: 'haandbold' })).toBe(true);
+    expect(sportProfil({ sport: 'haandbold' })).toBe(SPORT_PROFILER.fodbold);
+  });
+
+  it('manglende, ukendt eller ugyldig sport giver fodboldens ord — også prototype-navne', () => {
+    for (const game of [undefined, null, {}, { sport: null }, { sport: 'curling' }, { sport: 'Haandbold' },
+      { sport: ['haandbold'] }, { sport: 'toString' }, { sport: '__proto__' }, { sport: 'constructor' }]) {
+      expect(sportOrd(game), JSON.stringify(game)).toBe(SPORT_ORD.fodbold);
+    }
+  });
+
+  it('hver sport har præcis fodboldens nøgler, alle som ikke-tomme tekster', () => {
+    const noegler = Object.keys(SPORT_ORD.fodbold).sort();
+    expect(Object.keys(SPORT_ORD)).toEqual(['fodbold', 'haandbold']);
+    for (const [navn, ord] of Object.entries(SPORT_ORD)) {
+      expect(Object.keys(ord).sort(), navn).toEqual(noegler);
+      for (const [k, v] of Object.entries(ord)) {
+        expect(typeof v === 'string' && v.trim().length > 0, `${navn}.${k}`).toBe(true);
+      }
+      expect(Object.isFrozen(ord), navn).toBe(true);
+    }
+    // Hver sport med en profil har også ord — ellers fik den tavst fodboldens.
+    for (const navn of Object.keys(SPORT_PROFILER)) expect(SPORT_ORD, navn).toHaveProperty(navn);
   });
 });

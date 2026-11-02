@@ -134,6 +134,43 @@ describe('forhåndsvisning af runde-opslaget', () => {
     fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis runde-opslag/ }));
     expect(await screen.findByText('Runde 2 har allerede fået sit opslag.')).toBeInTheDocument();
   });
+
+  // Fasekalender (delopgave 5): ejeren skal kunne se, HVILKEN dag det handler
+  // om — «runde 7» er et fase-ord i håndbold.
+  describe('i en turnering med fasekalender', () => {
+    const HB = {
+      ...SPIL, id: 'hvm', sport: 'haandbold',
+      faser: [
+        { navn: 'Indledende runde', fra: 1, til: 6, start: '2027-01-13' },
+        { navn: 'Hovedrunde', bestemt: 'Hovedrunden', fra: 7, til: 13, start: '2027-01-20' },
+      ],
+    };
+    beforeEach(() => mockGames.mockReturnValue({ games: [HB], loading: false }));
+
+    it('grunden «already» nævner dagens navn', async () => {
+      mockRecapNow.mockResolvedValue({ ok: true, data: { posted: 0, reason: 'already', round: 7 } });
+      render(<GameRecapBotTab />);
+      fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis runde-opslag/ }));
+      expect(await screen.findByText('Hovedrunde · dag 1 har allerede fået sit opslag.')).toBeInTheDocument();
+      expect(screen.queryByText(/Runde 7/)).toBeNull();
+    });
+
+    it('kvitteringen og udkastet siger «dag N»', async () => {
+      mockRecapNow.mockResolvedValue({ ok: true, data: { posted: 2, round: 7 } });
+      render(<GameRecapBotTab />);
+      fireEvent.click(screen.getByRole('button', { name: /Post runde-opslag nu/ }));
+      expect(await screen.findByText(/Postet på 2 liga-vægge \(dag 7\)/)).toBeInTheDocument();
+    });
+
+    it('udkastets overskrift siger «dag N»', async () => {
+      mockRecapNow.mockResolvedValue({ ok: true, data: UDKAST });
+      render(<GameRecapBotTab />);
+      fireEvent.click(screen.getByRole('button', { name: /Forhåndsvis runde-opslag/ }));
+      await screen.findByText('Sikke en runde i Familien!');
+      expect(document.body.textContent).toContain('Runde-Botten · dag 2 · Familien');
+      expect(document.body.textContent).not.toContain('Runde-Botten · runde 2');
+    });
+  });
 });
 
 // Et udkast hører til ÉT spil. Bliver det stående, når man skifter spil, skriver

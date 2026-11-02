@@ -15,6 +15,10 @@ import { fmtDec } from '../../../lib/daNum';
 // denne fils formål er at undgå.
 import { harXg, harKampdetaljer } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
+import { sportOrd } from '../../../lib/superligaScoring';
+import {
+  harFaseKalender, rundeKort, rundeOrd, sidsteKalenderRunde,
+} from '../../../lib/faser';
 
 // Udbetalingstabellen REGNES af den rigtige formel, den skrives ikke af.
 // En håndskrevet tabel er en anden udgave af reglen, og to udgaver driver fra
@@ -76,6 +80,8 @@ export default function FootballHelp({ game }) {
   // 1,01 ville ellers stå som "1,0", altså under indsatsen. Fodboldens 1,1
   // står som altid.
   const oddsGulv = String(profil.odds.min).replace('.', ',');
+  // Sportens ord ("Dagens konge" i håndbold) — fra registret, ikke en if.
+  const ord = sportOrd(game);
   return (
     <div>
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.95rem' }}>
@@ -123,8 +129,19 @@ export default function FootballHelp({ game }) {
             <strong>Hvilken runde lander du på?</strong> <Tab fane="tip">Tip</Tab> bliver stående på den runde, der
             har en kamp <strong>i gang</strong> — så forsvinder kampen, du sidder og ser, ikke fra skærmen. Ellers
             viser den runden med den <strong>næste kamp</strong>. Vil du videre før tid, bruger du
-            {' '}<strong>Runde X →</strong> øverst; du kan tippe frit i enhver runde, der ikke er begyndt.
+            {' '}<strong>{rundeKort(game, 'X')} →</strong> øverst; du kan tippe frit i enhver runde, der ikke er begyndt.
           </li>
+          {/* TURNERINGENS FASER — kun med en fasekalender, og navnene LÆSES
+              af kalenderen (ikke en hardkodet liste, der kan blive en
+              "lige nu"-løgn). Uden kalender: intet nyt i guiden. */}
+          {harFaseKalender(game) && (
+            <li style={{ marginBottom: '0.4rem' }} data-testid="hjaelp-faser">
+              <strong>Turneringen har faser:</strong> {game.faser.map((f) => f.navn).join(', ')}.
+              {' '}Hver spilledag er én runde for pointene, så tælleren på <Tab fane="tip">Tip</Tab> siger
+              {' '}fx <strong>Dag 1 af {sidsteKalenderRunde(game)}</strong>. En ny fases kampe lægges ind, så snart
+              holdene kendes — indtil da står der på <Tab fane="tip">Tip</Tab>, hvornår dens første kamp er.
+            </li>
+          )}
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Løbende:</strong> {game?.pulje
               ? <>Afgiv dit <Tab fane="pulje">🎖️ Pulje</Tab>-tip før deadline (én gang), dyst i</>
@@ -283,7 +300,7 @@ export default function FootballHelp({ game }) {
         sin egen <strong>startrunde</strong>: så tæller kun
         runder fra den og frem i ligaens stilling — hele runder, aldrig halve, så en udsat kamp
         følger sin runde. Ligaens ejer sætter den under <Tab fane="ligaer">👥 Ligaer</Tab>, og den
-        står på liga-kortet.{game?.pulje && <>{' '}Starter ligaen efter runde {PULJE_MAKS_STARTRUNDE}, tæller
+        står på liga-kortet.{game?.pulje && <>{' '}Starter ligaen efter {rundeOrd(game, PULJE_MAKS_STARTRUNDE)}, tæller
         puljebonussen ikke med — den blev tippet før sæsonen, så nye medlemmer kunne ikke være med.</>}
         {' '}Din <strong>saldo</strong> øverst er altid spillets samlede — det er den, Chancen må satse af.
         <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
@@ -296,7 +313,7 @@ export default function FootballHelp({ game }) {
             det hos dem begge. Har hele feltet tabt runden, er der ingen ild. En <strong>–</strong>
             {' '}betyder, at ingen af dine tips i runden er afgjort endnu — har du ramt forbi, står
             der 0 (eller minus, hvis du tabte Chancen).
-            {' '}Med knappen <strong>Runde N</strong> over podiet (N er den seneste runde med et
+            {' '}Med knappen <strong>{rundeKort(game, 'N')}</strong> over podiet (N er den seneste runde med et
             afgjort tip) ser
             du runden alene: sorteret efter rundens point, og placering og point fra Samlet står med
             småt under. Dér er der hverken pil eller 🔥 — placeringen siger, hvem der fører indtil
@@ -307,7 +324,7 @@ export default function FootballHelp({ game }) {
             have gjort. De tre på podiet har ingen pil; dér vises kun medalje, point og rundens tal.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>👑 Rundekongen</strong> — hvem har vundet flest <strong>hele</strong> runder? En runde
+            <strong>👑 {ord.rundeKonge}</strong> — hvem har vundet flest <strong>hele</strong> runder? En runde
             tæller først, når hver eneste af dens kampe har facit, så en udsat kamp udskyder kåringen.
             Står to lige, deler de sejren. Det er en anden pokal end tabellen: man kan vinde fire runder
             og alligevel ligge midt i feltet. Bemærk forskellen på 🔥 i listen: den er
