@@ -15,6 +15,7 @@ import { useMemo } from 'react';
 import GameTabLink from '../GameTabLink';
 import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import { sportProfil } from '../../../lib/superligaScoring';
+import { rundeNavneord } from '../../../lib/faser';
 import { teamsOf, teamInfo, visOf, teamByShort } from './teamInfo';
 import {
   holdetsKampe, holdForm, hjemmeUde, maalforskelFordeling,
@@ -337,8 +338,8 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
               runde er SYNLIG frem for at blive forbundet som om den var der. */}
           {eloRaekke.cells.length > 0 && (
             <p style={{ color: 'var(--c-muted)', fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
-              Målt efter runde {eloRaekke.cells.map((c) => c.round).join(', ')}.
-              {' '}En runde uden tal er endnu ikke spillet færdig.
+              Målt efter {rundeNavneord(game)} {eloRaekke.cells.map((c) => c.round).join(', ')}.
+              {' '}En {rundeNavneord(game)} uden tal er endnu ikke spillet færdig.
             </p>
           )}
         </Kort>

@@ -4,7 +4,7 @@
 // af 1362 tests sagde fra. Denne fil dækker, at Elo faktisk NÅR ud på hvert
 // kampkort — selve visningen er dækket i MatchElo.test.jsx.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -34,6 +34,7 @@ vi.mock('../../../lib/share', () => ({ shareText: (...a) => mockShare(...a) }));
 
 import { TRAEF_BONUS } from '../../../lib/superligaScoring';
 import FootballTip from './FootballTip';
+import { HAANDBOLD_SPIL, TEST_FASER, kl18 } from '../../../test/faseKalender';
 
 const KICKOFF = new Date('2026-09-01T18:00:00Z');
 const KICKOFF2 = new Date('2026-09-08T18:00:00Z');
@@ -1907,5 +1908,184 @@ describe('FootballTip — kampe fra en anden runde i samme uge', () => {
     expect(container.querySelectorAll('.match-card')).toHaveLength(3);
     expect(screen.queryByTestId('fra-runde')).toBeNull();
     expect(screen.queryByTestId('combi-efterslaeb')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FASEKALENDEREN PÅ TIP-FLADEN (delopgave 5, QC's blokerende fund 1-2).
+//
+// Efter den indledende runde findes hovedrundens kampe ikke endnu. Tælleren
+// sagde "Runde 6 af 6", overskriften "Runde 6", og fladen landede tavst på
+// sidste afgjorte runde — som om turneringen var slut. Med en fasekalender:
+// "Dag 6 af 17", dagens navn, og en linje om, hvornår hovedrunden kommer.
+// Uden kalender (SL, PL) er alt som før — testet nederst og i blokkene ovenfor.
+// ---------------------------------------------------------------------------
+describe('FootballTip — fasekalender', () => {
+  const DAGE = ['2027-01-13', '2027-01-14', '2027-01-15', '2027-01-16', '2027-01-17', '2027-01-18'];
+  // To kampe pr. dag, alle spillet, med odds (så facit og deling kan vises).
+  const indledende = DAGE.flatMap((d, i) => [
+    { id: `d${i + 1}a`, round: i + 1, home: 'AGF', away: 'F.C. København', kickoff: new Date(kl18(d)), odds: { 1: 2, X: 8, 2: 2.5 }, result: '1' },
+    { id: `d${i + 1}b`, round: i + 1, home: 'Brøndby IF', away: 'FC Midtjylland', kickoff: new Date(kl18(d) + 7200000), odds: { 1: 2, X: 8, 2: 2.5 }, result: '2' },
+  ]);
+  const hb = { ...HAANDBOLD_SPIL };
+  const taeller = () => screen.getByTestId('round-nav-count').textContent;
+
+  it('efter den indledende runde: "Dag 6 af 17", dagens navn og hovedrundens dato', () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    setup(hb, '/spil/hvm', indledende);
+    expect(taeller()).toBe('Dag 6 af 17');
+    expect(taeller()).not.toBe('Runde 6 af 6');
+    expect(screen.getByText('Indledende runde · dag 6')).toBeInTheDocument();
+    expect(screen.getByTestId('fase-venter').textContent)
+      .toBe('📅 Hovedrunden lægges ind, så snart holdene kendes. Første kamp onsdag 20. januar.');
+    // Ordet "Runde N" må ikke stå nogen steder i navigationen eller overskriften.
+    expect(screen.getByTestId('round-nav').textContent).not.toMatch(/Runde \d/);
+    expect(screen.getByTestId('round-nav-prev').textContent).toBe('← Dag 5');
+    expect(screen.getByTestId('round-nav-prev')).toHaveAttribute('aria-label', 'Forrige dag (dag 5)');
+    expect(screen.queryByText(/^Runde 6$/)).toBeNull();
+    // Elo-punkterne på kampkortet bærer også dagens navn (spillet sendes med).
+    expect(screen.getAllByTitle('Indledende runde · dag 2').length).toBeGreaterThan(0);
+    expect(screen.queryByTitle('Runde 2')).toBeNull();
+  });
+
+  it('← Dag 5 bladrer tilbage til dag 5 — og tælleren følger med', () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    setup(hb, '/spil/hvm', indledende);
+    fireEvent.click(screen.getByTestId('round-nav-prev'));
+    expect(screen.getByTestId('url').textContent).toBe('?runde=5');
+    expect(taeller()).toBe('Dag 5 af 17');
+    expect(screen.getByText('Indledende runde · dag 5')).toBeInTheDocument();
+    // Ventelinjen står stadig: der er stadig ingen kamp at tippe. Og den
+    // handler om det, der VENTER efter sidst oprettede dag (dag 6 → hovedrunden),
+    // ikke om dagen efter den viste (dag 5 → «Indledende runde · dag 6»), som
+    // jo allerede er spillet.
+    expect(screen.getByTestId('fase-venter').textContent)
+      .toBe('📅 Hovedrunden lægges ind, så snart holdene kendes. Første kamp onsdag 20. januar.');
+    expect(screen.getByTestId('fase-venter').textContent).not.toContain('dag 6');
+  });
+
+  // «Ingen kamp tilbage» måles på ALLE kampe — en udsat kamp fra en anden
+  // dag er også en kamp at tippe. Stod der kun dagens kampe, ville linjen
+  // sige «hovedrunden lægges ind», mens en kamp fra dag 3 stadig venter.
+  it('en udsat kamp fra en anden dag: ingen ventelinje, selv på en færdig dag', () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    const udsat = indledende.map((m) => (m.id === 'd3b'
+      ? { ...m, kickoff: new Date(kl18('2027-01-22')), result: null }
+      : m));
+    setup(hb, '/spil/hvm?runde=6', udsat);
+    expect(taeller()).toBe('Dag 6 af 17');
+    expect(screen.queryByTestId('fase-venter')).toBeNull();
+    // Modprøven: samme dag og tid, men kampen ER spillet → linjen står.
+    cleanup();
+    setup(hb, '/spil/hvm?runde=6', indledende);
+    expect(screen.getByTestId('fase-venter')).toBeInTheDocument();
+  });
+
+  it('dagen efter hovedrundens startdag lover fladen ikke en passeret dato', () => {
+    vi.setSystemTime(new Date('2027-01-21T08:00:00Z'));
+    setup(hb, '/spil/hvm', indledende);
+    const t = screen.getByTestId('fase-venter').textContent;
+    expect(t).toBe('📅 Hovedrunden skulle være begyndt onsdag 20. januar, men kampene er ikke lagt ind endnu.');
+    expect(t).not.toContain('Første kamp');
+  });
+
+  it('midt i den indledende runde: ingen ventelinje, "Dag 2 af 17"', () => {
+    vi.setSystemTime(new Date('2027-01-14T08:00:00Z'));
+    const kommende = indledende.map((m) => (m.round >= 2 ? { ...m, result: null } : m));
+    setup(hb, '/spil/hvm', kommende);
+    expect(taeller()).toBe('Dag 2 af 17');
+    expect(screen.getByText('Indledende runde · dag 2')).toBeInTheDocument();
+    expect(screen.queryByTestId('fase-venter')).toBeNull();
+    expect(screen.getByTestId('round-nav-next').textContent).toBe('Dag 3 →');
+    expect(screen.getByTestId('round-nav-next')).toHaveAttribute('aria-label', 'Næste dag (dag 3)');
+  });
+
+  // En kamp fra dag 1 er flyttet til hovedrundens første dag (samme uge).
+  // Den lånes ind på dag 7 — og alle tre tekster om den skal tale om DAGE:
+  // mærkaten, efterslæbs-linjen og ordet for ugen.
+  it('en lånt kamp fra en anden dag: «Dag 1 · point tæller dér» og dage, ikke runder', () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    const flyttet = indledende.map((m) => (m.id === 'd1b'
+      ? { ...m, kickoff: new Date(kl18('2027-01-20') + 3600000), result: null }
+      : m));
+    const dag7 = [
+      { id: 'd7a', round: 7, home: 'AGF', away: 'Brøndby IF', kickoff: new Date(kl18('2027-01-20')), odds: null, result: null },
+      { id: 'd7b', round: 7, home: 'F.C. København', away: 'FC Midtjylland', kickoff: new Date(kl18('2027-01-20') + 7200000), odds: null, result: null },
+    ];
+    setup(hb, '/spil/hvm?runde=7', [...flyttet, ...dag7]);
+    expect(screen.getByTestId('fra-runde').textContent).toBe('Dag 1 · point tæller dér');
+    const p = screen.getByTestId('combi-efterslaeb').textContent;
+    expect(p).toMatch(/^📅 Én kamp fra en anden dag spilles i samme uge som denne dag og står derfor med herunder: .+–.+ \(dag 1\)\. /);
+    expect(p).toContain('Den giver point på sin egen dag — ikke på denne — og den står ikke på kuponen her.');
+    // \b: «herunder» indeholder «runde».
+    expect(p).not.toMatch(/\brunde|i denne uge/);
+  });
+
+  it('hovedrundens første dag er oprettet: "Dag 7 af 17" og "Hovedrunde · dag 1"', () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    const dag7 = [
+      { id: 'd7a', round: 7, home: 'AGF', away: 'Brøndby IF', kickoff: new Date(kl18('2027-01-20')), odds: null, result: null },
+    ];
+    setup(hb, '/spil/hvm', [...indledende, ...dag7]);
+    expect(taeller()).toBe('Dag 7 af 17');
+    expect(screen.getByText('Hovedrunde · dag 1')).toBeInTheDocument();
+    // Der ER en kamp at tippe — så ingen ventelinje.
+    expect(screen.queryByTestId('fase-venter')).toBeNull();
+  });
+
+  it('delingsteksten bærer spillets tegn og dagens navn — ikke ⚽ og "R6"', async () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    mockBets.mockReturnValue({
+      betsByMatch: { d6a: { pick: '1', points: 2 }, d6b: { pick: '2', points: 2.5 } }, loading: false,
+    });
+    setup(hb, '/spil/hvm?runde=6', indledende);
+    expect(screen.getByText('Indledende runde · dag 6 · facit')).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Del i chatten/ })); });
+    const tekst = mockShare.mock.calls[0][0];
+    expect(tekst.startsWith('🤾 VM · Indledende runde · dag 6: ')).toBe(true);
+    expect(tekst).not.toContain('⚽');
+    expect(tekst).not.toMatch(/\bR6\b/);
+  });
+
+  it('UDEN kalender: alt spillet giver INGEN ventelinje og den gamle tæller', () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    setup({}, '/spil/sl', indledende);
+    expect(screen.queryByTestId('fase-venter')).toBeNull();
+    expect(taeller()).toBe('Runde 6 af 6');
+    expect(screen.getByText('Runde 6')).toBeInTheDocument();
+    expect(screen.getByTestId('round-nav-prev').textContent).toBe('← Runde 5');
+    expect(screen.getByTestId('round-nav-prev')).toHaveAttribute('aria-label', 'Forrige runde (runde 5)');
+  });
+
+  it('UDEN kalender: den lånte kamp og efterslæbs-linjen siger «runde» og «i denne uge» som før', () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    const flyttet = indledende.map((m) => (m.id === 'd1b'
+      ? { ...m, kickoff: new Date(kl18('2027-01-20') + 3600000), result: null }
+      : m));
+    const r7 = [{ id: 'd7a', round: 7, home: 'AGF', away: 'Brøndby IF', kickoff: new Date(kl18('2027-01-20')), odds: null, result: null }];
+    setup({}, '/spil/sl?runde=7', [...flyttet, ...r7]);
+    expect(screen.getByTestId('fra-runde').textContent).toBe('Runde 1 · point tæller dér');
+    const p = screen.getByTestId('combi-efterslaeb').textContent;
+    expect(p).toMatch(/^📅 Én kamp fra en anden runde spilles i denne uge og står derfor med herunder: .+–.+ \(runde 1\)\. /);
+    expect(p).toContain('Den giver point i sin egen runde — ikke i denne — og den står ikke på kuponen her.');
+    expect(p).not.toMatch(/\bdag/);
+  });
+
+  it('en UGYLDIG kalender tæller ikke — fladen viser de gamle tekster', () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    setup({ ...hb, faser: [{ ...TEST_FASER[0], fra: 2 }, ...TEST_FASER.slice(1)] }, '/spil/hvm', indledende);
+    expect(taeller()).toBe('Runde 6 af 6');
+    expect(screen.queryByTestId('fase-venter')).toBeNull();
+  });
+
+  it('UDEN kalender: delingsteksten er præcis som før (⚽ og R-nummer)', async () => {
+    vi.setSystemTime(new Date('2027-01-19T08:00:00Z'));
+    mockBets.mockReturnValue({
+      betsByMatch: { d6a: { pick: '1', points: 2 }, d6b: { pick: '2', points: 2.5 } }, loading: false,
+    });
+    setup({ shortName: 'Superliga', emoji: '⚽' }, '/spil/sl?runde=6', indledende);
+    expect(screen.getByText('Runde 6 · facit')).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Del i chatten/ })); });
+    expect(mockShare.mock.calls[0][0].startsWith('⚽ Superliga R6: ')).toBe(true);
   });
 });

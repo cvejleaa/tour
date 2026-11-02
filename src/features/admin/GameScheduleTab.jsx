@@ -15,7 +15,10 @@ import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameAc
 import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds,
   callSyncGameKickoffs, callSyncGameResults, callSyncGameKampdetaljer } from './adminActions';
 import { harKickoffSynk, harResultatSynk, harKampdetaljer } from '../games/spilEvner';
+import { erKampspil, uenigTekst } from '../../lib/facit';
+import ManuelFacit from './ManuelFacit';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
+import { rundeEtiket, rundeFlertal, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
 import { fmtDec } from '../../lib/daNum';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
 
@@ -107,16 +110,21 @@ function StartRundeVaelger({ game, vaerdi, onVaelg }) {
         onChange={(e) => onVaelg(e.target.value)}
       >
         <option value="">
-          {udledt == null ? '– Ingen gate (alle runder tæller) –' : `– Udled af startdatoen (runde ${udledt}) –`}
+          {/* Samme etiket som valgene nedenfor — ellers står «runde 3» øverst
+              og «Indledende runde · dag 3» under den om samme runde. Uden
+              kalender: præcis som før (lille r). */}
+          {udledt == null
+            ? `– Ingen gate (alle ${rundeFlertal(game)} tæller) –`
+            : `– Udled af startdatoen (${harFaseKalender(game) ? rundeEtiket(game, udledt) : `runde ${udledt}`}) –`}
         </option>
         {runder.map(({ round, matches }) => (
           <option key={round} value={String(round)}>
-            {`Runde ${round} · ${rundeSpaend(matches)}`}
+            {`${rundeEtiket(game, round)} · ${rundeSpaend(matches)}`}
           </option>
         ))}
       </select>
       <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--c-muted)', marginTop: '0.25rem' }}>
-        Runder FØR den valgte giver ingen point og vises ikke. Efter en ændring
+        {harFaseKalender(game) ? 'Dage' : 'Runder'} FØR den valgte giver ingen point og vises ikke. Efter en ændring
         skal point genberegnes — knappen står nedenfor.
       </span>
     </>
@@ -176,6 +184,7 @@ function GameRow({ game }) {
   }, [startMs, puljeMs, game.status, game.startRound]);
 
   const isFootball = game.type === 'football';
+  const kalenderFejl = faseKalenderAdvarsel(game);
   // Pulje-deadlinen hører til spil MED en pulje. Uden gaten kunne ejeren i god
   // tro sætte en deadline på Premier League — og så ville et puljetip faktisk
   // blive gemt og senere afregnet mod PL-stillingen, selv om ligaen ikke har
@@ -346,12 +355,21 @@ function GameRow({ game }) {
     const tabel = d.standings?.error
       ? `Tabellen kunne ikke synkes: ${d.standings.error}`
       : `Tabellen: ${d.standings?.rows ?? '?'} hold, ${d.standings?.changed ? 'opdateret' : 'uændret'}`;
+    // Kampe med facit sat i hånden rører synken ikke. Siger kilden noget
+    // ANDET om dem, skal et menneske se på det — enten var tastningen forkert,
+    // eller kilden er. Nævnes kun, når der er nogen.
+    // Bøjet som Drift-kortets linje (facitVagt.meldManuelleUenige): "1 kamp".
+    const kampe = (n) => `${n} ${n === 1 ? 'kamp' : 'kampe'}`;
+    const manuelle = d.manuelle?.length
+      ? ` ${kampe(d.manuelle.length)} er sat i hånden og røres ikke af synken${d.manuelleUenige?.length ? ` — kilden siger noget andet om ${d.manuelleUenige.length}: ${d.manuelleUenige.map(uenigTekst).join('; ')}` : ''}.`
+      : '';
     // "Intet manglede" er sandt og alligevel en halv besked i alarm-scenariet:
     // den strandede kamp er netop IKKE blandt kildens færdige kampe. Sig
-    // næste skridt, ellers er alarm → knap → "intet manglede" en blindgyde.
+    // næste skridt — og peg på KNAPPEN, ikke på en guide — ellers er alarm →
+    // knap → "intet manglede" en blindgyde.
     setResMsg(d.updated > 0
-      ? { kind: 'ok', text: `${d.updated} kampe fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.` }
-      : { kind: 'ok', text: `Intet manglede — de ${d.checked} færdige kampe hos kilden står allerede rigtigt. ${tabel}. Står en kamp stadig uden facit, har kilden det ikke endnu — sæt facit i hånden (se admin-guiden → Resultater).` });
+      ? { kind: 'ok', text: `${kampe(d.updated)} fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.${manuelle}` }
+      : { kind: 'ok', text: `Intet manglede — de ${d.checked} færdige kampe hos kilden står allerede rigtigt. ${tabel}. Står en kamp stadig uden facit, har kilden det ikke endnu — brug ✍️ Sæt eller ret facit i hånden nedenfor.${manuelle}` });
     setResBusy(false);
   }
 
@@ -436,6 +454,18 @@ function GameRow({ game }) {
         <span className="badge badge--muted">{game.id}</span>
       </div>
 
+      {/* EN UGYLDIG FASEKALENDER SLÅR FRA — MEN IKKE TAVST. Fladerne og
+          Runde-Botten falder tilbage til ligaens «Runde N», og botten ville
+          sige «sæsonen er slut» efter den indledende runde. Her ser admin
+          hvorfor (serveren logger det samme). Et spil uden faser-felt
+          (Superligaen, Premier League) får ingen linje. */}
+      {kalenderFejl && (
+        <p className="badge badge--red" data-testid="fasekalender-ugyldig" role="alert"
+          style={{ display: 'block', whiteSpace: 'normal', marginTop: '0.5rem' }}>
+          {`⚠️ Fasekalenderen er ugyldig: ${kalenderFejl.join('; ')}. Spillet vises med «Runde N» i stedet for dagens navn, Runde-Botten ser ikke de kommende faser, og ✍️ facit i hånden kender ingen knockout-kampe (intet slutresultat efter forlængelse). Ret faser i scripts/games.mjs og kør Deploy platform med seedGames.`}
+        </p>
+      )}
+
       <div className="grid-2" style={{ gap: '0.75rem', marginTop: '0.75rem' }}>
         <label style={{ display: 'block' }}>
           <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--c-muted)', marginBottom: '0.25rem' }}>
@@ -477,7 +507,7 @@ function GameRow({ game }) {
               onClick={() => setVaelgRunde(true)}
               style={{ width: '100%' }}
             >
-              {startRound === '' ? 'Udledes af datoen — vælg runde…' : `Runde ${startRound} — skift`}
+              {startRound === '' ? 'Udledes af datoen — vælg runde…' : `${rundeEtiket(game, Number(startRound))} — skift`}
             </button>
           )}
         </div>
@@ -710,6 +740,16 @@ function GameRow({ game }) {
           )}
         </div>
       )}
+
+      {/* ✍️ Sæt eller ret facit i hånden — NØDBREMSEN. Lige under "⬇️ Synk
+          resultater nu", fordi det er dér, man leder, når et facit mangler
+          eller er forkert, og dér alarmen og synk-knappens "intet manglede"
+          sender ejeren hen (trin 0b). For ALLE kampspil — gate't på
+          erKampspil, ikke på en synk-evne: et spil uden kilde har mest brug
+          for den. "Lad synken overtage igen" vises derimod kun for spil MED
+          resultat-synk (harResultatSynk) — uden synk er der intet at give
+          kampen tilbage til. */}
+      {erKampspil(game) && <ManuelFacit game={game} harSynk={harResultatSynk(game)} />}
 
       {/* ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal, og
           live-målene for kampe i gang.

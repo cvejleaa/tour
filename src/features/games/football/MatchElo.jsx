@@ -16,9 +16,10 @@
  */
 import EloDelta from './EloDelta';
 import GameTabLink from '../GameTabLink';
+import { rundeEtiket, rundeNavneord, rundeFlertal } from '../../../lib/faser';
 
 /** Én side af kampen: rating + de seneste udviklingspunkter. */
-function Side({ navn, elo, align }) {
+function Side({ navn, elo, align, game }) {
   if (!elo) return <span />;
   const { current, form } = elo;
   return (
@@ -38,11 +39,11 @@ function Side({ navn, elo, align }) {
         <span
           style={{ display: 'inline-flex', gap: '0.15rem', fontSize: '0.7rem', flexWrap: 'wrap' }}
           aria-label={form.length === 1
-            ? `${navn}: udvikling seneste runde`
-            : `${navn}: udvikling over de seneste ${form.length} runder`}
+            ? `${navn}: udvikling seneste ${rundeNavneord(game)}`
+            : `${navn}: udvikling over de seneste ${form.length} ${rundeFlertal(game)}`}
         >
           {form.map((c) => (
-            <EloDelta key={c.round} d={c.delta} title={`Runde ${c.round}`} />
+            <EloDelta key={c.round} d={c.delta} title={rundeEtiket(game, c.round)} />
           ))}
         </span>
       )}
@@ -56,7 +57,7 @@ function Side({ navn, elo, align }) {
  * @param {string} o.away
  * @param {Record<string, object>} o.eloByTeam – fra eloFormByTeam()
  */
-export default function MatchElo({ home, away, eloByTeam }) {
+export default function MatchElo({ home, away, eloByTeam, game = null }) {
   const h = eloByTeam?.[home];
   const a = eloByTeam?.[away];
   if (!h && !a) return null;
@@ -71,7 +72,7 @@ export default function MatchElo({ home, away, eloByTeam }) {
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-        <Side navn={home} elo={h} align="left" />
+        <Side navn={home} elo={h} align="left" game={game} />
         <span style={{ fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center', whiteSpace: 'nowrap' }}>
           {/* Her står man og undrer sig over tallet — så herfra skal man kunne
               komme videre til hele sæsonen. */}
@@ -80,17 +81,19 @@ export default function MatchElo({ home, away, eloByTeam }) {
             <>
               <br />
               <span style={{ fontSize: '0.62rem' }}>
-                {spilletRunder === 1 ? 'seneste runde' : `seneste ${spilletRunder}`}
+                {spilletRunder === 1 ? `seneste ${rundeNavneord(game)}` : `seneste ${spilletRunder}`}
               </span>
             </>
           )}
         </span>
-        <Side navn={away} elo={a} align="right" />
+        <Side navn={away} elo={a} align="right" game={game} />
       </div>
       <p style={{ margin: '0.3rem 0 0', fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center' }}>
+        {/* «Dag» i en turnering med fasekalender (dér er «runde» et
+            fase-ord), «runde» ellers — præcis som før. */}
         {spilletRunder === 0
-          ? 'Start-rating — udviklingen kommer, når der er spillet runder.'
-          : 'Styrke efter seneste spillede runde — ikke et bud på denne kamp.'}
+          ? `Start-rating — udviklingen kommer, når der er spillet ${rundeFlertal(game)}.`
+          : `Styrke efter seneste spillede ${rundeNavneord(game)} — ikke et bud på denne kamp.`}
       </p>
     </div>
   );

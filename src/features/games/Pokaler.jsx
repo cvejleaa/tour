@@ -34,6 +34,8 @@
 import { useMemo } from 'react';
 import { rundeSejre, faerdigeRunder } from './rundeSejre';
 import { fmtSignedPoints } from '../../lib/daNum';
+import { sportOrd } from '../../lib/superligaScoring';
+import { rundeOrd, rundeNavneord, rundeFlertal } from '../../lib/faser';
 
 /**
  * Navnene på dem, der deler en pokal.
@@ -72,7 +74,10 @@ const VINDER = { margin: '0.3rem 0 0' };
  *   `rows` er stillingen som den må vises (uid, name, perRound, opdeling).
  *   `startRunde` er ligaens; null når hele spillet vises.
  */
-export default function Pokaler({ rows = [], matches = [], startRunde = null }) {
+export default function Pokaler({ rows = [], matches = [], startRunde = null, game = null }) {
+  // Pokalens NAVN er sportens ord (sportOrd), ikke en if på sporten: i
+  // håndbold hedder den "Dagens konge" (ejerens beslutning, §11.2).
+  const ord = sportOrd(game);
   const runder = useMemo(() => faerdigeRunder(matches), [matches]);
   const sejre = useMemo(() => rundeSejre(rows, startRunde, runder), [rows, startRunde, runder]);
 
@@ -110,19 +115,21 @@ export default function Pokaler({ rows = [], matches = [], startRunde = null }) 
 
   return (
     <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
-      <Kort ikon="👑" titel="Rundekongen" skala={anden ? `fra runde ${startRunde}` : null}>
+      <Kort ikon="👑" titel={ord.rundeKonge} skala={anden ? `fra ${rundeOrd(game, startRunde)}` : null}>
         {konge ? (
           <p style={VINDER}>
             <strong>{navneAf(rows, konge.uids)}</strong>
             {' — '}
-            {konge.flest} {konge.flest === 1 ? 'rundesejr' : 'rundesejre'}
+            {konge.flest} {konge.flest === 1 ? ord.rundeSejr : ord.rundeSejre}
             {konge.uids.length > 1 && ' (delt)'}
           </p>
         ) : (
           <p style={TOM}>
+            {/* Ordene følger kortets titel: under «Dagens konge» står der
+                «dage», ikke «runder». Uden kalender: præcis som før. */}
             {runder.length === 0
-              ? 'Ingen runder er spillet færdig endnu.'
-              : 'Ingen har vundet en runde endnu.'}
+              ? `Ingen ${rundeFlertal(game)} er spillet færdig endnu.`
+              : `Ingen har vundet en ${rundeNavneord(game)} endnu.`}
           </p>
         )}
       </Kort>

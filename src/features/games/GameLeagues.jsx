@@ -19,6 +19,7 @@ import LeagueQuestions from './LeagueQuestions';
 import { formatPoints } from './GameLayout';
 import { useKlubFarver } from './football/useKlubFarver';
 import { relativeTime } from '../../lib/daDate';
+import { rundeOrd, rundeNavneord } from '../../lib/faser';
 import {
   createLeague, joinLeagueByCode, leaveLeague, renameLeague, deleteLeague,
   setLeagueStartRound,
@@ -239,7 +240,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
                 have tippet puljen, så den tæller ikke med. */}
             {Number.isFinite(league.startRound) && (
               <span className="badge badge--muted" data-testid="liga-startrunde">
-                Tæller fra runde {league.startRound}
+                Tæller fra {rundeOrd(game, league.startRound)}
                 {!puljenTaeller(league.startRound) && ' · puljen tæller ikke'}
               </span>
             )}
@@ -248,7 +249,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
           {vaelgerRunde && isOwner && (
             <div className="flex items-center" style={{ gap: '0.4rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
               <label htmlFor={`liga-runde-${league.id}`} style={{ fontSize: '0.85rem', color: 'var(--c-muted)' }}>
-                Ligaen tæller fra runde
+                Ligaen tæller fra {rundeNavneord(game)}
               </label>
               <input
                 id={`liga-runde-${league.id}`} type="number" min={1} step={1}
@@ -261,8 +262,8 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
               {/* Konsekvensen skal stå VED valget, ikke opdages i stillingen:
                   runder før tæller ikke, og puljen har sin egen grænse. */}
               <span style={{ flexBasis: '100%', fontSize: '0.78rem', color: 'var(--c-muted)' }}>
-                Runder før den valgte tæller ikke i ligaens stilling. Tomt felt = hele spillet.
-                Starter ligaen efter runde {PULJE_MAKS_STARTRUNDE}, tæller puljebonussen ikke med
+                {rundeNavneord(game) === 'dag' ? 'Dage' : 'Runder'} før den valgte tæller ikke i ligaens stilling. Tomt felt = hele spillet.
+                Starter ligaen efter {rundeOrd(game, PULJE_MAKS_STARTRUNDE)}, tæller puljebonussen ikke med
                 — den blev tippet før sæsonen.
               </span>
             </div>

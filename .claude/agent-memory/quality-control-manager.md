@@ -164,6 +164,18 @@ PR-teksten, ikke her.
   antagelse (fx at en optimistisk lokal skrivning når at opdatere en
   listener FØR et await løses), ikke en garanti fra koden.
 
+- **Samme evne gatet på TRE måder i én PR er en proxy-gate under udvikling**
+  (facit-vagtens Drift-kort: klient `!sync?.provider`, server `SYNCED_GAMES`,
+  knappen `harResultatSynk`). En paritets-tripwire, der kun binder ÉN retning
+  (implementeret provider ⇒ i SYNCED_GAMES), dækker ikke "provider på dokumentet,
+  intet på serveren". Kræv den delte helper overalt.
+- **En ny flade i SAMME merge som et ordforrådsskifte arver det gamle ord**
+  ("Rd 3", "rundens sidste kamp" i en admin-dialog, mens D5 lærer resten af
+  appen "Dag 3"). Grep det nye filers runde-ord mod kalender-helperne.
+- **"Vises separat" om et felt, ingen flade viser endnu** (`slut` før D11) er en
+  løfte-tekst uden modtager: sig i udmeldingen, hvilken delopgave der indfrier
+  den, og at den skal lande før første kamp, der bruger feltet.
+
 ## Data, kilder og målinger
 
 - **En parser, der KASTER på en ukendt statuskode, kaster også på LIVE** — og

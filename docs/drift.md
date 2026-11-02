@@ -110,7 +110,19 @@ kvittering i fladen — ⚠-markøren på Admin-knappen står, til de er set.
 Functions-loggen er stadig sandheden for historik; fladen viser NU-billedet.
 En strandet-alarm peger selv på sit remedie: **⬇️ Synk resultater nu** under
 🗓️ Spil-tidsplan — og finder den intet, har kilden ikke facit endnu, så er
-hånd-vejen i admin-guiden (Resultater) svaret.
+**✍️ Sæt eller ret facit i hånden** samme sted svaret (admin-guiden, *Facit i
+hånden*). Alarmen gælder **alle aktive kampspil**, også dem uden synk: de
+vogtes af sweep'et via `functions-platform/facitVagt.js` og har deres eget kort,
+**Facit-vagt (spil uden synk)**. Deres alarm nævner ikke synk-knappen (den
+findes ikke for dem). En kamp uden læseligt kickoff meldes med det samme, med
+"ret kickoff" som remedie.
+
+Er kilden **uenig med et facit sat i hånden**, står det som en ⚠-advarsel på
+spillets Times-sweep-kort med holdnavne og begge stillinger (i hånden / hos
+kilden). Synken rører ikke kampen; remediet er enten at rette tastningen med
+✍️ Sæt eller ret facit i hånden eller at give kampen tilbage med ↩️ Lad synken
+overtage igen (Spil-tidsplan). Advarslen forsvinder af sig selv, når de er
+enige igen.
 
 #### Alarm-mailen (postbudet) — fladen er ikke længere pull-only
 

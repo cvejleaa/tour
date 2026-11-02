@@ -15,6 +15,8 @@ import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { GAMES } from './games.mjs';
 import { SPORT_PROFILER, ukendtSport } from '../src/lib/superligaScoring.js';
+import { faseKalenderFejl } from '../src/lib/faser.js';
+import { ADMIN_OWNED } from './seed-payload.mjs';
 
 // Providerens navn → de nøgler, den præcist skal have. Ingen flere, ingen
 // færre. Et `SHAPES`-objekt frem for if-grene, så en NY provider ikke kan
@@ -206,5 +208,32 @@ describe('sport på spillene', () => {
       expect(ukendtSport(g), `${g.id}: sport ${JSON.stringify(g.sport)}`).toBe(false);
       if (g.sport !== undefined) expect(Object.keys(SPORT_PROFILER), g.id).toContain(g.sport);
     }
+  });
+});
+
+// Fasekalenderen (delopgave 5) seedes herfra og skrives med merge — ligesom
+// sync og pulje kan den kun rettes i konsollen bagefter. En kalender, der ikke
+// består formkontrollen, tæller ikke i fladerne (de viser «Runde N» igen), så
+// en fejl her ville tavst slå hele turneringens ord fra.
+describe('faser på spillene', () => {
+  it('hver kalender i listen består formkontrollen', () => {
+    for (const g of GAMES.filter((x) => x.faser !== undefined)) {
+      expect(faseKalenderFejl(g.faser), g.id).toEqual([]);
+    }
+  });
+
+  // FRAVÆRS-ASSERTION MED VILJE. Superligaen og Premier League er ligaer:
+  // deres sidste oprettede runde ER sæsonens sidste, og «Runde N af M» er
+  // rigtigt dér. Får de en kalender, skifter alle deres tekster til «Dag N».
+  it('Superligaen og Premier League har INGEN kalender', () => {
+    for (const id of ['superliga2627', 'pl2627-efteraar']) {
+      expect(GAMES.find((g) => g.id === id), id).not.toHaveProperty('faser');
+    }
+  });
+
+  // Kalenderen er spillets program, ikke et admin-valg: et senere seed skal
+  // kunne rette den. Stod den i ADMIN_OWNED, blev en rettelse tavst sprunget over.
+  it('faser er ikke admin-ejet', () => {
+    expect(ADMIN_OWNED).not.toContain('faser');
   });
 });

@@ -10,6 +10,7 @@ const {
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities, fairOdds,
   leagueTable, championshipTeams, puljeScore, bundTeams, puljeKonfig,
   STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
+  SPORT_ORD, sportOrd,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
@@ -430,5 +431,20 @@ describe('puljeScore — perfekt-bonus-vagt (server, spejlet)', () => {
     const facit = ['A', 'B', 'C', 'D', 'E', 'F'];
     const r = puljeScore(['A', 'B', 'C', 'D', 'E', 'F', 'X', 'Y'], facit);
     expect(r).toEqual({ correct: 6, points: 6 * PULJE.PER_TEAM });
+  });
+});
+
+// Ordene er spejlet: Runde-Botten (serveren) og fladen skal kalde tingene det
+// samme. Se src/lib/sportProfil.test.js for teksterne.
+describe('sportOrd: server-spejlet er identisk med src', () => {
+  it('samme register og samme opslag', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    expect(SPORT_ORD).toEqual(src.SPORT_ORD);
+    for (const g of [undefined, null, {}, { sport: 'haandbold' }, { sport: 'fodbold' }, { sport: 'toString' },
+      { sport: ['haandbold'] }, { sport: 'curling' }]) {
+      expect(sportOrd(g), JSON.stringify(g)).toEqual(src.sportOrd(g));
+    }
+    expect(sportOrd({ sport: 'haandbold' }).rundeKonge).toBe('Dagens konge');
+    expect(sportOrd({ sport: 'toString' })).toBe(SPORT_ORD.fodbold);
   });
 });

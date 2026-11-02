@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import { readFileSync } from 'node:fs';
 import { GAMES } from '../scripts/games.mjs';
+import { RESULTAT_PROVIDERE, harResultatSynk } from '../src/features/games/spilEvner.js';
 
 const require = createRequire(import.meta.url);
 const { PROVIDERS, SYNCED_GAMES, rundeTal } = require('./syncProviders');
@@ -67,6 +68,22 @@ function fakeDb(matchDocs, gameInit = {}) {
           }
         },
       };
+    },
+    // Resultat-synken skriver facit i en transaktion, der læser mærket igen.
+    async runTransaction(fn) {
+      const ops = [];
+      const ud = await fn({
+        async getAll(...refs) { return refs.map((r) => ({ exists: docs.has(r.__id), data: () => docs.get(r.__id) })); },
+        set(ref, data, opts) {
+          if (opts?.merge !== true) throw new Error('tx.set() uden merge');
+          ops.push({ id: ref.__id, data });
+        },
+      });
+      for (const op of ops) {
+        metoder.push('tx.set');
+        docs.set(op.id, { ...(docs.get(op.id) || {}), ...op.data });
+      }
+      return ud;
     },
   };
 }
@@ -170,6 +187,32 @@ describe('SYNCED_GAMES ⇄ scripts/games.mjs', () => {
       .map((x) => x.id)
       .sort();
     expect(SYNCED_GAMES.map((g) => g.gameId).sort()).toEqual(burde);
+  });
+
+  // PARITET MED KLIENTENS harResultatSynk (src/features/games/spilEvner.js).
+  // Klienten kan ikke importere SYNCED_GAMES, så Drift-fanens sweep- og
+  // facit-vagt-kort og Spil-tidsplanens ⬇️/↩️-knapper gater på helperen. Den
+  // SKAL være samme sæt som serverens: ellers venter fladen på et sweep-kort,
+  // serveren aldrig skriver, eller viser en knap, hvis kald kun kan fejle.
+  it('klientens RESULTAT_PROVIDERE er præcis de implementerede providere', () => {
+    expect([...RESULTAT_PROVIDERE].sort()).toEqual(Object.keys(PROVIDERS).sort());
+  });
+
+  it('for hvert games.mjs-kampspil: harResultatSynk ⇔ med i SYNCED_GAMES', () => {
+    const synket = new Set(SYNCED_GAMES.map((g) => g.gameId));
+    for (const g of GAMES.filter((x) => x.type === 'football')) {
+      expect(harResultatSynk(g), g.id).toBe(synket.has(g.id));
+    }
+  });
+
+  // Provider på dokumentet, men ikke implementeret ⇒ ikke synk — på BEGGE
+  // sider. Spillet vogtes så af facit-vagten (facitVagt.spilUdenSynk), og
+  // fladen skal vise dét kort, ikke vente på sweep'ets.
+  it('en provider på dokumentet, serveren ikke har, er ikke synk nogen steder', () => {
+    const g = { id: 'nyt-spil', type: 'football', sync: { provider: 'endnu-ikke-bygget' } };
+    expect(Object.hasOwn(PROVIDERS, g.sync.provider)).toBe(false);
+    expect(SYNCED_GAMES.some((x) => x.gameId === g.id)).toBe(false);
+    expect(harResultatSynk(g)).toBe(false);
   });
 
   // Kampdetalje-kilden er ORTOGONAL på facit-provideren: den er den samme for

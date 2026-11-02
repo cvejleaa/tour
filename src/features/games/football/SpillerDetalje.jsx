@@ -56,6 +56,7 @@ export default function SpillerDetalje({ game, matches, spiller, minUid = null, 
         <div style={{ marginTop: '0.6rem' }}>
           <TipsHistorik
             history={history}
+            game={game}
             // HOLDENE SKAL MED. Uden dem falder `visOf` tilbage på det rå navn,
             // og så viser panelet "Brighton and Hove Albion", hvor "Mine tips"
             // ved siden af siger "Brighton". Proppen manglede engang helt, og

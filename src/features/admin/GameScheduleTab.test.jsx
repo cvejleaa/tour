@@ -38,6 +38,8 @@ vi.mock('./adminActions', () => ({
   callSyncGameKickoffs: (...a) => mockSyncKickoffs(...a),
   callSyncGameResults: (...a) => mockSyncResults(...a),
   callSyncGameKampdetaljer: (...a) => mockSyncDetaljer(...a),
+  callSaetFacitManuelt: vi.fn(),
+  callFrigivFacitTilSynk: vi.fn(),
 }));
 
 // Kamplisten til rundevælgeren hentes med getDocs — den hentes FØRST når
@@ -448,8 +450,76 @@ describe('⬇️ Synk resultater nu — manuel udløsning af resultat-synken', (
     render(<GameScheduleTab />);
     fireEvent.click(knap());
     await waitFor(() => expect(screen.getByText(/Intet manglede/)).toBeInTheDocument());
-    expect(screen.getByText(/sæt facit i hånden/)).toBeInTheDocument();
+    // Næste skridt er KNAPPEN lige nedenfor — ikke en guide, der beskrev en
+    // vej, som kun gik gennem Firebase-konsollen.
+    expect(screen.getByText(/brug ✍️ Sæt eller ret facit i hånden nedenfor/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Sæt eller ret facit i hånden/ })).toBeInTheDocument();
+    expect(screen.queryByText(/admin-guiden/)).not.toBeInTheDocument();
     expect(screen.queryByText(/fik nyt facit/)).not.toBeInTheDocument();
+    // Ingen manuelle kampe → ingen sætning om dem (støj en almindelig dag).
+    expect(screen.queryByText(/sat i hånden og røres ikke/)).not.toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  it('nævner kampe sat i hånden — og hvilke kilden er uenig om', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true,
+      data: {
+        gameId: 'superliga2627', checked: 12, updated: 0, rettede: [],
+        manuelle: ['r4-a', 'r5-b'],
+        manuelleUenige: [{ id: 'r5-b', home: 'AGF', away: 'OB', haand: { home: 1, away: 1 }, kilde: { home: 2, away: 1 } }],
+        standings: { rows: 12, changed: false },
+      },
+    });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    // Holdnavne og BEGGE stillinger — ikke dokument-id'et.
+    const linje = await screen.findByText(/2 kampe er sat i hånden og røres ikke af synken/);
+    expect(linje.textContent).toContain('— kilden siger noget andet om 1: AGF – OB (i hånden 1-1, kilden 2-1).');
+    expect(linje.textContent).not.toMatch(/r5-b|\[object Object\]/);
+    bekraeft.mockRestore();
+  });
+
+  // Ental: "1 kamp", aldrig "1 kampe" — samme bøjning som Drift-kortets
+  // linje om de samme kampe (facitVagt.meldManuelleUenige).
+  it('bøjer ental ved én kamp sat i hånden og ét nyt facit', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true,
+      data: {
+        gameId: 'superliga2627', checked: 12, updated: 1, rettede: ['sl-a'],
+        manuelle: ['r4-a'], manuelleUenige: [],
+        standings: { rows: 12, changed: false },
+      },
+    });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    const linje = await screen.findByText(/fik nyt facit/);
+    expect(linje.textContent).toMatch(/^1 kamp fik nyt facit: sl-a\./);
+    expect(linje.textContent).toContain(' 1 kamp er sat i hånden og røres ikke af synken.');
+    expect(linje.textContent).not.toMatch(/1 kampe/);
+    bekraeft.mockRestore();
+  });
+
+  it('bøjer flertal ved to', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true,
+      data: {
+        gameId: 'superliga2627', checked: 12, updated: 2, rettede: ['sl-a', 'sl-b'],
+        manuelle: ['r4-a', 'r5-b'], manuelleUenige: [],
+        standings: { rows: 12, changed: false },
+      },
+    });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    const linje = await screen.findByText(/fik nyt facit/);
+    expect(linje.textContent).toMatch(/^2 kampe fik nyt facit: sl-a, sl-b\./);
+    expect(linje.textContent).toContain(' 2 kampe er sat i hånden og røres ikke af synken.');
     bekraeft.mockRestore();
   });
 
@@ -713,7 +783,9 @@ describe('startrunde-vælgeren', () => {
     fireEvent.click(screen.getByRole('button', { name: /vælg runde/i }));
     // startAt 15:59 UTC, runde 2 begynder 16:00 UTC — ét minut efter.
     const standard = await screen.findByRole('option', { name: /Udled af startdatoen/ });
-    expect(standard.textContent).toMatch(/runde 2/);
+    // Præcis — uden kalender er teksten den, den altid har været.
+    expect(standard.textContent).toBe('– Udled af startdatoen (runde 2) –');
+    expect(document.body.textContent).toContain('Runder FØR den valgte giver ingen point');
   });
 
   it('gemmer den valgte runde som et TAL', async () => {
@@ -773,6 +845,49 @@ describe('startrunde-vælgeren', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Gem' }));
     await waitFor(() => expect(mockSetGameSchedule).toHaveBeenCalled());
     expect(mockSetGameSchedule.mock.calls[0][1].startRound).toBeNull();
+  });
+
+  // Fasekalender (delopgave 5): vælgeren og knappen bærer dagens navn, så
+  // ejeren kan se, at «3» er den indledende rundes tredje dag.
+  it('viser dagens navn i en turnering med fasekalender', async () => {
+    const faser = [
+      { navn: 'Indledende runde', fra: 1, til: 2, start: '2026-08-01' },
+      { navn: 'Hovedrunde', bestemt: 'Hovedrunden', fra: 3, til: 4, start: '2026-08-07' },
+    ];
+    mockGames.mockReturnValue({ games: [{ ...SPIL, faser, startRound: 3 }], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Hovedrunde · dag 1 — skift/ }));
+    const r3 = await screen.findByRole('option', { name: /^Hovedrunde · dag 1 · / });
+    expect(r3.textContent).toMatch(/aug/);
+    expect(screen.getByRole('option', { name: /^Indledende runde · dag 1 · / })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /^Runde \d/ })).toBeNull();
+    // Første valg bærer SAMME etiket som resten (modstanderens fund 6) —
+    // ikke «runde 2» over «Indledende runde · dag 2».
+    const standard = screen.getByRole('option', { name: /Udled af startdatoen/ });
+    expect(standard.textContent).toBe('– Udled af startdatoen (Indledende runde · dag 2) –');
+    expect(standard.textContent).not.toMatch(/runde 2\)/);
+    expect(document.body.textContent).toContain('Dage FØR den valgte giver ingen point');
+    expect(document.body.textContent).not.toContain('Runder FØR');
+  });
+
+  // EN UGYLDIG KALENDER SLÅR FRA — MEN IKKE TAVST (modstanderens fund 2).
+  it('viser admin, at fasekalenderen er ugyldig — og hvad det betyder', () => {
+    const faser = [{ navn: 'Indledende runde', fra: 2, til: 3, start: '2026-08-01' }];
+    mockGames.mockReturnValue({ games: [{ ...SPIL, faser }], loading: false });
+    render(<GameScheduleTab />);
+    const linje = screen.getByTestId('fasekalender-ugyldig');
+    expect(linje.textContent).toBe('⚠️ Fasekalenderen er ugyldig: fase 1: første fase skal starte i runde 1 (ikke 2). '
+      + 'Spillet vises med «Runde N» i stedet for dagens navn, Runde-Botten ser ikke de kommende faser, '
+      + 'og ✍️ facit i hånden kender ingen knockout-kampe (intet slutresultat efter forlængelse). '
+      + 'Ret faser i scripts/games.mjs og kør Deploy platform med seedGames.');
+  });
+
+  it('ingen kalender-linje for et spil uden faser — eller med en gyldig kalender', () => {
+    const gyldig = [{ navn: 'Indledende runde', fra: 1, til: 2, start: '2026-08-01' }];
+    mockGames.mockReturnValue({ games: [SPIL, { ...SPIL, id: 'hb', name: 'HB', faser: gyldig }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByTestId('fasekalender-ugyldig')).toBeNull();
+    expect(document.body.textContent).not.toContain('Fasekalenderen er ugyldig');
   });
 });
 
@@ -1091,5 +1206,74 @@ describe('⚽ Synk kampdetaljer nu', () => {
     render(<GameScheduleTab />);
     fireEvent.click(knap());
     expect(await screen.findByText('permission-denied')).toBeInTheDocument();
+  });
+});
+
+// ✍️ Sæt eller ret facit i hånden — nødbremsen. Selve dialogen er testet i
+// ManuelFacit.test.jsx; her bevises KUN render-betingelsen pr. spil: den
+// gælder ALLE kampspil (også uden synk), og den sidder ved synk-knappen.
+describe('✍️ Sæt eller ret facit i hånden — hvilke spil har knappen', () => {
+  const knapper = () => screen.queryAllByRole('button', { name: /Sæt eller ret facit i hånden/ });
+  const SL_SYNK = { id: 'superliga2627', name: 'Superligaen 2026/27', type: 'football', status: 'live', sync: { provider: 'superliga' } };
+  const PL_SYNK = { ...PL, sync: { provider: 'pulselive' } };
+  // Håndboldspillet, før provideren er i drift: INGEN synk — og derfor
+  // ingen "Synk resultater nu". Det er netop det spil, nødbremsen er til.
+  const HB = { id: 'hvm2027', name: 'Håndbold-VM 2027', type: 'football', status: 'open', sport: 'haandbold' };
+
+  it('Superligaen og Premier League har den — ved siden af synk-knappen', () => {
+    mockGames.mockReturnValue({ games: [SL_SYNK, PL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Synk resultater nu/ })).toHaveLength(2);
+  });
+
+  it('et kampspil UDEN synk har den — men ikke synk-knappen', () => {
+    mockGames.mockReturnValue({ games: [HB], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Synk resultater nu/ })).not.toBeInTheDocument();
+  });
+
+  it('også et afsluttet kampspil — en rettelse kan komme efter sidste kamp', () => {
+    mockGames.mockReturnValue({ games: [{ ...HB, status: 'finished' }], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(1);
+  });
+
+  it('Touren (ikke et kampspil) har den ikke', () => {
+    mockGames.mockReturnValue({ games: [TOUR], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(0);
+  });
+
+  // harSynk afgøres i Spil-tidsplanen (harResultatSynk) og gives videre.
+  // ManuelFacit.test.jsx sætter harSynk direkte og kan ikke se, hvis
+  // ledningen her bliver hardkodet — denne render-test kan. Positiv kontrol
+  // med samme kamp i Superligaen, så fraværet ikke bare er et tomt panel.
+  const MANUEL_KAMP = { id: 'r1-dk-no', round: 1, home: 'Danmark', away: 'Norge', kickoff: Date.now() - 4 * 3600e3, result: '1', homeGoals: 30, awayGoals: 28, resultatKilde: 'manuel' };
+  async function vaelgManuelKamp(game) {
+    mockGetDocs.mockResolvedValue({ docs: [{ id: MANUEL_KAMP.id, data: () => MANUEL_KAMP }] });
+    mockGames.mockReturnValue({ games: [game], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Sæt eller ret facit i hånden/ }));
+    const select = await screen.findByLabelText(`Kamp at sætte facit på i ${game.name}`);
+    fireEvent.change(select, { target: { value: MANUEL_KAMP.id } });
+    await screen.findByLabelText('Mål Danmark');
+  }
+
+  it('spil UDEN synk: en kamp sat i hånden har ingen "Lad synken overtage igen"', async () => {
+    await vaelgManuelKamp(HB);
+    expect(screen.queryByRole('button', { name: /Lad synken overtage igen/ })).not.toBeInTheDocument();
+  });
+
+  it('spil MED synk: samme kamp har "Lad synken overtage igen"', async () => {
+    await vaelgManuelKamp(SL_SYNK);
+    expect(screen.getByRole('button', { name: /Lad synken overtage igen/ })).toBeInTheDocument();
+  });
+
+  it('henter ingen kampe, før knappen trykkes', () => {
+    mockGames.mockReturnValue({ games: [SL_SYNK, PL_SYNK, HB], loading: false });
+    render(<GameScheduleTab />);
+    expect(mockGetDocs).not.toHaveBeenCalled();
   });
 });

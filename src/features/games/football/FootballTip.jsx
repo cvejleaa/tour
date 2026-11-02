@@ -30,6 +30,9 @@ import {
 } from './footballRounds';
 import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import {
+  harFaseKalender, rundeEtiket, rundeKort, rundeOrd, rundeNavneord, dagTaeller, ventetekst,
+} from '../../../lib/faser';
+import {
   OUTCOME, OUTCOMES, round1, hitPoints, TRAEF_BONUS, COMBI,
   chanceMaxStake, canUseChance, CHANCE, settleChance,
 } from '../../../lib/superligaScoring';
@@ -371,6 +374,21 @@ export default function FootballTip({ game, me, matches }) {
   const tipped = roundMatches.filter((m) => betsByMatch[m.id]?.pick).length;
   const total = roundMatches.length;
 
+  // FASEOVERGANGEN. Er der ingen kamp tilbage at tippe, men siger kalenderen,
+  // at der kommer en fase (eller en dag), hvis kampe ikke er lagt ind endnu,
+  // så siger fladen det — i stedet for tavst at lande på sidste afgjorte runde
+  // og lade spilleren tro, at turneringen er slut (QC, blokerende fund 2).
+  // Kun med fasekalender: uden den er `ventetekst` null, og Superligaen og
+  // Premier League ser intet nyt. "Ingen kamp tilbage" måles på ALLE viste
+  // kampe, ikke kun rundens: en udsat kamp fra en anden runde er også en kamp.
+  const ingenKommende = !shownMatches.some((m) => {
+    const k = toMillis(m.kickoff);
+    return k != null && k > nowMs;
+  });
+  const faseVenter = ingenKommende
+    ? ventetekst(game, rounds[rounds.length - 1].round, nowMs)
+    : null;
+
   const tippedAllRound = kupon > 0 && tippetKupon === kupon;
   const roundSettled = !!rc && rc.combiCount > 0 && rc.combiSettled === rc.combiCount;
   const roundHits = kuponKampe.filter((m) => m.result && betsByMatch[m.id]?.pick === m.result);
@@ -456,8 +474,15 @@ export default function FootballTip({ game, me, matches }) {
 
   function buildFacitShare() {
     // Spillets eget navn — "Superliga R5" i en Premier League-deling ville
-    // sende venner til den forkerte liga.
-    const parts = [`⚽ ${game?.shortName || game?.name || 'Runde'} R${current?.round}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${spilledeIRunden} ramt)`];
+    // sende venner til den forkerte liga. Og spillets eget tegn: et
+    // håndboldspil delt med ⚽ er et andet spil. I en turnering med
+    // fasekalender er "R7" et tal, ingen i chatten kan læse ("runde" er et
+    // fase-ord), så dagen står med sit navn. Uden kalender: præcis som før.
+    const spil = game?.shortName || game?.name || 'Runde';
+    const hvilken = harFaseKalender(game)
+      ? ` · ${rundeEtiket(game, current?.round)}`
+      : ` R${current?.round}`;
+    const parts = [`${game?.emoji || '⚽'} ${spil}${hvilken}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${spilledeIRunden} ramt)`];
     // 🔗 og ikke ⚡: ⚡ er Chancen overalt i appen (PointOpdeling siger det
     // eksplicit), og delingsteksten stod med begge betydninger på samme linje.
     if (roundBonus > 0) parts.push(`combi +${fmtDec(roundBonus)} 🔗`);
@@ -473,6 +498,11 @@ export default function FootballTip({ game, me, matches }) {
 
   return (
     <div>
+      {faseVenter && (
+        <div className="card mb-2" data-testid="fase-venter" role="status">
+          📅 {faseVenter}
+        </div>
+      )}
       {/* Runde-navigation — bladr let frem/tilbage mellem ALLE runder (som
           etaperne i Tour): navngivne pile + en "Runde X af Y"-tæller, så det er
           tydeligt at der er flere runder end den aktuelle. Ved enderne holdes
@@ -487,9 +517,9 @@ export default function FootballTip({ game, me, matches }) {
             className="btn btn--ghost btn--sm"
             data-testid="round-nav-prev"
             onClick={() => setRoundNo(rounds[idx - 1].round)}
-            aria-label={`Forrige runde (runde ${rounds[idx - 1].round})`}
+            aria-label={`Forrige ${rundeNavneord(game)} (${rundeOrd(game, rounds[idx - 1].round)})`}
           >
-            ← Runde {rounds[idx - 1].round}
+            ← {rundeKort(game, rounds[idx - 1].round)}
           </button>
         ) : (
           <span className="btn btn--ghost btn--sm" aria-hidden="true" style={{ visibility: 'hidden' }}>←</span>
@@ -505,12 +535,18 @@ export default function FootballTip({ game, me, matches }) {
 
             Nævneren er SIDSTE RUNDES NUMMER og ikke antallet af runder, af
             samme grund: "af 21" ville sige, at sæsonen slutter i runde 21,
-            og den slutter i 22. */}
+            og den slutter i 22.
+
+            MEN SIDSTE OPRETTEDE RUNDE ER KUN SÆSONENS SIDSTE I EN LIGA. I en
+            turnering oprettes en fases kampe først, når holdene kendes, så
+            tælleren sagde "Runde 6 af 6" efter den indledende runde (QC).
+            Med en fasekalender tæller den derfor dage, med KALENDERENS sidste
+            dag som nævner: "Dag 7 af 17". Uden kalender: præcis som før. */}
         <span
           data-testid="round-nav-count"
           style={{ fontSize: '0.82rem', color: 'var(--c-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}
         >
-          Runde {rounds[idx].round} af {rounds[rounds.length - 1].round}
+          {dagTaeller(game, rounds[idx].round, rounds[rounds.length - 1].round)}
         </span>
 
         {idx < rounds.length - 1 ? (
@@ -518,9 +554,9 @@ export default function FootballTip({ game, me, matches }) {
             className="btn btn--ghost btn--sm"
             data-testid="round-nav-next"
             onClick={() => setRoundNo(rounds[idx + 1].round)}
-            aria-label={`Næste runde (runde ${rounds[idx + 1].round})`}
+            aria-label={`Næste ${rundeNavneord(game)} (${rundeOrd(game, rounds[idx + 1].round)})`}
           >
-            Runde {rounds[idx + 1].round} →
+            {rundeKort(game, rounds[idx + 1].round)} →
           </button>
         ) : (
           <span className="btn btn--ghost btn--sm" aria-hidden="true" style={{ visibility: 'hidden' }}>→</span>
@@ -530,7 +566,7 @@ export default function FootballTip({ game, me, matches }) {
       {/* Rundens overskrift + datospænd + deadline */}
       <div className="round-head mb-2" style={{ textAlign: 'center' }}>
         <div className="round-head__title">
-          {current?.round ? `Runde ${current.round}` : 'Kampe'}
+          {current?.round ? rundeEtiket(game, current.round) : 'Kampe'}
           {rangeFrom && <span className="round-head__meta" style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>{formatDateRange(rangeFrom, rangeTo)}</span>}
         </div>
         {nextDeadline != null && (
@@ -574,7 +610,7 @@ export default function FootballTip({ game, me, matches }) {
       {showFacit && (
         <div className="card facit mb-2">
           <div className="facit__top">
-            <span className="facit__title">Runde {current?.round} · facit</span>
+            <span className="facit__title">{rundeEtiket(game, current?.round)} · facit</span>
             <span className="facit__earned">
               <CountUp value={Math.abs(roundEarned)} prefix={roundEarned < 0 ? '−' : '+'}
                 decimals={Number.isInteger(roundEarned) ? 0 : 1} />
@@ -700,11 +736,27 @@ export default function FootballTip({ game, me, matches }) {
                 kampe uden for ugen, DENNE om andre runders kampe, der spilles
                 i netop denne uge. De to må ikke slås sammen — remedien er
                 forskellig, og det er rundetallet også. */}
-            📅 {efterslaeb.length === 1 ? 'Én kamp fra en anden runde spilles' : `${efterslaeb.length} kampe fra andre runder spilles`}
-            {' '}i denne uge og står derfor med herunder:
-            {' '}{efterslaeb.map((e) => `${visOf(hold, e.match.home)}–${visOf(hold, e.match.away)} (runde ${e.fraRunde})`).join(', ')}.
-            {' '}{efterslaeb.length === 1 ? 'Den giver point i sin egen runde' : 'De giver point i deres egne runder'}
-            {' '}— ikke i denne — og {efterslaeb.length === 1 ? 'den står' : 'de står'} ikke på kuponen her.
+            {/* MED FASEKALENDER er en runde én spilledag, så «i denne uge»
+                og «sin egen runde» ville tale om en uge og en runde, ingen
+                spiller kender. Vinduet ER stadig ugen (rundensUge), så det
+                siges: «i samme uge som denne dag». Uden kalender: som før. */}
+            {harFaseKalender(game) ? (
+              <>
+                📅 {efterslaeb.length === 1 ? 'Én kamp fra en anden dag spilles' : `${efterslaeb.length} kampe fra andre dage spilles`}
+                {' '}i samme uge som denne dag og står derfor med herunder:
+                {' '}{efterslaeb.map((e) => `${visOf(hold, e.match.home)}–${visOf(hold, e.match.away)} (${rundeOrd(game, e.fraRunde)})`).join(', ')}.
+                {' '}{efterslaeb.length === 1 ? 'Den giver point på sin egen dag' : 'De giver point på deres egne dage'}
+                {' '}— ikke på denne — og {efterslaeb.length === 1 ? 'den står' : 'de står'} ikke på kuponen her.
+              </>
+            ) : (
+              <>
+                📅 {efterslaeb.length === 1 ? 'Én kamp fra en anden runde spilles' : `${efterslaeb.length} kampe fra andre runder spilles`}
+                {' '}i denne uge og står derfor med herunder:
+                {' '}{efterslaeb.map((e) => `${visOf(hold, e.match.home)}–${visOf(hold, e.match.away)} (runde ${e.fraRunde})`).join(', ')}.
+                {' '}{efterslaeb.length === 1 ? 'Den giver point i sin egen runde' : 'De giver point i deres egne runder'}
+                {' '}— ikke i denne — og {efterslaeb.length === 1 ? 'den står' : 'de står'} ikke på kuponen her.
+              </>
+            )}
           </p>
         )}
       </div>
@@ -778,7 +830,7 @@ export default function FootballTip({ game, me, matches }) {
                     løjet om det eneste, spillet handler om. */}
                 {fraRunde && (
                   <span className="match-card__fra-runde" data-testid="fra-runde">
-                    Runde {fraRunde} · point tæller dér
+                    {rundeKort(game, fraRunde)} · point tæller dér
                   </span>
                 )}
                 {m.result ? (
@@ -1048,7 +1100,7 @@ export default function FootballTip({ game, me, matches }) {
               </div>
             )}
 
-            <MatchElo home={m.home} away={m.away} eloByTeam={eloByTeam} />
+            <MatchElo home={m.home} away={m.away} eloByTeam={eloByTeam} game={game} />
 
             <div className="pick-grid">
               {OUTCOMES.map((o) => {

@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useGames } from '../games/useGames';
 import { callGenerateGameRecapNow } from './adminActions';
 import { GAME_STATUS } from '../../lib/constants';
+import { rundeEtiket, rundeOrd } from '../../lib/faser';
 
 export default function GameRecapBotTab() {
   const { games, loading } = useGames();
@@ -29,6 +30,8 @@ export default function GameRecapBotTab() {
   // Et udkast hører til ét spil. Skifter man spil i vælgeren uden at rydde det,
   // står forhåndsvisningen for spil A tilbage, mens knappen nu poster i spil B.
   useEffect(() => { setPreview(null); setBotMsg(null); }, [gameId]);
+  // Spillet selv — til rundens navn ("dag 7" i en turnering med fasekalender).
+  const game = eligible.find((g) => g.id === gameId) || null;
 
   async function runBot(dryRun) {
     if (!dryRun && !window.confirm('Post runde-opslaget på ALLE liga-vægge i spillet nu?')) return;
@@ -44,7 +47,7 @@ export default function GameRecapBotTab() {
       setBotMsg({ kind: 'ok', text: `Forhåndsvisning klar for ${res.data.udkast.length} liga${res.data.udkast.length === 1 ? '' : 'er'} — intet er postet.` });
     } else if (res.data?.posted > 0) {
       setPreview(null);
-      setBotMsg({ kind: 'ok', text: `Postet på ${res.data.posted} liga-væg${res.data.posted === 1 ? '' : 'ge'} (runde ${res.data.round}).` });
+      setBotMsg({ kind: 'ok', text: `Postet på ${res.data.posted} liga-væg${res.data.posted === 1 ? '' : 'ge'} (${rundeOrd(game, res.data.round)}).` });
     } else if (res.data?.dryRun && !res.data?.reason) {
       // Runden er fin, men ingen liga gav en tekst: enten har ingen liga to
       // deltagere, eller også kom AI-teksten tom tilbage for dem alle. Uden
@@ -56,7 +59,7 @@ export default function GameRecapBotTab() {
       const why = {
         'no-settled-round': 'Ingen runde er helt afgjort endnu.',
         'round-not-settled': 'Runden er ikke helt afgjort endnu.',
-        already: `Runde ${res.data?.round} har allerede fået sit opslag.`,
+        already: `${rundeEtiket(game, res.data?.round)} har allerede fået sit opslag.`,
         'too-few-players': 'For få deltagere i spillet.',
         disabled: 'Botten er slået fra for dette spil.',
       }[res.data?.reason] || `Intet postet (${res.data?.reason || 'ukendt årsag'}).`;
@@ -99,7 +102,7 @@ export default function GameRecapBotTab() {
         {preview && preview.udkast.map((u) => (
           <div className="card mb-2" style={{ padding: '0.75rem 1rem' }} key={u.leagueId}>
             <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', marginBottom: 4 }}>
-              🤖 Runde-Botten · runde {preview.round} · <strong>{u.navn}</strong> ({u.medlemmer} medlemmer)
+              🤖 Runde-Botten · {rundeOrd(game, preview.round)} · <strong>{u.navn}</strong> ({u.medlemmer} medlemmer)
             </div>
             <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.92rem', lineHeight: 1.5 }}>{u.text}</div>
           </div>

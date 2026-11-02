@@ -410,9 +410,10 @@ function frys(o) {
 }
 
 /**
- * Sportsprofilerne. I dag kun Elo- og odds-modellen; senere også sportens ord
- * og evner (fx "harHjemmebane"), og derfor hedder den sportProfil og ikke
- * eloProfil.
+ * Sportsprofilerne. I dag kun Elo- og odds-modellen; senere også sportens
+ * evner (fx "harHjemmebane"), og derfor hedder den sportProfil og ikke
+ * eloProfil. Sportens ORD bor i sit eget register (SPORT_ORD nedenfor), fordi
+ * de kan komme før tallene.
  *
  * Fodbold BYGGES AF de eksisterende konstanter — ingen tal er skrevet af. Så
  * kan ELO og profilen ikke drive fra hinanden, og en model-ændring i ELO
@@ -463,6 +464,43 @@ function erRegistreret(sport) {
 export function ukendtSport(game) {
   const sport = game?.sport;
   return sport != null && !erRegistreret(sport);
+}
+
+// --- Sportens ORD: hvad tingene hedder, uafhængigt af Elo-tallene ----------
+//
+// EN EGEN DEL, IKKE ET FELT PÅ PROFILEN. Ordene for håndbold er besluttet af
+// ejeren (§11.2: "Dagens konge"), men håndboldens Elo-tal er ikke målt endnu
+// (delopgave 4). Lå ordene på profilen, krævede de en håndboldprofil — og en
+// håndboldprofil med fodboldens tal ville gøre 'haandbold' til en KENDT sport
+// for ukendtSport, så seed og Ompris prissatte med umålte tal uden at sige fra.
+// Lå de på fodboldprofilen alene, fik et håndboldspil tavst fodboldens ord.
+// Derfor sit eget register, slået op på spillets egen `sport`: ordene kan
+// komme før tallene, og tallene kan ændres uden at røre ordene.
+//
+// Flader spørger sportOrd(game).rundeKonge — aldrig `sport === 'haandbold'`.
+// Ukendt eller manglende sport giver fodboldens ord (som sportProfil).
+// Formen (samme nøgler i hver sport) er testet over hele registret.
+export const SPORT_ORD = {
+  fodbold: frys({
+    sport: 'fodbold',
+    rundeKonge: 'Rundekongen',
+    rundeSejr: 'rundesejr',
+    rundeSejre: 'rundesejre',
+  }),
+  haandbold: frys({
+    sport: 'håndbold',
+    rundeKonge: 'Dagens konge',
+    rundeSejr: 'dagssejr',
+    rundeSejre: 'dagssejre',
+  }),
+};
+
+/** Spillets ord. Samme prototype-vagt som sportProfil. */
+export function sportOrd(game) {
+  const sport = game?.sport;
+  return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_ORD, sport)
+    ? SPORT_ORD[sport]
+    : SPORT_ORD[STANDARD_SPORT];
 }
 
 /**

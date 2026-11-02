@@ -21,6 +21,8 @@ const { kickoffPlan } = require('./seedFootball');
 // driftlog er afhængighedsfrit, så der opstår ingen cyklus.
 const { meldAlarm } = require('./driftlog');
 const { puljeLockFraRunde } = require('./pointOpdeling');
+// Facit-kontrakten: HVAD et facit-dokument er, ét sted for synk og hånd-vej.
+const { facitFelter, erManuelFacit } = require('./facit');
 
 const GAME_ID = 'superliga2627';
 
@@ -136,7 +138,11 @@ function providerAfOpts(opts) {
  * @param {{fetchFn?:Function, gameId?:string, seasonId?:number,
  *          provider?:object, sync?:object,
  *          only?:Array<{id:string,data:object}>}} [opts]
- * @returns {Promise<{checked:number, updated:number, rettede:string[]}>}
+ * @returns {Promise<{checked:number, updated:number, rettede:string[],
+ *          manuelle:string[], manuelleUenige:Array<{id:string, home:?string,
+ *          away:?string, haand:{home:*, away:*}, kilde:{home:*, away:*}}>}>}
+ *   manuelleUenige bærer holdnavne og BEGGE stillinger, så fladen og
+ *   Drift-kortet kan sige "i hånden 1-1, kilden 2-1" — ikke kun et id.
  */
 async function syncResultsCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
@@ -165,14 +171,43 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
   // suffiks. Ukendte nøgler er udeladt af mappet og springes over som altid.
   const resolved = provider.resolveDocs(events.map((e) => e.sourceKey), current.keys());
 
-  const batch = db.batch();
-  const rettede = [];
+  // Skrivningerne samles og lægges i ÉN transaktion nedenfor (ikke en batch)
+  // — se dér hvorfor.
+  const tilSkriv = [];
+  // Kampe med facit sat i hånden, som kilden OGSÅ har et facit for. De røres
+  // ikke (se nedenfor), men tælles, så "⬇️ Synk resultater nu" kan sige det —
+  // og `uenige` er dem, hvor kilden siger noget ANDET end hånden. Det er dem,
+  // et menneske skal kigge på: enten var tastningen forkert, eller kilden er.
+  const manuelle = [];
+  const manuelleUenige = [];
+  const meldManuel = (id, kamp, e) => {
+    manuelle.push(id);
+    if (kamp.result !== outcomeFromScore(e.homeGoals, e.awayGoals)
+      || kamp.homeGoals !== e.homeGoals || kamp.awayGoals !== e.awayGoals) {
+      manuelleUenige.push({
+        id,
+        home: kamp.home ?? null,
+        away: kamp.away ?? null,
+        haand: { home: kamp.homeGoals ?? null, away: kamp.awayGoals ?? null },
+        kilde: { home: e.homeGoals, away: e.awayGoals },
+      });
+    }
+  };
   for (const e of events) {
     const id = resolved.get(e.sourceKey);
     const cur = id == null ? null : current.get(id);
     if (!cur) continue; // ukendt kamp (bør ikke ske — samme kilde som seedet)
-    const result = outcomeFromScore(e.homeGoals, e.awayGoals);
-    if (!result) continue;
+    const felter = facitFelter({ home: e.homeGoals, away: e.awayGoals });
+    if (!felter) continue;
+    const { result } = felter;
+    // FACIT I HÅNDEN ER FREDET. Uden vagten ville en kilde, der fejlparser,
+    // vinde over nødbremsen ved næste kørsel — hvert minut i kampvinduet og
+    // hver time i sweep'et — og hver gang afregne point om. Kampen gives
+    // tilbage til synken med "Lad synken overtage igen" (manuelFacit.js).
+    if (erManuelFacit(cur)) {
+      meldManuel(id, cur, e);
+      continue;
+    }
     // Sammenlign på BÅDE facit og mål. Så længe kun facit talte, kunne en
     // rettet score aldrig komme ind: 2-1 → 3-1 er samme 1X2, så dokumentet
     // blev sprunget over for altid — også ved manuel synk. Usynligt dengang
@@ -185,11 +220,9 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
         && cur.awayGoals === e.awayGoals
         && cur.live == null
         && cur.liveMaal == null) continue;
-    batch.set(matchesCol.doc(id), {
-      result,
-      homeGoals: e.homeGoals,
-      awayGoals: e.awayGoals,
-      status: 'finished',
+    tilSkriv.push({ id, e, data: {
+      // result, homeGoals, awayGoals, status — facit-kontrakten (facit.js).
+      ...felter,
       resultSyncedAt: FieldValue.serverTimestamp(),
       // Facit slår live. Rydningen ligger HER og ikke i live-stien, fordi
       // sweep'et også sætter facit — og så er det den eneste kørsel, der kan
@@ -201,14 +234,43 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
       // der fik facit og sidste live-skrivning i samme kørsel, beholde
       // begge lister for evigt.
       liveMaal: FieldValue.delete(),
-    }, { merge: true });
-    rettede.push(id);
+    } });
   }
-  if (rettede.length) await batch.commit();
+  // KAPLØBET MED FACIT I HÅNDEN. Kampene ovenfor er læst FØR API-kaldet —
+  // minut-synken har dem fra pendingMatches, sweep'et fra sin fælles liste.
+  // Sætter en admin facit i hånden i mellemtiden, ville en blind batch.set
+  // skrive kildens tal oven i nødbremsen. Derfor skrives der i én transaktion,
+  // der LÆSER MÆRKET IGEN på præcis de kampe, der skal skrives, og springer
+  // dem over, der er blevet manuelle. Én kapret kamp vælter altså ikke de
+  // andre: den meldes som manuel, resten skrives. (Den anden retning er
+  // dækket af manuelFacit.opdaterUaendret: lander synken først, afvises
+  // hånd-skrivningen med "Kampen blev ændret, mens du kiggede".)
+  //
+  // Prisen er én læsning pr. kamp, der faktisk FÅR facit — typisk nul.
+  // Payloaden er uændret for Superligaen og Premier League (bevist med
+  // toEqual i superligaSync.test.js).
+  const rettede = [];
+  if (tilSkriv.length) {
+    const kapret = await db.runTransaction(async (tx) => {
+      // Lokalt pr. forsøg: transaktionen kan køres igen ved konflikt.
+      const fundet = [];
+      const refs = tilSkriv.map((w) => matchesCol.doc(w.id));
+      const snaps = await tx.getAll(...refs);
+      snaps.forEach((snap, i) => {
+        const frisk = snap.exists ? snap.data() : null;
+        if (erManuelFacit(frisk)) { fundet.push({ w: tilSkriv[i], frisk }); return; }
+        tx.set(refs[i], tilSkriv[i].data, { merge: true });
+      });
+      return fundet;
+    });
+    const kapretIds = new Set(kapret.map((k) => k.w.id));
+    for (const { w, frisk } of kapret) meldManuel(w.id, frisk, w.e);
+    for (const w of tilSkriv) if (!kapretIds.has(w.id)) rettede.push(w.id);
+  }
   // rettede: hvilke kampe der netop fik facit. Sweep'et bruger listen til at
   // lade være med at melde dem strandet i samme åndedrag — så slipper det for
   // at skanne alle 132 kampe en ekstra gang bare for at få et friskt billede.
-  return { checked: events.length, updated: rettede.length, rettede };
+  return { checked: events.length, updated: rettede.length, rettede, manuelle, manuelleUenige };
 }
 
 /**

@@ -253,3 +253,92 @@ describe('liga-kortet', () => {
     expect(tekst).not.toContain('24');
   });
 });
+
+// ---------------------------------------------------------------------------
+// FASEKALENDEREN (delopgave 5): i en turnering er «runde» et fase-ord, så
+// liga-kortet og stillingen siger «dag». Uden kalender: «runde» som før —
+// det bevises af testene ovenfor (SL-spillet) og af modprøven her.
+// ---------------------------------------------------------------------------
+describe('fasekalender: liga-kortet og stillingen siger «dag»', () => {
+  const HB = {
+    id: 'sl', type: 'football', sport: 'haandbold',
+    faser: [
+      { navn: 'Indledende runde', fra: 1, til: 6, start: '2027-01-13' },
+      { navn: 'Hovedrunde', fra: 7, til: 30, start: '2027-01-20' },
+    ],
+  };
+
+  it('liga-kortet: «Tæller fra dag 20», og valget hedder «dag»', () => {
+    cleanup();
+    mockLigaer = [{ id: 'kon', name: 'Kontoret', code: 'KODE12', ownerUid: 'A', memberUids: ['A', 'B'], startRound: 20 }];
+    render(
+      <MemoryRouter initialEntries={['/spil/sl/ligaer?liga=kon']}>
+        <GameLeagues gameId="sl" game={HB} />
+      </MemoryRouter>,
+    );
+    const badge = screen.getByTestId('liga-startrunde');
+    expect(badge.textContent).toContain('Tæller fra dag 20');
+    expect(badge.textContent).not.toContain('runde');
+    fireEvent.click(screen.getByRole('button', { name: /Startrunde/ }));
+    expect(screen.getByLabelText(/Ligaen tæller fra dag/)).toBeInTheDocument();
+    const t = document.body.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Dage før den valgte tæller ikke i ligaens stilling');
+    expect(t).toContain('Starter ligaen efter dag 3, tæller puljebonussen ikke med');
+    expect(t).not.toContain('Runder før den valgte');
+  });
+
+  it('liga-kortet UDEN kalender: «runde» som før', () => {
+    cleanup();
+    mockLigaer = [{ id: 'kon', name: 'Kontoret', code: 'KODE12', ownerUid: 'A', memberUids: ['A', 'B'], startRound: 20 }];
+    render(
+      <MemoryRouter initialEntries={['/spil/sl/ligaer?liga=kon']}>
+        <GameLeagues gameId="sl" game={{ id: 'sl', type: 'football' }} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Startrunde/ }));
+    expect(screen.getByLabelText(/Ligaen tæller fra runde/)).toBeInTheDocument();
+    const t = document.body.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Starter ligaen efter runde 3, tæller puljebonussen ikke med');
+    expect(t).not.toMatch(/fra dag|efter dag|Dage før/);
+  });
+
+  const stilling = (game) => {
+    cleanup();
+    mockStandings.mockReturnValue({
+      standings: RÆKKER,
+      leagues: [
+        { id: 'fam', name: 'Familien', memberUids: ['A', 'B', 'C'] },
+        { id: 'kon', name: 'Kontoret', memberUids: ['A', 'B', 'C'], startRound: 2 },
+      ],
+      leagueCount: 2,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <MemoryRouter>
+        <GameStandings gameId="sl" game={game} />
+      </MemoryRouter>,
+    );
+    fireEvent.change(screen.getByLabelText('Vis stilling for'), { target: { value: 'kon' } });
+    return container;
+  };
+
+  it('stillingen: «Dag 3»-knappen og «Tæller fra dag 2»', () => {
+    const c = stilling(HB);
+    expect(screen.getByRole('button', { name: 'Dag 3' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Runde 3' })).toBeNull();
+    expect(c.textContent).toContain('Tæller fra dag 2');
+    expect(c.textContent).toContain('Dag 3: tallet under totalen er rundens point.');
+    expect(c.textContent).not.toMatch(/Tæller fra runde|Runde 3/);
+    fireEvent.click(screen.getByRole('button', { name: 'Dag 3' }));
+    expect(c.textContent).toContain('Dag 3 alene — sorteret efter rundens point.');
+  });
+
+  it('stillingen UDEN kalender: «Runde 3» og «Tæller fra runde 2» som før', () => {
+    const c = stilling({ id: 'sl', type: 'football' });
+    expect(screen.getByRole('button', { name: 'Runde 3' })).toBeInTheDocument();
+    expect(c.textContent).toContain('Tæller fra runde 2');
+    expect(c.textContent).toContain('Runde 3: tallet under totalen er rundens point.');
+    expect(c.textContent).not.toMatch(/Tæller fra dag|Dag 3/);
+  });
+});

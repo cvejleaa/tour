@@ -9,6 +9,11 @@
 
 ## PoC-opsætning der virker (genbrug den)
 
+- **Ægte callables + Admin SDK mod emulatoren HÆNGER IKKE med `NO_PROXY=127.0.0.1,localhost`**
+  (2026-11-02): `cd functions-platform && FIRESTORE_EMULATOR_HOST=127.0.0.1:8085
+  GCLOUD_PROJECT=demo-sec NO_PROXY=… node <scratchpad>.cjs`, scriptet bruger
+  `createRequire('/home/user/tour/functions-platform/index.js')`, seeder med Admin SDK og kalder
+  `fns.x.run({auth:{uid,token:{}},data,rawRequest:{}})`. 58 checks på <10 s.
 - **Klientmoduler med extensionless imports køres med `npx vite-node <script>` fra repo-roden**
   (2026-10-22): scriptet i scratchpad importerer repo-filer med absolut sti, vite løser resten.
   Hurtigste typematrix-PoC for en `src/features/**`-funktion — ingen testfil i repoet.
@@ -1150,6 +1155,28 @@
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
 
+- **Facit i hånden (D7, 680755b, 2026-11-02): RENT — 58 PoC-checks mod emulator, 0 fejl.**
+  `saetFacitManuelt`/`frigivFacitTilSynk` (index.js ~L1141/L1170): `requireAdmin` er første
+  linje → anonym/pending/spiller/uden users-dok afvist FØR læsninger. `dryRunFraKald` =
+  `!== false` → `'false'`, 0, null, 'nej' og udeladt er alle tør. Skrivning kræver tør-kørslens
+  `aftryk` (manglende/falsk/objekt/genbrugt efter skrivning → failed-precondition). Kickoff i
+  fremtiden eller ulæseligt → afvist (lukker «tip efter facit» for hånd-vejen). Mål: '2', 2.5,
+  -1, 100, {}, null, [2], true afvist (`Number.isInteger` 0..99). `slut` uden knockout, som
+  streng/liste/false/0, afgjort `__proto__`/liste, færre mål, uafgjort slut, >99 afvist;
+  ekstra nøgler i slut og i request (`resultatKilde`, `facitSatAf`, `ekstra`) kopieres IKKE —
+  `facitSatAf` er altid `request.auth.uid`. gameId `g/matches/m` (gyldig dok-sti!) afvises kun
+  fordi kamp-dokumentet ikke har `type:'football'` — admin-only, ufarligt. matchId
+  `__proto__`/`constructor` → not-found (`docs.find(d.id===)`). Frigiv fjerner kun mærke+hvem/hvornår.
+  Synk-kapløbet: `syncResultsCore` læser mærket igen i `runTransaction`; kamp gjort manuel
+  MELLEM læsning og skrivning blev ikke overskrevet, kontrol-kamp blev skrevet, begge meldt uenige.
+  Rules uændrede: spiller/pending kan ikke skrive/slette `resultatKilde`/`facitSatAf`/`result`
+  (403), admin kan (200, bevidst). `facitSatAf` (admin-uid) læses af enhver `isApproved()` —
+  uids er ikke hemmelige her. Strandet-besked med holdnavne når mail via `escapeHtml(afkort())`.
+  PoC: scratchpad `sec-d7/{callables,ko-synk}.cjs` + `rules.sh`.
+- **Fasekalender (D5, 2026-11-02): ingen ny angrebsflade.** `game.faser` er admin-seedet
+  (games/{g} er isGlobalAdmin-skrivbart), ingen klient-query ændret, ingen regel ændret.
+  Fase-navne i Runde-Bottens prompt er admin-data, ikke brugerdata. `recapSystem` kaster ved
+  manglende ankertekst (højlydt, ikke tavst).
 - **Sportsprofil (PR #240, 07ebcb6+a4ea5ff, 2026-11-01): RENT.** `sportprofil-golden.mjs`
   kørt på HEAD → byte-identisk med testdata/sportprofil-golden.json (at facit stammer fra
   62e20aa er efterprøvet af modstanderne, ikke af mig). Kaldesteder UDEN profil, alle
@@ -1978,8 +2005,10 @@
   synken (superligaSync.js:61-70 skriver kun facit for gemt kickoff ≤ nu) —
   kun ved manuelt facit eller et kickoff flyttet frem efter facit. BEMÆRK:
   bets-create/update (rules ~L1047/L1072) tjekker KUN gemt kickoff, ikke
-  `result` — i samme vindue kan man altså tippe EFTER facit. Ikke PoC'et;
-  kandidat til en senere gennemgang af `setMatchResult`/manuelt facit.
+  `result` — i samme vindue kan man altså tippe EFTER facit. Siden D7 (2026-11-02)
+  kan facit-i-hånden-vejen IKKE skabe vinduet (BEKRÆFTET: kickoff > nu → afvist), og
+  kickoff-synken nægter at flytte en passeret kickoff frem (superligaSync.js ~L714-723).
+  Tilbage: kun konsol/seed-vejen.
 
 - **Invitations-mailen falder TAVST tilbage til Superliga-profilen uden
   `gameId`** (`functions/index.js` ~L668, `if (gameId)`): en håndlavet payload
@@ -2640,3 +2669,5 @@ på 205fa54 (parser omskrevet, ukendt sport afvist). Status før provideren (syn
    `game.sport` (scripts/games.mjs har intet felt); fodbold-vejen gennem omprisFraKnap er
    samme kald + samme svar.
 PoC'er: scratchpad poc/*.cjs (3b7499e) og sec-r2/*.cjs (205fa54).
+Del 2 (D5+D7, 680755b, 2026-11-02): facit i hånden + fasekalender RENT (se RENT). Åbent
+for provideren: punkt 1d-4 ovenfor gælder stadig; synken respekterer `resultatKilde:'manuel'`.

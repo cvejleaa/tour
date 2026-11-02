@@ -147,6 +147,50 @@ export async function callSyncGameResults(gameId) {
 }
 
 /**
+ * FACIT I HÅNDEN (nødbremsen) — sæt eller ret facit på én kamp.
+ *
+ * dryRun er DEFAULT SAND, her som på serveren (dryRunFraKald): kun et
+ * eksplicit `dryRun: false` skriver. Tør-kørslen svarer med 1/X/2 før → efter,
+ * de point, der flytter sig, og om Runde-Botten poster.
+ *
+ * Målene er stillingen efter ORDINÆR tid (det, der tippes på). `slut` kun ved
+ * knockout: `{home, away, afgjort: 'forlaenget'|'straffe'}`.
+ * `aftryk`: tør-kørslens aftryk. Skrive-kaldet (dryRun:false) SKAL have det;
+ * passer det ikke med kampen nu, afviser serveren ("Kampen er ændret siden
+ * tør-kørslen").
+ * Timeout matcher serverens timeoutSeconds: 120.
+ * @param {{gameId:string, matchId:string, homeGoals:number, awayGoals:number,
+ *          slut?:object|null, aftryk?:string|null, dryRun?:boolean}} args
+ */
+export async function callSaetFacitManuelt({
+  gameId, matchId, homeGoals, awayGoals, slut = null, aftryk = null, dryRun = true,
+} = {}) {
+  try {
+    const fn = httpsCallable(functions, 'saetFacitManuelt', { timeout: 120000 });
+    const res = await fn({ gameId, matchId, homeGoals, awayGoals, slut, aftryk, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke sætte facit.' };
+  }
+}
+
+/**
+ * "Lad synken overtage igen" — fjern mærket resultatKilde:'manuel' fra én kamp.
+ * Facit bliver stående; synken overskriver det ved næste kørsel, hvis kilden
+ * siger noget andet. dryRun er DEFAULT SAND, som alle skrivende knapper.
+ * @param {{gameId:string, matchId:string, dryRun?:boolean}} args
+ */
+export async function callFrigivFacitTilSynk({ gameId, matchId, dryRun = true } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'frigivFacitTilSynk');
+    const res = await fn({ gameId, matchId, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke give kampen tilbage til synken.' };
+  }
+}
+
+/**
  * Synk KAMPDETALJER (halvleg, målscorere, tilskuertal) fra livescore NU.
  *
  * Findes, fordi et maskineri, der kun kan startes af skemaet, ikke er færdigt:

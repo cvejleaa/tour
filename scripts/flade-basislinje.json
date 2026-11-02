@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-10-18T19:26:15.626Z",
+ "generatedAt": "2026-11-02T07:31:53.763Z",
  "noegler": [
   "src/components/Layout.jsx|Layout|NavLink|#1",
   "src/components/Layout.jsx|Layout|NavLink|#2",
@@ -145,7 +145,6 @@
   "src/features/games/football/FootballHelp.jsx|FootballHelp|Link|hjælp#1",
   "src/features/games/football/FootballTip.jsx|ChancePanel|button|Fjern#1",
   "src/features/games/football/FootballTip.jsx|ChancePanel|button|−#1",
-  "src/features/games/football/FootballTip.jsx|FootballTip|button|← Runde#1",
   "src/features/games/football/HoldSide.jsx|HoldSide|button|Luk#1",
   "src/features/games/football/HoldSide.jsx|HoldSide|button|Tilbage til Elo-tabellen#1",
   "src/features/games/football/SpillerDetalje.jsx|SpillerDetalje|button|Luk#1",
