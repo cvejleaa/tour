@@ -68,6 +68,22 @@ function fakeDb(matchDocs, gameInit = {}) {
         },
       };
     },
+    // Resultat-synken skriver facit i en transaktion, der læser mærket igen.
+    async runTransaction(fn) {
+      const ops = [];
+      const ud = await fn({
+        async getAll(...refs) { return refs.map((r) => ({ exists: docs.has(r.__id), data: () => docs.get(r.__id) })); },
+        set(ref, data, opts) {
+          if (opts?.merge !== true) throw new Error('tx.set() uden merge');
+          ops.push({ id: ref.__id, data });
+        },
+      });
+      for (const op of ops) {
+        metoder.push('tx.set');
+        docs.set(op.id, { ...(docs.get(op.id) || {}), ...op.data });
+      }
+      return ud;
+    },
   };
 }
 

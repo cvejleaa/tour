@@ -140,6 +140,24 @@ const FEJL_VEKTORER = [
 const SPIL = [null, {}, { type: 'football', status: 'open' }, { type: 'football', status: 'finished' },
   { type: 'cycling', status: 'live' }, HB];
 
+describe('uenigTekst — én uenig kamp som tekst (knappen og Drift-kortet)', () => {
+  it('holdnavne og begge stillinger — ikke id\'et', () => {
+    const t = server.uenigTekst({ id: 'r5-agf-ob', home: 'AGF', away: 'OB', haand: { home: 1, away: 1 }, kilde: { home: 2, away: 1 } });
+    expect(t).toBe('AGF – OB (i hånden 1-1, kilden 2-1)');
+    expect(t).not.toContain('r5-agf-ob');
+  });
+  it('id\'et kun, når holdnavnene mangler — og en tom stilling er en tankestreg', () => {
+    expect(server.uenigTekst({ id: 'r5-x', haand: { home: null, away: 1 }, kilde: { home: 0, away: 0 } }))
+      .toBe('r5-x (i hånden —, kilden 0-0)');
+  });
+  it('spejlet giver samme tekst', async () => {
+    const src = await import('../src/lib/facit.js');
+    for (const u of [{ id: 'a', home: 'X', away: 'Y', haand: { home: 3, away: 0 }, kilde: { home: 3, away: 1 } }, { id: 'b' }, null]) {
+      expect(src.uenigTekst(u)).toBe(server.uenigTekst(u));
+    }
+  });
+});
+
 describe('spejling mod src/lib/facit.js', () => {
   it('samme konstanter', async () => {
     const src = await import('../src/lib/facit.js');

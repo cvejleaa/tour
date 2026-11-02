@@ -158,3 +158,19 @@ export function erManuelFacit(kamp) {
   return kamp?.resultatKilde === RESULTAT_KILDE_MANUEL;
 }
 
+/**
+ * Én kamp, hvor kilden er UENIG med facit i hånden, som tekst: holdnavne og
+ * BEGGE stillinger ("AGF – OB (i hånden 1-1, kilden 2-1)"). Bruges af
+ * "⬇️ Synk resultater nu" i fladen og af sweep'ets Drift-kort på serveren, så
+ * de to siger det samme om den samme kamp. Et id står kun, når holdnavnene
+ * mangler.
+ *
+ * @param {{id:string, home?:string|null, away?:string|null,
+ *          haand?:{home:*, away:*}, kilde?:{home:*, away:*}}} u
+ * @returns {string}
+ */
+export function uenigTekst(u) {
+  const navn = u?.home && u?.away ? `${u.home} – ${u.away}` : String(u?.id ?? '?');
+  const st = (x) => (x && x.home != null && x.away != null ? `${x.home}-${x.away}` : '—');
+  return `${navn} (i hånden ${st(u?.haand)}, kilden ${st(u?.kilde)})`;
+}

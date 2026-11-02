@@ -274,7 +274,19 @@ at rette et forkert facit.
 3. **Vis hvad der ændrer sig** er en tør-kørsel: 1/X/2 før → efter, hvor mange
    tips og spillere der får ændret point, hvor mange point der flytter sig i
    alt (inkl. combi), og om det er rundens sidste kamp. Først derefter dukker
-   **Skriv facit** op.
+   **Skriv facit** op — og den skriver præcis det, tør-kørslen viste. Ændrer
+   du et felt eller vælger en anden kamp, forsvinder knappen, til du har kørt
+   tør-kørslen igen. Er kampen ændret i mellemtiden (fx af synken), afviser
+   serveren skrivningen: "Kampen er ændret siden tør-kørslen — kør
+   tør-kørslen igen."
+
+   Tallet for spillere og point gælder dem, der har **tippet kampen** — det er
+   dem, serveren genberegner med det samme. Står der også, at "N spillere uden
+   tip på denne kamp får ændret combi", er det spillere, hvis combi for runden
+   flytter sig, selv om de ikke har tippet netop denne kamp. De får den først,
+   når et af deres egne tips afgøres eller rettes, eller når du trykker
+   **🔄 Genberegn point efter start-ændring** samme sted. (Det er et kendt hul i
+   afregningen, der rettes for sig.)
 
 Når du skriver, sker det samme som ved en synk: tippene scores, Elo og odds på
 kommende kampe regnes om, og er det rundens sidste kamp, skriver Runde-Botten
@@ -284,15 +296,22 @@ kommende kampe regnes om, og er det rundens sidste kamp, skriver Runde-Botten
 **Synken overskriver ikke en kamp, du har sat i hånden** — heller ikke hvis
 kilden siger noget andet. En tastefejl rettes derfor kun her. **⬇️ Synk
 resultater nu** fortæller, hvor mange kampe der står i hånden, og hvilke kilden
-er uenig om. Skal kilden bestemme igen, så vælg kampen og tryk **↩️ Lad synken
-overtage igen** (kun på spil med synk); facit bliver stående, til synken
-skriver kildens.
+er uenig om (med holdnavne og begge stillinger). Er kilden uenig, står det
+også som en advarsel på spillets **Times-sweep**-kort under **🩺 Driftstatus**,
+så længe uenigheden står. Skal kilden bestemme igen, så vælg kampen og tryk
+**↩️ Lad synken overtage igen** (kun på spil med synk); facit bliver stående,
+til synken skriver kildens. Det gælder også, hvis du sætter facit i hånden,
+mens synken er midt i en kørsel: synken læser mærket igen, lige før den
+skriver, og springer kampen over.
 
 Kan facit **fjernes** igen? Ikke fra fladen. Fjerner man `result`,
 `homeGoals` og `awayGoals` i Firebase-konsollen, rulles pointene for kampen
 tilbage af sig selv (tippene scores til 0, og totalerne regnes om). Begge mål
-skal væk: står de, udleder afregningen stadig et udfald af dem. Og en kamp uden
-facit længe efter kickoff melder sig som strandet igen.
+skal væk: står de, udleder afregningen stadig et udfald af dem. Var facit sat
+i hånden, så fjern også **`resultatKilde`** (og `facitSatAf`/`facitSatAt`) —
+eller tryk **↩️ Lad synken overtage igen** først. Står mærket, springer synken
+kampen over for altid, og strandet-alarmen peger så på en synk, der ikke kan
+hjælpe. En kamp uden facit længe efter kickoff melder sig som strandet igen.
 
 En kamp **uden kickoff** kan hverken tippes eller få facit; strandet-alarmen
 siger da "ret kickoff" i stedet.

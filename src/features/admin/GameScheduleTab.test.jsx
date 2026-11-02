@@ -467,13 +467,18 @@ describe('⬇️ Synk resultater nu — manuel udløsning af resultat-synken', (
       ok: true,
       data: {
         gameId: 'superliga2627', checked: 12, updated: 0, rettede: [],
-        manuelle: ['r4-a', 'r5-b'], manuelleUenige: ['r5-b'], standings: { rows: 12, changed: false },
+        manuelle: ['r4-a', 'r5-b'],
+        manuelleUenige: [{ id: 'r5-b', home: 'AGF', away: 'OB', haand: { home: 1, away: 1 }, kilde: { home: 2, away: 1 } }],
+        standings: { rows: 12, changed: false },
       },
     });
     mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
     render(<GameScheduleTab />);
     fireEvent.click(knap());
-    await waitFor(() => expect(screen.getByText(/2 kampe er sat i hånden og røres ikke af synken — kilden siger noget andet om 1: r5-b\./)).toBeInTheDocument());
+    // Holdnavne og BEGGE stillinger — ikke dokument-id'et.
+    const linje = await screen.findByText(/2 kampe er sat i hånden og røres ikke af synken/);
+    expect(linje.textContent).toContain('— kilden siger noget andet om 1: AGF – OB (i hånden 1-1, kilden 2-1).');
+    expect(linje.textContent).not.toMatch(/r5-b|\[object Object\]/);
     bekraeft.mockRestore();
   });
 

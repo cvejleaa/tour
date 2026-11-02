@@ -39,7 +39,7 @@ const { forladSpilCore, FORLAD_ERR, aktiveSpillere } = require('./forladSpil');
 const {
   statusSamler, meldAlarm, loesDriftAlarmer, kvitteringFor, naesteKoerselFoerMs,
 } = require('./driftlog');
-const { meldStrandede, facitVagtUdenSynk } = require('./facitVagt');
+const { meldStrandede, facitVagtUdenSynk, meldManuelleUenige } = require('./facitVagt');
 const { saetFacitCore, frigivFacitCore, tilHttpsFejl: facitHttpsFejl } = require('./manuelFacit');
 const { koerPostbud, testAlarmBesked, testAlarmTilladt } = require('./postbud');
 const {
@@ -646,7 +646,9 @@ exports.syncSuperligaSweep = onSchedule(
       try {
         // Ét opslag, to formål: både gen-synken og alarmen bygger på det.
         alle = await allMatches(db, opts);
-        const { checked, updated, rettede } = await syncResultsCore(db, FieldValue, { ...opts, only: alle });
+        const {
+          checked, updated, rettede, manuelleUenige,
+        } = await syncResultsCore(db, FieldValue, { ...opts, only: alle });
         netopRettet = new Set(rettede);
         if (updated > 0) {
           console.warn(`Sweep ${g.gameId}: ${updated} facit som minut-synken IKKE nåede — undersøg hvorfor.`);
@@ -655,6 +657,9 @@ exports.syncSuperligaSweep = onSchedule(
           console.log(`Sweep ${g.gameId}: ${checked} færdige kampe, intet manglede.`);
           st.ok(`${checked} færdige kampe, intet manglede.`, { checked, updated });
         }
+        // Facit i hånden, som kilden er uenig i → advarsel på kortet (ellers
+        // stod det kun i svaret fra en knap, ingen trykker på).
+        meldManuelleUenige(st, manuelleUenige);
       } catch (err) {
         console.error(`Sweep ${g.gameId} fejlede (ignoreret):`, err?.message || err);
         st.fejl(`Resultat-synken fejlede: ${err?.message || err}`);

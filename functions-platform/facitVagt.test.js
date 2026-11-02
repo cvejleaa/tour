@@ -10,7 +10,10 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { meldStrandede, spilUdenSynk, facitVagtUdenSynk } = require('./facitVagt');
+const {
+  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige,
+} = require('./facitVagt');
+const { statusSamler } = require('./driftlog');
 
 const FieldValue = { serverTimestamp: () => '@ts', delete: () => '@delete' };
 const NU = Date.parse('2026-11-02T20:00:00Z');
@@ -144,6 +147,13 @@ describe('facitVagtUdenSynk', () => {
     expect(s.skrevet[0].id).toBe('facitvagt-hvm2027');
     expect(s.skrevet[0].doc).toMatchObject({ type: 'facitvagt', gameId: 'hvm2027', gameNavn: 'Håndbold-VM 2027', niveau: 'fejl', naesteForventetFoer: NU + 3600e3 });
     expect(s.skrevet[0].doc.besked).toMatch(/1 kampe uden facit.*sæt facit i hånden/);
+    // M36: alarmen for et spil UDEN synk sendes med harSynk:false — den
+    // nævner knappen i hånden og IKKE synk-knappen, der ikke findes for spillet.
+    expect(s.meldt).toHaveLength(1);
+    expect(s.meldt[0].besked).toContain('Danmark – Norge, runde 1 (r1-1)');
+    expect(s.meldt[0].besked).toContain('Spillet har ingen resultat-synk');
+    expect(s.meldt[0].besked).toContain('✍️ Sæt eller ret facit i hånden');
+    expect(s.meldt[0].besked).not.toContain('Synk resultater nu');
   });
 
   it('grønt kort, når intet mangler', async () => {
@@ -192,5 +202,52 @@ describe('facitVagtUdenSynk', () => {
       synkedeIds: ['superliga2627'], nowMs: NU, naesteForventetFoerMs: 1, skriv: s2.skriv, meld: s2.meld, loes: s2.loes,
     });
     expect(s2.skrevet.map((w) => w.id)).toEqual(['facitvagt-hvm2027']);
+  });
+});
+
+// BØR-FUNDET: uenigheden mellem kilden og facit i hånden stod kun i svaret
+// fra "⬇️ Synk resultater nu". Sweep'et fører den nu til sit Drift-kort.
+describe('meldManuelleUenige — advarsel på sweep\'ets kort', () => {
+  const kort = () => statusSamler({ type: 'sweep', gameId: 'superliga2627' });
+  const skrevetAf = async (st) => {
+    let doc = null;
+    const fang = { collection: () => ({ doc: () => ({ set: async (d) => { doc = d; } }) }) };
+    await st.skriv(fang, FieldValue, { naesteForventetFoerMs: 1, nowMs: NU });
+    return doc;
+  };
+
+  it('nævner hver kamp med holdnavne og kildens og håndens tal — og de to veje ud', async () => {
+    const st = kort();
+    st.ok('12 færdige kampe, intet manglede.');
+    const n = meldManuelleUenige(st, [
+      { id: 'r5-agf-ob', home: 'AGF', away: 'OB', haand: { home: 1, away: 1 }, kilde: { home: 2, away: 1 } },
+      { id: 'r6-fck-bif', home: 'FC København', away: 'Brøndby IF', haand: { home: 0, away: 0 }, kilde: { home: 0, away: 1 } },
+    ]);
+    expect(n).toBe(2);
+    const doc = await skrevetAf(st);
+    expect(doc.niveau).toBe('advarsel');
+    expect(doc.tal).toMatchObject({ manuelleUenige: 2 });
+    expect(doc.besked).toContain('⚠ Kilden er uenig med facit i hånden om 2 kampe: '
+      + 'AGF – OB (i hånden 1-1, kilden 2-1); FC København – Brøndby IF (i hånden 0-0, kilden 0-1). Synken rører dem ikke.');
+    expect(doc.besked).toContain('✍️ Sæt eller ret facit i hånden');
+    expect(doc.besked).toContain('↩️ Lad synken overtage igen');
+    expect(doc.besked).not.toMatch(/r5-agf-ob|r6-fck-bif|\[object Object\]/);
+  });
+
+  it('ental ved én kamp', async () => {
+    const st = kort();
+    meldManuelleUenige(st, [{ id: 'a', home: 'AGF', away: 'OB', haand: { home: 1, away: 0 }, kilde: { home: 2, away: 0 } }]);
+    expect((await skrevetAf(st)).besked).toContain('om 1 kamp: AGF – OB');
+  });
+
+  it('ingen uenige → ingen linje, og kortet forbliver grønt', async () => {
+    for (const tom of [[], undefined]) {
+      const st = kort();
+      st.ok('12 færdige kampe, intet manglede.');
+      expect(meldManuelleUenige(st, tom)).toBe(0);
+      const doc = await skrevetAf(st);
+      expect(doc.niveau).toBe('ok');
+      expect(doc.besked).not.toMatch(/uenig/);
+    }
   });
 });

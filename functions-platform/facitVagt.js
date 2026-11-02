@@ -30,7 +30,7 @@ const { strandedMatches, allMatches } = require('./superligaSync');
 const {
   meldAlarm, loesDriftAlarmer, strandetBesked, statusSamler,
 } = require('./driftlog');
-const { forventerFacit, erKampspil } = require('./facit');
+const { forventerFacit, erKampspil, uenigTekst } = require('./facit');
 
 /**
  * Meld hver strandet kamp i ét spil, og luk alarmer for kampe, der siden har
@@ -55,6 +55,33 @@ async function meldStrandede(db, FieldValue, {
   // døde røde kort sig op, og ejeren lærer at ignorere fladen.
   await loes(db, FieldValue, { type: 'strandet', gameId, aktuelleKampIds: strandede.map((m) => m.id) });
   return strandede;
+}
+
+/**
+ * Kampe med facit i hånden, som kilden er UENIG i → en advarsel på sweep'ets
+ * Drift-kort, med holdnavne og begge stillinger.
+ *
+ * Før stod uenigheden kun i svaret fra "⬇️ Synk resultater nu" — og den
+ * knap trykker ingen på, når alt ser grønt ud. Enten var tastningen forkert,
+ * eller kilden er; begge dele skal et menneske se, og ingen af dem retter sig
+ * selv (synken rører ikke en manuel kamp). Advarslen står, så længe
+ * uenigheden står, og forsvinder af sig selv, når den er løst.
+ *
+ * @param {{advarsel:Function}} st  statusSamler for kørslen
+ * @param {Array<object>} uenige    syncResultsCore().manuelleUenige
+ * @returns {number} antal uenige
+ */
+function meldManuelleUenige(st, uenige) {
+  const liste = Array.isArray(uenige) ? uenige : [];
+  if (!liste.length) return 0;
+  st.advarsel(
+    `Kilden er uenig med facit i hånden om ${liste.length} ${liste.length === 1 ? 'kamp' : 'kampe'}: `
+    + `${liste.map(uenigTekst).join('; ')}. Synken rører dem ikke. Var tastningen forkert, så ret den med `
+    + '✍️ Sæt eller ret facit i hånden; har kilden ret, så tryk ↩️ Lad synken overtage igen samme sted '
+    + '(Admin → 🗓️ Spil-tidsplan).',
+    { manuelleUenige: liste.length },
+  );
+  return liste.length;
 }
 
 /**
@@ -152,4 +179,6 @@ async function facitVagtUdenSynk(db, FieldValue, {
   return ud;
 }
 
-module.exports = { meldStrandede, spilUdenSynk, facitVagtUdenSynk };
+module.exports = {
+  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige,
+};

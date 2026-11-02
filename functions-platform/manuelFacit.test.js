@@ -542,4 +542,14 @@ describe('index.js: ledningen til kernerne', () => {
     // Og de synkede spil bruger SAMME kerne, med synk-teksten.
     expect(sweep).toMatch(/await meldStrandede\(db, FieldValue, \{[\s\S]*?harSynk: true,/);
   });
+
+  it('sweep\'et fører synkens manuelleUenige videre til sit Drift-kort', () => {
+    const sweep = krop('syncSuperligaSweep');
+    expect(sweep).toMatch(/checked, updated, rettede, manuelleUenige,\s*\} = await syncResultsCore\(db, FieldValue, \{ \.\.\.opts, only: alle \}\);/);
+    const kald = sweep.indexOf('meldManuelleUenige(st, manuelleUenige);');
+    expect(kald).toBeGreaterThan(-1);
+    // I SAMME try som resultat-synken (st er kørslens samlede kort) og før
+    // kortet skrives.
+    expect(kald).toBeLessThan(sweep.indexOf('Sweep ${g.gameId} fejlede (ignoreret)'));
+  });
 });

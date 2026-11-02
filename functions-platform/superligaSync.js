@@ -139,7 +139,10 @@ function providerAfOpts(opts) {
  *          provider?:object, sync?:object,
  *          only?:Array<{id:string,data:object}>}} [opts]
  * @returns {Promise<{checked:number, updated:number, rettede:string[],
- *          manuelle:string[], manuelleUenige:string[]}>}
+ *          manuelle:string[], manuelleUenige:Array<{id:string, home:?string,
+ *          away:?string, haand:{home:*, away:*}, kilde:{home:*, away:*}}>}>}
+ *   manuelleUenige bærer holdnavne og BEGGE stillinger, så fladen og
+ *   Drift-kortet kan sige "i hånden 1-1, kilden 2-1" — ikke kun et id.
  */
 async function syncResultsCore(db, FieldValue, opts = {}) {
   const gameId = opts.gameId || GAME_ID;
@@ -168,14 +171,28 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
   // suffiks. Ukendte nøgler er udeladt af mappet og springes over som altid.
   const resolved = provider.resolveDocs(events.map((e) => e.sourceKey), current.keys());
 
-  const batch = db.batch();
-  const rettede = [];
+  // Skrivningerne samles og lægges i ÉN transaktion nedenfor (ikke en batch)
+  // — se dér hvorfor.
+  const tilSkriv = [];
   // Kampe med facit sat i hånden, som kilden OGSÅ har et facit for. De røres
   // ikke (se nedenfor), men tælles, så "⬇️ Synk resultater nu" kan sige det —
   // og `uenige` er dem, hvor kilden siger noget ANDET end hånden. Det er dem,
   // et menneske skal kigge på: enten var tastningen forkert, eller kilden er.
   const manuelle = [];
   const manuelleUenige = [];
+  const meldManuel = (id, kamp, e) => {
+    manuelle.push(id);
+    if (kamp.result !== outcomeFromScore(e.homeGoals, e.awayGoals)
+      || kamp.homeGoals !== e.homeGoals || kamp.awayGoals !== e.awayGoals) {
+      manuelleUenige.push({
+        id,
+        home: kamp.home ?? null,
+        away: kamp.away ?? null,
+        haand: { home: kamp.homeGoals ?? null, away: kamp.awayGoals ?? null },
+        kilde: { home: e.homeGoals, away: e.awayGoals },
+      });
+    }
+  };
   for (const e of events) {
     const id = resolved.get(e.sourceKey);
     const cur = id == null ? null : current.get(id);
@@ -188,10 +205,7 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
     // hver time i sweep'et — og hver gang afregne point om. Kampen gives
     // tilbage til synken med "Lad synken overtage igen" (manuelFacit.js).
     if (erManuelFacit(cur)) {
-      manuelle.push(id);
-      if (cur.result !== result || cur.homeGoals !== e.homeGoals || cur.awayGoals !== e.awayGoals) {
-        manuelleUenige.push(id);
-      }
+      meldManuel(id, cur, e);
       continue;
     }
     // Sammenlign på BÅDE facit og mål. Så længe kun facit talte, kunne en
@@ -206,7 +220,7 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
         && cur.awayGoals === e.awayGoals
         && cur.live == null
         && cur.liveMaal == null) continue;
-    batch.set(matchesCol.doc(id), {
+    tilSkriv.push({ id, e, data: {
       // result, homeGoals, awayGoals, status — facit-kontrakten (facit.js).
       ...felter,
       resultSyncedAt: FieldValue.serverTimestamp(),
@@ -220,10 +234,39 @@ async function syncResultsCore(db, FieldValue, opts = {}) {
       // der fik facit og sidste live-skrivning i samme kørsel, beholde
       // begge lister for evigt.
       liveMaal: FieldValue.delete(),
-    }, { merge: true });
-    rettede.push(id);
+    } });
   }
-  if (rettede.length) await batch.commit();
+  // KAPLØBET MED FACIT I HÅNDEN. Kampene ovenfor er læst FØR API-kaldet —
+  // minut-synken har dem fra pendingMatches, sweep'et fra sin fælles liste.
+  // Sætter en admin facit i hånden i mellemtiden, ville en blind batch.set
+  // skrive kildens tal oven i nødbremsen. Derfor skrives der i én transaktion,
+  // der LÆSER MÆRKET IGEN på præcis de kampe, der skal skrives, og springer
+  // dem over, der er blevet manuelle. Én kapret kamp vælter altså ikke de
+  // andre: den meldes som manuel, resten skrives. (Den anden retning er
+  // dækket af manuelFacit.opdaterUaendret: lander synken først, afvises
+  // hånd-skrivningen med "Kampen blev ændret, mens du kiggede".)
+  //
+  // Prisen er én læsning pr. kamp, der faktisk FÅR facit — typisk nul.
+  // Payloaden er uændret for Superligaen og Premier League (bevist med
+  // toEqual i superligaSync.test.js).
+  const rettede = [];
+  if (tilSkriv.length) {
+    const kapret = await db.runTransaction(async (tx) => {
+      // Lokalt pr. forsøg: transaktionen kan køres igen ved konflikt.
+      const fundet = [];
+      const refs = tilSkriv.map((w) => matchesCol.doc(w.id));
+      const snaps = await tx.getAll(...refs);
+      snaps.forEach((snap, i) => {
+        const frisk = snap.exists ? snap.data() : null;
+        if (erManuelFacit(frisk)) { fundet.push({ w: tilSkriv[i], frisk }); return; }
+        tx.set(refs[i], tilSkriv[i].data, { merge: true });
+      });
+      return fundet;
+    });
+    const kapretIds = new Set(kapret.map((k) => k.w.id));
+    for (const { w, frisk } of kapret) meldManuel(w.id, frisk, w.e);
+    for (const w of tilSkriv) if (!kapretIds.has(w.id)) rettede.push(w.id);
+  }
   // rettede: hvilke kampe der netop fik facit. Sweep'et bruger listen til at
   // lade være med at melde dem strandet i samme åndedrag — så slipper det for
   // at skanne alle 132 kampe en ekstra gang bare for at få et friskt billede.

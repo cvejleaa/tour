@@ -15,7 +15,7 @@ import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameAc
 import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds,
   callSyncGameKickoffs, callSyncGameResults, callSyncGameKampdetaljer } from './adminActions';
 import { harKickoffSynk, harResultatSynk, harKampdetaljer } from '../games/spilEvner';
-import { erKampspil } from '../../lib/facit';
+import { erKampspil, uenigTekst } from '../../lib/facit';
 import ManuelFacit from './ManuelFacit';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { rundeEtiket, rundeFlertal, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
@@ -359,7 +359,7 @@ function GameRow({ game }) {
     // ANDET om dem, skal et menneske se på det — enten var tastningen forkert,
     // eller kilden er. Nævnes kun, når der er nogen.
     const manuelle = d.manuelle?.length
-      ? ` ${d.manuelle.length} kampe er sat i hånden og røres ikke af synken${d.manuelleUenige?.length ? ` — kilden siger noget andet om ${d.manuelleUenige.length}: ${d.manuelleUenige.join(', ')}` : ''}.`
+      ? ` ${d.manuelle.length} kampe er sat i hånden og røres ikke af synken${d.manuelleUenige?.length ? ` — kilden siger noget andet om ${d.manuelleUenige.length}: ${d.manuelleUenige.map(uenigTekst).join('; ')}` : ''}.`
       : '';
     // "Intet manglede" er sandt og alligevel en halv besked i alarm-scenariet:
     // den strandede kamp er netop IKKE blandt kildens færdige kampe. Sig
