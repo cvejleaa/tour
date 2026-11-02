@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { koerFuldtSeed } from './fuldtSeed.mjs';
 import { buildMatches, matchId } from '../../src/lib/superligaSeed.js';
 import { SPORT_PROFILER } from '../../src/lib/superligaScoring.js';
@@ -205,5 +208,27 @@ describe('koerFuldtSeed — vagterne', () => {
     await expect(koer(db)).rejects.toThrow(/findes ikke i sportsprofilerne/);
     expect(db.gameKald).toHaveLength(0);
     expect(db.batchKald).toHaveLength(0);
+  });
+});
+
+// Selve scriptet kræver en rigtig database, så dets LEDNING bevogtes som
+// tekst. Mutationstesten fandt fire linjer, der kunne ændres med hele suiten
+// grøn: opslaget, kombinationstjekket og de to flag, der sendes videre. En
+// vagt, hvis kald er udækket, er ikke en vagt (samme fund som teamsOnly.mjs).
+describe('seed-football.mjs — ledningen til opslaget, vagten og forløbet', () => {
+  const kode = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../seed-football.mjs'), 'utf8')
+    .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+
+  it('argumenterne går gennem opslaget og kombinationstjekket, før noget andet', () => {
+    expect(kode).toMatch(/args = udfyldFraOpslag\(parseArgs\(process\.argv\.slice\(2\)\)\);\n\s*tjekFlagKombination\(args\.flags\);/);
+  });
+
+  it('flagene læses af argumenterne og sendes uændret til forløbet', () => {
+    expect(kode).toMatch(/const SKRIV = args\.flags\.has\('skriv'\);/);
+    expect(kode).toMatch(/const OVERSKRIV_HOLD = args\.flags\.has\('overskriv-hold'\);/);
+    const kald = /await koerFuldtSeed\(\{([\s\S]*?)\}\);/.exec(kode)?.[1] ?? '';
+    expect(kald).toMatch(/^\s*skriv: SKRIV,$/m);
+    expect(kald).toMatch(/^\s*overskrivHold: OVERSKRIV_HOLD,$/m);
+    expect(kald).not.toMatch(/: true,/);
   });
 });
