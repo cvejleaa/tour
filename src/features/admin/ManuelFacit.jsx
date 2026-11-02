@@ -27,8 +27,9 @@ import { useState } from 'react';
 import { useGameRounds } from './useGameRounds';
 import { callSaetFacitManuelt, callFrigivFacitTilSynk } from './adminActions';
 import {
-  AFGJORT, AFGJORT_NAVN, erKnockoutRunde, erManuelFacit, facitFejl,
+  AFGJORT, AFGJORT_NAVN, erManuelFacit, facitFejl,
 } from '../../lib/facit';
+import { erKnockout } from '../../lib/faser';
 import { formatKickoff } from '../../lib/daDate';
 import { fmtSignedDec } from '../../lib/daNum';
 
@@ -132,7 +133,7 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
 
   const kandidater = facitKandidater(kampe, Date.now());
   const kamp = kandidater.find((m) => m.id === matchId) || null;
-  const knockout = kamp ? erKnockoutRunde(game, kamp.round) : false;
+  const knockout = kamp ? erKnockout(game, kamp.round) : false;
   const h = tal(home);
   const a = tal(away);
   const visSlut = knockout && h != null && h === a;

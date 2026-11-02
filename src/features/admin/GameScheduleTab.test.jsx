@@ -836,7 +836,8 @@ describe('startrunde-vælgeren', () => {
     render(<GameScheduleTab />);
     const linje = screen.getByTestId('fasekalender-ugyldig');
     expect(linje.textContent).toBe('⚠️ Fasekalenderen er ugyldig: fase 1: første fase skal starte i runde 1 (ikke 2). '
-      + 'Spillet vises med «Runde N» i stedet for dagens navn, og Runde-Botten ser ikke de kommende faser. '
+      + 'Spillet vises med «Runde N» i stedet for dagens navn, Runde-Botten ser ikke de kommende faser, '
+      + 'og ✍️ facit i hånden kender ingen knockout-kampe (intet slutresultat efter forlængelse). '
       + 'Ret faser i scripts/games.mjs og kør Deploy platform med seedGames.');
   });
 

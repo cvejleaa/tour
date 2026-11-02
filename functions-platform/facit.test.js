@@ -83,26 +83,6 @@ describe('facitFelter — formen på et facit-dokument', () => {
   });
 });
 
-describe('erKnockoutRunde — midlertidigt prædikat (bindes til D5 faser.erKnockout)', () => {
-  const { erKnockoutRunde } = server;
-  it('uden faser er intet knockout (Superligaen, Premier League)', () => {
-    expect(erKnockoutRunde({ type: 'football' }, 30)).toBe(false);
-    expect(erKnockoutRunde(null, 1)).toBe(false);
-    expect(erKnockoutRunde({ faser: 'nej' }, 1)).toBe(false);
-  });
-  it('slår runden op i kalenderen — grænserne er med', () => {
-    expect(erKnockoutRunde(HB, 3)).toBe(false);
-    expect(erKnockoutRunde(HB, 6)).toBe(false);
-    expect(erKnockoutRunde(HB, 7)).toBe(true);
-    expect(erKnockoutRunde(HB, 9)).toBe(true);
-    expect(erKnockoutRunde(HB, 8)).toBe(false); // hul i kalenderen
-    expect(erKnockoutRunde(HB, null)).toBe(false);
-  });
-  it('kun knockout === true tæller (ikke en sandhedsværdi)', () => {
-    expect(erKnockoutRunde({ faser: [{ fra: 1, til: 1, knockout: 'ja' }] }, 1)).toBe(false);
-  });
-});
-
 describe('forventerFacit og erManuelFacit', () => {
   const { forventerFacit, erManuelFacit, erKampspil } = server;
   it('kampspil, åbne eller i gang — uafhængigt af kilde', () => {
@@ -178,7 +158,6 @@ describe('spejling mod src/lib/facit.js', () => {
     for (const g of SPIL) {
       expect(src.forventerFacit(g)).toBe(server.forventerFacit(g));
       expect(src.erKampspil(g)).toBe(server.erKampspil(g));
-      for (const r of [null, 1, 3, 4, 7, 8, 9]) expect(src.erKnockoutRunde(g, r)).toBe(server.erKnockoutRunde(g, r));
     }
     for (const k of [null, {}, { resultatKilde: 'manuel' }, { resultatKilde: 'x' }]) {
       expect(src.erManuelFacit(k)).toBe(server.erManuelFacit(k));

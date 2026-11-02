@@ -66,24 +66,6 @@ export function forventerFacit(game) {
   return erKampspil(game) && (game?.status === 'open' || game?.status === 'live');
 }
 
-/**
- * MIDLERTIDIGT PRÆDIKAT — TODO(D5): bind til `erKnockout(game, round)` fra
- * faser.js, når D5 er landet, og slet denne kopi. Formen er den, planen
- * (§12.1) fastlægger for `game.faser`: `[{navn, fra, til, knockout?}]`, hvor
- * fra/til er rundenumre. En kamp får INTET eget knockout-felt; det udledes af
- * runden via kalenderen.
- *
- * Uden `faser` (Superligaen, Premier League) er intet knockout → kun ét
- * målfelt i dialogen, og et `slut` afvises.
- */
-export function erKnockoutRunde(game, round) {
-  const faser = Array.isArray(game?.faser) ? game.faser : null;
-  if (!faser || !Number.isFinite(round)) return false;
-  const fase = faser.find((f) => f && Number.isFinite(f.fra) && Number.isFinite(f.til)
-    && round >= f.fra && round <= f.til);
-  return fase?.knockout === true;
-}
-
 function erMaal(v) {
   return Number.isInteger(v) && v >= 0 && v <= MAKS_MAAL;
 }

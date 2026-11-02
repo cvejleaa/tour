@@ -267,7 +267,9 @@ at rette et forkert facit.
    ville afregne tips, mens andre stadig kunne afgive deres), med dem uden
    facit øverst.
 2. Tast **målene efter ordinær tid** — det er dem, der tippes på. Er kampen en
-   **knockout-kamp** (spillets fasekalender siger det), og står den lige efter
+   **knockout-kamp** (spillets fasekalender siger det — er kalenderen ugyldig,
+   står det med rødt under Spil-tidsplan, og så kender dialogen ingen
+   knockout-kampe, før kalenderen er rettet), og står den lige efter
    ordinær tid, skal du også taste **slutresultatet efter forlængelse/straffekast**
    og hvordan kampen blev afgjort. Det vises separat og flytter ingen point;
    X er et gyldigt facit i knockout.

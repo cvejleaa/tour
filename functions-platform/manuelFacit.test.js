@@ -212,7 +212,11 @@ describe('saetFacitCore — vagterne', () => {
 describe('saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muligt)', () => {
   const HB = {
     type: 'football', status: 'live', sport: 'haandbold', name: 'Håndbold-VM',
-    faser: [{ navn: 'Indledende runde', fra: 1, til: 3 }, { navn: 'Kvartfinaler', fra: 4, til: 4, knockout: true }],
+    // GYLDIG kalender (faseKalenderFejl): knockout læses af faser.erKnockout.
+    faser: [
+      { navn: 'Indledende runde', fra: 1, til: 3, start: '2027-01-13' },
+      { navn: 'Kvartfinaler', fra: 4, til: 4, start: '2027-01-16', knockout: true },
+    ],
   };
   const KO = { k1: { round: 4, home: 'Danmark', away: 'Sverige', kickoff: FOER, odds: ODDS } };
 
@@ -263,6 +267,25 @@ describe('saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muli
     const ud = await toerOgSkriv(db, { gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' }, nowMs: NU });
     expect(ud.ingenAendring).toBe(true);
     expect(writes).toEqual([]);
+  });
+
+  // En kalender, der ikke består formkontrollen (her: Kvartfinaler starter
+  // FØR den indledende runde er spillet), tæller ingen steder — heller ikke
+  // her. Samme svar som fladen (ManuelFacit.test.jsx), og admin ser fejlen
+  // under Spil-tidsplan.
+  it('en UGYLDIG kalender kender ingen knockout: slut afvises, X skrives uden slut', async () => {
+    const UGYLDIG = { ...HB, faser: [HB.faser[0], { ...HB.faser[1], start: '2027-01-14' }] };
+    const { db } = makeDb({ game: UGYLDIG, matches: KO });
+    await expect(saetFacitCore(db, FieldValue, {
+      gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' }, nowMs: NU,
+    })).rejects.toThrow(/ikke en knockout-kamp/);
+
+    const ny = makeDb({ game: UGYLDIG, matches: KO });
+    const ud = await toerOgSkriv(ny.db, { gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, nowMs: NU });
+    expect(ud.knockout).toBe(false);
+    expect(ny.writes[0].data.result).toBe('X');
+    expect(ny.writes[0].data.slut).toBe('@delete');
+    expect(ud.efter.slut).toBeNull();
   });
 
   it('en kamp i en ikke-knockout-fase af samme spil kender ikke slut', async () => {

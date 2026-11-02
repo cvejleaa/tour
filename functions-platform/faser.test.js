@@ -49,9 +49,13 @@ describe('faser: server-spejlet er src', () => {
     ['SL', { id: 'superliga2627' }],
     ['intet', null],
     ['ugyldig', { faser: [{ ...TEST_FASER[0], fra: 2 }] }],
+    // Et HUL før kvartfinalerne (runde 14 mangler): et naivt opslag ville
+    // kalde runde 15-17 knockout. Facit i hånden (ManuelFacit ⇄ manuelFacit)
+    // spørger erKnockout — klient og server skal begge sige nej.
+    ['ugyldig med knockout', { faser: TEST_FASER.map((f) => (f.navn === 'Kvartfinaler' ? { ...f, fra: 15 } : f)) }],
     ['håndbold', HAANDBOLD_SPIL],
   ];
-  const RUNDER = [0, 1, 2, 6, 7, 13, 14, 16, 17, 18, 2.5, null];
+  const RUNDER = [0, 1, 2, 6, 7, 13, 14, 15, 16, 17, 18, 2.5, null];
   const TIDER = [kl18('2027-01-10'), kl18('2027-01-20'), Date.parse('2027-01-19T23:30:00Z'), kl18('2027-02-01'), NaN];
 
   for (const [navn, game] of SPIL) {
@@ -82,6 +86,21 @@ describe('faser: server-spejlet er src', () => {
       }
     });
   }
+
+  // Paritet alene beviser ikke svaret: to kopier af et naivt opslag ville
+  // også være enige. Over en UGYLDIG kalender er INGEN runde knockout — i
+  // begge — mens den gyldige kalender har knockout fra runde 14.
+  it('erKnockout over en ugyldig kalender: nej i begge, også hvor et naivt opslag sagde ja', async () => {
+    const src = await import('../src/lib/faser.js');
+    const ugyldig = SPIL.find(([n]) => n === 'ugyldig med knockout')[1];
+    expect(server.faseKalenderAdvarsel(ugyldig)).not.toBeNull();
+    for (let r = 1; r <= 17; r += 1) {
+      expect(server.erKnockout(ugyldig, r), `server · ${r}`).toBe(false);
+      expect(src.erKnockout(ugyldig, r), `src · ${r}`).toBe(false);
+    }
+    expect([15, 16, 17].map((r) => server.erKnockout(HAANDBOLD_SPIL, r))).toEqual([true, true, true]);
+    expect([15, 16, 17].map((r) => src.erKnockout(HAANDBOLD_SPIL, r))).toEqual([true, true, true]);
+  });
 
   it('samme formkontrol og samme datoer', async () => {
     const src = await import('../src/lib/faser.js');

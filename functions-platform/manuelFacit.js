@@ -26,8 +26,9 @@
 // ---------------------------------------------------------------------------
 
 const {
-  facitFejl, facitFelter, erKnockoutRunde, erKampspil, erManuelFacit, RESULTAT_KILDE_MANUEL,
+  facitFejl, facitFelter, erKampspil, erManuelFacit, RESULTAT_KILDE_MANUEL,
 } = require('./facit');
+const { erKnockout } = require('./faser');
 const { scoreBet, round1 } = require('./superligaScoring');
 const { buildRoundContext, combiPerRunde, kickoffMs } = require('./pointOpdeling');
 const { gatedIds, spillereTriggerenGenberegner } = require('./gameScoring');
@@ -292,7 +293,11 @@ async function saetFacitCore(db, FieldValue, {
     throw fejl('failed-precondition', 'Kampen er ikke begyndt endnu, og tips kan stadig afgives. Et facit nu ville afregne nogle tips, mens andre stadig kunne ændres.');
   }
 
-  const knockout = erKnockoutRunde(game, kamp.round);
+  // Knockout udledes af runden via fasekalenderen — samme svar som fladen
+  // (ManuelFacit.jsx). En UGYLDIG kalender giver ingen knockout (som alle
+  // andre flader falder den tilbage til ligaen), og admin ser formfejlen
+  // under Spil-tidsplan.
+  const knockout = erKnockout(game, kamp.round);
   const input = { home: homeGoals, away: awayGoals, slut: slut ?? null };
   const tekst = facitFejl(input, { knockout });
   if (tekst) throw fejl('invalid-argument', tekst);

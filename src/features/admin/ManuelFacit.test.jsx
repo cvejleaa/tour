@@ -30,7 +30,19 @@ const nu = Date.now();
 const SL = { id: 'superliga2627', name: 'Superligaen 2026/27', type: 'football', status: 'live', sync: { provider: 'superliga' } };
 const HB = {
   id: 'hvm2027', name: 'Håndbold-VM 2027', type: 'football', status: 'open', sport: 'haandbold',
-  faser: [{ navn: 'Indledende runde', fra: 1, til: 3 }, { navn: 'Kvartfinaler', fra: 7, til: 7, knockout: true }],
+  // En GYLDIG kalender (faser.faseKalenderFejl): knockout læses af
+  // faser.erKnockout, som fladerne og serveren deler.
+  faser: [
+    { navn: 'Indledende runde', fra: 1, til: 6, start: '2027-01-13' },
+    { navn: 'Kvartfinaler', fra: 7, til: 7, start: '2027-01-20', knockout: true },
+  ],
+};
+// Samme turnering med et HUL i kalenderen (runde 7 efter runde 3). Et naivt
+// opslag ville finde Kvartfinaler i runde 7 — men en kalender, der ikke
+// består formkontrollen, tæller ikke nogen steder, heller ikke her.
+const HB_UGYLDIG = {
+  ...HB,
+  faser: [{ navn: 'Indledende runde', fra: 1, til: 3, start: '2027-01-13' }, { ...HB.faser[1] }],
 };
 
 function kampe(liste) {
@@ -217,6 +229,18 @@ describe('✍️ felterne — ordinær tid og knockout', () => {
     fireEvent.change(screen.getByLabelText('Mål Danmark'), { target: { value: '31' } });
     fireEvent.change(screen.getByLabelText('Mål Sverige'), { target: { value: '30' } });
     expect(screen.queryByText(/Slutresultat efter forlængelse/)).not.toBeInTheDocument();
+  });
+
+  it('en UGYLDIG kalender kender ingen knockout — samme svar som serveren', async () => {
+    kampe([{ id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME }]);
+    vaelg(await aabn(HB_UGYLDIG), 'r7-dk-se');
+    fireEvent.change(screen.getByLabelText('Mål Danmark'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Mål Sverige'), { target: { value: '30' } });
+    expect(screen.queryByText(/Slutresultat efter forlængelse/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Hvordan blev kampen afgjort')).not.toBeInTheDocument();
+    expect(screen.queryByText(/uden forlængelse og straffekast/)).not.toBeInTheDocument();
+    expect(screen.getByText(/^Mål efter ordinær tid:$/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' })).toBeEnabled();
   });
 
   it('en kamp i håndboldspillets indledende runde er ikke knockout', async () => {
