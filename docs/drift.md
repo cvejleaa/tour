@@ -69,7 +69,8 @@ GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
 ```
 
 Giver du selv `--teams`, `--fixtures` eller `--runder`, bruges opslaget slet ikke
-(heller ikke for de andre to) — så står kommandolinjen alene for valget.
+(heller ikke for de andre to) — så står kommandolinjen alene for valget, og
+«Mangler argumenter» siger selv, at det er derfor.
 
 Tør-kørsel er default. Ser tallene rigtige ud, køres den igen med `--skriv`.
 Fra workflowet er det `seedKampe` + `seedSpil` (+ `seedKampeSkriv` for at skrive).
@@ -77,9 +78,12 @@ Fra workflowet er det `seedKampe` + `seedSpil` (+ `seedKampeSkriv` for at skrive
 **Et gen-seed skriver kun kampe.** Spil-dokumentets `teams` og `eloCurrent`
 skrives kun, når spillet ikke har dem (første seed). Har spillet dem, prises nye
 kampe af spillets EGEN holdliste, og tør-kørslen siger «teams BEVARES» og
-«eloCurrent BEVARES» — og viser, hvis filens holdliste er drevet fra spillets.
+«eloCurrent BEVARES» — og viser hver feltændring, hvis filens holdliste er
+drevet fra spillets.
 Skal holdlisten med elo eller antal hold virkelig overskrives, så kør med
-`--overskriv-hold` (lokalt; der er med vilje intet workflow-input til det).
+`--overskriv-hold` **lokalt**, med produktionsnøglen i
+`GOOGLE_APPLICATION_CREDENTIALS` som i eksemplet ovenfor (der er med vilje intet
+workflow-input til det — fejlbeskederne i Actions-loggen peger hertil).
 Tør-kørslen viser så hver feltændring. `teams[].elo` er seed for den levende Elo,
 så næste facit omskriver sæsonens Elo-historik og prisen på hver ulåst kamp.
 
@@ -98,9 +102,19 @@ service-account-nøglen ind; scriptet siger fra med det samme, hvis filen ikke
 findes.
 
 Scriptet nægter at skrive, hvis et holdnavn i kampprogrammet ikke findes i
-holdlisten. Det er med vilje: `teamElo()` giver **tavst sportens
-start-rating** (`START` i sportsprofilen — 1500 for fodbold) for et ukendt
-navn, så hele klubben ville få odds som et midterhold uden en eneste fejlbesked.
+den holdliste, kampene prises af: ved første seed filens, ved et gen-seed
+**spillets egen** (`games/{id}.teams`). Et hold, der kun er kommet til i
+filen, er altså ukendt ved et gen-seed. Det er med vilje: `teamElo()` giver
+**tavst sportens start-rating** (`START` i sportsprofilen — 1500 for fodbold)
+for et ukendt navn, så hele klubben ville få odds som et midterhold uden en
+eneste fejlbesked. Af samme grund nægter det at skrive, hvis et hold i den
+liste har en `elo`, der ikke er et tal (fx en streng): seedet ville give
+start-odds, mens den levende Elo læser feltet som et tal.
+
+Har spillet en `eloCurrent`, der mangler nogle af holdene, bevares den, men
+tør-kørslen siger hvilke. Seedet fylder den ikke op — næste facit skriver
+`eloCurrent` for hvert hold i spillets holdliste, og det gør **💰 Ompris**
+(Admin → 🗓️ Spil-tidsplan) også, når den har odds-ændringer at skrive.
 
 **Spillet skal findes først** (`seedGames`). Peger `--game` på et spil, der ikke
 er oprettet, siger `--kickoffs-only` pænt `✅ 0 kickoff-tider opdateret` uden at
@@ -590,9 +604,12 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   vælges uden at redigere workflowet. Et id uden post i `scripts/seed-filer.mjs`
   afvises med listen over kendte, før der læses eller skrives noget. (Det afløser
   `seedTeamsSpil`, hvis filvalg i workflowet gav ALLE andre spil end PL
-  Superligaens holdliste.)
+  Superligaens holdliste.) **Ét felt for alle tre trin i samme kørsel**: sættes
+  `seedKampe` for håndbold-VM'et og `seedKickoffs` i samme kørsel, retter
+  kickoff-trinnet også håndbold-VM'et. Skal de ramme hver sit spil, så kør dem i
+  hver sin kørsel.
 - `seedTeams` (default false, med `seedSpil` og `seedTeamsSkriv`) — retter
-  **kun** holdlisten: trøjefarver, kortkoder, stadion. Rører hverken kampe,
+  **kun** holdlisten: trøjefarver, stadion. Rører hverken kampe,
   odds, Elo eller resultater. Findes, fordi et gen-seed ikke skriver holdlisten,
   når spillet har en. `seedTeams` tørkører som default og **nægter at skrive**,
   hvis `elo`, `short` eller antallet af hold ville ændre sig. Se "Hvis en

@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import {
-  seedPlan, spilDokPlan, teamsPlan, ukendteHold, kickoffMs,
+  seedPlan, spilDokPlan, teamsPlan, ukendteHold, kickoffMs, OVERSKRIV_VEJ,
 } from '../../src/lib/seedFootball.js';
 import { seedKampe, sportLinje } from './seedKampe.mjs';
 
@@ -34,7 +34,8 @@ import { seedKampe, sportLinje } from './seedKampe.mjs';
  * @param {(s:string)=>void} [o.log]
  * @returns {Promise<{skrevet:boolean, nye:number, medOdds:number, dok:object}>}
  * @throws hvis spillet ikke findes, sporten er ukendt, eller (under --skriv)
- *   kampprogrammet nævner hold, holdlisten ikke kender
+ *   kampprogrammet nævner hold, holdlisten ikke kender, eller et hold i den
+ *   holdliste, kampene prises af, ikke har en elo, der er et tal
  */
 export async function koerFuldtSeed({
   gameRef, matchesRef, batch, fixtures, eksisterende, teams, skriv,
@@ -82,6 +83,21 @@ export async function koerFuldtSeed({
     log(`   ${ukendte.join(', ')}`);
     log(`   De ville få neutral Elo (${profil.elo.START}) uden en eneste fejlbesked.`);
     if (skriv) throw new Error('Ukendte holdnavne — ret holdlisten eller kampprogrammet først.');
+  }
+
+  // Samme TAVSE fælde for et KENDT navn: teamElo giver START, når elo ikke er
+  // et endeligt tal (superligaSeed.js) — mens recomputeSeasonElo læser samme
+  // felt med `Number(t.elo) || start` (gameScoring.js). En streng-elo "1632"
+  // ville altså give kampen start-odds i seedet og 1632 i næste Ompris: to
+  // priser for samme hold. Ved et gen-seed er listen PRODUKTIONENS, som ingen
+  // test i repoet ser — derfor tjekkes den her, på det, der faktisk bruges.
+  const udenElo = eloUdenTal(fixtures, dok.prisHold);
+  if (udenElo.length) {
+    const hvor = dok.skrivTeams ? 'holdlisten' : `spillets holdliste (games/${navn}.teams)`;
+    log(`\n⚠️  ${udenElo.length} hold i ${hvor} har ingen elo, der er et tal:`);
+    log(`   ${udenElo.map((t) => `${t.name} (${JSON.stringify(t.elo) ?? '—'})`).join(', ')}`);
+    log(`   Seedet ville prise dem til ${profil.elo.START}, mens den levende Elo læser feltet anderledes.`);
+    if (skriv) throw new Error('Hold uden en elo, der er et tal — ret holdlisten først.');
   }
 
   let nye = 0;
@@ -139,6 +155,7 @@ export async function koerFuldtSeed({
  */
 function logSpilDok({ dok, game, teams, log }) {
   const antalElo = (e) => (e && typeof e === 'object' ? Object.keys(e).length : 0);
+  const vis = (v) => (v === undefined ? '—' : JSON.stringify(v));
   log('\nSpil-dokumentet (teams og eloCurrent):');
   if (dok.grund === 'overskriv') {
     log(`  ⚠️  --overskriv-hold: teams (${teams.length} hold) og eloCurrent OVERSKRIVES fra holdlisten.`);
@@ -153,6 +170,24 @@ function logSpilDok({ dok, game, teams, log }) {
     if (dok.skrivElo) log(`  eloCurrent mangler på spillet — skrives fra ${dok.skrivTeams ? 'holdlisten' : 'spillets holdliste'}.`);
     else log(`  eloCurrent BEVARES (levende Elo for ${antalElo(game.eloCurrent)} hold).`);
     if (!dok.skrivTeams && !dok.skrivElo) log('  Kun kampe skrives. Kampene prises af spillets egen holdliste.');
+    // En DELVIS eloCurrent tæller som "har den" (spilDokPlan) og bevares — men
+    // et hold uden nøgle har ingen levende Elo. Feltet har i dag ingen læser;
+    // det får det, når håndboldens odds prises af den levende Elo. Seedet
+    // reparerer det ikke selv (det ville være at skrive startværdier ind i en
+    // levende tabel), men det skal SIGES. recomputeSeasonElo skriver
+    // eloCurrent for hvert hold i game.teams (gameScoring.js), og den køres af
+    // næste facit — eller af 💰 Ompris, men dens skriv-knap vises KUN, når
+    // odds ændrer sig (GameScheduleTab.jsx: `prisPlan.updated > 0`). Teksten
+    // lover derfor ikke knappen som sikker vej.
+    if (!dok.skrivElo) {
+      const mangler = dok.prisHold.map((t) => t?.name).filter((n) => n != null && !Object.hasOwn(game.eloCurrent, n));
+      if (mangler.length) {
+        log(`  ⚠️  eloCurrent mangler ${mangler.length} af ${dok.prisHold.length} hold: ${mangler.join(', ')}.`);
+        log('     Seedet retter det ikke. Næste facit skriver eloCurrent for hvert hold i');
+        log('     spillets holdliste — det gør 💰 Ompris (Admin → 🗓️ Spil-tidsplan) også, men');
+        log('     kun når den har odds-ændringer at skrive.');
+      }
+    }
   }
 
   // Afviger filen fra spillet, skal operatøren se det — også når spillets
@@ -163,17 +198,30 @@ function logSpilDok({ dok, game, teams, log }) {
     if (afvig) {
       log(`  holdlisten i filen afviger fra spillets: ${tp.aendringer.length} feltændringer, `
         + `${tp.tilfoejede.length} hold kommer til, ${tp.forsvundne.length} forsvinder.`);
-      if (dok.grund === 'overskriv') {
-        // ALLE ændringer vises — samme regel som --teams-only. Det er netop
-        // gennemlæsningen, der er vagten, når teamsVagt ikke spørges.
-        const vis = (v) => (v === undefined ? '—' : JSON.stringify(v));
-        for (const a of tp.aendringer) log(`    ${a.name}  ${a.felt}: ${vis(a.fra)} → ${vis(a.til)}`);
-        if (tp.tilfoejede.length) log(`    hold der kommer til : ${tp.tilfoejede.join(', ')}`);
-        if (tp.forsvundne.length) log(`    hold der forsvinder : ${tp.forsvundne.join(', ')}`);
-      } else {
-        log('  Farver og kortkoder rettes med --teams-only. Skal elo eller antallet af hold');
-        log('  ændres, så kør med --overskriv-hold (og læs tør-kørslen først).');
+      // ALLE ændringer vises — I ALLE TILSTANDE, samme regel som --teams-only.
+      // Ved overskrivning er gennemlæsningen vagten (teamsVagt spørges ikke).
+      // Ved et gen-seed er listen det, operatøren skal vælge vej ud fra:
+      // «1 feltændringer» uden at sige hvilken, lader ham gætte mellem
+      // --teams-only og --overskriv-hold.
+      for (const a of tp.aendringer) log(`    ${a.name}  ${a.felt}: ${vis(a.fra)} → ${vis(a.til)}`);
+      if (tp.tilfoejede.length) log(`    hold der kommer til : ${tp.tilfoejede.join(', ')}`);
+      if (tp.forsvundne.length) log(`    hold der forsvinder : ${tp.forsvundne.join(', ')}`);
+      if (dok.grund !== 'overskriv') {
+        log('  Farver og stadion rettes med --teams-only (seedTeams i workflowet).');
+        log(`  Skal elo, kortkode eller antallet af hold ændres, hører det til ${OVERSKRIV_VEJ}.`);
+        log('  Læs tør-kørslen først.');
       }
     }
   }
+}
+
+/**
+ * Hold i `prisHold`, som kampprogrammet nævner, og hvis elo ikke er et
+ * endeligt tal. Kun de nævnte tæller: et hold uden kampe prises aldrig.
+ * Navne, holdlisten slet ikke kender, er `ukendteHold`s sag.
+ */
+function eloUdenTal(fixtures, prisHold) {
+  const navne = new Set();
+  for (const f of fixtures || []) { navne.add(f.home); navne.add(f.away); }
+  return (prisHold || []).filter((t) => navne.has(t?.name) && !Number.isFinite(t?.elo));
 }

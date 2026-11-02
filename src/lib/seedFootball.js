@@ -411,6 +411,20 @@ export function teamsPlan(nye, nuvaerende) {
 }
 
 /**
+ * Vejen til at overskrive holdlisten (elo, antal hold, kortkode).
+ *
+ * `--overskriv-hold` har MED VILJE intet workflow-input. Teksterne læses
+ * oftest i Actions-loggen for seedTeams/seedKampe — og dér er et bart flagnavn
+ * en blindgyde: operatøren leder efter et flueben, der ikke findes. Derfor
+ * siger teksten selv, at vejen er lokal og kræver produktionsnøglen, og hvor
+ * fremgangsmåden står. Én tekst, så teamsVagt og fuldtSeed ikke kan drive fra
+ * hinanden.
+ */
+export const OVERSKRIV_VEJ = 'et fuldt seed med --overskriv-hold, kørt LOKALT med '
+  + 'produktionsnøglen (docs/drift.md, «Seed et nyt fodbold-spil») — workflowet '
+  + 'har med vilje intet flueben til det';
+
+/**
  * MÅ planen skrives?
  *
  * Skrivningen er ikke kosmetisk, uanset at anledningen er en trøjefarve.
@@ -441,14 +455,14 @@ export function teamsVagt(plan) {
     grunde.push(
       `${eloRørt.length} hold får ændret elo (${liste}). Feltet er seed for den `
       + 'levende Elo: næste facit ville omskrive sæsonens Elo-historik og prisen '
-      + 'på hver ulåst kamp. Skal Elo ændres, hører det til et fuldt seed med --overskriv-hold.',
+      + `på hver ulåst kamp. Skal Elo ændres, hører det til ${OVERSKRIV_VEJ}.`,
     );
   }
   if (plan?.tilfoejede?.length) {
     grunde.push(
       `${plan.tilfoejede.length} hold kommer til (${plan.tilfoejede.join(', ')}). `
       + 'Antallet af hold afgør, om den officielle tabel godtages ved '
-      + 'pulje-afregningen. Skal holdlisten vokse, hører det til et fuldt seed med --overskriv-hold.',
+      + `pulje-afregningen. Skal holdlisten vokse, hører det til ${OVERSKRIV_VEJ}.`,
     );
   }
   if (plan?.dubletter?.length) {
@@ -469,7 +483,7 @@ export function teamsVagt(plan) {
     grunde.push(
       `${shortRørt.length} hold får ændret short (${liste}). Kortkoden er nøglen i `
       + 'delbare hold-links, og en ændring gør hvert eksisterende link dødt. '
-      + 'Skal kortkoden ændres, hører det til et fuldt seed med --overskriv-hold.',
+      + `Skal kortkoden ændres, hører det til ${OVERSKRIV_VEJ}.`,
     );
   }
   if (plan?.forsvundne?.length) {

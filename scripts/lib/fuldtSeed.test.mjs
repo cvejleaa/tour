@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { koerFuldtSeed } from './fuldtSeed.mjs';
+import { OVERSKRIV_VEJ } from '../../src/lib/seedFootball.js';
 import { buildMatches, matchId } from '../../src/lib/superligaSeed.js';
 import { SPORT_PROFILER } from '../../src/lib/superligaScoring.js';
 
@@ -114,8 +115,35 @@ describe('koerFuldtSeed — spil-dokumentet', () => {
     const db = fakeDb({ teams: SPIL_HOLD, eloCurrent: LEVENDE_ELO });
     const r = await koer(db, { skriv: false });
     expect(r.log).toMatch(/holdlisten i filen afviger fra spillets: 1 feltændringer, 0 hold kommer til, 0 forsvinder/);
-    expect(r.log).toMatch(/--teams-only/);
-    expect(r.log).toMatch(/--overskriv-hold/);
+    expect(r.log).toMatch(/Farver og stadion rettes med --teams-only \(seedTeams i workflowet\)/);
+    expect(r.log).toContain(`Skal elo, kortkode eller antallet af hold ændres, hører det til ${OVERSKRIV_VEJ}.`);
+    // --teams-only AFVISER en ændret kortkode (teamsVagt) — teksten må ikke
+    // sende operatøren dertil med den.
+    expect(r.log).not.toMatch(/kortkoder rettes med --teams-only/);
+  });
+
+  // Før stod kun ANTALLET («1 feltændringer») — operatøren skulle vælge mellem
+  // --teams-only og --overskriv-hold uden at vide, om det var en farve eller
+  // en elo. Listen vises nu i alle tilstande, ikke kun ved overskrivning.
+  it('gen-seed viser HVER feltændring, ikke kun antallet', async () => {
+    const spil = [...SPIL_HOLD.slice(0, 1), { ...SPIL_HOLD[1], color: '#333333' }, { name: 'Gammel', elo: 1400 }];
+    const db = fakeDb({ teams: spil, eloCurrent: { ...LEVENDE_ELO, Gammel: 1400 } });
+    const fil = [...FIL_HOLD, { name: 'Ny', elo: 1500 }];
+    const r = await koer(db, { skriv: false, teams: fil });
+    expect(r.dok.grund).toBe('bevar');
+    expect(r.log).toMatch(/2 feltændringer, 1 hold kommer til, 1 forsvinder/);
+    expect(r.log).toMatch(/^ {4}Stærk {2}elo: 1850 → 1900$/m);
+    expect(r.log).toMatch(/^ {4}Svag {2}color: "#333333" → "#222222"$/m);
+    expect(r.log).toMatch(/^ {4}hold der kommer til : Ny$/m);
+    expect(r.log).toMatch(/^ {4}hold der forsvinder : Gammel$/m);
+    expect(r.log).toMatch(/teams BEVARES/);
+  });
+
+  it('… og intet afvigende → ingen liste og ingen vej-tekst', async () => {
+    const db = fakeDb({ teams: FIL_HOLD, eloCurrent: LEVENDE_ELO });
+    const r = await koer(db, { skriv: false });
+    expect(r.log).not.toMatch(/afviger fra spillets/);
+    expect(r.log).not.toMatch(/--teams-only|--overskriv-hold/);
   });
 
   it('--overskriv-hold skriver teams og eloCurrent fra holdlisten, også når spillet har dem', async () => {
@@ -162,6 +190,56 @@ describe('koerFuldtSeed — spil-dokumentet', () => {
 });
 
 describe('koerFuldtSeed — vagterne', () => {
+  // En DELVIS eloCurrent tæller som «har den» og bevares — men et hold uden
+  // nøgle har ingen levende Elo. Det skal siges, ikke repareres af seedet.
+  it('en eloCurrent, der mangler hold, bevares — men tør-kørslen siger hvilke', async () => {
+    const db = fakeDb({ teams: SPIL_HOLD, eloCurrent: { Stærk: 1871 } });
+    const r = await koer(db, { skriv: false });
+    expect(r.dok.skrivElo).toBe(false);
+    expect(r.log).toMatch(/⚠️ {2}eloCurrent mangler 1 af 2 hold: Svag\./);
+    expect(r.log).toMatch(/Næste facit skriver eloCurrent for hvert hold/);
+    // Ompris lover vi ikke som sikker vej: dens skriv-knap vises kun ved
+    // odds-ændringer (GameScheduleTab.jsx).
+    expect(r.log).toMatch(/kun når den har odds-ændringer at skrive/);
+    // Og under --skriv røres spil-dokumentet stadig ikke.
+    const db2 = fakeDb({ teams: SPIL_HOLD, eloCurrent: { Stærk: 1871 } });
+    await koer(db2);
+    expect(db2.gameKald).toHaveLength(0);
+  });
+
+  it('en komplet eloCurrent giver ingen advarsel', async () => {
+    const r = await koer(fakeDb({ teams: SPIL_HOLD, eloCurrent: LEVENDE_ELO }), { skriv: false });
+    expect(r.log).not.toMatch(/eloCurrent mangler/);
+  });
+
+  // teamElo giver START for en elo, der ikke er et endeligt tal — mens
+  // recomputeSeasonElo læser `Number(t.elo) || start`. En streng-elo i
+  // PRODUKTIONENS holdliste ville give to priser for samme hold.
+  it('et hold med en elo, der ikke er et tal, afvises under --skriv — og tør-kørslen siger hvilket', async () => {
+    const spil = [{ ...SPIL_HOLD[0], elo: '1850' }, SPIL_HOLD[1], { name: 'Uden kampe', elo: null }];
+    const db = fakeDb({ teams: spil, eloCurrent: LEVENDE_ELO });
+    const r = await koer(db, { skriv: false });
+    expect(r.log).toMatch(/⚠️ {2}1 hold i spillets holdliste \(games\/sl-test\.teams\) har ingen elo, der er et tal:/);
+    expect(r.log).toMatch(/^ {3}Stærk \("1850"\)$/m);
+    // Et hold uden kampe prises aldrig og nævnes ikke i elo-advarslen.
+    expect(r.log).not.toMatch(/^ {3}.*Uden kampe \(/m);
+    await expect(koer(fakeDb({ teams: spil, eloCurrent: LEVENDE_ELO }))).rejects.toThrow(/Hold uden en elo, der er et tal/);
+  });
+
+  it('… også ved første seed, mod filens holdliste — og intet skrives', async () => {
+    const db = fakeDb({});
+    await expect(koer(db, { teams: [FIL_HOLD[0], { name: 'Svag' }] })).rejects.toThrow(/Hold uden en elo/);
+    expect(db.gameKald).toHaveLength(0);
+    expect(db.batchKald).toHaveLength(0);
+    const r = await koer(fakeDb({}), { skriv: false, teams: [FIL_HOLD[0], { name: 'Svag' }] });
+    expect(r.log).toMatch(/1 hold i holdlisten har ingen elo, der er et tal:\n {3}Svag \(—\)/);
+  });
+
+  it('gyldige tal-elo giver ingen advarsel', async () => {
+    const r = await koer(fakeDb({}), { skriv: false });
+    expect(r.log).not.toMatch(/ingen elo, der er et tal/);
+  });
+
   it('et spil uden dokument afvises — også i tør-kørslen — og intet skrives', async () => {
     for (const skriv of [false, true]) {
       const db = fakeDb(null);
@@ -230,5 +308,15 @@ describe('seed-football.mjs — ledningen til opslaget, vagten og forløbet', ()
     expect(kald).toMatch(/^\s*skriv: SKRIV,$/m);
     expect(kald).toMatch(/^\s*overskrivHold: OVERSKRIV_HOLD,$/m);
     expect(kald).not.toMatch(/: true,/);
+  });
+
+  // Mutationsfund (M39): linjen kunne fjernes med grøn suite. Den er den
+  // eneste, der viser stien til kampprogrammet.
+  it('loggen siger, hvilke filer opslaget gav — med kampprogrammets sti', () => {
+    expect(kode).toMatch(/if \(args\.kilde === 'seed-filer'\) \{\n\s*console\.log\(`Filer fra scripts\/seed-filer\.mjs for \$\{GAME_ID\}: holdliste \$\{TEAMS_PATH\}, `\n\s*\+ `kampprogram \$\{FIXTURES_PATH\}/);
+  });
+
+  it('«Mangler argumenter» siger, når en egen fil slog opslaget fra', () => {
+    expect(kode).toMatch(/const note = opslagSlaaetFra\(args\);\n\s*console\.error\(`\nMangler argumenter\.\$\{note \? `\\n\\n {2}\$\{note\}` : ''\}/);
   });
 });

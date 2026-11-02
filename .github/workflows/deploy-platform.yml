@@ -24,7 +24,7 @@ on:
       seedSuperliga:
         # Labelen er det ENESTE, operatøren ser i klik-øjeblikket — YAML-
         # kommentarer er usynlige i Actions-UI'et. Derfor står forbeholdet her.
-        description: 'Seed Superliga-kampprogrammet og SKRIV straks (kampe, der allerede har odds, springes over; holdliste og eloCurrent skrives kun, hvis spillet ikke har dem). Vil du se tør-kørslen først, så brug seedKampe. Skal tidspunkter rettes, så brug seedKickoffs — skal kun farver/kortkoder rettes, så brug seedTeams.'
+        description: 'Seed Superliga-kampprogrammet og SKRIV straks (kampe, der allerede har odds, springes over; holdliste og eloCurrent skrives kun, hvis spillet ikke har dem). Vil du se tør-kørslen først, så brug seedKampe. Skal tidspunkter rettes, så brug seedKickoffs — skal kun trøjefarver/stadion rettes, så brug seedTeams.'
         type: boolean
         default: false
       seedSpil:
@@ -35,7 +35,7 @@ on:
         # i scripts/seed-filer.mjs af seed-football.mjs selv — et id uden post
         # dér afvises med listen over kendte, før der læses eller skrives noget.
         # Sendes som MILJØVARIABEL til trinnene, aldrig ind i argumentstrengen.
-        description: 'seedKampe / seedKickoffs / seedTeams: hvilket spil? Spil-id fra scripts/seed-filer.mjs, fx superliga2627. Et ukendt id afvises.'
+        description: 'seedKampe / seedKickoffs / seedTeams: hvilket spil? Spil-id fra scripts/seed-filer.mjs, fx superliga2627. Et ukendt id afvises. Gælder ALLE tre trin i samme kørsel — skal de ramme hver sit spil, så kør dem i hver sin kørsel.'
         type: string
         default: superliga2627
       seedKampe:
@@ -64,7 +64,7 @@ on:
         # Egen knap, fordi holdlisten er det ENESTE, der skal rettes, når en
         # trøjefarve er forældet. Et gen-seed (seedSuperliga/seedKampe) skriver
         # ikke holdlisten, når spillet har en.
-        description: 'Ret KUN holdlisten for spillet i seedSpil (trøjefarver, kortkoder, stadion) — rører hverken kampe, odds, Elo eller resultater'
+        description: 'Ret KUN holdlisten for spillet i seedSpil (trøjefarver, stadion) — rører hverken kampe, odds, Elo eller resultater, og afviser ændret elo, kortkode eller antal hold'
         type: boolean
         default: false
       seedTeamsSkriv:

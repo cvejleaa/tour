@@ -68,7 +68,7 @@ const { koerTeamsOnly } = await import('./lib/teamsOnly.mjs');
 const { koerFuldtSeed } = await import('./lib/fuldtSeed.mjs');
 // Ét opslag pr. spil: hvilke filer spillet seedes fra. Bruges, når kun
 // --game er givet — sådan kalder deploy-platform.yml scriptet.
-const { udfyldFraOpslag } = await import('./seed-filer.mjs');
+const { udfyldFraOpslag, opslagSlaaetFra } = await import('./seed-filer.mjs');
 // Beslutningerne (hvad springes over, hvad ændres) bor i et testet modul.
 // To udgaver af "hvornår må vi skrive odds" er to steder at lave fejlen.
 const {
@@ -96,8 +96,10 @@ const OVERSKRIV_HOLD = args.flags.has('overskriv-hold');
 const SKRIV = args.flags.has('skriv');
 const RUNDER = args.runder || null; // fx "1-18" eller "19-38"
 
-// Hvor filerne kom fra, står øverst i loggen: i workflowet er det den eneste
-// måde at se, hvilken holdliste og hvilket program en kørsel faktisk brugte.
+// Hvor filerne kom fra, står øverst i loggen. Det er den ENESTE linje, der
+// viser stien til kampprogrammet — og den eneste, der siger, at filerne kom
+// fra opslaget og ikke fra kommandolinjen. (Holdlistens sti står også i
+// «Holdliste: N hold fra …», men kun i det fulde seed og --teams-only.)
 if (args.kilde === 'seed-filer') {
   console.log(`Filer fra scripts/seed-filer.mjs for ${GAME_ID}: holdliste ${TEAMS_PATH}, `
     + `kampprogram ${FIXTURES_PATH}${RUNDER ? `, runde ${RUNDER}` : ''}.`);
@@ -107,8 +109,9 @@ if (args.kilde === 'seed-filer') {
 // Kræves det alligevel, skal operatøren pege på en fil, der ikke bruges — og
 // så er det ikke længere klart, hvad kørslen egentlig gør.
 if (!GAME_ID || (!FIXTURES_PATH && !TEAMS_ONLY) || (!TEAMS_PATH && !KICKOFFS_ONLY)) {
+  const note = opslagSlaaetFra(args);
   console.error(`
-Mangler argumenter.
+Mangler argumenter.${note ? `\n\n  ${note}` : ''}
 
   --game      spil-id, fx pl2627-efteraar. Står spillet i scripts/seed-filer.mjs,
               er --game nok: holdliste, kampprogram og runder slås op dér.

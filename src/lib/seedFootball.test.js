@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   docId, kickoffMs, tjekDubletter, parseArgs,
   parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, teamsPlan, teamsVagt,
-  overrideAfvig, tjekFlagKombination, spilDokPlan, KENDTE_FLAG,
+  overrideAfvig, tjekFlagKombination, spilDokPlan, KENDTE_FLAG, OVERSKRIV_VEJ,
 } from './seedFootball';
 import { matchId, buildMatch } from './superligaSeed';
 
@@ -730,8 +730,21 @@ describe('teamsVagt peger på den vej, der faktisk skriver holdlisten', () => {
     ]) {
       const v = teamsVagt(teamsPlan(nye, gamle));
       expect(v.grunde).toHaveLength(1);
-      expect(v.grunde[0]).toMatch(/hører det til et fuldt seed med --overskriv-hold\.$/);
+      expect(v.grunde[0].endsWith(`hører det til ${OVERSKRIV_VEJ}.`)).toBe(true);
     }
+  });
+
+  // Teksten læses i Actions-loggen for seedTeams, hvor --overskriv-hold med
+  // vilje intet flueben har. Et bart flagnavn sender operatøren på jagt efter
+  // et input, der ikke findes.
+  it('siger, at vejen er LOKAL med produktionsnøglen, og hvor den står — ikke at den findes i workflowet', () => {
+    expect(OVERSKRIV_VEJ).toMatch(/^et fuldt seed med --overskriv-hold, kørt LOKALT med produktionsnøglen /);
+    expect(OVERSKRIV_VEJ).toContain('docs/drift.md, «Seed et nyt fodbold-spil»');
+    expect(OVERSKRIV_VEJ).toMatch(/workflowet har med vilje intet flueben til det$/);
+    // Må ikke pege på et workflow-input — der er intet.
+    expect(OVERSKRIV_VEJ).not.toMatch(/seed(Kampe|Teams|Superliga|Spil)|overskrivHold/);
+    const v = teamsVagt(teamsPlan([{ ...rfc, elo: 1500 }], [rfc]));
+    expect(v.grunde[0]).toContain('kørt LOKALT med produktionsnøglen');
   });
 });
 

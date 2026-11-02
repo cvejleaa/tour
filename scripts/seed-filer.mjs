@@ -73,3 +73,23 @@ export function udfyldFraOpslag(args, opslag = SEED_FILER) {
   if (post.runder != null) ud.runder = post.runder;
   return ud;
 }
+
+/**
+ * Hvorfor opslaget IKKE blev brugt — til scriptets «Mangler argumenter».
+ *
+ * Giver man `--game superliga2627 --fixtures …` uden `--teams`, slår den
+ * egne fil opslaget fra (se FRA_OPSLAG), og scriptet mangler så `--teams`.
+ * Hjælpeteksten lige under siger «er --game nok» — uden denne linje ser de to
+ * beskeder ud til at modsige hinanden.
+ *
+ * @returns {string|null} en færdig dansk sætning, eller null når opslaget
+ *   ikke er grunden (intet spil, et spil uden post, eller opslaget blev brugt)
+ */
+export function opslagSlaaetFra(args, opslag = SEED_FILER) {
+  if (args?.kilde !== 'argumenter' || !args?.game || !Object.hasOwn(opslag, args.game)) return null;
+  const egne = FRA_OPSLAG.filter((k) => args[k] != null);
+  if (!egne.length) return null;
+  return `Opslaget i scripts/seed-filer.mjs for ${args.game} blev IKKE brugt, fordi `
+    + `${egne.map((k) => `--${k}`).join(' og ')} er givet på kommandolinjen — så skal den bære `
+    + 'alle filerne selv. Udelad dem for at bruge opslaget.';
+}

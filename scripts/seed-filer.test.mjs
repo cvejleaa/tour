@@ -12,7 +12,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
-import { SEED_FILER, udfyldFraOpslag } from './seed-filer.mjs';
+import { SEED_FILER, udfyldFraOpslag, opslagSlaaetFra } from './seed-filer.mjs';
+import { OVERSKRIV_VEJ } from '../src/lib/seedFootball.js';
 import { parseRunder, iInterval, ukendteHold, tjekDubletter } from '../src/lib/seedFootball.js';
 
 // process.cwd() er projektroden i vitest (samme greb som games.test.mjs).
@@ -105,6 +106,40 @@ describe('udfyldFraOpslag', () => {
   });
 });
 
+// «Mangler argumenter» stod lige over hjælpetekstens «er --game nok» — uden at
+// sige, at det var den egne --fixtures, der slog opslaget fra.
+describe('opslagSlaaetFra', () => {
+  const som = (a) => opslagSlaaetFra(udfyldFraOpslag(a));
+  it('nævner præcis de egne filer, der slog opslaget fra', () => {
+    expect(som({ game: 'superliga2627', fixtures: 'b.json' })).toBe(
+      'Opslaget i scripts/seed-filer.mjs for superliga2627 blev IKKE brugt, fordi --fixtures er givet '
+      + 'på kommandolinjen — så skal den bære alle filerne selv. Udelad dem for at bruge opslaget.',
+    );
+    expect(som({ game: 'pl2627-efteraar', teams: 'a.js', runder: '19-38' }))
+      .toMatch(/for pl2627-efteraar blev IKKE brugt, fordi --teams og --runder er givet/);
+  });
+
+  it('er tavs, når opslaget ikke er grunden', () => {
+    expect(som({ game: 'superliga2627' })).toBeNull();          // opslaget blev brugt
+    expect(som({ flags: new Set() })).toBeNull();                // intet spil
+    expect(som({ game: 'egen-test', teams: 'a.js' })).toBeNull(); // spil uden post
+    expect(opslagSlaaetFra(undefined)).toBeNull();
+  });
+});
+
+// Fejlbeskederne (teamsVagt, fuldtSeed) sender operatøren til drift.md for
+// --overskriv-hold. Står vejen ikke dér, er henvisningen en blindgyde.
+describe('docs/drift.md bærer den vej, fejlbeskederne peger på', () => {
+  const DRIFT = readFileSync(fuld('docs/drift.md'), 'utf8');
+  it('afsnittet findes og siger, at --overskriv-hold køres lokalt med produktionsnøglen', () => {
+    const navn = /«([^»]+)»/.exec(OVERSKRIV_VEJ)?.[1];
+    expect(navn).toBe('Seed et nyt fodbold-spil');
+    const afsnit = new RegExp(`^## ${navn}\\n([\\s\\S]*?)^## `, 'm').exec(DRIFT)?.[1] ?? '';
+    expect(afsnit).toMatch(/`--overskriv-hold` \*\*lokalt\*\*, med produktionsnøglen i\n`GOOGLE_APPLICATION_CREDENTIALS`/);
+    expect(afsnit).toMatch(/intet\nworkflow-input til det/);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // WORKFLOWET. Læses som tekst — der er ingen YAML-parser blandt repoets
 // afhængigheder, og formen er fast: trin starter med "      - name:".
@@ -193,6 +228,31 @@ describe('deploy-platform.yml — seed-trinnene slår op, de vælger ikke selv',
     expect(blok).not.toMatch(/options:/);
     // Det gamle input må ikke stå tilbage og vælge noget, intet trin læser.
     expect(YML).not.toMatch(/seedTeamsSpil/);
+  });
+
+  // M35: et trin uden nøglen fejler først inde i Firebase-SDK'et. Højlydt,
+  // men i trinnet, der skulle skrive — ikke i et tjek.
+  it('hvert seed-football-trin får service-account-nøglen', () => {
+    for (const t of seedTrin) {
+      expect(t.kode, t.navn).toMatch(/^ {10}GOOGLE_APPLICATION_CREDENTIALS: \$\{\{ runner\.temp \}\}\/sa\.json$/m);
+    }
+  });
+
+  // seedSpil er ÉT felt for tre trin. Kørt sammen rammer de samme spil —
+  // det skal stå i labelen, for den er det eneste, operatøren ser.
+  it('seedSpils label siger, at feltet gælder alle tre trin i samme kørsel', () => {
+    const label = /^ {6}seedSpil:\n(?: {8}#.*\n)*\s{8}description: '([^']*)'/m.exec(YML)?.[1] ?? '';
+    expect(label).toMatch(/Gælder ALLE tre trin i samme kørsel — skal de ramme hver sit spil, så kør dem i hver sin kørsel\./);
+  });
+
+  // --teams-only AFVISER en ændret kortkode (teamsVagt). Labels, der lover at
+  // seedTeams retter kortkoder, sender operatøren ind i en afvisning.
+  it('ingen label lover, at seedTeams retter kortkoder', () => {
+    const labels = [...YML.matchAll(/^ {8}description: '([^']*)'/gm)].map((m) => m[1]);
+    for (const l of labels) expect(l).not.toMatch(/kortkoder/);
+    const teams = /^ {6}seedTeams:\n(?: {8}#.*\n)*\s{8}description: '([^']*)'/m.exec(YML)?.[1] ?? '';
+    expect(teams).toMatch(/\(trøjefarver, stadion\)/);
+    expect(teams).toMatch(/afviser ændret elo, kortkode eller antal hold/);
   });
 
   it('holder sig under GitHubs loft på 25 inputs', () => {
