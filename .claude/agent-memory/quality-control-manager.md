@@ -104,6 +104,18 @@ PR-teksten, ikke her.
   følgevirkninger (Runde-Botten poster ved rundens sidste kamp; en lås mod
   synken gør tastefejl permanente).
 
+- **Et ordforråds-sweep ("sæson") skal gå HELE vejen ud i flader, ingen
+  diff rører:** forlad-dialogen (forladTekst.js), åbent-spil-kortet
+  (GamePage), `Sæson {game.season}` i GameLayout, admin-hjælpetekster
+  (STATUS_HELP, synk-confirm). Overlevede også en 3. gennemgang (forladTekst,
+  GamePage "Deltag"-kortet, GameLayout) fordi ingen diff rører filerne: grep
+  `sæson` over HELE src/, ikke over diffens filer. Server-siden er lettere at tømme (grep strenge,
+  ikke kommentarer) — klienten har flest overlevende.
+- **En kommentar, der begrunder en ændring med en virkning, koden ikke har:**
+  "nye kampe prises af den levende Elo" — gen-seed prises af `teams[].elo`
+  (start-Elo); først næste facit/💰 Ompris lægger levende Elo på. Læs hvilket
+  felt prisen faktisk tages fra.
+
 ## Gates, evner og proxier
 
 - **En proxy-gate findes ikke ved grep — den indeholder ikke evnens navn.**
@@ -175,6 +187,13 @@ PR-teksten, ikke her.
 - **"Vises separat" om et felt, ingen flade viser endnu** (`slut` før D11) er en
   løfte-tekst uden modtager: sig i udmeldingen, hvilken delopgave der indfrier
   den, og at den skal lande før første kamp, der bruger feltet.
+
+- **En alarm, der kun regnes INDE i en hændelses-trigger, kan ikke se, at
+  hændelsen UDEBLEV.** Runde-pulje-alarmen (`puljeFacit`) beregnes i
+  settlePuljeBets, som kun kører ved et facit eller en knap — "fasen blev aldrig
+  lagt ind" giver ingen hændelse, altså ingen alarm. Spørg ved enhver "kan ikke
+  fejle tavst": hvilken hændelse regner den, og sker den i netop fejl-scenariet?
+  Udeblivelse kræver en sweep eller en alarm hos den, der OPRETTER (D9).
 
 ## Data, kilder og målinger
 
@@ -484,3 +503,20 @@ PR-teksten, ikke her.
   nødvendigvis alle — tjek den konkrete samling, antag det ikke.
 - `strandedMatches` melder en kamp UDEN kickoff som strandet med det samme
   (bevidst) — seed aldrig kampe med `kickoff:null` i et spil med alarmen.
+
+## Påstanden «X er uændret» og valideringsbadges
+
+- **«SL/PL er byte-uændrede» efterprøves ved at RENDERE begge træer og diffe
+  HTML**, ikke ved at læse diffen: `git worktree add <tmp> origin/main`, symlink
+  `node_modules`, kopiér en midlertidig test ind i begge, skriv `innerHTML` for
+  SL-/PL-/bare-fixture til JSON, diff med difflib. Fandt to bevidste sætnings-
+  ændringer (rubrik-hjælp «sæsonens bonusspørgsmål», PL «den officielle tabel»)
+  som påstanden ikke nævnte. Fjern worktree + testfil bagefter.
+- **En klient-validerings-badge («kan IKKE afgøres … bliver aldrig afregnet») må
+  kun love det, SERVEREN håndhæver.** `puljeKonfigFejl` blokerer kun, når
+  fasen mangler; poolSize≠2·antalKampe og nedSize>0 lader serveren afregne
+  alligevel, så rød badge og grøn tør-kørsel står på samme række. Spørg: bruger
+  serverens gate SAMME validator som fladens advarsel?
+- **En tør-kørsels-knap skal skelne «allerede afregnet» fra «ville blive afregnet»**
+  (idempotent kørsel viser samme tekst begge gange), og skrive-svaret
+  `{settled:0}` må ikke vises som «N afregnet».
