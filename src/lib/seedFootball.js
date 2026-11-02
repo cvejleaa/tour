@@ -98,7 +98,7 @@ export function tjekDubletter(fixtures) {
  * ignoreret detalje.
  */
 export const KENDTE_ARGS = ['game', 'teams', 'fixtures', 'runder'];
-export const KENDTE_FLAG = ['kickoffs-only', 'teams-only', 'skriv'];
+export const KENDTE_FLAG = ['kickoffs-only', 'teams-only', 'overskriv-hold', 'skriv'];
 
 export function parseArgs(argv) {
   const out = { flags: new Set() };
@@ -124,6 +124,78 @@ export function parseArgs(argv) {
     }
   }
   return out;
+}
+
+/**
+ * Må flagene stå sammen?
+ *
+ * TO TILSTANDE PÅ ÉN GANG er en tavs fælde af samme slags som stavefejlen
+ * `--kickoff-only`: begge flag ville passere argument-tjekket, og kun den ene
+ * ville køre. `--overskriv-hold` hører kun til det fulde seed — stod det ved
+ * `--kickoffs-only` eller `--teams-only`, ville operatøren tro, at holdlisten
+ * blev overskrevet, mens kørslen gjorde noget helt andet. Derfor er hver
+ * kombination en fejl, ikke en rangordning.
+ *
+ * @param {Set<string>} flags
+ * @throws med en dansk besked ved en kombination, der ikke findes
+ */
+export function tjekFlagKombination(flags) {
+  const har = (f) => Boolean(flags?.has?.(f));
+  if (har('kickoffs-only') && har('teams-only')) {
+    throw new Error('--kickoffs-only og --teams-only kan ikke kombineres. Kør dem hver for sig.');
+  }
+  for (const tilstand of ['kickoffs-only', 'teams-only']) {
+    if (har(tilstand) && har('overskriv-hold')) {
+      throw new Error(`--overskriv-hold hører til det fulde seed og kan ikke kombineres med --${tilstand}.`);
+    }
+  }
+}
+
+/**
+ * HVAD ET FULDT SEED MÅ SKRIVE PÅ SPIL-DOKUMENTET.
+ *
+ * Det gamle seed skrev `teams` og `eloCurrent` UBETINGET, også når nul kampe
+ * blev skrevet. Det var ikke en no-op midt i en sæson:
+ *
+ *   - `teams` blev erstattet helt af filens liste — UDEN den forhåndsvisning og
+ *     de afvisninger, `--teams-only` har (`teamsVagt`). `teams[].elo` er seed
+ *     for `recomputeSeasonElo`, så en fil, der var drevet fra produktionen,
+ *     ville tavst omskrive sæsonens Elo-historik og prisen på hver ulåst kamp
+ *     ved næste facit.
+ *   - `eloCurrent` blev sat tilbage til startværdierne. Feltet har i dag ingen
+ *     læser (se `teamsPlan`), men næste fases kampe skal prises af det
+ *     (håndbold-planen, D9) — og så ville hvert gen-seed nulstille den levende
+ *     Elo, som de nye kampe prises af.
+ *
+ * Reglen er derfor: hvert felt skrives KUN, når spillet ikke har det (første
+ * seed), eller når operatøren beder om det med `--overskriv-hold`. Ellers
+ * skriver et gen-seed kun kampe.
+ *
+ * `prisHold` er den holdliste, kampene prises af og holdnavnene tjekkes mod:
+ * spillets EGEN, når den bevares. Prises nye kampe af filen, mens spillet
+ * beholder en anden liste, kunne de to give samme hold to forskellige ratings
+ * — og et hold, der kun står i filen, ville få kampe på et spil, der ikke
+ * kender det.
+ *
+ * `eloCurrent` bygges, når den skrives, af `prisHold` — altså af den liste,
+ * spillet står med bagefter.
+ *
+ * @param {object|null} game          spil-dokumentet, som det står nu
+ * @param {Array<object>} filHold     holdlisten fra filen
+ * @param {{overskrivHold?: boolean}} [o]
+ * @returns {{skrivTeams:boolean, skrivElo:boolean, prisHold:Array<object>,
+ *           grund:'foerste'|'bevar'|'delvis'|'overskriv'}}
+ */
+export function spilDokPlan(game, filHold, { overskrivHold = false } = {}) {
+  if (overskrivHold) return { skrivTeams: true, skrivElo: true, prisHold: filHold, grund: 'overskriv' };
+  const harHold = Array.isArray(game?.teams) && game.teams.length > 0;
+  const elo = game?.eloCurrent;
+  const harElo = elo != null && typeof elo === 'object' && !Array.isArray(elo) && Object.keys(elo).length > 0;
+  const prisHold = harHold ? game.teams : filHold;
+  let grund = 'delvis';
+  if (!harHold && !harElo) grund = 'foerste';
+  else if (harHold && harElo) grund = 'bevar';
+  return { skrivTeams: !harHold, skrivElo: !harElo, prisHold, grund };
 }
 
 /**
@@ -236,9 +308,10 @@ export function ukendteHold(fixtures, teams) {
 /**
  * Hvad ville en holdliste-opdatering ÆNDRE?
  *
- * HVORFOR DEN FINDES. `games/{id}.teams` skrives i dag kun af `fuldtSeed`, som
- * i samme åndedrag skriver `eloCurrent` og alle kampe uden frosne odds. Derfor
- * er der ingen vej til at rette en trøjefarve midt i en sæson — og en manglende
+ * HVORFOR DEN FINDES. `games/{id}.teams` skrives ellers kun af det fulde seed —
+ * ved første seed, eller med `--overskriv-hold` (se `spilDokPlan`), og så i
+ * samme åndedrag som `eloCurrent`. Derfor er der ingen anden vej til at rette en
+ * trøjefarve midt i en sæson — og en manglende
  * farve er ikke en skønhedsfejl: `badgeFor` falder tilbage
  * `thirdColor || awayColor || color`, så mangler tredjefarven, bliver tredje
  * lig med ude, og `matchBadges` sammenligner en værdi med sig selv. Udetrøjen
@@ -368,14 +441,14 @@ export function teamsVagt(plan) {
     grunde.push(
       `${eloRørt.length} hold får ændret elo (${liste}). Feltet er seed for den `
       + 'levende Elo: næste facit ville omskrive sæsonens Elo-historik og prisen '
-      + 'på hver ulåst kamp. Skal Elo ændres, hører det til et fuldt seed.',
+      + 'på hver ulåst kamp. Skal Elo ændres, hører det til et fuldt seed med --overskriv-hold.',
     );
   }
   if (plan?.tilfoejede?.length) {
     grunde.push(
       `${plan.tilfoejede.length} hold kommer til (${plan.tilfoejede.join(', ')}). `
       + 'Antallet af hold afgør, om den officielle tabel godtages ved '
-      + 'pulje-afregningen. Skal holdlisten vokse, hører det til et fuldt seed.',
+      + 'pulje-afregningen. Skal holdlisten vokse, hører det til et fuldt seed med --overskriv-hold.',
     );
   }
   if (plan?.dubletter?.length) {
@@ -396,7 +469,7 @@ export function teamsVagt(plan) {
     grunde.push(
       `${shortRørt.length} hold får ændret short (${liste}). Kortkoden er nøglen i `
       + 'delbare hold-links, og en ændring gør hvert eksisterende link dødt. '
-      + 'Skal kortkoden ændres, hører det til et fuldt seed.',
+      + 'Skal kortkoden ændres, hører det til et fuldt seed med --overskriv-hold.',
     );
   }
   if (plan?.forsvundne?.length) {

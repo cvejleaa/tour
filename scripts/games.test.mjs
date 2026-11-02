@@ -17,6 +17,7 @@ import { GAMES } from './games.mjs';
 import { SPORT_PROFILER, ukendtSport } from '../src/lib/superligaScoring.js';
 import { faseKalenderFejl } from '../src/lib/faser.js';
 import { ADMIN_OWNED } from './seed-payload.mjs';
+import { SEED_FILER } from './seed-filer.mjs';
 
 // Providerens navn → de nøgler, den præcist skal have. Ingen flere, ingen
 // færre. Et `SHAPES`-objekt frem for if-grene, så en NY provider ikke kan
@@ -235,5 +236,32 @@ describe('faser på spillene', () => {
   // kunne rette den. Stod den i ADMIN_OWNED, blev en rettelse tavst sprunget over.
   it('faser er ikke admin-ejet', () => {
     expect(ADMIN_OWNED).not.toContain('faser');
+  });
+});
+
+// Filerne, et spil seedes fra, står i scripts/seed-filer.mjs — IKKE på
+// GAMES-posterne, for seedPayload skriver hvert felt ud på spil-dokumentet.
+// To lister om samme spil skal bindes, ellers driver de: et nyt fodboldspil
+// uden post kan ikke seedes fra workflowet, og en post uden spil seeder et
+// spil, platformen ikke kender.
+describe('seed-filer pr. spil', () => {
+  it('hvert aktivt kampspil har en post i SEED_FILER', () => {
+    const aktive = GAMES.filter((g) => g.type === 'football' && g.status !== 'finished');
+    expect(aktive.length).toBeGreaterThan(0);
+    for (const g of aktive) expect(Object.hasOwn(SEED_FILER, g.id), `${g.id} mangler i scripts/seed-filer.mjs`).toBe(true);
+  });
+
+  it('hver post i SEED_FILER er et kampspil i GAMES', () => {
+    for (const id of Object.keys(SEED_FILER)) {
+      const g = GAMES.find((x) => x.id === id);
+      expect(g, `${id} findes ikke i GAMES`).toBeTruthy();
+      expect(g.type, id).toBe('football');
+    }
+  });
+
+  it('ingen GAMES-post bærer filstier (de ville blive seedet ud i produktionsdata)', () => {
+    for (const g of GAMES) {
+      for (const k of ['teams', 'fixtures', 'runder', 'seedFiler']) expect(g, `${g.id}.${k}`).not.toHaveProperty(k);
+    }
   });
 });

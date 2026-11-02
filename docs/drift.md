@@ -31,11 +31,14 @@ bevarede kodeord.
 ## Rækkefølge ved en ny sæson / et nyt spil
 
 1. **Deploy platform** med `seedGames` (opretter/opdaterer spil-dokumenterne).
-2. **Deploy platform** med `seedSuperliga`, hvis kampprogrammet skal ind
-   (132 kampe + odds fra `scripts/superliga-fixtures.json`).
-   For **Premier League** findes der intet workflow-step — begge steps er
-   hårdkodet til `superliga2627`. Første seed køres derfor lokalt; se
-   "Seed et nyt fodbold-spil" nedenfor.
+2. **Deploy platform** med `seedKampe` + spillets id i `seedSpil`, hvis
+   kampprogrammet skal ind. Første kørsel UDEN `seedKampeSkriv` (tør-kørsel);
+   læs loggen, og kør så igen med fluebenet. Hvilken holdliste og hvilket
+   program spillet seedes fra, står i `scripts/seed-filer.mjs` — et nyt spil
+   skal have en post dér (games.test.mjs kræver det), ikke en ændring i
+   workflowet. Seedet afviser et spil, der ikke findes endnu, så trin 1 skal
+   være kørt først. (`seedSuperliga` gør det samme for Superligaen, men skriver
+   straks uden tør-kørsel.)
 3. Sæt **startrunde** i Admin → Spil-tidsplan. Startrunden vælges fra en liste
    over spillets runder med datointerval; vælger man ingen, udledes den af den
    gamle startdato.
@@ -55,18 +58,34 @@ bevarede kodeord.
 
 ## Seed et nyt fodbold-spil
 
-`scripts/seed-football.mjs` seeder ét spil. Premier League er skåret i to spil
-efter runde, så `--runder` bestemmer, hvilken halvdel der kommer med:
+`scripts/seed-football.mjs` seeder ét spil. Står spillet i
+`scripts/seed-filer.mjs`, er `--game` nok — holdliste, kampprogram og runder slås
+op dér. Premier League er skåret i to spil efter runde, så opslaget bærer
+`runder: '1-18'` for efterårsspillet:
 
 ```bash
 GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
-  --game pl2627-efteraar \
-  --teams src/data/premierLeagueTeams2026.js \
-  --fixtures scripts/premier-league-fixtures-2627.json \
-  --runder 1-18
+  --game pl2627-efteraar
 ```
 
+Giver du selv `--teams`, `--fixtures` eller `--runder`, bruges opslaget slet ikke
+(heller ikke for de andre to) — så står kommandolinjen alene for valget.
+
 Tør-kørsel er default. Ser tallene rigtige ud, køres den igen med `--skriv`.
+Fra workflowet er det `seedKampe` + `seedSpil` (+ `seedKampeSkriv` for at skrive).
+
+**Et gen-seed skriver kun kampe.** Spil-dokumentets `teams` og `eloCurrent`
+skrives kun, når spillet ikke har dem (første seed). Har spillet dem, prises nye
+kampe af spillets EGEN holdliste, og tør-kørslen siger «teams BEVARES» og
+«eloCurrent BEVARES» — og viser, hvis filens holdliste er drevet fra spillets.
+Skal holdlisten med elo eller antal hold virkelig overskrives, så kør med
+`--overskriv-hold` (lokalt; der er med vilje intet workflow-input til det).
+Tør-kørslen viser så hver feltændring. `teams[].elo` er seed for den levende Elo,
+så næste facit omskriver sæsonens Elo-historik og prisen på hver ulåst kamp.
+
+Seedet afviser et spil uden dokument, også i tør-kørslen: sporten står på
+spil-dokumentet, og uden den ville et håndboldspil blive prissat som fodbold.
+Kør `seedGames` først.
 
 `--teams` og `--fixtures` opløses mod **repoets rod**, ikke mod den mappe du står
 i, så kommandoen virker uanset hvorfra den køres. Men **selve scriptet** skal
@@ -279,15 +298,14 @@ Det er ikke kosmetik. **Kickoff er tip-deadlinen** (`firestore.rules`), så en
 forkert tid lukker kuponen på det forkerte tidspunkt. Og resultat-synken leder
 kun efter kampe i et vindue omkring tidspunktet, så et facit ville aldrig lande.
 
-For **Superligaen** er der et workflow-input: `seedKickoffs` (og `seedKickoffsSkriv`,
-som er tør-kørsel, indtil den tikkes af). For **Premier League** findes der intet
-step — den køres lokalt. Tør-kørsel først; den skriver intet og viser hver
-enkelt ændring, i dansk tid:
+Workflow-inputtet er `seedKickoffs` med spillets id i `seedSpil` (og
+`seedKickoffsSkriv`, som er tør-kørsel, indtil den tikkes af). Det gælder ethvert
+spil med en post i `scripts/seed-filer.mjs`. Lokalt er det samme kørsel.
+Tør-kørsel først; den skriver intet og viser hver enkelt ændring, i dansk tid:
 
 ```bash
 GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
   --game pl2627-efteraar \
-  --fixtures scripts/premier-league-fixtures-2627.json \
   --kickoffs-only
 ```
 
@@ -341,7 +359,7 @@ Er det den gamle værdi, er holdlisten drevet; er feltet væk, er den ældre end
 Begge rettes samme sted.
 
 **Rettelsen:** GitHub → Actions → **"Deploy platform (tip.vejleaa.dk)"** →
-`seedTeams` + vælg spil. Der tørkøres, indtil du sætter fluebenet i
+`seedTeams` + spillets id i `seedSpil`. Der tørkøres, indtil du sætter fluebenet i
 `seedTeamsSkriv` — sæt det først, når du har læst loggen igennem.
 
 Bemærk, at kørslen som alle de andre seed-input først bygger og deployer hele
@@ -352,7 +370,6 @@ bruges som ren diagnose. Lokalt koster det ingenting:
 ```bash
 GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
   --game superliga2627 \
-  --teams src/data/superligaTeams2026.js \
   --teams-only
 ```
 
@@ -367,7 +384,8 @@ holdlisten, ikke at prøve igen med `--skriv`. Det er ikke pedanteri: `teams[].e
 seed for `recomputeSeasonElo`, så et ændret tal ville få næste facit til at
 omskrive sæsonens Elo-historik **og** prisen på hver ulåst kamp. Og
 `teams.length` afgør, om den officielle tabel godtages ved pulje-afregningen.
-Skal noget af det ændres, hører det til et fuldt seed mellem to sæsoner.
+Skal noget af det ændres, hører det til et fuldt seed med `--overskriv-hold`
+mellem to sæsoner (se «Seed et nyt fodbold-spil»).
 
 `short` kom til listen, da holdsiden gjorde kortkoden til en URL-nøgle:
 `/spil/{spil}?fane=elo&hold=BIF`. Ændres den, dør hvert delt hold-link tavst —
@@ -548,34 +566,39 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   end virkeligheden. Uden den undtagelse ville en seed-kørsel stille rulle et
   spil fra "Afsluttet" tilbage til "I gang" — den skriver med merge, så det
   hverken fejler eller efterlader spor.
-- `seedSuperliga` (default false) — skriver hele kampprogrammet. Kører
-  `scripts/seed-football.mjs` (som afløste `seed-superliga.mjs`, der var
-  hårdkodet til Superligaen). Kampe, der **allerede har odds**, springes over:
-  fra seedet og frem er det `recomputeSeasonElo`, der ejer oddsene — de friskes
-  op efter hvert resultat frem til kickoff og låses dér. Et gen-seed ville
-  skrive dem tilbage til Elo fra den dag, programmet blev lagt ind.
-  **Bemærk:** spil-dokumentet (`teams`, `eloCurrent`) skrives altid, også når
-  nul kampe skrives. Kørslen er altså ikke en ren no-op midt i en sæson.
-  `eloCurrent` sættes tilbage til sæsonstart-værdierne og genberegnes først, når
-  `recomputeSeasonElo` kører. Den kører af sig selv **kun**, når en kamps
-  resultat ændrer sig — men kan nu også startes manuelt med 💰 **Ompris
-  kampene** i Spil-tidsplan. Uden den knap kunne Elo-tabellen under en
-  landskampspause vise sæsonstart-værdier i op mod to uger, mens grafen
-  (`eloHistory`, som ikke røres) viste det rigtige forløb. Holdfarver **og
-  visningsnavne** redigeret i admin ligger begge i `teamStyles` og røres ikke.
-- `seedTeams` (default false, med `seedTeamsSpil` og `seedTeamsSkriv`) — retter
+- `seedSuperliga` (default false) — skriver hele Superligaens kampprogram,
+  **straks og uden tør-kørsel**. Kører `scripts/seed-football.mjs --game
+  superliga2627 --skriv` (filerne fra `scripts/seed-filer.mjs`). Kampe, der
+  **allerede har odds**, springes over: fra seedet og frem er det
+  `recomputeSeasonElo`, der ejer oddsene — de friskes op efter hvert resultat
+  frem til kickoff og låses dér. Et gen-seed ville skrive dem tilbage til Elo fra
+  den dag, programmet blev lagt ind.
+  Spil-dokumentets `teams` og `eloCurrent` skrives **kun, hvis spillet ikke har
+  dem**. Før blev de skrevet ved hver kørsel, også når nul kampe blev skrevet:
+  `eloCurrent` blev sat tilbage til sæsonstart, og `teams` (med `teams[].elo`,
+  seed for den levende Elo) blev erstattet af filens liste uden forhåndsvisning.
+  Nu er en kørsel midt i sæsonen en skrivning af kampe og intet andet.
+  Holdfarver **og visningsnavne** redigeret i admin ligger begge i `teamStyles`
+  og røres ikke.
+- `seedKampe` (default false, med `seedSpil` og `seedKampeSkriv`) — samme fulde
+  seed for **ethvert** spil med en post i `scripts/seed-filer.mjs`. Tørkører, indtil
+  `seedKampeSkriv` er sat. Det er vejen for et nyt spils første seed (fx
+  håndbold-VM'et), og den eneste med forhåndsvisning af startodds.
+- `seedSpil` (streng, default `superliga2627`) — spil-id'et for `seedKampe`,
+  `seedKickoffs` og `seedTeams`. Det er en STRENG og ikke en fast liste: listen
+  var et spejl af `scripts/games.mjs` uden paritetstest, og et nyt spil kunne ikke
+  vælges uden at redigere workflowet. Et id uden post i `scripts/seed-filer.mjs`
+  afvises med listen over kendte, før der læses eller skrives noget. (Det afløser
+  `seedTeamsSpil`, hvis filvalg i workflowet gav ALLE andre spil end PL
+  Superligaens holdliste.)
+- `seedTeams` (default false, med `seedSpil` og `seedTeamsSkriv`) — retter
   **kun** holdlisten: trøjefarver, kortkoder, stadion. Rører hverken kampe,
-  odds, Elo eller resultater. Findes af samme grund som `seedKickoffs`:
-  `seedSuperliga` skriver ganske vist `teams`, men også `teams[].elo` og
-  `eloCurrent`, og uden nogen forhåndsvisning. `seedTeams` tørkører som
-  default og **nægter at skrive**, hvis `elo` eller antallet af hold ville
-  ændre sig. Se "Hvis en trøjefarve er forkert på kampkortet".
-  **Vælg spillet bevidst:** `seedTeamsSpil` er en fast liste, der er et spejl af
-  `scripts/games.mjs` uden paritetstest. Oprettes et nyt fodboldspil (fx
-  `pl2627-foraar`), får det ikke evnen af sig selv, og vælges det uden at
-  filvalget i workflowet rettes, køres det med Superligaens holdliste — dér
-  afviser vagten med 20 forsvundne og 12 tilføjede hold.
-- `seedKickoffs` (default false) — retter **kun** kickoff-tider. Skriver
+  odds, Elo eller resultater. Findes, fordi et gen-seed ikke skriver holdlisten,
+  når spillet har en. `seedTeams` tørkører som default og **nægter at skrive**,
+  hvis `elo`, `short` eller antallet af hold ville ændre sig. Se "Hvis en
+  trøjefarve er forkert på kampkortet".
+- `seedKickoffs` (default false, med `seedSpil` og `seedKickoffsSkriv`) — retter
+  **kun** kickoff-tider for spillet i `seedSpil` (før låst til Superligaen). Skriver
   hverken odds, Elo eller resultat, og lader kampe med facit være. Findes,
   fordi `seedSuperliga` efter ovenstående ikke længere kan rette et tidspunkt
   midt i sæsonen: alle kampe har odds, så alle springes over. Uden dette input

@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// scripts/seed-football.mjs — seed kampe + hold-Elo for ET fodbold-spil.
+// scripts/seed-football.mjs — seed kampe + hold-Elo for ET kampspil.
 //
 // Afløser scripts/seed-superliga.mjs, som var hårdkodet til superliga2627 og
 // den danske holdliste. Med Premier League ved siden af skal spil, hold og
@@ -19,15 +19,24 @@
 // allerede havde tippet og fået point for.
 //
 // BRUG:
-//   Tør-kørsel (skriver intet):
+//   Tør-kørsel (skriver intet) — filerne slås op i scripts/seed-filer.mjs:
+//     node scripts/seed-football.mjs --game pl2627-efteraar
+//
+//   Eller med egne filer (så bruges opslaget slet ikke):
 //     node scripts/seed-football.mjs --game pl2627-efteraar \
 //       --teams src/data/premierLeagueTeams2026.js \
 //       --fixtures scripts/premier-league-fixtures-2627.json --runder 1-18
 //
 //   Skriv:            ... --skriv
 //   Kun kickoff-tider: ... --kickoffs-only --skriv
-//   Kun holdlisten:   node scripts/seed-football.mjs --game superliga2627 \
-//                       --teams src/data/superligaTeams2026.js --teams-only
+//   Kun holdlisten:   node scripts/seed-football.mjs --game superliga2627 --teams-only
+//   Overskriv holdlisten og eloCurrent ved et gen-seed: ... --overskriv-hold
+//
+// ET GEN-SEED SKRIVER KUN KAMPE. `teams` og `eloCurrent` på spil-dokumentet
+// skrives kun, når spillet ikke har dem (første seed), eller med
+// --overskriv-hold. Før skrev hver kørsel dem ubetinget — så teams[].elo, som
+// er seed for den levende Elo, kunne blive omskrevet uden forhåndsvisning, og
+// eloCurrent blev sat tilbage til sæsonstart. Se `spilDokPlan`.
 //
 // --teams-only ER HELLER IKKE EN BEKVEMMELIGHED.
 // Trøjefarverne bor i `games/{id}.teams`, og kun det fulde seed kunne skrive
@@ -52,22 +61,28 @@ const { resolve, isAbsolute } = await import('path');
 // fejlbeskeden ("Cannot find module") peger på Node, ikke på det, der er galt.
 const ROD = new URL('..', import.meta.url).pathname;
 const sti = (p) => (isAbsolute(p) ? p : resolve(ROD, p));
-// Kampene prises med SPILLETS sportsprofil (game.sport på spil-dokumentet) —
-// samme felt, serveren omprisser med. Testet i scripts/lib/seedKampe.test.mjs.
-const { seedKampe, sportLinje } = await import('./lib/seedKampe.mjs');
 const { koerTeamsOnly } = await import('./lib/teamsOnly.mjs');
+// Det fulde seed — kampene prises med SPILLETS sportsprofil (game.sport på
+// spil-dokumentet, samme felt serveren omprisser med), og teams/eloCurrent
+// skrives kun ved første seed. Testet i scripts/lib/fuldtSeed.test.mjs.
+const { koerFuldtSeed } = await import('./lib/fuldtSeed.mjs');
+// Ét opslag pr. spil: hvilke filer spillet seedes fra. Bruges, når kun
+// --game er givet — sådan kalder deploy-platform.yml scriptet.
+const { udfyldFraOpslag } = await import('./seed-filer.mjs');
 // Beslutningerne (hvad springes over, hvad ændres) bor i et testet modul.
 // To udgaver af "hvornår må vi skrive odds" er to steder at lave fejlen.
 const {
-  parseArgs, parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, tjekDubletter,
-  kickoffMs,
+  parseArgs, parseRunder, iInterval, kickoffPlan, tjekDubletter, tjekFlagKombination,
 } = await import('../src/lib/seedFootball.js');
 
 // --- argumenter ------------------------------------------------------------
 
 let args;
 try {
-  args = parseArgs(process.argv.slice(2));
+  args = udfyldFraOpslag(parseArgs(process.argv.slice(2)));
+  // To tilstande på én gang — eller --overskriv-hold uden for det fulde seed —
+  // er en fejl, ikke en rangordning. Reglen bor i seedFootball.js.
+  tjekFlagKombination(args.flags);
 } catch (err) {
   console.error(`\n⚠️  ${err.message}\n`);
   process.exit(1);
@@ -77,15 +92,15 @@ const TEAMS_PATH = args.teams;
 const FIXTURES_PATH = args.fixtures;
 const KICKOFFS_ONLY = args.flags.has('kickoffs-only');
 const TEAMS_ONLY = args.flags.has('teams-only');
+const OVERSKRIV_HOLD = args.flags.has('overskriv-hold');
 const SKRIV = args.flags.has('skriv');
 const RUNDER = args.runder || null; // fx "1-18" eller "19-38"
 
-// TO TILSTANDE PÅ ÉN GANG er en tavs fælde af samme slags som stavefejlen
-// `--kickoff-only`: begge flag ville passere argument-tjekket, og kun den ene
-// ville køre. Derfor er kombinationen en fejl, ikke en rangordning.
-if (KICKOFFS_ONLY && TEAMS_ONLY) {
-  console.error('\n⚠️  --kickoffs-only og --teams-only kan ikke kombineres. Kør dem hver for sig.\n');
-  process.exit(1);
+// Hvor filerne kom fra, står øverst i loggen: i workflowet er det den eneste
+// måde at se, hvilken holdliste og hvilket program en kørsel faktisk brugte.
+if (args.kilde === 'seed-filer') {
+  console.log(`Filer fra scripts/seed-filer.mjs for ${GAME_ID}: holdliste ${TEAMS_PATH}, `
+    + `kampprogram ${FIXTURES_PATH}${RUNDER ? `, runde ${RUNDER}` : ''}.`);
 }
 
 // --teams-only rører ikke kampe og har derfor intet brug for kampprogrammet.
@@ -95,7 +110,8 @@ if (!GAME_ID || (!FIXTURES_PATH && !TEAMS_ONLY) || (!TEAMS_PATH && !KICKOFFS_ONL
   console.error(`
 Mangler argumenter.
 
-  --game      spil-id, fx pl2627-efteraar
+  --game      spil-id, fx pl2627-efteraar. Står spillet i scripts/seed-filer.mjs,
+              er --game nok: holdliste, kampprogram og runder slås op dér.
   --fixtures  sti til kampprogram (JSON: liste eller { fixtures: [...] })
               — kan udelades ved --teams-only, som ikke rører kampe
   --teams     sti til holdliste (JS-modul der eksporterer en liste)
@@ -103,6 +119,8 @@ Mangler argumenter.
   --runder    valgfrit interval, fx 1-18. Uden: alle runder i filen.
   --kickoffs-only  skriv KUN kickoff. Rør aldrig odds, elo eller resultat.
   --teams-only     skriv KUN holdlisten. Rør aldrig kampe, odds eller resultat.
+  --overskriv-hold fuldt seed: skriv teams og eloCurrent fra holdlisten, OGSÅ når
+                   spillet har dem. Uden flaget skriver et gen-seed kun kampe.
   --skriv     skriv i databasen. UDEN denne tørkøres der.
 `);
   process.exit(1);
@@ -255,73 +273,31 @@ async function teamsOnly(gameRef) {
   });
 }
 
-/** Fuldt seed: hold-Elo på spillet + kampe med FROSNE odds. */
+/**
+ * Fuldt seed: kampe med FROSNE odds — og hold-Elo på spillet, men kun ved
+ * første seed eller med --overskriv-hold.
+ *
+ * FORLØBET LIGGER I `scripts/lib/fuldtSeed.mjs` af samme grund som
+ * --teams-only: skrivningen af spil-dokumentet kunne ellers ændres herinde med
+ * hele suiten grøn. Her bliver kun det, der kræver rigtige filer og en rigtig
+ * database.
+ */
 async function fuldtSeed(fixtures, gameRef, matchesRef, eksisterende) {
   const teams = await loadTeams(TEAMS_PATH);
   console.log(`Holdliste: ${teams.length} hold fra ${TEAMS_PATH}.`);
-
-  // En kamp, der ALLEREDE har odds, må ikke få dem skrevet om — det var den
-  // fælde, det gamle script havde. Seedes et program igen (fx fordi to runder
-  // mangler), skal de eksisterende kampes odds stå urørt.
-  const plan = seedPlan(fixtures, eksisterende);
-  const medOdds = plan.springOver.length;
-  if (medOdds) {
-    console.log(`\n⚠️  ${medOdds} af kampene har allerede frosne odds. De springes over.`);
-    console.log('   Skal odds genberegnes, sker det af recomputeSeasonElo på ULÅSTE kampe.');
-  }
-
-  // Et SAT, men ukendt game.sport kaster i seedKampe (også i tør-kørslen) —
-  // run().catch giver exit 1 med beskeden. Linjen viser det RÅ felt.
-  const { sportRaa, profil, matches } = await seedKampe({ gameRef, fixtures: plan.skriv, teams });
-  console.log(sportLinje({ sportRaa, profil }));
-
-  // Den TAVSE fælde: teamElo giver sportens neutrale rating for et navn, den
-  // ikke kender.
-  const ukendte = ukendteHold(fixtures, teams);
-  if (ukendte.length) {
-    console.log(`\n⚠️  ${ukendte.length} holdnavne i kampprogrammet findes IKKE i holdlisten:`);
-    console.log(`   ${ukendte.join(', ')}`);
-    console.log(`   De ville få neutral Elo (${profil.elo.START}) uden en eneste fejlbesked.`);
-    if (SKRIV) throw new Error('Ukendte holdnavne — ret holdlisten eller kampprogrammet først.');
-  }
-
-  const eloCurrent = {};
-  for (const t of teams) eloCurrent[t.name] = t.elo;
-
-  let nye = 0;
-  const batch = db.batch();
-  for (const m of matches) {
-    if (SKRIV) {
-      batch.set(matchesRef.doc(m.id), {
-        round: m.round,
-        home: m.home,
-        away: m.away,
-        // kickoffMs — IKKE new Date(). Det fulde seed SKABER deadlines, så en
-        // tidszone-løs streng her ville give tre forskellige tip-deadliner
-        // afhængigt af, hvor scriptet blev kørt (UTC, dansk laptop, CI).
-        kickoff: kickoffMs(m.kickoff) == null ? null : Timestamp.fromMillis(kickoffMs(m.kickoff)),
-        eloHome: m.eloHome,
-        eloAway: m.eloAway,
-        odds: m.odds,
-        updatedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-    }
-    nye += 1;
-  }
-
-  console.log(`\n  kampe i filen : ${fixtures.length}`);
-  console.log(`  springes over : ${medOdds} (har allerede odds)`);
-  console.log(`  skrives       : ${nye}`);
-  const p = matches[0];
-  if (p) console.log(`\n  eksempel: R${p.round} ${p.home}–${p.away}  odds ${p.odds['1']}/${p.odds.X}/${p.odds['2']}`);
-
-  if (!SKRIV) { console.log('\nTør-kørsel — der er IKKE skrevet noget. Kør igen med --skriv.\n'); return; }
-
-  // Pulje-/bonus-deadline sættes IKKE her — den styres af admin i
-  // "Spil-tidsplan" (game.puljeLockAt).
-  await gameRef.set({ teams, eloCurrent, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-  if (nye) await batch.commit();
-  console.log(`\n✅ ${nye} kampe seedet til games/${GAME_ID}/matches.\n`);
+  await koerFuldtSeed({
+    gameRef,
+    matchesRef,
+    batch: db.batch(),
+    fixtures,
+    eksisterende,
+    teams,
+    skriv: SKRIV,
+    overskrivHold: OVERSKRIV_HOLD,
+    serverTimestamp: FieldValue.serverTimestamp(),
+    tilTimestamp: (ms) => Timestamp.fromMillis(ms),
+    log: (s) => console.log(s),
+  });
 }
 
 run()
