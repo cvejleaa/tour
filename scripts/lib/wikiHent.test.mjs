@@ -90,14 +90,27 @@ describe('fejl er høje og danske, og intet gemmes', () => {
   it('429: siger at Wikimedia beder os vente — og prøver IKKE igen af sig selv', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'wikihent-'));
     const { kald, fetchFn } = falsk([{ ok: false, status: 429, headers: { get: (h) => (h === 'retry-after' ? '23' : null) } }]);
-    await expect(lavWikiHenter({ fetchFn, cacheDir: dir })('S')).rejects.toThrow('Wikipedia svarede HTTP 429 på «S». Intet er gemt. Wikimedia beder os vente (Retry-After: 23 s).');
+    await expect(lavWikiHenter({ fetchFn, cacheDir: dir })('S')).rejects.toThrow('Wikipedia svarede HTTP 429 på «S». Intet er gemt. Wikimedia beder os vente (Retry-After: 23 s). Prøv igen senere.');
     expect(kald).toHaveLength(1);
     expect(existsSync(join(dir, cacheNavn('S')))).toBe(false);
   });
 
-  it('andre HTTP-fejl peger på --fil', async () => {
-    const { fetchFn } = falsk([{ ok: false, status: 503, headers: { get: () => null } }]);
-    await expect(lavWikiHenter({ fetchFn })('S')).rejects.toThrow(/HTTP 503.*--fil/);
+  // NØDVEJEN ER SCRIPTETS, ikke modulets: programmet har --fil, historikken
+  // --filer. Beskeden nævner præcis den, kalderen gav — og uden en nævner den
+  // INTET flag (før stod «--fil» i historikkens besked, og historikken
+  // kendte ikke --fil).
+  it('fejlbeskeden peger på kalderens nødvej — og kun på den', async () => {
+    const f429 = () => falsk([{ ok: false, status: 429, headers: { get: () => null } }]).fetchFn;
+    const f503 = () => falsk([{ ok: false, status: 503, headers: { get: () => null } }]).fetchFn;
+    await expect(lavWikiHenter({ fetchFn: f429(), nodvej: '--filer <mappe>' })('S')).rejects
+      .toThrow('Wikipedia svarede HTTP 429 på «S». Intet er gemt. Wikimedia beder os vente. Prøv igen senere, eller gem siden og brug --filer <mappe> (docs/drift.md).');
+    await expect(lavWikiHenter({ fetchFn: f503(), nodvej: '--fil <gemt side>' })('S')).rejects
+      .toThrow('Wikipedia svarede HTTP 503 på «S». Intet er gemt. Prøv igen senere, eller gem siden og brug --fil <gemt side> (docs/drift.md).');
+    const uden = await lavWikiHenter({ fetchFn: f503() })('S').catch((e) => e.message);
+    expect(uden).toBe('Wikipedia svarede HTTP 503 på «S». Intet er gemt. Prøv igen senere.');
+    expect(uden).not.toMatch(/--/);
+    const historik = await lavWikiHenter({ fetchFn: f429(), nodvej: '--filer <mappe>' })('S').catch((e) => e.message);
+    expect(historik).not.toMatch(/--fil(?!er)/);
   });
 
   it('API-fejl (fx siden findes ikke) videregives', async () => {
@@ -130,9 +143,14 @@ describe('argumenter og gemte sider', () => {
     expect(() => parseScriptArgs(['fil.txt'], K)).toThrow(/starter med --/);
   });
 
-  it('læser både cache-svar og rå wikitekst', () => {
+  it('læser både cache-svar, API-svar og rå wikitekst', () => {
     expect(laesGemtSide(JSON.stringify({ titel: 'T', revid: 7, hentet: 'h', wikitekst: 'w' }), 'a.json'))
       .toEqual({ titel: 'T', revid: 7, hentet: 'h', wikitekst: 'w' });
+    // API'ets eget svar, gemt fra browseren: revid følger med, hentetid ikke.
+    expect(laesGemtSide(JSON.stringify({ parse: { title: 'T', pageid: 1, revid: 1378613629, wikitext: 'w' } }), 'vm2025.json'))
+      .toEqual({ titel: 'T', revid: 1378613629, hentet: null, wikitekst: 'w' });
+    expect(laesGemtSide(JSON.stringify({ parse: { title: 'T', revid: '9', wikitext: 'w' } }), 'a.json').revid).toBeNull();
+    expect(() => laesGemtSide(JSON.stringify({ parse: { title: 'T', wikitext: '' } }), 'a.json')).toThrow(/ikke et gemt svar/);
     expect(laesGemtSide('{{handballbox|date=1 January 2025}}', 'a.wikitext').wikitekst).toMatch(/handballbox/);
     expect(() => laesGemtSide('<html>Captcha</html>', 'a.wikitext')).toThrow(/ingen \{\{handballbox\}\}/);
     expect(() => laesGemtSide('{}', 'a.json')).toThrow(/ikke et gemt svar/);

@@ -7,9 +7,10 @@
  * det ser rigtigt ud. Derfor står de 32 par skrevet ud her.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { HAANDBOLD_VM2027_HOLD, holdForKode } from './haandboldVm2027Hold';
+import { createRequire } from 'node:module';
+import { HAANDBOLD_VM2027_HOLD, holdForKode, holdForIhfNavn } from './haandboldVm2027Hold';
 
 const PROGRAM = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/haandbold-vm2027-program.json'), 'utf8'));
 
@@ -34,6 +35,8 @@ describe('listens form', () => {
   // Neutral bane: et hjemmestadion ville stå på kampkortet for 31 af 32 hold
   // og være forkert for dem alle. Og Elo måles i D4 — et tal her før målingen
   // ville være et gæt, der så ud som et resultat.
+  // D4 SKAL VENDE elo-halvdelen af denne test, når startstyrkerne skrives ind
+  // (CLAUDE.md: «En test kan fastfryse en fejl»). venue-halvdelen består.
   it('har INGEN venue og INGEN elo', () => {
     for (const t of HAANDBOLD_VM2027_HOLD) {
       expect(t, t.name).not.toHaveProperty('venue');
@@ -53,6 +56,41 @@ describe('listens form', () => {
       DEN: 'Danmark', SLO: 'Slovenien', USA: 'USA', ANG: 'Angola',
       ISL: 'Island', MKD: 'Nordmakedonien', BHR: 'Bahrain', JPN: 'Japan',
     });
+  });
+});
+
+// NØDVEJEN (planen §13): IHF-sider, ejeren gemmer i browseren, har navne, ikke
+// koder. ihfNavn er nøglen. Regnskabet herunder siger, hvilke navne der er SET
+// på en rigtig IHF-side (functions-platform/testdata), og hvilke der ikke er —
+// kommer en ny fixture til, bliver testen rød, til listen er rettet.
+describe('ihfNavn: nødvejens nøgle til IHF-siderne', () => {
+  const require = createRequire(import.meta.url);
+  const { parseDagside, parseKampside } = require('../../functions-platform/ihfParse.js');
+  const DATA = resolve(process.cwd(), 'functions-platform/testdata');
+  const navneIFixtures = new Set();
+  for (const f of readdirSync(DATA).filter((x) => /^ihf-(dag|kamp)-.*\.html$/.test(x))) {
+    const html = readFileSync(resolve(DATA, f), 'utf8');
+    const kampe = f.startsWith('ihf-dag-') ? parseDagside(html) : [parseKampside(html, { ihfId: Number(/-(\d+)\.html$/.exec(f)[1]) })];
+    for (const k of kampe) { navneIFixtures.add(k.hjemme); navneIFixtures.add(k.ude); }
+  }
+
+  it('alle 32 har et entydigt ihfNavn', () => {
+    expect(new Set(HAANDBOLD_VM2027_HOLD.map((t) => t.ihfNavn)).size).toBe(32);
+    for (const t of HAANDBOLD_VM2027_HOLD) expect(typeof t.ihfNavn, t.name).toBe('string');
+  });
+
+  it('25 navne er set på IHF-sider; præcis disse 7 er det IKKE endnu', () => {
+    const ikkeSet = HAANDBOLD_VM2027_HOLD.filter((t) => !navneIFixtures.has(t.ihfNavn)).map((t) => t.hbKode);
+    expect(ikkeSet).toEqual(['TUR', 'KUW', 'GRE', 'QAT', 'FRO', 'POL', 'ANG']);
+    // IHF skriver USA ud — et «USA» her ville give null på hver USA-kamp.
+    expect(holdForIhfNavn('United States of America').name).toBe('USA');
+    expect(holdForIhfNavn('USA')).toBeNull();
+  });
+
+  it('holdForIhfNavn: præcist navn; pladsholdere, ukendte og tomme giver null', () => {
+    expect(holdForIhfNavn('Denmark').name).toBe('Danmark');
+    expect(holdForIhfNavn(' Germany ').name).toBe('Tyskland');
+    for (const x of ['W QF1', 'L QF2', 'Cuba', 'denmark', '', undefined, null]) expect(holdForIhfNavn(x), String(x)).toBeNull();
   });
 });
 

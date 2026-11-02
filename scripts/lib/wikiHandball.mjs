@@ -18,7 +18,11 @@
 //   - en score, der ikke er «tal–tal»                    → kast
 //   - et ukendt felt, hvis navn ligner et resultat (ET, aet, SO, pen …)
 //     → kast, for det kunne bære det facit, vi ellers ville læse forkert.
-//     Andre ukendte felter (fx et nyt kort-felt) tælles og vises.
+//     Andre ukendte felter (fx et nyt kort-felt) samles i `ukendte` på kampen.
+//     Parseren selv kaster ikke på dem; KALDEREN skal gøre noget med dem:
+//     programmet kaster på et ukendt felt i en medtaget kamp (`timezone=` eller
+//     `status=postponed` kunne flytte en tip-deadline), og historikken tæller
+//     dem og viser dem i udskriften (haandboldProgram.mjs / haandboldHistorik.mjs).
 //   - forlængelse/straffe uden stillingen efter 60 min (FT), eller FT uden
 //     forlængelse/straffe, eller felter der ikke summer til slutstillingen → kast
 // Kalderen (program/historik) beslutter, om en kastet kamp vælter hele

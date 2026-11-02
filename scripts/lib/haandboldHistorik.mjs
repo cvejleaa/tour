@@ -13,6 +13,10 @@
 //   afgjort  null | 'forlaenget' | 'straffe'.
 //   hjemme/ude er Wikipedias holdkoder (DEN, GER …), ikke danske navne:
 //   historikken har hold, der ikke er med i 2027.
+//   dato/tid er turneringens LOKALE tid, som siden skriver den. Forskydningen
+//   står pr. side i kilder[].forskydningMin (VM 2021 i Egypten var UTC+2) —
+//   null, hvis siden ikke siger det entydigt. Tiden bruges kun til
+//   rækkefølgen inden for en dag, aldrig som deadline.
 //
 // AFVIST ER IKKE TAVST. En kamp, der ikke kan læses (ukendt scoreform, FT uden
 // forlængelse, pladsholder med en score …), tælles og står med sin grund i
@@ -24,7 +28,7 @@
 // på en brøkdel ville se rigtig ud.
 // ---------------------------------------------------------------------------
 
-import { findHandballboxe, laesBox } from './wikiHandball.mjs';
+import { findHandballboxe, laesBox, sidensForskydning } from './wikiHandball.mjs';
 
 // Sidenavnene. Fundet 2/11 2026; API-kaldet følger omdirigeringer (redirects=1),
 // så en omdøbning af siden fanges af sidens nye titel i outputtet.
@@ -103,4 +107,43 @@ export function resume(kampe) {
   const straffe = kampe.filter((k) => k.afgjort === 'straffe').length;
   const maal = kampe.reduce((s, k) => s + k.efter60.h + k.efter60.u, 0);
   return { kampe: n, uafgjortEfter60: uafgjort60, forlaenget, straffe, maalPrKamp60: n ? Math.round((maal / n) * 10) / 10 : null };
+}
+
+/**
+ * Sidens tidszone til kilden: {forskydningMin, fejl}. Historikken vælter ikke
+ * på en side uden «All times are local (UTC+…)» — tiden er kun rækkefølge —
+ * men den gætter heller ikke: null + grunden, som scriptet viser.
+ */
+export function sidensTidszone(wikitekst) {
+  try {
+    return { forskydningMin: sidensForskydning(wikitekst), fejl: null };
+  } catch (e) {
+    return { forskydningMin: null, fejl: e.message };
+  }
+}
+
+/**
+ * NØDVEJEN: siderne gemt i en mappe i stedet for hentet (fx når Wikipedia
+ * svarer 429). Filen for en turnering hedder `<nøgle>.json` (API-svaret gemt
+ * fra browseren, eller en cachefil) eller `<nøgle>.wikitext`/`.txt` (rå
+ * wikitekst). Præcis én pr. valgt turnering — mangler en, eller står der to,
+ * kastes der, før noget læses (alt eller intet, som ved hentning).
+ * @param {string[]} filnavne  mappens indhold
+ * @param {string[]} noegler   de valgte turneringer
+ * @returns {Record<string, string>} nøgle → filnavn
+ */
+export function gemteFiler(filnavne, noegler) {
+  const ud = {};
+  const mangler = [];
+  for (const n of noegler) {
+    const fundne = filnavne.filter((f) => new RegExp(`^${n}\\.(json|wikitext|txt)$`, 'i').test(f));
+    if (fundne.length > 1) throw new Error(`${n} har ${fundne.length} filer i mappen (${fundne.join(', ')}) — hvilken er siden? Fjern de andre.`);
+    if (!fundne.length) mangler.push(n);
+    else ud[n] = fundne[0];
+  }
+  if (mangler.length) {
+    throw new Error(`mappen mangler ${mangler.map((n) => `${n}.json/.wikitext`).join(', ')}. Intet er læst. `
+      + 'Hent dem, eller vælg færre med --turneringer.');
+  }
+  return ud;
 }

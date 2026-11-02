@@ -12,6 +12,7 @@ import {
   findHandballboxe, delFelter, overskrifter, parseHold, parseDato, parseTid, parseScore,
   facitFraBox, sidensForskydning, utcIso, laesKampe, beskaarTilKampe, fjernKommentarer,
 } from './wikiHandball.mjs';
+import { holdForIhfNavn } from '../../src/data/haandboldVm2027Hold.js';
 
 const HER = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(resolve(HER, 'x.js'));
@@ -97,6 +98,18 @@ describe('felternes former', () => {
     }
   });
 
+  // GRÆNSERNE præcist: 23:59 og et vindue på 120 min er gyldige; 24:00, et
+  // vindue til 24:00 og 121 min er ikke. Hver linje gør én vagt rød
+  // (time over 23, minut over 59, begge ender, og vinduets længde).
+  it('tid: grænserne for timer, minutter og vinduets længde', () => {
+    expect(parseTid('23:59')).toEqual({ tid: '23:59', senest: null });
+    expect(parseTid('18:00/20:00')).toEqual({ tid: '18:00', senest: '20:00' });
+    expect(parseTid('21:30/23:30')).toEqual({ tid: '21:30', senest: '23:30' });
+    for (const v of ['24:00', '17:60', '23:30/24:00', '20:30/20:60', '18:00/20:01', '18:00/21:00']) {
+      expect(() => parseTid(v), v).toThrow(/ukendt form/);
+    }
+  });
+
   it('score: «tal–tal» med alle bindestreger; fodnoter fjernes; tekst kaster', () => {
     expect(parseScore('31–30')).toEqual({ h: 31, u: 30 });
     expect(parseScore('31-30')).toEqual({ h: 31, u: 30 });
@@ -137,6 +150,23 @@ describe('facit: ordinær tid, forlængelse og straffekast', () => {
     expect(facitFraBox({ score: '', HT: '' })).toBeNull();
   });
 
+  // OT2 er et KENDT felt. Står det ikke på listen, er det «resultat-lignende»
+  // (ot\d*) og vælter hele siden — så kampen skal kunne læses hele vejen
+  // gennem findHandballboxe, ikke kun i facitFraBox direkte.
+  it('en kamp med to forlængelser læses hele vejen fra wikiteksten', () => {
+    const [k] = laesKampe(box({
+      date: '29 January 2025', time: '20:30', team1: '{{hb-rt|POR}}', team2: '{{hb|GER}}',
+      score: '38–37', FT: '30–30', OT1: '4–4', OT2: '4–3',
+    }));
+    expect(k.facit).toMatchObject({ efter60: { h: 30, u: 30 }, slut: { h: 38, u: 37 }, afgjort: 'forlaenget' });
+    expect(k.ukendte).toEqual([]);
+  });
+
+  it('KASTER, når udeholdets pausestilling er større end efter 60 min', () => {
+    expect(() => facitFraBox({ score: '25–18', HT: '10–20' })).toThrow('pausestillingen 10–20 er større end stillingen efter 60 min 25–18');
+    expect(facitFraBox({ score: '25–18', HT: '10–18' }).halvleg).toEqual({ h: 10, u: 18 });
+  });
+
   it('KASTER på hver inkonsistent form', () => {
     expect(() => facitFraBox({ score: '', FT: '20–20' })).toThrow(/periodefelter, men ingen slutstilling/);
     expect(() => facitFraBox({ score: '31–30', OT1: '5–4' })).toThrow(/uden FT/);
@@ -164,6 +194,14 @@ describe('tidszonen', () => {
     // Over midnat: 00:30 lokalt UTC+1 er dagen før i UTC.
     expect(utcIso('2027-01-14', '00:30', 60)).toBe('2027-01-13T23:30:00Z');
     expect(sidensForskydning("''All times are local ([[Egypt Standard Time|UTC+2]]).''")).toBe(120);
+  });
+
+  // Fortegnet: vest for UTC er negativt, med både ASCII-bindestreg og minus.
+  it('vest for UTC er negativ forskydning (og minutter tæller)', () => {
+    expect(sidensForskydning('All times are local (UTC−3).')).toBe(-180);
+    expect(sidensForskydning('All times are local (UTC-3).')).toBe(-180);
+    expect(sidensForskydning('All times are local (UTC+5:30).')).toBe(330);
+    expect(utcIso('2027-01-13', '17:30', -180)).toBe('2027-01-13T20:30:00Z');
   });
 
   it('KASTER, når siden ikke siger det — eller siger to ting', () => {
@@ -195,16 +233,18 @@ describe('VM 2025-fixturen hele vejen', () => {
   // de samme som IHF's, er parseren her ikke bare enig med sig selv.
   it('stemmer med IHF på hovedrundedagen 22/1 og finaledagen 2/2 — score, dato og tid i UTC', () => {
     const { parseDagside } = require('../../functions-platform/ihfParse.js');
-    const KODE = {
-      Cuba: 'CUB', Bahrain: 'BHR', Slovenia: 'SLO', Argentina: 'ARG', Brazil: 'BRA', Chile: 'CHI',
-      'Cape Verde': 'CPV', Croatia: 'CRO', Sweden: 'SWE', Portugal: 'POR', 'United States of America': 'USA',
-      Japan: 'JPN', Egypt: 'EGY', Iceland: 'ISL', Norway: 'NOR', Spain: 'ESP', France: 'FRA', Denmark: 'DEN',
-    };
+    // IHF-navn → Wikipedia-kode går gennem HOLDFILEN (ihfNavn → hbKode), så
+    // testen også beviser holdfilens nødvejs-nøgle for de 2027-hold, der
+    // spillede her. Kun Cuba er ikke med i 2027 og står derfor i testen.
+    const IKKE_2027 = { Cuba: 'CUB' };
+    const kode = (navn) => holdForIhfNavn(navn)?.hbKode ?? IKKE_2027[navn];
     let n = 0;
     for (const f of ['ihf-dag-2025-01-22.html', 'ihf-dag-2025-02-02.html']) {
       const html = readFileSync(resolve(HER, `../../functions-platform/testdata/${f}`), 'utf8');
       for (const i of parseDagside(html)) {
-        const w = kampe.find((k) => k.hjemme.kode === KODE[i.hjemme] && k.ude.kode === KODE[i.ude]);
+        expect(kode(i.hjemme), i.hjemme).toBeTruthy();
+        expect(kode(i.ude), i.ude).toBeTruthy();
+        const w = kampe.find((k) => k.hjemme.kode === kode(i.hjemme) && k.ude.kode === kode(i.ude));
         expect(w, `${i.hjemme}–${i.ude}`).toBeTruthy();
         expect(w.dato).toBe(i.dato);
         expect(w.facit.slut).toEqual(i.slutScore);

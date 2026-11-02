@@ -61,7 +61,7 @@ async function main() {
     console.log(`Læser ${sti}`);
   } else {
     // Ingen cache: programmet hentes for at se, om det har ÆNDRET sig.
-    side = await lavWikiHenter({ log: console.log })(SIDE);
+    side = await lavWikiHenter({ log: console.log, nodvej: '--fil <gemt side>' })(SIDE);
   }
 
   const beskaaret = beskaarTilKampe(side.wikitekst);
@@ -83,7 +83,7 @@ async function main() {
     console.log('   Ret dem med seed-football --kickoffs-only, når tiden ligger fast.');
   }
   if (p.advarsler.length) {
-    console.log(`\n⚠️  ${p.advarsler.length} fravalgte kampe kunne ikke læses (de er ikke med, men formen har ændret sig):`);
+    console.log(`\n⚠️  ${p.advarsler.length} advarsler om fravalgte kampe (de er ikke med, men formen på siden har ændret sig):`);
     for (const l of p.advarsler) console.log(`   ${l}`);
   }
 

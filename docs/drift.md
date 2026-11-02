@@ -160,12 +160,19 @@ Det, scriptet **melder**, og hvad du gør:
   ligger fast, så kør scriptet igen og derefter `seed-football --kickoffs-only`.
 - **En fejl, der stopper kørslen** (der skrives intet): en ny sektion på siden
   («Ukendt sektion …»), en kamp uden tidspunkt, en ukendt holdkode, et andet
-  antal kampe end formatet (48/36/4/2/2), en dag med kampe fra to faser, eller
-  en side uden «All times are local (UTC+1)». Hver besked siger, hvilken kamp
-  og hvilken fil der skal rettes. Skraberen gætter aldrig.
-- **«fravalgte kampe kunne ikke læses»**: en Presidents Cup- eller
-  placeringskamp har en form, parseren ikke kender. Den er ikke med i
+  antal kampe end formatet (48/36/4/2/2), en dag med kampe fra to faser, en
+  side uden «All times are local (UTC+1)», eller **et felt, parseren ikke
+  kender, i en medtaget kamp** (fx `timezone=` eller `status=postponed`: det
+  kunne flytte en tip-deadline). Hver besked siger, hvilken kamp og hvilken
+  fil der skal rettes. Skraberen gætter aldrig.
+- **«advarsler om fravalgte kampe»**: en Presidents Cup- eller placeringskamp
+  har en form eller et felt, parseren ikke kender. Den er ikke med i
   programmet og stopper intet, men formen på siden har ændret sig.
+
+**Tidsvinduet når ikke databasen.** `kickoffSenest` og `gruppe` står kun i
+JSON-filen: `seed-football` skriver kun `round`, `home`, `away`, `kickoff`,
+Elo og odds. Kampen får det tidligste tidspunkt som deadline; at det er et
+vindue, ved kun filen og scriptets udskrift.
 
 Det, scriptet **ikke** gør: seede (det gør `seed-football.mjs` med filen som
 `--fixtures` i delopgave D6, med tør-kørsel og ejerens ja), oprette
@@ -193,13 +200,37 @@ igen, så slet dens fil i cachen. Fejler én side, skrives der **intet**. En
 måling på 7 af 8 turneringer må ikke ligne en på 8. Kampe, der ikke kan læses,
 står med grund under `kilder[].afviste` og i udskriften. `efter60` er
 stillingen efter ordinær tid, og det er den, der tippes på, også i knockout.
+`dato`/`tid` er turneringens **lokale** tid; forskydningen står pr. side i
+`kilder[].forskydningMin` (null, hvis siden ikke siger det).
+
+**Nødvejen ved 429: `--filer <mappe>`.** Historikken har **ikke** `--fil`
+(det har kun programmet). Gem i stedet én fil pr. turnering i en mappe og læs
+dem derfra. Der sendes da intet kald:
+
+```bash
+mkdir sider
+# Enten API-svaret (bærer revisions-id'et) — åbn i en browser og gem som vm2019.json:
+#   https://en.wikipedia.org/w/api.php?action=parse&page=2019_World_Men%27s_Handball_Championship&prop=wikitext%7Crevid&redirects=1&format=json&formatversion=2
+# eller den rå wikitekst (uden revisions-id) som vm2019.wikitext:
+#   https://en.wikipedia.org/w/index.php?title=2019_World_Men%27s_Handball_Championship&action=raw
+node scripts/haandbold-historik.mjs --filer sider            # vis
+node scripts/haandbold-historik.mjs --filer sider --skriv    # skriv
+```
+
+Filnavnene er nøglerne (`vm2019`, `em2020`, `vm2021`, `em2022`, `vm2023`,
+`em2024`, `vm2025`, `em2026`). Mangler én, eller har én to filer, stopper
+scriptet, før noget læses. Kilden får `vej: "fil"`, filnavnet og filens tid
+som `hentet`, så ingen tror, at scriptet selv har hentet siden.
 
 > **Status 2/11 2026:** `scripts/haandbold-historik.json` rummer kun **VM 2025**.
-> Fra byggemiljøet svarede Wikipedia HTTP 429 («for mange forespørgsler») på
-> scriptets kald, og scriptet stoppede, som det skal. De andre syv sider er
-> ikke hentet. Kør kommandoen ovenfor med
-> `--skriv` fra en almindelig maskine, før D4 måler. Filen siger selv i
-> `turneringer`, hvad den rummer.
+> Fra byggemiljøet svarede Wikipedia HTTP 429 på alle scriptets kald (Node
+> `fetch`). Et curl-kald til **samme** API-adresse gav 200; det svar blev gemt
+> og læst med `--filer` (derfor `vej: "fil"` i filen). De andre syv sider er
+> ikke hentet. Af de 108 kampe kan kun de 26 i fixturen
+> `scripts/testdata/wiki-vm2025-udsnit.wikitext` genskabes fra repoet.
+> Kør scriptet for alle otte før D4 måler — først uden `--filer`; svarer det
+> 429, så med `--filer`. Fra Google Cloud Shell er kun `index.php?action=raw`
+> målt (200, 2/11); scriptets API-vej er ikke prøvet dér.
 
 **Wikimedias regler.** Begge scripts bruger MediaWiki API'et med User-Agenten
 `VejleaaTip-program/1.0 (+https://github.com/cvejleaa/tour)` (ikke ejerens
@@ -207,7 +238,8 @@ e-mail), mindst ét sekund mellem kald, og de følger ingen links. `robots.txt`'
 `Disallow: /w/` gælder crawlere. Det her er et manuelt startet kald med lav
 volumen til det API, Wikimedia anviser. Svarer Wikipedia **429**, stopper
 scriptet og prøver **ikke** igen af sig selv. Vent, eller gem siden fra
-browseren («Rediger kilde» → kopiér til en fil) og brug `--fil`. Indholdet er
+browseren og brug nødvejen: `--fil <side>` for programmet, `--filer <mappe>`
+for historikken (se ovenfor). Fejlbeskeden nævner den rigtige. Indholdet er
 CC BY-SA 4.0. Filerne bærer kilde, revision og licens.
 
 ## Kickoff-tider, der flytter sig (Premier League)

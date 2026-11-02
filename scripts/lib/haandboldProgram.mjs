@@ -78,15 +78,28 @@ export function klassificer(sektion) {
  * med, og som ikke kan læses, vælter kaldet. En kamp, der IKKE er med (fx en
  * placeringskamp med en underlig tid), tælles som advarsel — den må ikke
  * blokere programmet, men den må heller ikke forsvinde i stilhed.
+ *
+ * UKENDTE FELTER. Parseren samler felter, den ikke kender, i `ukendte`. I en
+ * medtaget kamp er det en FEJL: `|timezone=UTC+2` eller `|status=postponed`
+ * ville ellers blive ignoreret, og kickoff — tip-deadline — stod uændret med
+ * en grøn kørsel. VM 2027-siden har ingen ukendte felter (2/11 2026), så
+ * reglen koster intet i dag. I en fravalgt kamp er det en advarsel.
  */
 export function klassificeredeKampe(wikitekst) {
   const advarsler = [];
   const kampe = [];
   for (const b of findHandballboxe(wikitekst)) {
     const k = klassificer(b.sektion);
+    const hvor = `Kamp nr. ${b.nr} (${b.sektion.join(' › ')})`;
     if (k.fra) {
       try { laesBox(b); } catch (e) { advarsler.push(`(fravalgt kamp) ${e.message}`); }
+      if (b.ukendte.length) advarsler.push(`(fravalgt kamp) ${hvor} har felter, parseren ikke kender: ${b.ukendte.join(', ')}`);
       continue;
+    }
+    if (b.ukendte.length) {
+      throw new Error(`${hvor} har felter, parseren ikke kender: ${b.ukendte.join(', ')}. Et ukendt felt kan flytte `
+        + 'en tip-deadline (fx timezone= eller status=), så programmet bygges ikke. Læs formen på siden, og lær '
+        + 'scripts/lib/wikiHandball.mjs feltet — der gættes ikke.');
     }
     const kamp = laesBox(b);
     if (!kamp.dato) throw new Error(`Kamp nr. ${b.nr} (${b.sektion.join(' › ')}) har ingen dato — kalenderen kan ikke bygges.`);
@@ -212,6 +225,15 @@ export function byggProgram(wikitekst, { hold = HAANDBOLD_VM2027_HOLD, format = 
   return { fixtures, faser, advarsler, usikreTider, forskydningMin: forskydning };
 }
 
+/** Minutter øst for UTC → «UTC+1», «UTC−3», «UTC+5:30». Til noten — tidszonen står i SIDEN, ikke her. */
+export function utcTekst(min) {
+  if (!Number.isInteger(min)) throw new Error(`utcTekst: forskydningen ${min} er ikke et helt antal minutter`);
+  const a = Math.abs(min);
+  const t = Math.floor(a / 60);
+  const m = a % 60;
+  return `UTC${min < 0 ? '−' : '+'}${t}${m ? `:${String(m).padStart(2, '0')}` : ''}`;
+}
+
 /** Wikipedias adresse for en side (til kildeangivelsen). */
 export const wikiSideUrl = (titel) => `https://en.wikipedia.org/wiki/${encodeURIComponent(String(titel).replace(/ /g, '_')).replace(/%27/g, "'")}`;
 
@@ -224,8 +246,9 @@ export function programFil(p, { titel, revid = null, hentet = null }) {
   return {
     _note: `Håndbold-VM 2027 (herrer), den indledende runde: ${p.fixtures.length} kampe. Bygget af scripts/haandbold-program.mjs `
       + `fra Wikipedia («${titel}», revision ${revid ?? 'ukendt'}, hentet ${dato}); indholdet er CC BY-SA 4.0. `
-      + 'kickoff er UTC (siden angiver lokal tid UTC+1). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp. '
+      + `kickoff er UTC (siden angiver lokal tid ${utcTekst(p.forskydningMin)}). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp. `
       + 'kickoffSenest står kun, hvor siden har et tidsvindue — deadline er da det tidligste. '
+      + 'kickoffSenest og gruppe når IKKE databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her. '
       + 'faser er forslaget til game.faser (lægges i scripts/games.mjs i D6). RET ALDRIG I HÅNDEN: kør scriptet igen.',
     kilde: { side: titel, url: wikiSideUrl(titel), revid, hentet, licens: 'CC BY-SA 4.0' },
     faser: p.faser,

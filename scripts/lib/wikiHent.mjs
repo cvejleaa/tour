@@ -60,6 +60,10 @@ export function cacheNavn(titel) {
  * @param {Function} [o.nu]       () => ms   (testene)
  * @param {Function} [o.sov]      (ms) => Promise   (testene)
  * @param {Function} [o.log]
+ * @param {string}   [o.nodvej]   SCRIPTETS nødvej, som fejlbeskeden peger på
+ *   (programmet: «--fil <gemt side>», historikken: «--filer <mappe>»). Uden
+ *   den nævner beskeden intet argument — et modul, der lover et flag, som
+ *   kalderen ikke har, sender ejeren ud i «ukendt argument» midt i en fejl.
  */
 export function lavWikiHenter({
   fetchFn = globalThis.fetch,
@@ -67,6 +71,7 @@ export function lavWikiHenter({
   nu = () => Date.now(),
   sov = (ms) => new Promise((r) => setTimeout(r, ms)),
   log = () => {},
+  nodvej = null,
 } = {}) {
   let sidsteKald = -Infinity;
 
@@ -97,10 +102,10 @@ export function lavWikiHenter({
       // 429 = Wikimedia beder os vente. Vi prøver IKKE igen af os selv: et
       // script, der hamrer løs på en 429, er præcis det, etiketten forbyder.
       const vent = res.headers?.get?.('retry-after');
+      const ellers = nodvej ? `, eller gem siden og brug ${nodvej} (docs/drift.md)` : '';
       throw new Error(`Wikipedia svarede HTTP ${res.status} på «${titel}». Intet er gemt. `
-        + (res.status === 429
-          ? `Wikimedia beder os vente${vent ? ` (Retry-After: ${vent} s)` : ''}. Prøv igen senere, eller gem siden i browseren og brug --fil.`
-          : 'Prøv igen senere, eller brug --fil med en gemt kopi.'));
+        + (res.status === 429 ? `Wikimedia beder os vente${vent ? ` (Retry-After: ${vent} s)` : ''}. ` : '')
+        + `Prøv igen senere${ellers}.`);
     }
     const data = await res.json();
     if (data?.error) {
@@ -156,14 +161,27 @@ export function parseScriptArgs(argv, { vaerdier = [], flag = [] } = {}) {
 }
 
 /**
- * Læs en gemt side: enten et cache-svar (.json fra lavWikiHenter) eller rå
- * wikitekst (.wikitext/.txt, fx kopieret fra «Rediger kilde» i browseren).
+ * Læs en gemt side. Tre former:
+ *   - .json fra lavWikiHenters cache: {titel, revid, hentet, wikitekst}
+ *   - .json med API'ets eget svar: {parse:{title, revid, wikitext}} — det, man
+ *     får ved at åbne wikiUrl(titel) i en browser og gemme siden. Det bærer
+ *     revisions-id'et, så kilden kan efterprøves.
+ *   - .wikitext/.txt: rå wikitekst (fra «Rediger kilde» eller index.php?action=raw).
+ * Ingen af dem har en hentetid; den sætter kalderen (filens tid).
  * @param {string} indhold  filens tekst
  * @param {string} navn     filnavnet (afgør formen)
  */
 export function laesGemtSide(indhold, navn) {
   if (/\.json$/i.test(navn)) {
     const d = JSON.parse(indhold);
+    if (d?.parse && typeof d.parse.wikitext === 'string' && d.parse.wikitext) {
+      return {
+        titel: d.parse.title ?? null,
+        revid: Number.isInteger(d.parse.revid) ? d.parse.revid : null,
+        hentet: null,
+        wikitekst: d.parse.wikitext,
+      };
+    }
     if (typeof d?.wikitekst !== 'string' || !d.wikitekst) throw new Error(`${navn} er ikke et gemt svar (mangler wikitekst)`);
     return { titel: d.titel ?? null, revid: d.revid ?? null, hentet: d.hentet ?? null, wikitekst: d.wikitekst };
   }

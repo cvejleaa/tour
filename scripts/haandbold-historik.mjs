@@ -25,23 +25,33 @@
 //   node scripts/haandbold-historik.mjs --skriv               # skriv scripts/haandbold-historik.json
 //   node scripts/haandbold-historik.mjs --turneringer vm2025,em2026
 //   node scripts/haandbold-historik.mjs --cache /sti/til/mappe   # standard: <tmp>/vejleaa-wiki
+//   node scripts/haandbold-historik.mjs --filer /sti/til/mappe   # NØDVEJ: gemte sider, intet kald
+//
+// NØDVEJEN (--filer). Svarer Wikipedia 429, så gem siderne selv og læs dem
+// herfra — der sendes da intet kald. Mappen har én fil pr. turnering:
+// `vm2019.json` (API-svaret: åbn wikiUrl(titel) i browseren og gem) eller
+// `vm2019.wikitext` (rå wikitekst). Kilden får `vej: 'fil'` og filens tid som
+// `hentet`, så ingen tror, at scriptet selv har hentet den. Se docs/drift.md.
 //
 // Bag en proxy: Node 22's fetch bruger først HTTPS_PROXY med NODE_USE_ENV_PROXY=1.
 // ---------------------------------------------------------------------------
 
-import { writeFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { lavWikiHenter, parseScriptArgs } from './lib/wikiHent.mjs';
-import { TURNERINGER, udtraekKampe, resume } from './lib/haandboldHistorik.mjs';
+import { lavWikiHenter, parseScriptArgs, laesGemtSide } from './lib/wikiHent.mjs';
+import {
+  TURNERINGER, udtraekKampe, resume, gemteFiler, sidensTidszone,
+} from './lib/haandboldHistorik.mjs';
 import { wikiSideUrl } from './lib/haandboldProgram.mjs';
 
 const ROD = join(dirname(fileURLToPath(import.meta.url)), '..');
 const UD = join(ROD, 'scripts', 'haandbold-historik.json');
 
 async function main() {
-  const args = parseScriptArgs(process.argv.slice(2), { vaerdier: ['turneringer', 'cache'], flag: ['skriv'] });
+  const args = parseScriptArgs(process.argv.slice(2), { vaerdier: ['turneringer', 'cache', 'filer'], flag: ['skriv'] });
+  if (args.filer && args.cache) throw new Error('--filer og --cache udelukker hinanden: --filer læser kun mappen og henter intet.');
   let valgte = TURNERINGER;
   if (args.turneringer) {
     const ønskede = args.turneringer.split(',').map((s) => s.trim()).filter(Boolean);
@@ -49,9 +59,30 @@ async function main() {
     if (ukendte.length) throw new Error(`ukendte turneringer: ${ukendte.join(', ')}. Kendte: ${TURNERINGER.map((t) => t.noegle).join(', ')}`);
     valgte = TURNERINGER.filter((t) => ønskede.includes(t.noegle));
   }
-  const cacheDir = resolve(process.cwd(), args.cache || join(tmpdir(), 'vejleaa-wiki'));
-  console.log(`Cache: ${cacheDir}\n`);
-  const hent = lavWikiHenter({ cacheDir, log: console.log });
+  let hent;
+  if (args.filer) {
+    const mappe = resolve(process.cwd(), args.filer);
+    const filer = gemteFiler(readdirSync(mappe), valgte.map((t) => t.noegle));
+    console.log(`Gemte sider: ${mappe} (der sendes intet kald)\n`);
+    hent = async (titel) => {
+      const t = valgte.find((x) => x.titel === titel);
+      const sti = join(mappe, filer[t.noegle]);
+      const side = laesGemtSide(readFileSync(sti, 'utf8'), filer[t.noegle]);
+      return {
+        ...side,
+        titel: side.titel ?? titel,
+        // Filens tid er det bedste, vi har — og kilden siger, at det er den.
+        hentet: side.hentet ?? statSync(sti).mtime.toISOString(),
+        vej: 'fil',
+        fil: filer[t.noegle],
+      };
+    };
+  } else {
+    const cacheDir = resolve(process.cwd(), args.cache || join(tmpdir(), 'vejleaa-wiki'));
+    console.log(`Cache: ${cacheDir}\n`);
+    const henter = lavWikiHenter({ cacheDir, log: console.log, nodvej: '--filer <mappe>' });
+    hent = async (titel) => ({ ...(await henter(titel)), vej: 'api' });
+  }
 
   const kilder = [];
   const kampe = [];
@@ -59,6 +90,8 @@ async function main() {
     const side = await hent(t.titel);
     const r = udtraekKampe(side.wikitekst, t.noegle);
     const res = resume(r.kampe);
+    const tz = sidensTidszone(side.wikitekst);
+    if (tz.fejl) console.log(`   (tidszone ukendt — tid er lokal uden forskydning: ${tz.fejl})`);
     console.log(`${t.noegle}: ${res.kampe} spillede · ${res.uafgjortEfter60} uafgjort efter 60 min · `
       + `${res.forlaenget} forlænget · ${res.straffe} straffekast · ${res.maalPrKamp60} mål/kamp`
       + `${r.ikkeSpillet ? ` · ${r.ikkeSpillet} uden score` : ''}`);
@@ -70,6 +103,9 @@ async function main() {
       url: wikiSideUrl(side.titel),
       revid: side.revid,
       hentet: side.hentet,
+      vej: side.vej,
+      ...(side.fil ? { fil: side.fil } : {}),
+      forskydningMin: tz.forskydningMin,
       licens: 'CC BY-SA 4.0',
       ...res,
       ikkeSpillet: r.ikkeSpillet,
@@ -88,6 +124,8 @@ async function main() {
     _note: `Færdige kampe fra ${kilder.map((k) => k.noegle).join(', ')} (herrer), bygget af scripts/haandbold-historik.mjs fra Wikipedia; `
       + 'indholdet er CC BY-SA 4.0 (kilder med revision nedenfor). efter60 = stillingen efter ordinær tid (det, der tippes på); '
       + 'slut = inkl. forlængelse/straffekast; afgjort = null | forlaenget | straffe. Holdene er Wikipedias koder. '
+      + 'dato/tid er turneringens lokale tid (kilder[].forskydningMin). kilder[].vej = api (hentet af scriptet) eller '
+      + 'fil (læst med --filer fra en gemt side; hentet = filens tid). '
       + 'Afviste kampe står under kilder[].afviste med grund. RET ALDRIG I HÅNDEN: kør scriptet igen.',
     turneringer: kilder.map((k) => k.noegle),
     kilder,

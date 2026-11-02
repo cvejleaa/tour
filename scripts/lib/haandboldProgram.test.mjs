@@ -15,14 +15,18 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { byggProgram, byggFaser, klassificer, programFil, VM_FASER, VM2027_FORMAT } from './haandboldProgram.mjs';
+import { createRequire } from 'node:module';
+import {
+  byggProgram, byggFaser, klassificer, programFil, utcTekst, VM_FASER, VM2027_FORMAT,
+} from './haandboldProgram.mjs';
 import { faseKalenderFejl, dagTaeller, rundeEtiket, erKnockout, ventetekst } from '../../src/lib/faser.js';
 import { docId, tjekDubletter, kickoffMs } from '../../src/lib/seedFootball.js';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
 import { sportProfil } from '../../src/lib/superligaScoring.js';
-import { HAANDBOLD_VM2027_HOLD } from '../../src/data/haandboldVm2027Hold.js';
+import { HAANDBOLD_VM2027_HOLD, holdForIhfNavn } from '../../src/data/haandboldVm2027Hold.js';
 
 const HER = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(resolve(HER, 'x.js'));
 const SIDE = readFileSync(resolve(HER, '../testdata/wiki-vm2027.wikitext'), 'utf8');
 const FIL = JSON.parse(readFileSync(resolve(HER, '../haandbold-vm2027-program.json'), 'utf8'));
 const P = byggProgram(SIDE);
@@ -49,6 +53,22 @@ describe('paritet: den committede fil er det, modulet bygger', () => {
     expect(FIL._note).toMatch(/CC BY-SA 4\.0/);
     expect(FIL._note).toMatch(/RET ALDRIG I HÅNDEN/);
     expect(programFil(P, { titel: 'X' })._note).toMatch(/revision ukendt, hentet ukendt dato/);
+  });
+
+  // Noten er en del af filen og bindes til modulet som resten: bygges den
+  // igen med filens egen kilde, er den byte for byte den samme.
+  it('noten er det, modulet skriver — og tidszonen i den kommer fra SIDEN', () => {
+    expect(programFil(P, { titel: FIL.kilde.side, revid: FIL.kilde.revid, hentet: FIL.kilde.hentet })._note).toBe(FIL._note);
+    expect(FIL._note).toContain('siden angiver lokal tid UTC+1');
+    const egypten = programFil({ ...P, forskydningMin: 120 }, { titel: 'X' })._note;
+    expect(egypten).toContain('siden angiver lokal tid UTC+2');
+    expect(egypten).not.toContain('UTC+1');
+    expect(FIL._note).toContain('kickoffSenest og gruppe når IKKE databasen');
+  });
+
+  it('utcTekst: fortegn og minutter', () => {
+    expect([60, 120, 0, -180, 330].map(utcTekst)).toEqual(['UTC+1', 'UTC+2', 'UTC+0', 'UTC−3', 'UTC+5:30']);
+    expect(() => utcTekst(undefined)).toThrow(/ikke et helt antal minutter/);
   });
 });
 
@@ -225,6 +245,37 @@ describe('strukturvagterne', () => {
     expect(() => byggProgram(SIDE, { format: { ...VM2027_FORMAT, antalHold: 30 } })).toThrow('Programmet har 32 hold, ikke 30.');
   });
 
+  // Programmet har 32 hold, men holdfilen har et 33. — et hold, der ikke
+  // spiller, ville få en holdside og en rating uden kampe.
+  it('KASTER, når holdfilen har et andet antal hold end formatet', () => {
+    const hold = [...HAANDBOLD_VM2027_HOLD, { name: 'Cuba', short: 'CUB', hbKode: 'CUB', aliaser: [] }];
+    expect(() => byggProgram(SIDE, { hold })).toThrow('Holdfilen har 33 hold, ikke 32.');
+  });
+
+  // En kamp FOR MEGET i en fase (en dubleret kasse i hovedrunden) er lige så
+  // forkert som en for lidt — «Dag 7 af 17» og antalKampe ville passe ikke.
+  it('KASTER, når en fase har en kamp for meget (37 i hovedrunden)', () => {
+    const t = retKasse(SIDE, { team1: 'A1', team2: 'B3', dato: '20 January 2027' }, (k) => `${k}\n${k}`);
+    expect(() => byggProgram(t)).toThrow('Fasen «hoved» har 37 kampe på siden, men formatet siger 36. Intet er skrevet.');
+  });
+
+  // UKENDTE FELTER i en medtaget kamp: et felt, parseren ikke kender, kunne
+  // flytte kickoff (= tip-deadline), og så stod den gamle tid med grøn kørsel.
+  it.each([
+    ['|timezone=UTC+2', 'timezone'],
+    ['|status=postponed', 'status'],
+  ])('KASTER på det ukendte felt %s i en medtaget kamp', (felt, navn) => {
+    const t = retKasse(SIDE, SRB_URU, (k) => k.replace('|time=17:30', `|time=17:30\n${felt}`));
+    expect(() => byggProgram(t)).toThrow(`Kamp nr. 1 (Preliminary round › Group A) har felter, parseren ikke kender: ${navn}. Et ukendt felt kan flytte en tip-deadline`);
+  });
+
+  it('et ukendt felt i en FRAVALGT kamp er en advarsel med navnet — ikke en blokering', () => {
+    const t = retKasse(SIDE, { team1: 'A4', team2: 'B4', dato: '20 January 2027' }, (k) => k.replace('|time=', '|status=postponed\n|time='));
+    const p = byggProgram(t);
+    expect(p.fixtures).toEqual(P.fixtures);
+    expect(p.advarsler).toEqual([expect.stringMatching(/^\(fravalgt kamp\) Kamp nr\. \d+ \(Presidents Cup › Group I\) har felter, parseren ikke kender: status$/)]);
+  });
+
   it('KASTER, når grupperne ikke er formatets bogstaver', () => {
     const grupper = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'X'];
     expect(() => byggProgram(SIDE, { format: { ...VM2027_FORMAT, grupper } }))
@@ -280,6 +331,13 @@ describe('klassificer: det lukkede sæt af sektioner', () => {
     [['Final round', 'Semifinals'], { fase: 'semi' }],
     [['Final round', 'Third place game'], { fase: 'finale' }],
     [['Final round', 'Final'], { fase: 'finale' }],
+    // Aliaserne: andre sider kalder slutspillet «Knockout stage» og
+    // bronzekampen «Bronze medal game». Begge skal give det samme.
+    [['Knockout stage', 'Quarter-finals'], { fase: 'kvart' }],
+    [['Knockout stage', 'Semi-finals'], { fase: 'semi' }],
+    [['Knockout stage', 'Bronze medal game'], { fase: 'finale' }],
+    [['Final round', 'Bronze medal game'], { fase: 'finale' }],
+    [['Knockout stage', 'Final'], { fase: 'finale' }],
     [['Presidents Cup', 'Group I'], { fra: 'presidents' }],
     [["President's Cup", '31st place game'], { fra: 'presidents' }],
     [['Final round', '5–8th place semifinals'], { fra: 'placering' }],
@@ -297,5 +355,50 @@ describe('klassificer: det lukkede sæt af sektioner', () => {
     [[]],
   ])('%j kaster', (sti) => {
     expect(() => klassificer(sti)).toThrow(/Ukendt sektion/);
+  });
+});
+
+// KRYDSTJEK MOD EN UAFHÆNGIG KILDE. IHF's egne dagsider for VM 2027 (gemt i
+// functions-platform/testdata, læst af IHF-parseren fra D2). De stod med
+// 00:00 som tid, da de blev gemt, så IHF-parseren giver gmtTid null — og
+// derfor kan KUN hold, dato og antal sammenlignes her. Tiderne (= deadlines)
+// efterprøves af intet andet end Wikipedia selv. Testen siger det højt: får
+// IHF-fixturen en dag tider, er den røde linje nedenfor beskeden om at
+// sammenligne dem også.
+describe('krydstjek mod IHF\'s dagsider for VM 2027', () => {
+  const { parseDagside } = require('../../functions-platform/ihfParse.js');
+  const dag = (d) => parseDagside(readFileSync(resolve(HER, `../../functions-platform/testdata/ihf-dag-${d}.html`), 'utf8'));
+
+  it('dag 1 (13/1): IHF\'s fire kampe er programmets runde 1 — samme hold, samme dato', () => {
+    const ihf = dag('2027-01-13');
+    expect(ihf).toHaveLength(4);
+    expect(ihf.map((i) => i.gmtTid)).toEqual([null, null, null, null]);
+    const parret = ihf.map((i) => {
+      const h = holdForIhfNavn(i.hjemme);
+      const u = holdForIhfNavn(i.ude);
+      expect(h, i.hjemme).toBeTruthy();
+      expect(u, i.ude).toBeTruthy();
+      const f = P.fixtures.find((x) => x.home === h.name && x.away === u.name);
+      expect(f, `${i.hjemme}–${i.ude}`).toBeTruthy();
+      expect(i.dato).toBe('2027-01-13');
+      expect(f.round).toBe(1);
+      expect(f.kickoff.slice(0, 10)).toBe(i.dato);
+      expect(f.gruppe).toBe(i.gruppe.replace('Group ', ''));
+      return f.id;
+    });
+    expect(parret.sort()).toEqual(P.fixtures.filter((f) => f.round === 1).map((f) => f.id).sort());
+  });
+
+  it('29/1: IHF\'s to semifinaler er kalenderens semifinaledag; placeringskampene 5-8 er IKKE med', () => {
+    const ihf = dag('2027-01-29');
+    const semi = ihf.filter((i) => i.fase === 'Semi-finals');
+    const placering = ihf.filter((i) => i.fase === 'Placement matches 5-8');
+    expect(semi).toHaveLength(2);
+    expect(placering).toHaveLength(2);
+    expect(semi.length + placering.length).toBe(ihf.length);
+    const f = P.faser.find((x) => x.navn === 'Semifinaler');
+    expect(f).toMatchObject({ start: '2027-01-29', fra: 16, til: 16, antalKampe: semi.length, knockout: true });
+    // Ingen fase i kalenderen tæller placeringskampene med.
+    expect(P.faser.reduce((n, x) => n + x.antalKampe, 0)).toBe(48 + 36 + 4 + 2 + 2);
   });
 });
