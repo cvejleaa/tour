@@ -202,6 +202,20 @@ describe('strandetBesked', () => {
     expect(b).not.toContain('admin-guiden');
   });
 
+  // I PRODUKTION er kickoff et Firestore Timestamp, ikke en Date. new Date()
+  // af et Timestamp giver NaN — uden toMillis-grenen ville HVER strandet kamp
+  // i drift få teksten "intet læseligt kickoff" og sende ejeren efter et
+  // kickoff, der er fint. Alle de andre tests bruger new Date, så denne er
+  // den eneste, der bærer grenen (fundet ved mutation).
+  it('et Firestore Timestamp (toMillis) er et læseligt kickoff', () => {
+    const ts = { toMillis: () => Date.parse('2026-09-01T17:00:00Z') };
+    for (const harSynk of [true, false]) {
+      const b = strandetBesked('r5-agf-ob', { harSynk, kamp: { ...KAMP, kickoff: ts } });
+      expect(b).toContain('Kampen AGF – OB, runde 5 (r5-agf-ob) mangler facit længe efter kickoff');
+      expect(b).not.toMatch(/læseligt kickoff|Ret kickoff/);
+    }
+  });
+
   // QC-fundet (superligaSync.js: strandedMatches melder kickoff:null straks).
   // Facit i hånden afviser en sådan kamp, så teksten må ikke sende ejeren dertil.
   it('uden kickoff: remediet er kickoff — ikke facit, og ikke synk-knappen', () => {

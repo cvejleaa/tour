@@ -407,6 +407,18 @@ describe('saetFacitCore — prognosen tæller kun dem, triggeren genberegner', (
     expect(ud.botPoster).toBe(true);
   });
 
+  // f har tippet runden, men IKKE k1, og f's combi flytter sig ikke (ét
+  // træf før og efter → 0 → 0). f må ikke tælles i `senere` — ellers lovede
+  // fladen "2 spillere får ændret combi" om en, der intet får. Uden
+  // `if (c1 === c0) continue;` blev tallet 2 (fundet ved mutation).
+  it('en spiller uden tip på kampen, hvis combi IKKE flytter sig, står ikke i `senere`', async () => {
+    const f = { uid: 'f', matchId: 'k2', pick: '1', points: scoreBet({ pick: '1' }, '1', ODDS) };
+    const { db } = makeDb({ game: { ...SL, snapshottedRounds: [] }, matches, bets: [...bets, f] });
+    const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
+    expect(ud.senere).toEqual({ spillere: 1, combi: 5.7 });
+    expect(ud.point).toEqual({ tips: 1, aendredeTips: 1, spillere: 1, iAlt: 6, combi: 4 });
+  });
+
   it('uden nogen uden for kampen er `senere` 0 — også når 1X2 er uændret', async () => {
     const { db } = makeDb({ game: SL, matches, bets: bets.filter((b) => b.uid === 'e') });
     const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
@@ -524,6 +536,24 @@ describe('tilHttpsFejl', () => {
     const raa = new TypeError('x is undefined');
     expect(tilHttpsFejl(raa, HttpsError)).toBe(raa);
   });
+
+  // ALLE tre koder, kernen kaster med. failed-precondition bærer de vigtigste
+  // beskeder (kampen er ændret siden tør-kørslen, kampen er ikke begyndt) —
+  // slap den uoversat igennem, så admin "internal" i stedet for beskeden.
+  for (const kode of ['invalid-argument', 'not-found', 'failed-precondition']) {
+    it(`${kode}: koden og beskeden bevares`, () => {
+      const besked = `Besked for ${kode}.`;
+      const h = tilHttpsFejl(Object.assign(new Error(besked), { kode }), HttpsError);
+      expect(h).toBeInstanceOf(HttpsError);
+      expect(h.code).toBe(kode);
+      expect(h.message).toBe(besked);
+    });
+  }
+
+  it('en ukendt kode slipper uoversat igennem', () => {
+    const e = Object.assign(new Error('x'), { kode: 'permission-denied' });
+    expect(tilHttpsFejl(e, HttpsError)).toBe(e);
+  });
 });
 
 // index.js kan ikke importeres uden firebase-functions, så LEDNINGEN
@@ -551,6 +581,12 @@ describe('index.js: ledningen til kernerne', () => {
     expect(krop('saetFacitManuelt')).toMatch(/aftryk: d\.aftryk \?\? null,/);
   });
 
+  // Prognosen henter hele rundens bets (i bidder af 30) — standardens 60 s
+  // er for kort i en fuld runde. Fjernes loftet, bliver denne rød.
+  it('saetFacitManuelt har sit eget timeout-loft', () => {
+    expect(krop('saetFacitManuelt')).toMatch(/^onCall\(\{ region: REGION, timeoutSeconds: 120 \}, async \(request\) => \{/);
+  });
+
   it('saetFacitManuelt sender kalderens uid — ikke et felt fra klienten', () => {
     expect(krop('saetFacitManuelt')).toMatch(/uid: request\.auth\.uid,/);
     expect(krop('saetFacitManuelt')).not.toMatch(/uid: d\./);
@@ -564,6 +600,27 @@ describe('index.js: ledningen til kernerne', () => {
     expect(sweep).toMatch(/synkedeIds: SYNCED_GAMES\.map\(\(g\) => g\.gameId\)/);
     // Og de synkede spil bruger SAMME kerne, med synk-teksten.
     expect(sweep).toMatch(/await meldStrandede\(db, FieldValue, \{[\s\S]*?harSynk: true,/);
+  });
+
+  // Facit-vagtens Drift-kort: kortet skrives gennem skrivDriftStatus (som
+  // aldrig vælter kørslen) MED kørslens egen db, og fristen er sweep'ets
+  // kadence — som en funktion, så beregningen evalueres inde i try'et.
+  // Uden skriv: intet kort (tavs). Uden frist: kortet bliver aldrig rødt af
+  // en kørsel, der holdt op.
+  it('facit-vagtens Drift-kort er ledt gennem skrivDriftStatus med sweep\'ets frist', () => {
+    const sweep = krop('syncSuperligaSweep');
+    const kald = sweep.split('await facitVagtUdenSynk(db, FieldValue, {')[1].split('});')[0];
+    expect(kald).toMatch(/skriv: \(st, o\) => skrivDriftStatus\(st, db, o\),/);
+    expect(kald).toMatch(/naesteForventetFoerMs: \(\) => naesteKoerselFoerMs\(Date\.now\(\), \{ timer: SWEEP_TIMER \}\),/);
+  });
+
+  // Kampene, sweep'et LIGE har reddet, står stadig uden facit i listen fra
+  // før gen-synken. Uden fradraget meldtes de strandede i samme kørsel, som
+  // reddede dem.
+  it('sweep\'ets strandede-sti trækker de netop rettede kampe fra', () => {
+    const sweep = krop('syncSuperligaSweep');
+    expect(sweep).toMatch(/netopRettet = new Set\(rettede\);/);
+    expect(sweep).toMatch(/gameId: g\.gameId, kampe: alle\.filter\(\(m\) => !netopRettet\.has\(m\.id\)\), harSynk: true,/);
   });
 
   it('sweep\'et fører synkens manuelleUenige videre til sit Drift-kort', () => {

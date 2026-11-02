@@ -121,6 +121,35 @@ describe('meldStrandede — én kerne for begge veje', () => {
   });
 });
 
+// Produktionens kickoff er et Firestore Timestamp. Hele vejen — strandedMatches
+// OG alarmens tekst — skal læse det som et kickoff; ellers fik hver strandet
+// kamp i drift remediet "ret kickoff" for et kickoff, der er fint.
+describe('meldStrandede — kickoff som Firestore Timestamp', () => {
+  it('meldes som manglende facit, ikke som et ulæseligt kickoff', async () => {
+    const s = spioner();
+    const ts = { toMillis: () => LAENGE_SIDEN.getTime() };
+    const ud = await meldStrandede({}, FieldValue, {
+      gameId: 'hvm2027', kampe: [{ id: 'r1-a', data: { round: 1, home: 'Danmark', away: 'Norge', kickoff: ts } }],
+      harSynk: false, nowMs: NU, meld: s.meld, loes: s.loes,
+    });
+    expect(ud.map((m) => m.id)).toEqual(['r1-a']);
+    expect(s.meldt).toHaveLength(1);
+    expect(s.meldt[0].besked).toContain('Danmark – Norge, runde 1 (r1-a) mangler facit');
+    expect(s.meldt[0].besked).toContain('✍️ Sæt eller ret facit i hånden');
+    expect(s.meldt[0].besked).not.toMatch(/læseligt kickoff|Ret kickoff/);
+  });
+
+  it('et Timestamp lige efter kickoff er ikke strandet', async () => {
+    const s = spioner();
+    const ud = await meldStrandede({}, FieldValue, {
+      gameId: 'hvm2027', kampe: [{ id: 'r1-c', data: { round: 1, kickoff: { toMillis: () => LIGE_NU.getTime() } } }],
+      harSynk: false, nowMs: NU, meld: s.meld, loes: s.loes,
+    });
+    expect(ud).toEqual([]);
+    expect(s.meldt).toEqual([]);
+  });
+});
+
 describe('facitVagtUdenSynk', () => {
   const games = {
     superliga2627: { type: 'football', status: 'live', name: 'Superligaen' },
