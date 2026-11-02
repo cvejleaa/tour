@@ -566,6 +566,32 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
 }
 
 /**
+ * HVEM triggeren genberegner, når en kamps facit ændrer sig: spillerne med et
+ * tip på NETOP den kamp — ikke resten af runden.
+ *
+ * Delt med facit-prognosen (manuelFacit.pointPrognose), så tør-kørslen ikke
+ * kan love point til nogen, triggeren aldrig rører. Det skete: prognosen gav
+ * combi til alle med tip i runden, mens triggeren kun genberegnede dem med tip
+ * på kampen.
+ *
+ * KENDT HUL (skal rettes i en egen PR — det er en scoringsændring for SL og
+ * PL): combi-bonussen har intet kuponkrav (pointOpdeling.combiPerRunde), så en
+ * spiller UDEN tip på rundens sidste kamp får også sin combi, når runden
+ * bliver afgjort. Men han er ikke i dette sæt og genberegnes derfor ikke —
+ * bonussen lander først, når noget andet genberegner ham. Bevist i
+ * gameScoring.test.js ("KENDT HUL").
+ *
+ * @param {Array<{uid?:string, matchId?:string}>} bets
+ * @param {string} matchId
+ * @returns {Set<string>}
+ */
+function spillereTriggerenGenberegner(bets, matchId) {
+  const ud = new Set();
+  for (const b of bets || []) if (b && b.matchId === matchId && b.uid) ud.add(b.uid);
+  return ud;
+}
+
+/**
  * Kernen bag recomputeGameMatch (uden Cloud Functions-wrapper, så den kan
  * unit-testes). Scorer alle bets på en kamp og genberegner berørte spillere.
  * @returns {Promise<{rescored:number, players:number}>}
@@ -616,11 +642,11 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   // Bonussen kræver, at hele runden er spillet, så den kunne kun komme fra
   // netop denne genberegning. Fejlen var tavs: totalen var jo "rigtig" set fra
   // hver enkelt kamp.
-  const berorteUids = new Set();
+  // Udvælgelsen er delt med facit-prognosen — se spillereTriggerenGenberegner.
+  const berorteUids = spillereTriggerenGenberegner(betsSnap.docs.map((d) => d.data()), matchId);
   let rescored = 0;
   for (const d of betsSnap.docs) {
     const bet = d.data();
-    if (bet.uid) berorteUids.add(bet.uid);
     const pts = scoreBet(bet, result, odds);
     if (Number(bet.points) === pts) continue; // uændret → spar skrivningen
     batch.update(d.ref, { points: pts });
@@ -774,4 +800,5 @@ module.exports = {
   dryRunFraKald, ukendtSportFejl, tilHttpsFejl, omprisFraKnap,
   computeRanks, snapshotRoundRanks,
   settlePuljeBets, officielTop, puljeTipKomplet, gatedIds, recomputeAllPlayerTotals,
+  spillereTriggerenGenberegner,
 };

@@ -34,7 +34,7 @@
 import { outcomeFromScore } from './superligaScoring.js';
 
 /** Mærket på en kamp, hvis facit er sat i hånden. Synken rører den så ikke. */
-export const FACIT_KILDE_MANUEL = 'manuel';
+export const RESULTAT_KILDE_MANUEL = 'manuel';
 
 /** Det lukkede sæt af måder, en knockout-kamp kan afgøres på efter ordinær tid. */
 export const AFGJORT = Object.freeze(['forlaenget', 'straffe']);
@@ -155,6 +155,6 @@ export function facitFelter({ home, away, slut = null } = {}) {
 
 /** Er kampens facit sat i hånden (og dermed fredet for synken)? */
 export function erManuelFacit(kamp) {
-  return kamp?.facitKilde === FACIT_KILDE_MANUEL;
+  return kamp?.resultatKilde === RESULTAT_KILDE_MANUEL;
 }
 

@@ -155,14 +155,19 @@ export async function callSyncGameResults(gameId) {
  *
  * Målene er stillingen efter ORDINÆR tid (det, der tippes på). `slut` kun ved
  * knockout: `{home, away, afgjort: 'forlaenget'|'straffe'}`.
+ * `aftryk`: tør-kørslens aftryk. Skrive-kaldet (dryRun:false) SKAL have det;
+ * passer det ikke med kampen nu, afviser serveren ("Kampen er ændret siden
+ * tør-kørslen").
  * Timeout matcher serverens timeoutSeconds: 120.
  * @param {{gameId:string, matchId:string, homeGoals:number, awayGoals:number,
- *          slut?:object|null, dryRun?:boolean}} args
+ *          slut?:object|null, aftryk?:string|null, dryRun?:boolean}} args
  */
-export async function callSaetFacitManuelt({ gameId, matchId, homeGoals, awayGoals, slut = null, dryRun = true } = {}) {
+export async function callSaetFacitManuelt({
+  gameId, matchId, homeGoals, awayGoals, slut = null, aftryk = null, dryRun = true,
+} = {}) {
   try {
     const fn = httpsCallable(functions, 'saetFacitManuelt', { timeout: 120000 });
-    const res = await fn({ gameId, matchId, homeGoals, awayGoals, slut, dryRun });
+    const res = await fn({ gameId, matchId, homeGoals, awayGoals, slut, aftryk, dryRun });
     return { ok: true, data: res.data };
   } catch (err) {
     return { ok: false, error: err?.message || 'Kunne ikke sætte facit.' };
@@ -170,7 +175,7 @@ export async function callSaetFacitManuelt({ gameId, matchId, homeGoals, awayGoa
 }
 
 /**
- * "Lad synken overtage igen" — fjern mærket facitKilde:'manuel' fra én kamp.
+ * "Lad synken overtage igen" — fjern mærket resultatKilde:'manuel' fra én kamp.
  * Facit bliver stående; synken overskriver det ved næste kørsel, hvis kilden
  * siger noget andet. dryRun er DEFAULT SAND, som alle skrivende knapper.
  * @param {{gameId:string, matchId:string, dryRun?:boolean}} args

@@ -17,7 +17,7 @@ const {
   recomputeGameMatchCore, recomputeSeasonElo,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officielTop, puljeTipKomplet,
   gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald, ukendtSportFejl,
-  tilHttpsFejl, omprisFraKnap,
+  tilHttpsFejl, omprisFraKnap, spillereTriggerenGenberegner, recalcPlayerTotal,
 } = require('./gameScoring');
 // Den RIGTIGE HttpsError — ikke en attrap — så oversættelsen bevises mod den
 // klasse, callablen faktisk kaster.
@@ -201,6 +201,67 @@ const FieldValue = {
   serverTimestamp: () => '@ts',
   arrayUnion: (...vals) => ({ __arrayUnion: vals }),
 };
+
+// HVEM triggeren genberegner — delt med facit-prognosen (manuelFacit.js).
+describe('spillereTriggerenGenberegner', () => {
+  it('dem med tip på NETOP kampen — ikke resten af runden, og ikke bets uden uid', () => {
+    const ud = spillereTriggerenGenberegner([
+      { uid: 'a', matchId: 'm1' }, { uid: 'b', matchId: 'm2' }, { uid: 'a', matchId: 'm1' },
+      { matchId: 'm1' }, { uid: 'c', matchId: 'm1' }, null,
+    ], 'm1');
+    expect([...ud].sort()).toEqual(['a', 'c']);
+    expect(spillereTriggerenGenberegner([], 'm1').size).toBe(0);
+  });
+});
+
+// KENDT HUL — DOKUMENTERER NUVÆRENDE ADFÆRD, SKAL RETTES I EN EGEN PR.
+//
+// Combi-bonussen har intet kuponkrav (pointOpdeling.combiPerRunde: "Har man
+// glemt et tip, tæller den kamp bare ikke med"). En spiller UDEN tip på
+// rundens sidste kamp får altså også combi, når runden bliver afgjort. Men
+// recomputeGameMatchCore genberegner kun spillereTriggerenGenberegner(bets
+// på kampen) — så hans bonus kommer først, når noget andet genberegner ham
+// (et facit på en af hans egne kampe, 🔄 Genberegn point, puljeafregningen).
+//
+// Testen er en test af NUVÆRENDE adfærd, ikke en it.todo: den bliver RØD den
+// dag, triggeren rettes, og skal da vendes bevidst (CLAUDE.md: "En test kan
+// fastfryse en fejl" — her er den fastfrosset MED VILJE og med navn).
+// Facit-prognosen siger det samme til admin (manuelFacit.pointPrognose: `senere`).
+describe('recomputeGameMatchCore — KENDT HUL: combi til spillere uden tip på kampen', () => {
+  const O = { 1: 2.0, X: 3.5, 2: 4.0 };
+  const kampe = () => [
+    { id: 'k1', round: 1, result: '1', homeGoals: 1, awayGoals: 0, odds: O, kickoff: 1 },
+    { id: 'k2', round: 1, result: '1', homeGoals: 2, awayGoals: 0, odds: O, kickoff: 1 },
+    { id: 'k3', round: 1, result: '2', homeGoals: 0, awayGoals: 1, odds: O, kickoff: 1 },
+  ];
+  const bets = () => [
+    // d: ramte k2 og k3, INTET tip på k1 (rundens sidste kamp)
+    { uid: 'd', matchId: 'k2', pick: '1', points: 2 },
+    { uid: 'd', matchId: 'k3', pick: '2', points: 4 },
+    // e: tippede k1 og k2
+    { uid: 'e', matchId: 'k1', pick: '1', points: 0 },
+    { uid: 'e', matchId: 'k2', pick: '1', points: 2 },
+  ];
+
+  it('facit på k1 genberegner e — men IKKE d, selv om d\'s combi nu er afgjort', async () => {
+    const db = makeDb(bets(), kampe(), { name: 'SL' }, { d: { totalPoints: 6 } });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'k1', { result: '1', odds: O, round: 1 });
+    expect(res.players).toBe(1);
+    expect(db._players.e.opdeling.combi).toBe(4);
+    // d står med sine 6 point (2 + 4) uden combi — DET er hullet. (Runde-
+    // snapshottet sætter hans rang, men regner ikke hans point om.)
+    expect(db._players.d.totalPoints).toBe(6);
+    expect(db._players.d.opdeling).toBeUndefined();
+    expect(res.roundCompleted).toBe(1);
+  });
+
+  it('…og d\'s combi ER der, så snart noget genberegner ham (beviset for, at den mangler)', async () => {
+    const db = makeDb(bets(), kampe(), { name: 'SL' }, { d: { totalPoints: 6 } });
+    await recalcPlayerTotal(db, FieldValue, 'g1', 'd', buildRoundContext(kampe()), new Set());
+    expect(db._players.d.opdeling.combi).toBe(5.7);
+    expect(db._players.d.totalPoints).toBe(11.7);
+  });
+});
 
 describe('recomputeGameMatchCore', () => {
   it('scorer bets og gulver spillerens total (ingen negativ saldo)', async () => {

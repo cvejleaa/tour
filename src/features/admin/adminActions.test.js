@@ -215,16 +215,16 @@ describe('adminActions', () => {
       mockHttpsCallable.mockReturnValue(mockFn);
       const res = await callSaetFacitManuelt({ gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1 });
       expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'saetFacitManuelt', { timeout: 120000 });
-      expect(mockFn).toHaveBeenCalledWith({ gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1, slut: null, dryRun: true });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1, slut: null, aftryk: null, dryRun: true });
       expect(res).toEqual({ ok: true, data: { dryRun: true } });
     });
 
-    it('sender slut og dryRun:false videre, når de gives', async () => {
+    it('sender slut, aftryk og dryRun:false videre, når de gives', async () => {
       const mockFn = vi.fn().mockResolvedValue({ data: {} });
       mockHttpsCallable.mockReturnValue(mockFn);
       const slut = { home: 35, away: 34, afgjort: 'forlaenget' };
-      await callSaetFacitManuelt({ gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut, dryRun: false });
-      expect(mockFn).toHaveBeenCalledWith({ gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut, dryRun: false });
+      await callSaetFacitManuelt({ gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut, aftryk: 'abc123', dryRun: false });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut, aftryk: 'abc123', dryRun: false });
     });
 
     it('kalder frigivFacitTilSynk og tørkører som standard', async () => {

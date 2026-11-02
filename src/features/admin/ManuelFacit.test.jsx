@@ -39,17 +39,19 @@ function kampe(liste) {
 
 const SL_KAMPE = [
   { id: 'r5-agf-ob', round: 5, home: 'AGF', away: 'OB', kickoff: nu - 5 * TIME },
-  { id: 'r4-fck-bif', round: 4, home: 'FC København', away: 'Brøndby IF', kickoff: nu - 50 * TIME, result: '1', homeGoals: 2, awayGoals: 1, facitKilde: 'manuel' },
+  { id: 'r4-fck-bif', round: 4, home: 'FC København', away: 'Brøndby IF', kickoff: nu - 50 * TIME, result: '1', homeGoals: 2, awayGoals: 1, resultatKilde: 'manuel' },
   { id: 'r6-vff-rfc', round: 6, home: 'Viborg FF', away: 'Randers FC', kickoff: nu + 20 * TIME },
 ];
 
 const PLAN = {
   dryRun: true, skrevet: false, ingenAendring: false, knockout: false,
   kamp: { id: 'r5-agf-ob', home: 'AGF', away: 'OB', round: 5, kickoff: nu - 5 * TIME },
-  foer: { result: null, homeGoals: null, awayGoals: null, slut: null, facitKilde: null },
-  efter: { result: '1', homeGoals: 2, awayGoals: 0, slut: null, facitKilde: 'manuel' },
+  foer: { result: null, homeGoals: null, awayGoals: null, slut: null, resultatKilde: null },
+  efter: { result: '1', homeGoals: 2, awayGoals: 0, slut: null, resultatKilde: 'manuel' },
   udfaldSkifter: true, gatet: false, eloFlytter: true, botPoster: true,
   point: { tips: 14, aendredeTips: 14, spillere: 9, iAlt: 27.7, combi: 5.7 },
+  senere: { spillere: 0, combi: 0 },
+  aftryk: 'aftryk-r5',
 };
 
 async function aabn(game = SL) {
@@ -158,6 +160,57 @@ describe('✍️ felterne — ordinær tid og knockout', () => {
     expect(await screen.findByText(/Slutresultat 35-34 efter forlænget spilletid — vises separat og flytter ingen point/)).toBeInTheDocument();
   });
 
+  // C12: knockout-skrivningen i fladen — hvad der SENDES, og hvad der VISES.
+  it('knockout: Skriv facit sender slut og aftryk, og kvitteringen nævner slutresultatet', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    kampe([{ id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME }]);
+    vaelg(await aabn(HB), 'r7-dk-se');
+    fireEvent.change(screen.getByLabelText('Mål Danmark'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Mål Sverige'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Slutresultat Danmark'), { target: { value: '35' } });
+    fireEvent.change(screen.getByLabelText('Slutresultat Sverige'), { target: { value: '34' } });
+    fireEvent.change(screen.getByLabelText('Hvordan blev kampen afgjort'), { target: { value: 'forlaenget' } });
+    const plan = {
+      ...PLAN, knockout: true, botPoster: false, aftryk: 'aftryk-ko',
+      kamp: { id: 'r7-dk-se', home: 'Danmark', away: 'Sverige', round: 7, kickoff: nu - 4 * TIME },
+      efter: { result: 'X', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' }, resultatKilde: 'manuel' },
+    };
+    mockSaet.mockResolvedValueOnce({ ok: true, data: plan }).mockResolvedValueOnce({ ok: true, data: { ...plan, dryRun: false, skrevet: true } });
+    fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Skriv facit' }));
+    await waitFor(() => expect(mockSaet).toHaveBeenCalledTimes(2));
+    expect(mockSaet.mock.calls[1][0]).toEqual({
+      gameId: 'hvm2027', matchId: 'r7-dk-se', homeGoals: 30, awayGoals: 30,
+      slut: { home: 35, away: 34, afgjort: 'forlaenget' }, aftryk: 'aftryk-ko', dryRun: false,
+    });
+    const kvit = await screen.findByText(/^Facit skrevet:/);
+    expect(kvit.textContent).toBe('Facit skrevet: Danmark – Sverige 30-30 (X), slutresultat 35-34 efter forlænget spilletid. Point, Elo og odds afregnes nu af serveren.');
+    expect(kvit.textContent).not.toMatch(/r7-dk-se|Runde-Botten/);
+    bekraeft.mockRestore();
+  });
+
+  for (const [navn, aendr] of [
+    ['slutresultatet hjemme', () => fireEvent.change(screen.getByLabelText('Slutresultat Danmark'), { target: { value: '36' } })],
+    ['slutresultatet ude', () => fireEvent.change(screen.getByLabelText('Slutresultat Sverige'), { target: { value: '33' } })],
+    ['afgørelsen', () => fireEvent.change(screen.getByLabelText('Hvordan blev kampen afgjort'), { target: { value: 'straffe' } })],
+  ]) {
+    it(`knockout: en ændring af ${navn} fjerner en forældet tør-kørsel`, async () => {
+      kampe([{ id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME }]);
+      vaelg(await aabn(HB), 'r7-dk-se');
+      fireEvent.change(screen.getByLabelText('Mål Danmark'), { target: { value: '30' } });
+      fireEvent.change(screen.getByLabelText('Mål Sverige'), { target: { value: '30' } });
+      fireEvent.change(screen.getByLabelText('Slutresultat Danmark'), { target: { value: '35' } });
+      fireEvent.change(screen.getByLabelText('Slutresultat Sverige'), { target: { value: '34' } });
+      fireEvent.change(screen.getByLabelText('Hvordan blev kampen afgjort'), { target: { value: 'forlaenget' } });
+      mockSaet.mockResolvedValue({ ok: true, data: { ...PLAN, knockout: true, efter: { ...PLAN.efter, result: 'X', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' } } } });
+      fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
+      await screen.findByRole('button', { name: 'Skriv facit' });
+      aendr();
+      expect(screen.queryByRole('button', { name: 'Skriv facit' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Slutresultat 35-34 efter forlænget spilletid/)).not.toBeInTheDocument();
+    });
+  }
+
   it('knockout med en vinder i ordinær tid: ingen slut-felter', async () => {
     kampe([{ id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME }]);
     vaelg(await aabn(HB), 'r7-dk-se');
@@ -195,13 +248,56 @@ describe('✍️ tør-kørsel → skriv', () => {
     expect(screen.getByText(/rundens sidste kamp: Runde-Botten skriver straks/)).toBeInTheDocument();
   });
 
-  it('en ændring i felterne fjerner en forældet tør-kørsel', async () => {
-    await tast();
-    mockSaet.mockResolvedValue({ ok: true, data: PLAN });
+  // HVER ændring af kamp eller felter skal fjerne en forældet tør-kørsel —
+  // ellers stod "Skriv facit" under en plan for noget andet end felterne.
+  // Én test pr. felt: en manglende nulstil() i ét af dem er rød her.
+  for (const [navn, aendr] of [
+    ['kampen', () => vaelg(screen.getByLabelText(`Kamp at sætte facit på i ${SL.name}`), 'r4-fck-bif')],
+    ['mål hjemme', () => fireEvent.change(screen.getByLabelText('Mål AGF'), { target: { value: '3' } })],
+    ['mål ude', () => fireEvent.change(screen.getByLabelText('Mål OB'), { target: { value: '1' } })],
+  ]) {
+    it(`en ændring af ${navn} fjerner en forældet tør-kørsel`, async () => {
+      await tast();
+      mockSaet.mockResolvedValue({ ok: true, data: PLAN });
+      fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
+      await screen.findByRole('button', { name: 'Skriv facit' });
+      expect(screen.getByText('1/X/2: intet facit → 1. Mål: — → 2-0.')).toBeInTheDocument();
+      aendr();
+      expect(screen.queryByRole('button', { name: 'Skriv facit' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/1\/X\/2: intet facit → 1/)).not.toBeInTheDocument();
+    });
+  }
+
+  // Skrive-kaldet bærer PLANEN — det, tør-kørslen viste — og dens aftryk.
+  // Planen er her med vilje en anden end felterne (3-0 mod 2-0): så kan
+  // testen se, hvad der faktisk sendes.
+  it('Skriv facit sender tør-kørslens plan og aftryk — ikke felternes indhold', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await tast('2', '0');
+    const vist = { ...PLAN, efter: { ...PLAN.efter, homeGoals: 3, awayGoals: 0 }, aftryk: 'aftryk-vist' };
+    mockSaet.mockResolvedValueOnce({ ok: true, data: vist }).mockResolvedValueOnce({ ok: true, data: { ...vist, dryRun: false, skrevet: true } });
     fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
-    await screen.findByRole('button', { name: 'Skriv facit' });
-    fireEvent.change(screen.getByLabelText('Mål OB'), { target: { value: '1' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Skriv facit' }));
+    expect(bekraeft.mock.calls[0][0]).toContain('Mål: — → 3-0.');
+    await waitFor(() => expect(mockSaet).toHaveBeenCalledTimes(2));
+    expect(mockSaet.mock.calls[1][0]).toEqual({
+      gameId: 'superliga2627', matchId: 'r5-agf-ob', homeGoals: 3, awayGoals: 0, slut: null, aftryk: 'aftryk-vist', dryRun: false,
+    });
+    bekraeft.mockRestore();
+  });
+
+  it('afviser serveren skrivningen (kampen er ændret), forsvinder skrive-knappen med beskeden', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await tast();
+    mockSaet
+      .mockResolvedValueOnce({ ok: true, data: PLAN })
+      .mockResolvedValueOnce({ ok: false, error: 'Kampen er ændret siden tør-kørslen — kør tør-kørslen igen. Intet er skrevet.' });
+    fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Skriv facit' }));
+    expect(await screen.findByText('Kampen er ændret siden tør-kørslen — kør tør-kørslen igen. Intet er skrevet.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Skriv facit' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Facit skrevet/)).not.toBeInTheDocument();
+    bekraeft.mockRestore();
   });
 
   it('confirm navngiver kampen, prognosen og begge advarsler; annuller = intet kald', async () => {
@@ -228,7 +324,9 @@ describe('✍️ tør-kørsel → skriv', () => {
       .mockResolvedValueOnce({ ok: true, data: { ...PLAN, dryRun: false, skrevet: true } });
     fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Skriv facit' }));
-    await waitFor(() => expect(mockSaet).toHaveBeenLastCalledWith(expect.objectContaining({ dryRun: false, matchId: 'r5-agf-ob' })));
+    await waitFor(() => expect(mockSaet).toHaveBeenLastCalledWith({
+      gameId: 'superliga2627', matchId: 'r5-agf-ob', homeGoals: 2, awayGoals: 0, slut: null, aftryk: 'aftryk-r5', dryRun: false,
+    }));
     expect(await screen.findByText(/Facit skrevet: AGF – OB 2-0 \(1\)\. Point, Elo og odds afregnes nu af serveren, og Runde-Botten poster/)).toBeInTheDocument();
     await waitFor(() => expect(mockGetDocs).toHaveBeenCalledTimes(2));
     bekraeft.mockRestore();
@@ -270,7 +368,32 @@ describe('↩️ Lad synken overtage igen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Lad synken overtage igen/ }));
     expect(bekraeft.mock.calls[0][0]).toMatch(/overskriver synken det ved næste kørsel/);
     await waitFor(() => expect(mockFrigiv).toHaveBeenCalledWith({ gameId: 'superliga2627', matchId: 'r4-fck-bif', dryRun: false }));
-    expect(await screen.findByText('FC København – Brøndby IF er givet tilbage til synken.')).toBeInTheDocument();
+    // C14: kvitteringen — ordlyd, farve, og at fejlteksten IKKE står.
+    const kvit = await screen.findByText('FC København – Brøndby IF er givet tilbage til synken.');
+    expect(kvit).toHaveClass('badge--green');
+    expect(kvit.textContent).not.toMatch(/r4-fck-bif/);
+    expect(screen.queryByText(/Serveren ændrede INTET/)).not.toBeInTheDocument();
+    // Panelet er monteret forfra: kamplisten hentes igen og viser det nye.
+    await waitFor(() => expect(mockGetDocs).toHaveBeenCalledTimes(2));
+    bekraeft.mockRestore();
+  });
+
+  it('frigiver serveren INTET, siger fladen det — og kvitterer ikke', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vaelg(await aabn(), 'r4-fck-bif');
+    mockFrigiv.mockResolvedValue({ ok: true, data: { dryRun: false, varManuel: false, frigivet: false } });
+    fireEvent.click(screen.getByRole('button', { name: /Lad synken overtage igen/ }));
+    const fejl = await screen.findByText('Serveren ændrede INTET. Prøv igen.');
+    expect(fejl).toHaveClass('badge--red');
+    expect(screen.queryByText(/givet tilbage til synken/)).not.toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  it('annulleret bekræftelse frigiver intet', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    vaelg(await aabn(), 'r4-fck-bif');
+    fireEvent.click(screen.getByRole('button', { name: /Lad synken overtage igen/ }));
+    expect(mockFrigiv).not.toHaveBeenCalled();
     bekraeft.mockRestore();
   });
 
@@ -280,7 +403,7 @@ describe('↩️ Lad synken overtage igen', () => {
   });
 
   it('vises IKKE i et spil uden synk — der er intet at give kampen tilbage til', async () => {
-    kampe([{ id: 'r1-dk-no', round: 1, home: 'Danmark', away: 'Norge', kickoff: nu - 4 * TIME, result: '1', homeGoals: 30, awayGoals: 28, facitKilde: 'manuel' }]);
+    kampe([{ id: 'r1-dk-no', round: 1, home: 'Danmark', away: 'Norge', kickoff: nu - 4 * TIME, result: '1', homeGoals: 30, awayGoals: 28, resultatKilde: 'manuel' }]);
     vaelg(await aabn(HB), 'r1-dk-no');
     expect(screen.queryByRole('button', { name: /Lad synken overtage igen/ })).not.toBeInTheDocument();
   });
@@ -288,7 +411,7 @@ describe('↩️ Lad synken overtage igen', () => {
 
 describe('prognoseLinjer', () => {
   it('1X2 uændret: siger, at intet flytter sig — og nævner ingen point', () => {
-    const l = prognoseLinjer({ ...PLAN, udfaldSkifter: false, botPoster: false, foer: { ...PLAN.efter, homeGoals: 1, facitKilde: null } });
+    const l = prognoseLinjer({ ...PLAN, udfaldSkifter: false, botPoster: false, foer: { ...PLAN.efter, homeGoals: 1, resultatKilde: null } });
     expect(l.join(' ')).toMatch(/1X2 er det samme, så ingen point, Elo eller odds flytter sig/);
     expect(l.join(' ')).not.toMatch(/spillere får ændret point|Runde-Botten/);
   });
@@ -296,6 +419,20 @@ describe('prognoseLinjer', () => {
     const l = prognoseLinjer({ ...PLAN, gatet: true, botPoster: false }).join(' ');
     expect(l).toMatch(/før spillets start og giver ingen point/);
     expect(l).not.toMatch(/spillere får ændret point/);
+  });
+  // Modstander-fundet: spillere UDEN tip på kampen får combi, men triggeren
+  // genberegner dem ikke. Fladen må ikke love dem point nu — og må ikke tie.
+  it('spillere uden tip på kampen: siger ærligt, at combien kommer senere, og hvordan', () => {
+    const l = prognoseLinjer({ ...PLAN, botPoster: false, point: { tips: 1, aendredeTips: 1, spillere: 1, iAlt: 6, combi: 4 }, senere: { spillere: 3, combi: 12.4 } });
+    expect(l).toContain('1 tips på kampen. 1 spillere får ændret point, i alt +6,0 (heraf combi +4,0). Elo og odds på kommende kampe regnes om.');
+    expect(l).toContain('3 spillere uden tip på denne kamp får ændret combi (i alt +12,4), men ikke nu: serveren genberegner kun dem, der har tippet kampen. De får den, når et af deres egne tips afgøres eller rettes — eller når du trykker 🔄 Genberegn point efter start-ændring.');
+    // De 3 er IKKE talt med i "spillere får ændret point".
+    expect(l.join(' ')).not.toMatch(/4 spillere får ændret point/);
+  });
+  it('ingen sætning om combi senere, når ingen uden for kampen rammes', () => {
+    for (const senere of [{ spillere: 0, combi: 0 }, undefined]) {
+      expect(prognoseLinjer({ ...PLAN, senere }).join(' ')).not.toMatch(/uden tip på denne kamp|Genberegn point/);
+    }
   });
   it('combi nævnes kun, når den flytter sig — og negative tal har ægte minus', () => {
     const l = prognoseLinjer({ ...PLAN, botPoster: false, point: { tips: 3, aendredeTips: 3, spillere: 2, iAlt: -4, combi: 0 } }).join(' ');

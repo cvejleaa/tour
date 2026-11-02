@@ -11,7 +11,7 @@ import { createRequire } from 'module';
 import { readFileSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
-const { saetFacitCore, frigivFacitCore, tilHttpsFejl } = require('./manuelFacit');
+const { saetFacitCore, frigivFacitCore, tilHttpsFejl, kampAftryk } = require('./manuelFacit');
 const { scoreBet } = require('./superligaScoring');
 
 const FieldValue = { serverTimestamp: () => '@ts', delete: () => '@delete' };
@@ -79,6 +79,15 @@ function makeDb({ game, matches, bets = [], stale = false, gameId = 'g1' }) {
 
 const SL = { type: 'football', status: 'live', name: 'Superligaen' };
 
+/**
+ * Sådan skriver fladen: tør-kørsel først, så skrive-kaldet med tør-kørslens
+ * aftryk. Et skrive-kald uden aftryk afvises (testet for sig nedenfor).
+ */
+async function toerOgSkriv(db, args) {
+  const toer = await saetFacitCore(db, FieldValue, { ...args, dryRun: true });
+  return saetFacitCore(db, FieldValue, { ...args, dryRun: false, aftryk: toer.aftryk });
+}
+
 describe('saetFacitCore — tør-kørsel er standard og skriver intet', () => {
   it('uden dryRun: regner, men skriver ikke', async () => {
     const { db, writes } = makeDb({
@@ -96,7 +105,7 @@ describe('saetFacitCore — tør-kørsel er standard og skriver intet', () => {
 });
 
 describe('saetFacitCore — skrivningen er facit-kontrakten + mærket, intet andet', () => {
-  it('skriver result, mål, status, facitKilde, hvem/hvornår og rydder live, liveMaal og slut', async () => {
+  it('skriver result, mål, status, resultatKilde, hvem/hvornår og rydder live, liveMaal og slut', async () => {
     const { db, writes, docs } = makeDb({
       game: SL,
       matches: {
@@ -106,19 +115,19 @@ describe('saetFacitCore — skrivningen er facit-kontrakten + mærket, intet and
         },
       },
     });
-    const ud = await saetFacitCore(db, FieldValue, {
-      gameId: 'g1', matchId: 'k1', homeGoals: 0, awayGoals: 2, uid: 'admin1', nowMs: NU, dryRun: false,
+    const ud = await toerOgSkriv(db, {
+      gameId: 'g1', matchId: 'k1', homeGoals: 0, awayGoals: 2, uid: 'admin1', nowMs: NU,
     });
     expect(ud.skrevet).toBe(true);
     expect(writes).toHaveLength(1);
     expect(writes[0].data).toEqual({
       result: '2', homeGoals: 0, awayGoals: 2, status: 'finished',
-      facitKilde: 'manuel', facitSatAf: 'admin1', facitSatAt: '@ts',
+      resultatKilde: 'manuel', facitSatAf: 'admin1', facitSatAt: '@ts',
       live: '@delete', liveMaal: '@delete', slut: '@delete',
     });
     // Precondition: kun hvis kampen er uændret siden læsningen.
     expect(writes[0].pre).toEqual({ lastUpdateTime: 't-k1' });
-    expect(docs.get('k1').facitKilde).toBe('manuel');
+    expect(docs.get('k1').resultatKilde).toBe('manuel');
   });
 
   it('afviser at skrive oven i en kamp, der blev ændret imens — med en besked, der siger det', async () => {
@@ -126,7 +135,7 @@ describe('saetFacitCore — skrivningen er facit-kontrakten + mærket, intet and
       game: SL, stale: true,
       matches: { k1: { round: 1, kickoff: FOER, odds: ODDS } },
     });
-    const p = saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU, dryRun: false });
+    const p = toerOgSkriv(db, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
     await expect(p).rejects.toMatchObject({ kode: 'failed-precondition' });
     await expect(p).rejects.toThrow(/ændret, mens du kiggede.*Intet er skrevet/);
   });
@@ -134,9 +143,9 @@ describe('saetFacitCore — skrivningen er facit-kontrakten + mærket, intet and
   it('skriver intet, når facit allerede står præcis sådan i hånden', async () => {
     const { db, writes } = makeDb({
       game: SL,
-      matches: { k1: { round: 1, kickoff: FOER, odds: ODDS, result: '1', homeGoals: 2, awayGoals: 1, facitKilde: 'manuel' } },
+      matches: { k1: { round: 1, kickoff: FOER, odds: ODDS, result: '1', homeGoals: 2, awayGoals: 1, resultatKilde: 'manuel' } },
     });
-    const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1, nowMs: NU, dryRun: false });
+    const ud = await toerOgSkriv(db, { gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1, nowMs: NU });
     expect(ud.ingenAendring).toBe(true);
     expect(ud.skrevet).toBe(false);
     expect(writes).toEqual([]);
@@ -149,18 +158,18 @@ describe('saetFacitCore — skrivningen er facit-kontrakten + mærket, intet and
       game: SL,
       matches: { k1: { round: 1, kickoff: FOER, odds: ODDS, result: '1', homeGoals: 2, awayGoals: 1 } },
     });
-    const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1, nowMs: NU, dryRun: false });
+    const ud = await toerOgSkriv(db, { gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1, nowMs: NU });
     expect(ud.ingenAendring).toBe(false);
     expect(ud.udfaldSkifter).toBe(false);
     expect(writes).toHaveLength(1);
-    expect(writes[0].data.facitKilde).toBe('manuel');
+    expect(writes[0].data.resultatKilde).toBe('manuel');
   });
 });
 
 describe('saetFacitCore — vagterne', () => {
   const kald = (over, matches = { k1: { round: 1, kickoff: FOER, odds: ODDS } }, game = SL) => {
     const { db, writes } = makeDb({ game, matches });
-    return { writes, p: saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU, dryRun: false, ...over }) };
+    return { writes, p: toerOgSkriv(db, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU, ...over }) };
   };
 
   it('afviser en kamp, der ikke er begyndt — tips kan stadig afgives', async () => {
@@ -215,9 +224,9 @@ describe('saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muli
 
   it('X står som facit (det, der tippes på), og slut skrives separat', async () => {
     const { db, writes } = makeDb({ game: HB, matches: KO });
-    const ud = await saetFacitCore(db, FieldValue, {
+    const ud = await toerOgSkriv(db, {
       gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30,
-      slut: { home: 35, away: 34, afgjort: 'forlaenget' }, nowMs: NU, dryRun: false,
+      slut: { home: 35, away: 34, afgjort: 'forlaenget' }, nowMs: NU,
     });
     expect(ud.knockout).toBe(true);
     expect(writes[0].data.result).toBe('X');
@@ -230,10 +239,30 @@ describe('saetFacitCore — knockout (ejerens beslutning: 60 minutter, X er muli
       game: HB,
       matches: { k1: { ...KO.k1, result: 'X', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' } } },
     });
-    const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 31, awayGoals: 30, nowMs: NU, dryRun: false });
+    const ud = await toerOgSkriv(db, { gameId: 'g1', matchId: 'k1', homeGoals: 31, awayGoals: 30, nowMs: NU });
     expect(writes[0].data.slut).toBe('@delete');
     expect(ud.foer.slut).toEqual({ home: 35, away: 34, afgjort: 'forlaenget' });
     expect(ud.efter.slut).toBeNull();
+  });
+
+  // M5: sammeSlut. En RETTELSE af kun slutresultatet (samme ordinære
+  // stilling, samme 1X2) på en kamp, der allerede står i hånden, er noget at
+  // skrive — ellers kunne "35-34 e.f." aldrig rettes til "35-33".
+  it('ret KUN slutresultatet på en manuel KO-kamp: der er noget at skrive', async () => {
+    const sat = { ...KO.k1, result: 'X', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' }, resultatKilde: 'manuel' };
+    for (const nyt of [{ home: 35, away: 33, afgjort: 'forlaenget' }, { home: 31, away: 34, afgjort: 'forlaenget' }, { home: 35, away: 34, afgjort: 'straffe' }]) {
+      const { db, writes } = makeDb({ game: HB, matches: { k1: sat } });
+      const ud = await toerOgSkriv(db, { gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut: nyt, nowMs: NU });
+      expect(ud.ingenAendring).toBe(false);
+      expect(ud.udfaldSkifter).toBe(false);
+      expect(writes).toHaveLength(1);
+      expect(writes[0].data.slut).toEqual(nyt);
+    }
+    // ...og præcis det samme slut er stadig intet at skrive.
+    const { db, writes } = makeDb({ game: HB, matches: { k1: sat } });
+    const ud = await toerOgSkriv(db, { gameId: 'g1', matchId: 'k1', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' }, nowMs: NU });
+    expect(ud.ingenAendring).toBe(true);
+    expect(writes).toEqual([]);
   });
 
   it('en kamp i en ikke-knockout-fase af samme spil kender ikke slut', async () => {
@@ -324,22 +353,130 @@ describe('saetFacitCore — prognosen regner som afregningen', () => {
   });
 });
 
+// MODSTANDER-FUNDET (blokerende): prognosen gav combi til ALLE med tip i
+// runden, men triggeren genberegner kun dem med tip på DENNE kamp
+// (gameScoring.spillereTriggerenGenberegner). Tør-kørslen lovede altså point,
+// der ikke kom. Nu tælles kun dem, triggeren rører — resten står for sig i
+// `senere`, så fladen kan sige det.
+describe('saetFacitCore — prognosen tæller kun dem, triggeren genberegner', () => {
+  //   Runde 1: k1 (uden facit, sættes til 1-0), k2 (1, 2-0), k3 (2, 0-1).
+  //   d: ramte k2 og k3 — INTET tip på k1. combi 0 → 5,7 (2,0 · … to træf)
+  //   e: tippede 1 på k1 og 1 på k2. 1X2 +2,0 på k1; combi 0 → 4,0
+  // Før rettelsen: { spillere: 2, combi: 9,7, iAlt: 11,7 } — d talt med.
+  // Efter:         { spillere: 1, combi: 4,0, iAlt: 6,0 }, senere { 1, 5,7 }.
+  const matches = {
+    k1: { round: 1, home: 'AGF', away: 'OB', kickoff: FOER, odds: ODDS },
+    k2: { round: 1, kickoff: FOER, odds: ODDS, result: '1', homeGoals: 2, awayGoals: 0 },
+    k3: { round: 1, kickoff: FOER, odds: ODDS, result: '2', homeGoals: 0, awayGoals: 1 },
+  };
+  const bets = [
+    { uid: 'd', matchId: 'k2', pick: '1', points: scoreBet({ pick: '1' }, '1', ODDS) },
+    { uid: 'd', matchId: 'k3', pick: '2', points: scoreBet({ pick: '2' }, '2', ODDS) },
+    { uid: 'e', matchId: 'k1', pick: '1', points: 0 },
+    { uid: 'e', matchId: 'k2', pick: '1', points: scoreBet({ pick: '1' }, '1', ODDS) },
+  ];
+
+  it('d (uden tip på kampen) er IKKE i point-tallene — men står i `senere`', async () => {
+    const { db } = makeDb({ game: { ...SL, snapshottedRounds: [] }, matches, bets });
+    const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
+    expect(ud.point).toEqual({ tips: 1, aendredeTips: 1, spillere: 1, iAlt: 6, combi: 4 });
+    expect(ud.senere).toEqual({ spillere: 1, combi: 5.7 });
+    expect(ud.botPoster).toBe(true);
+  });
+
+  it('uden nogen uden for kampen er `senere` 0 — også når 1X2 er uændret', async () => {
+    const { db } = makeDb({ game: SL, matches, bets: bets.filter((b) => b.uid === 'e') });
+    const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
+    expect(ud.senere).toEqual({ spillere: 0, combi: 0 });
+    const r2 = makeDb({ game: SL, matches: { ...matches, k1: { ...matches.k1, result: '1', homeGoals: 1, awayGoals: 0 } }, bets });
+    const ud2 = await saetFacitCore(r2.db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 0, nowMs: NU });
+    expect(ud2.senere).toEqual({ spillere: 0, combi: 0 });
+  });
+
+  // Udvælgelsen er DELT, ikke kopieret: kopierede man den, kunne de to drive
+  // fra hinanden igen uden en rød test. Bevogtes som tekst (mønstret fra
+  // ledningstesten nedenfor) — og gameScoring.test.js binder selve funktionen.
+  it('prognosen og triggeren bruger SAMME udvælgelses-funktion', () => {
+    const kode = (f) => readFileSync(new URL(f, import.meta.url), 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    expect(kode('./manuelFacit.js')).toMatch(/const berorte = spillereTriggerenGenberegner\(bets, kamp\.id\);/);
+    expect(kode('./gameScoring.js')).toMatch(/const berorteUids = spillereTriggerenGenberegner\(betsSnap\.docs\.map\(\(d\) => d\.data\(\)\), matchId\);/);
+  });
+});
+
+// BØR-FUNDET: låsen (opdaterUaendret) beskyttede kun INDEN FOR ét kald. Nu
+// bærer tør-kørslen et aftryk, som skrive-kaldet skal sende tilbage.
+describe('saetFacitCore — tør-kørslens aftryk binder skrivningen', () => {
+  const matches = { k1: { round: 1, home: 'AGF', away: 'OB', kickoff: FOER, odds: ODDS } };
+  const args = { gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 1, nowMs: NU };
+
+  it('et skrive-kald UDEN aftryk afvises — og skriver intet', async () => {
+    const { db, writes } = makeDb({ game: SL, matches });
+    const p = saetFacitCore(db, FieldValue, { ...args, dryRun: false });
+    await expect(p).rejects.toMatchObject({ kode: 'failed-precondition' });
+    await expect(p).rejects.toThrow('Facit skrives kun efter en tør-kørsel — tryk "Vis hvad der ændrer sig" først. Intet er skrevet.');
+    expect(writes).toEqual([]);
+  });
+
+  it('har synken sat facit siden tør-kørslen, afvises skrivningen med en dansk besked', async () => {
+    const { db, writes, docs } = makeDb({ game: SL, matches });
+    const toer = await saetFacitCore(db, FieldValue, args);
+    expect(toer.aftryk).toMatch(/^[0-9a-f]{32}$/);
+    // Synken (eller en anden admin) når at skrive imellem.
+    docs.set('k1', { ...docs.get('k1'), result: '1', homeGoals: 3, awayGoals: 1, status: 'finished' });
+    const p = saetFacitCore(db, FieldValue, { ...args, dryRun: false, aftryk: toer.aftryk });
+    await expect(p).rejects.toMatchObject({ kode: 'failed-precondition' });
+    await expect(p).rejects.toThrow('Kampen er ændret siden tør-kørslen — kør tør-kørslen igen. Intet er skrevet.');
+    await expect(p).rejects.not.toThrow(/kun efter en tør-kørsel/);
+    expect(writes).toEqual([]);
+  });
+
+  it('nye odds eller et nyt mærke siden tør-kørslen afviser også', async () => {
+    for (const aendr of [{ odds: { 1: 1.5, X: 4, 2: 6 } }, { resultatKilde: 'manuel' }, { round: 2 }]) {
+      const { db, writes, docs } = makeDb({ game: SL, matches });
+      const toer = await saetFacitCore(db, FieldValue, args);
+      docs.set('k1', { ...docs.get('k1'), ...aendr });
+      await expect(saetFacitCore(db, FieldValue, { ...args, dryRun: false, aftryk: toer.aftryk }))
+        .rejects.toThrow(/ændret siden tør-kørslen/);
+      expect(writes).toEqual([]);
+    }
+  });
+
+  // Ikke updateTime: en live-skrivning hvert minut må ikke gøre det umuligt
+  // at nå at trykke "Skriv facit".
+  it('en live-stilling, der skrives imens, afviser IKKE', async () => {
+    const { db, writes, docs } = makeDb({ game: SL, matches });
+    const toer = await saetFacitCore(db, FieldValue, args);
+    docs.set('k1', { ...docs.get('k1'), live: { home: 2, away: 1, status: '2. halvleg' }, xgHome: 1.2 });
+    const ud = await saetFacitCore(db, FieldValue, { ...args, dryRun: false, aftryk: toer.aftryk });
+    expect(ud.skrevet).toBe(true);
+    expect(writes).toHaveLength(1);
+  });
+
+  it('aftrykket afhænger ikke af nøglernes rækkefølge', () => {
+    const a = kampAftryk({ round: 1, kickoff: FOER, odds: { 1: 2, X: 3, 2: 4 }, slut: { home: 1, away: 0, afgjort: 'straffe' } });
+    const b = kampAftryk({ slut: { afgjort: 'straffe', away: 0, home: 1 }, odds: { 2: 4, X: 3, 1: 2 }, kickoff: FOER, round: 1 });
+    expect(a).toBe(b);
+    expect(kampAftryk({ round: 1, kickoff: FOER, odds: { 1: 2, X: 3, 2: 4 } })).not.toBe(a);
+  });
+});
+
 describe('frigivFacitCore — lad synken overtage igen', () => {
   it('fjerner mærket og hvem/hvornår, men lader facit stå', async () => {
     const { db, writes, docs } = makeDb({
       game: SL,
-      matches: { k1: { round: 1, kickoff: FOER, result: '1', homeGoals: 2, awayGoals: 1, facitKilde: 'manuel', facitSatAf: 'a', facitSatAt: 1 } },
+      matches: { k1: { round: 1, kickoff: FOER, result: '1', homeGoals: 2, awayGoals: 1, resultatKilde: 'manuel', facitSatAf: 'a', facitSatAt: 1 } },
     });
     const ud = await frigivFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', dryRun: false });
     expect(ud.frigivet).toBe(true);
-    expect(writes[0].data).toEqual({ facitKilde: '@delete', facitSatAf: '@delete', facitSatAt: '@delete' });
+    expect(writes[0].data).toEqual({ resultatKilde: '@delete', facitSatAf: '@delete', facitSatAt: '@delete' });
     expect(writes[0].pre).toEqual({ lastUpdateTime: 't-k1' });
     expect(docs.get('k1').result).toBe('1');
-    expect(docs.get('k1').facitKilde).toBeUndefined();
+    expect(docs.get('k1').resultatKilde).toBeUndefined();
   });
 
   it('tør-kørsel er standard og skriver intet', async () => {
-    const { db, writes } = makeDb({ game: SL, matches: { k1: { round: 1, kickoff: FOER, facitKilde: 'manuel' } } });
+    const { db, writes } = makeDb({ game: SL, matches: { k1: { round: 1, kickoff: FOER, resultatKilde: 'manuel' } } });
     const ud = await frigivFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1' });
     expect(ud).toMatchObject({ dryRun: true, varManuel: true, frigivet: false });
     expect(writes).toEqual([]);
@@ -386,6 +523,10 @@ describe('index.js: ledningen til kernerne', () => {
       expect(k.indexOf('requireAdmin')).toBeLessThan(k.indexOf(kerne));
     });
   }
+
+  it('saetFacitManuelt sender tør-kørslens aftryk videre til kernen', () => {
+    expect(krop('saetFacitManuelt')).toMatch(/aftryk: d\.aftryk \?\? null,/);
+  });
 
   it('saetFacitManuelt sender kalderens uid — ikke et felt fra klienten', () => {
     expect(krop('saetFacitManuelt')).toMatch(/uid: request\.auth\.uid,/);

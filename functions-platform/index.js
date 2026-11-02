@@ -1123,7 +1123,7 @@ exports.syncSuperligaResultsNow = onCall({ region: REGION, timeoutSeconds: 300 }
 // TØR-KØRSEL ER STANDARD (dryRunFraKald): kun et eksplicit dryRun:false
 // skriver. Tør-kørslen viser 1/X/2 før → efter og de point, der flytter sig.
 //
-// Den skriver KUN facit-felterne + mærket facitKilde:'manuel'. Point, Elo,
+// Den skriver KUN facit-felterne + mærket resultatKilde:'manuel'. Point, Elo,
 // odds og Runde-Botten klares af recomputeGameMatch ovenfor, som reagerer på,
 // at `result` ændrer sig — der er ingen parallel afregning. Mærket fredner
 // kampen for resultat-synken (syncResultsCore), til frigivFacitTilSynk fjerner
@@ -1144,6 +1144,9 @@ exports.saetFacitManuelt = onCall({ region: REGION, timeoutSeconds: 120 }, async
       homeGoals: d.homeGoals,
       awayGoals: d.awayGoals,
       slut: d.slut ?? null,
+      // Tør-kørslens aftryk: skrive-kaldet afvises, hvis kampen har ændret
+      // sig siden (manuelFacit.kampAftryk).
+      aftryk: d.aftryk ?? null,
       uid: request.auth.uid,
       dryRun,
     });
@@ -1157,7 +1160,7 @@ exports.saetFacitManuelt = onCall({ region: REGION, timeoutSeconds: 120 }, async
   }
 });
 
-// frigivFacitTilSynk — "Lad synken overtage igen": fjern facitKilde:'manuel'
+// frigivFacitTilSynk — "Lad synken overtage igen": fjern resultatKilde:'manuel'
 // fra én kamp. Facit bliver stående; synken overskriver det ved næste
 // kørsel, hvis kilden siger noget andet. Tør-kørsel er standard her også.
 exports.frigivFacitTilSynk = onCall({ region: REGION }, async (request) => {

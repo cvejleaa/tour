@@ -12,7 +12,7 @@
 //
 // HVAD DEN GØR — og hvad den med vilje IKKE gør:
 //   * Den skriver kun FACIT-FELTERNE (facit.js:facitFelter) + mærket
-//     `facitKilde: 'manuel'`. Point, Elo, odds og Runde-Botten klares af den
+//     `resultatKilde: 'manuel'`. Point, Elo, odds og Runde-Botten klares af den
 //     eksisterende trigger recomputeGameMatch (index.js), der reagerer på, at
 //     `result` ændrer sig. Der er ingen parallel afregning her — tør-kørslen
 //     REGNER bare, hvad triggeren vil gøre, med de samme funktioner.
@@ -26,11 +26,12 @@
 // ---------------------------------------------------------------------------
 
 const {
-  facitFejl, facitFelter, erKnockoutRunde, erKampspil, erManuelFacit, FACIT_KILDE_MANUEL,
+  facitFejl, facitFelter, erKnockoutRunde, erKampspil, erManuelFacit, RESULTAT_KILDE_MANUEL,
 } = require('./facit');
 const { scoreBet, round1 } = require('./superligaScoring');
 const { buildRoundContext, combiPerRunde, kickoffMs } = require('./pointOpdeling');
-const { gatedIds } = require('./gameScoring');
+const { gatedIds, spillereTriggerenGenberegner } = require('./gameScoring');
+const { createHash } = require('node:crypto');
 
 /** Fejl med en HttpsError-kode — oversættes af tilHttpsFejl i callablen. */
 function fejl(kode, besked) {
@@ -100,6 +101,39 @@ async function opdaterUaendret(kampDoc, data) {
   }
 }
 
+/** Deterministisk tekst af en værdi (nøgler sorteret) — grundlaget for aftrykket. */
+function stabil(v) {
+  if (v === undefined || v === null) return 'null';
+  if (Array.isArray(v)) return `[${v.map(stabil).join(',')}]`;
+  if (typeof v === 'object') {
+    return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stabil(v[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(v);
+}
+
+/**
+ * AFTRYKKET af det, tør-kørslen byggede sin konklusion på: kampens facit og
+ * mærke (før-kolonnen), odds (pointene), runde og kickoff (gaten og combien).
+ *
+ * Det sendes med fra tør-kørslen til skrive-kaldet. Låsen i opdaterUaendret
+ * beskytter kun INDEN FOR ét kald; mellem tør-kørslen og "Skriv facit" kan der
+ * gå minutter, hvor synken eller en anden admin har skrevet på kampen. Uden
+ * aftrykket skrev man oven i noget, ingen havde set.
+ *
+ * Med vilje IKKE dokumentets updateTime: en kamp, der stadig spilles, får en
+ * live-skrivning hvert minut, og så kunne ingen nå at trykke "Skriv facit".
+ * Aftrykket skifter kun, når noget, tør-kørslen viste, har skiftet.
+ */
+function kampAftryk(kamp) {
+  const grundlag = stabil({
+    ...facitAf(kamp),
+    odds: kamp.odds ?? null,
+    round: Number.isFinite(kamp.round) ? kamp.round : null,
+    kickoff: kickoffMs(kamp),
+  });
+  return createHash('sha256').update(grundlag).digest('hex').slice(0, 32);
+}
+
 /** Kampen, som fladen skal vise den — holdnavne og tid, aldrig kun id'et. */
 function kampVisning(kamp) {
   return {
@@ -118,7 +152,7 @@ function facitAf(kamp) {
     homeGoals: kamp.homeGoals ?? null,
     awayGoals: kamp.awayGoals ?? null,
     slut: kamp.slut ?? null,
-    facitKilde: kamp.facitKilde ?? null,
+    resultatKilde: kamp.resultatKilde ?? null,
   };
 }
 
@@ -135,9 +169,13 @@ function sammeSlut(a, b) {
  *   * Triggeren kører KUN, når `result` (1X2) ændrer sig. Rettes kun målene
  *     (2-1 → 3-1), flytter intet point — og det siger tør-kørslen.
  *   * En kamp før spillets start (gatet) scores aldrig.
- *   * Combi-bonussen kan flytte sig for ALLE, der har tippet i runden — også
- *     dem uden tip på netop denne kamp — fordi kuponen først er gjort op, når
- *     hele runden er afgjort.
+ *   * Point (1X2, Chancen OG combi) tælles KUN for de spillere, triggeren
+ *     faktisk genberegner — samme udvælgelse, samme funktion
+ *     (gameScoring.spillereTriggerenGenberegner): dem med tip på DENNE kamp.
+ *   * Combi-bonussen kan også flytte sig for spillere UDEN tip på kampen (der
+ *     er intet kuponkrav). Dem genberegner triggeren IKKE — et kendt hul, der
+ *     rettes i en egen PR. De står for sig i `senere`, så fladen kan sige det
+ *     ærligt i stedet for at love point, der ikke kommer nu.
  *   * Runde-Botten poster, når runden netop bliver HELT afgjort, og den ikke
  *     er gjort op før (snapshottedRounds).
  * Totalens gulv ved 0 er IKKE regnet med: det binder kun for en spiller med
@@ -151,6 +189,7 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
   const tom = {
     udfaldSkifter, gatet, eloFlytter: udfaldSkifter, botPoster: false,
     point: { tips: 0, aendredeTips: 0, spillere: 0, iAlt: 0, combi: 0 },
+    senere: { spillere: 0, combi: 0 },
   };
   if (!udfaldSkifter) return tom;
   // INGEN egen vagt for en gatet kamp: gaten er hele runder (startGate.js),
@@ -171,6 +210,8 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
 
   const perUid = new Map();
   const tilfoej = (uid, d) => perUid.set(uid, round1((perUid.get(uid) || 0) + d));
+  // Dem, triggeren genberegner. KUN deres bevægelser kommer på stillingen nu.
+  const berorte = spillereTriggerenGenberegner(bets, kamp.id);
   let tips = 0;
   let aendredeTips = 0;
   for (const b of bets) {
@@ -184,6 +225,8 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
     if (b.uid) tilfoej(b.uid, efter - foer);
   }
   let combi = 0;
+  // Combi for spillere UDEN tip på kampen: regnes, men tælles for sig.
+  const senere = { spillere: 0, combi: 0 };
   if (runde != null) {
     const perSpiller = new Map();
     for (const b of bets) {
@@ -194,7 +237,14 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
     for (const [uid, liste] of perSpiller) {
       const c0 = combiPerRunde(liste, ctxFoer).get(runde) || 0;
       const c1 = combiPerRunde(liste, ctxEfter).get(runde) || 0;
-      if (c1 !== c0) { combi = round1(combi + (c1 - c0)); tilfoej(uid, c1 - c0); }
+      if (c1 === c0) continue;
+      if (berorte.has(uid)) {
+        combi = round1(combi + (c1 - c0));
+        tilfoej(uid, c1 - c0);
+      } else {
+        senere.spillere += 1;
+        senere.combi = round1(senere.combi + (c1 - c0));
+      }
     }
   }
   let iAlt = 0;
@@ -213,6 +263,7 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
   return {
     udfaldSkifter, gatet, eloFlytter: true, botPoster,
     point: { tips, aendredeTips, spillere, iAlt, combi },
+    senere,
   };
 }
 
@@ -221,12 +272,15 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
  *
  * @param {{gameId:string, matchId:string, homeGoals:number, awayGoals:number,
  *          slut?:{home:number, away:number, afgjort:string}|null,
- *          uid?:string|null, nowMs?:number, dryRun?:boolean}} args
+ *          uid?:string|null, nowMs?:number, dryRun?:boolean, aftryk?:string}} args
  *   homeGoals/awayGoals = mål efter ORDINÆR tid (det, der tippes på).
  *   dryRun: default SAND — kun et eksplicit false skriver.
+ *   aftryk: tør-kørslens `aftryk` (kampAftryk). KRÆVET for at skrive; passer
+ *   det ikke med kampen nu, afvises skrivningen (failed-precondition).
  */
 async function saetFacitCore(db, FieldValue, {
   gameId, matchId, homeGoals, awayGoals, slut = null, uid = null, nowMs = Date.now(), dryRun = true,
+  aftryk = null,
 } = {}) {
   const { game, kampDoc, kamp, alle } = await hentKamp(db, gameId, matchId);
 
@@ -242,10 +296,12 @@ async function saetFacitCore(db, FieldValue, {
   const input = { home: homeGoals, away: awayGoals, slut: slut ?? null };
   const tekst = facitFejl(input, { knockout });
   if (tekst) throw fejl('invalid-argument', tekst);
+  // ÉN vagt for et ugyldigt facit: facitFejl ovenfor. En ekstra `if
+  // (!felter) throw` her kunne aldrig nås (facitFelter giver kun null for
+  // input, facitFejl allerede afviser) og kunne derfor fjernes med grøn suite
+  // — fundet ved mutation. Blev de to funktioner en dag uenige, kaster
+  // `felter.result` nedenfor, FØR noget er skrevet.
   const felter = facitFelter(input);
-  // Kan ikke ske efter facitFejl — men en vej, der skriver point, må ikke
-  // hvile på, at to funktioner tilfældigvis er enige.
-  if (!felter) throw fejl('invalid-argument', 'Facit kunne ikke læses.');
 
   const foer = facitAf(kamp);
   const efter = {
@@ -253,7 +309,7 @@ async function saetFacitCore(db, FieldValue, {
     homeGoals: felter.homeGoals,
     awayGoals: felter.awayGoals,
     slut: felter.slut ?? null,
-    facitKilde: FACIT_KILDE_MANUEL,
+    resultatKilde: RESULTAT_KILDE_MANUEL,
   };
   const ingenAendring = foer.result === efter.result
     && foer.homeGoals === efter.homeGoals
@@ -261,13 +317,20 @@ async function saetFacitCore(db, FieldValue, {
     && sammeSlut(foer.slut, efter.slut)
     && erManuelFacit(kamp);
 
+  const nuAftryk = kampAftryk(kamp);
+  if (!dryRun && aftryk !== nuAftryk) {
+    throw fejl('failed-precondition', typeof aftryk === 'string' && aftryk
+      ? 'Kampen er ændret siden tør-kørslen — kør tør-kørslen igen. Intet er skrevet.'
+      : 'Facit skrives kun efter en tør-kørsel — tryk "Vis hvad der ændrer sig" først. Intet er skrevet.');
+  }
+
   const prognose = await pointPrognose(db, { game, kamp, alle, felter });
 
   let skrevet = false;
   if (!dryRun && !ingenAendring) {
     const data = {
       ...felter,
-      facitKilde: FACIT_KILDE_MANUEL,
+      resultatKilde: RESULTAT_KILDE_MANUEL,
       facitSatAf: uid,
       facitSatAt: FieldValue.serverTimestamp(),
       // Facit slår live — samme oprydning som synken laver.
@@ -284,6 +347,8 @@ async function saetFacitCore(db, FieldValue, {
   return {
     dryRun, skrevet, ingenAendring, knockout,
     kamp: kampVisning(kamp), foer, efter,
+    // Sendes tilbage med "Skriv facit" — se kampAftryk.
+    aftryk: nuAftryk,
     ...prognose,
   };
 }
@@ -299,7 +364,7 @@ async function frigivFacitCore(db, FieldValue, { gameId, matchId, dryRun = true 
   let frigivet = false;
   if (varManuel && !dryRun) {
     await opdaterUaendret(kampDoc, {
-      facitKilde: FieldValue.delete(),
+      resultatKilde: FieldValue.delete(),
       facitSatAf: FieldValue.delete(),
       facitSatAt: FieldValue.delete(),
     });
@@ -308,4 +373,6 @@ async function frigivFacitCore(db, FieldValue, { gameId, matchId, dryRun = true 
   return { dryRun, varManuel, frigivet, kamp: kampVisning(kamp), facit: facitAf(kamp) };
 }
 
-module.exports = { saetFacitCore, frigivFacitCore, tilHttpsFejl, pointPrognose };
+module.exports = {
+  saetFacitCore, frigivFacitCore, tilHttpsFejl, pointPrognose, kampAftryk,
+};

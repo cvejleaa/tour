@@ -252,7 +252,7 @@ describe('syncResultsCore', () => {
 
   // Facit-kontrakten (facit.js) er flyttet ud af synken. Superligaen og
   // Premier League SKAL skrive præcis de samme felter som før — hverken
-  // `slut` eller `facitKilde` må snige sig med. toEqual afviser en ekstra nøgle.
+  // `slut` eller `resultatKilde` må snige sig med. toEqual afviser en ekstra nøgle.
   it('skriver præcis de samme felter som før kontrakten — intet slut, intet mærke', async () => {
     const db = makeDb([{ id: 'r1-viborgff-ob', data: { round: 1, home: 'Viborg FF', away: 'OB' } }]);
     const skrevet = [];
@@ -280,12 +280,12 @@ describe('syncResultsCore — kampe med facit sat i hånden', () => {
 
   it('overskriver IKKE en manuelt sat kamp, selv om kilden siger noget andet', async () => {
     const db = makeDb([
-      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, facitKilde: 'manuel' } },
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, resultatKilde: 'manuel' } },
     ]);
     const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(0, 3)]) });
     expect(res.updated).toBe(0);
     expect(res.rettede).toEqual([]);
-    expect(db._docs.get('r1-viborgff-ob')).toMatchObject({ result: '1', homeGoals: 2, awayGoals: 0, facitKilde: 'manuel' });
+    expect(db._docs.get('r1-viborgff-ob')).toMatchObject({ result: '1', homeGoals: 2, awayGoals: 0, resultatKilde: 'manuel' });
     // ...men fortæller det: kilden er uenig, og det skal et menneske se.
     expect(res.manuelle).toEqual(['r1-viborgff-ob']);
     expect(res.manuelleUenige).toEqual(['r1-viborgff-ob']);
@@ -293,7 +293,7 @@ describe('syncResultsCore — kampe med facit sat i hånden', () => {
 
   it('en manuel kamp, kilden er ENIG i, tælles — men ikke som uenig', async () => {
     const db = makeDb([
-      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, facitKilde: 'manuel' } },
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, resultatKilde: 'manuel' } },
     ]);
     const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(2, 0)]) });
     expect(res.manuelle).toEqual(['r1-viborgff-ob']);
@@ -303,11 +303,11 @@ describe('syncResultsCore — kampe med facit sat i hånden', () => {
   // Hver halvdel af uenigheds-tjekket skal kunne drive alene.
   it('uenig på kun udeholdets mål med samme 1X2 tælles som uenig', async () => {
     const db = makeDb([
-      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 3, awayGoals: 1, facitKilde: 'manuel' } },
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 3, awayGoals: 1, resultatKilde: 'manuel' } },
     ]);
     expect((await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(3, 2)]) })).manuelleUenige).toEqual(['r1-viborgff-ob']);
     const db2 = makeDb([
-      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 3, awayGoals: 1, facitKilde: 'manuel' } },
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 3, awayGoals: 1, resultatKilde: 'manuel' } },
     ]);
     expect((await syncResultsCore(db2, FieldValue, { fetchFn: fakeFetch([event(2, 1)]) })).manuelleUenige).toEqual(['r1-viborgff-ob']);
   });
@@ -316,7 +316,7 @@ describe('syncResultsCore — kampe med facit sat i hånden', () => {
   // præcis som før — og en kamp, der er givet tilbage (mærket fjernet), også.
   it('en kamp uden mærket — eller med et andet mærke — synkes som altid', async () => {
     const db = makeDb([
-      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, facitKilde: 'synk' } },
+      { id: 'r1-viborgff-ob', data: { round: 1, result: '1', homeGoals: 2, awayGoals: 0, resultatKilde: 'synk' } },
     ]);
     const res = await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(0, 3)]) });
     expect(res.updated).toBe(1);

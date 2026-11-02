@@ -13,7 +13,9 @@
  *      slutresultatet og hvordan kampen blev afgjort),
  *   3. "Vis hvad der ændrer sig" — serverens tør-kørsel: 1/X/2 før → efter,
  *      de point, der flytter sig, og om Runde-Botten poster,
- *   4. først DA dukker "Skriv facit" op.
+ *   4. først DA dukker "Skriv facit" op — og den skriver PRÆCIS tør-kørslens
+ *      plan (kamp, mål, slut) med tør-kørslens aftryk, ikke felternes aktuelle
+ *      indhold. Har kampen ændret sig siden, afviser serveren skrivningen.
  * Serveren er eneste autoritet: fladen viser facit-kontraktens fejl live
  * (src/lib/facit.js), men serveren validerer igen med sin egen kopi.
  *
@@ -99,6 +101,13 @@ export function prognoseLinjer(d) {
   } else {
     const p = d.point;
     linjer.push(`${p.tips} tips på kampen. ${p.spillere} spillere får ændret point, i alt ${fmtSignedDec(p.iAlt)}${p.combi ? ` (heraf combi ${fmtSignedDec(p.combi)})` : ''}. Elo og odds på kommende kampe regnes om.`);
+    // Spillere UDEN tip på kampen, hvis combi flytter sig. Triggeren
+    // genberegner dem ikke (kendt hul, gameScoring.spillereTriggerenGenberegner)
+    // — så de er IKKE med i tallet ovenfor, og fladen siger, hvornår de får den.
+    const s = d.senere;
+    if (s?.spillere > 0) {
+      linjer.push(`${s.spillere} spillere uden tip på denne kamp får ændret combi (i alt ${fmtSignedDec(s.combi)}), men ikke nu: serveren genberegner kun dem, der har tippet kampen. De får den, når et af deres egne tips afgøres eller rettes — eller når du trykker 🔄 Genberegn point efter start-ændring.`);
+    }
   }
   if (d.botPoster) {
     linjer.push('Det er rundens sidste kamp: Runde-Botten skriver straks på alle ligavægge, når du skriver.');
@@ -161,6 +170,9 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
     setBusy(false);
   }
 
+  // Skriver PLANEN — det, tør-kørslen viste — ikke felternes aktuelle
+  // indhold. Felterne og planen holdes i takt af nulstil(), men skulle de en
+  // dag drive fra hinanden, er det planen, admin har set og sagt ja til.
   async function skriv() {
     const linjer = prognoseLinjer(plan);
     if (!window.confirm(
@@ -169,16 +181,24 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
     )) return;
     setBusy(true); setMsg(null);
     const res = await callSaetFacitManuelt({
-      gameId: game.id, matchId, homeGoals: h, awayGoals: a, slut: input.slut, dryRun: false,
+      gameId: game.id,
+      matchId: plan.kamp.id,
+      homeGoals: plan.efter.homeGoals,
+      awayGoals: plan.efter.awayGoals,
+      slut: plan.efter.slut ?? null,
+      aftryk: plan.aftryk,
+      dryRun: false,
     });
     setBusy(false);
-    if (!res.ok) { setMsg({ kind: 'err', text: res.error }); return; }
+    // Afvist (fx "Kampen er ændret siden tør-kørslen"): den gamle plan er
+    // forældet, så skrive-knappen skal væk med den.
+    if (!res.ok) { setPlan(null); setMsg({ kind: 'err', text: res.error }); return; }
     // Svaret bærer sit eget dryRun/skrevet — brug DET, så en tør-kørsel ikke
     // kan melde sig som skrevet (samme fælde som Ompris).
     if (res.data?.dryRun === false && res.data?.skrevet === true) {
       onSkrevet({
         kind: 'ok',
-        text: `Facit skrevet: ${res.data.kamp.home} – ${res.data.kamp.away} ${maal(res.data.efter.homeGoals, res.data.efter.awayGoals)} (${res.data.efter.result}). Point, Elo og odds afregnes nu af serveren${res.data.botPoster ? ', og Runde-Botten poster på ligavæggene' : ''}.`,
+        text: `Facit skrevet: ${res.data.kamp.home} – ${res.data.kamp.away} ${maal(res.data.efter.homeGoals, res.data.efter.awayGoals)} (${res.data.efter.result})${res.data.efter.slut ? `, slutresultat ${res.data.efter.slut.home}-${res.data.efter.slut.away} ${AFGJORT_NAVN[res.data.efter.slut.afgjort] || ''}` : ''}. Point, Elo og odds afregnes nu af serveren${res.data.botPoster ? ', og Runde-Botten poster på ligavæggene' : ''}.`,
       });
     } else {
       setMsg({ kind: 'err', text: 'Serveren skrev INTET. Vis ændringen igen.' });
@@ -223,6 +243,9 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
       {kamp && (
         <div style={{ marginTop: '0.5rem' }}>
           <div className="flex items-center" style={{ gap: '0.4rem', flexWrap: 'wrap' }}>
+            {/* TODO(D4/D12): «(60 min)» efter "ordinær tid" for håndbold —
+                ordet skal komme fra sportsprofilen (sportProfil(game).ord), ikke
+                fra en gate på sport. Udsat til D4/D12. */}
             <span style={{ fontSize: '0.85rem' }}>
               Mål efter ordinær tid{knockout ? ' (uden forlængelse og straffekast — det, der tippes på)' : ''}:
             </span>

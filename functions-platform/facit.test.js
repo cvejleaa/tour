@@ -116,8 +116,8 @@ describe('forventerFacit og erManuelFacit', () => {
     expect(erKampspil({ type: 'cycling' })).toBe(false);
   });
   it('kun mærket "manuel" fredner kampen', () => {
-    expect(erManuelFacit({ facitKilde: 'manuel' })).toBe(true);
-    expect(erManuelFacit({ facitKilde: 'synk' })).toBe(false);
+    expect(erManuelFacit({ resultatKilde: 'manuel' })).toBe(true);
+    expect(erManuelFacit({ resultatKilde: 'synk' })).toBe(false);
     expect(erManuelFacit({})).toBe(false);
     expect(erManuelFacit(null)).toBe(false);
   });
@@ -143,7 +143,7 @@ const SPIL = [null, {}, { type: 'football', status: 'open' }, { type: 'football'
 describe('spejling mod src/lib/facit.js', () => {
   it('samme konstanter', async () => {
     const src = await import('../src/lib/facit.js');
-    expect(src.FACIT_KILDE_MANUEL).toBe(server.FACIT_KILDE_MANUEL);
+    expect(src.RESULTAT_KILDE_MANUEL).toBe(server.RESULTAT_KILDE_MANUEL);
     expect([...src.AFGJORT]).toEqual([...server.AFGJORT]);
     expect({ ...src.AFGJORT_NAVN }).toEqual({ ...server.AFGJORT_NAVN });
     expect(src.MAKS_MAAL).toBe(server.MAKS_MAAL);
@@ -162,7 +162,7 @@ describe('spejling mod src/lib/facit.js', () => {
       expect(src.erKampspil(g)).toBe(server.erKampspil(g));
       for (const r of [null, 1, 3, 4, 7, 8, 9]) expect(src.erKnockoutRunde(g, r)).toBe(server.erKnockoutRunde(g, r));
     }
-    for (const k of [null, {}, { facitKilde: 'manuel' }, { facitKilde: 'x' }]) {
+    for (const k of [null, {}, { resultatKilde: 'manuel' }, { resultatKilde: 'x' }]) {
       expect(src.erManuelFacit(k)).toBe(server.erManuelFacit(k));
     }
   });
