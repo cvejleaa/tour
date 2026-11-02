@@ -408,3 +408,90 @@ describe('puljeScore — perfekt-bonus-vagt', () => {
     expect(r).toEqual({ correct: 6, points: 6 * PULJE.PER_TEAM }); // 24, IKKE 34
   });
 });
+
+// ---------------------------------------------------------------------------
+// puljeKonfig — runde-puljen ("semifinalisterne") og de UÆNDREDE liga-puljer.
+// ---------------------------------------------------------------------------
+describe('puljeKonfig', () => {
+  // HELE objektet, ikke toMatchObject: en ny nøgle eller en flyttet default
+  // under SL/PL skal blive rød her. Den nye nøgle (facitFase) er null for
+  // begge — det er den eneste forskel fra før runde-puljen.
+  it('Superligaens literale dokument giver præcis den gamle konfiguration', async () => {
+    const { puljeKonfig } = await import('./superligaScoring');
+    expect(puljeKonfig({ pulje: { poolSize: 6 } })).toEqual({
+      poolSize: 6, nedSize: 0, perTeam: 4, perfectBonus: 10, facitKilde: 'officiel', facitFase: null,
+      tabelDeling: true,
+      labels: {
+        overskrift: '🏆 Pulje-tip', top: 'mesterskabsspillet', ned: 'nedrykningsspillet',
+        facit: 'grundspillets slutstilling',
+      },
+    });
+  });
+
+  it('Premier Leagues post (games.mjs) giver præcis den gamle konfiguration', async () => {
+    const { puljeKonfig } = await import('./superligaScoring');
+    const { GAMES } = await import('../../scripts/games.mjs');
+    const pl = GAMES.find((g) => g.id === 'pl2627-efteraar');
+    expect(puljeKonfig(pl)).toEqual({
+      poolSize: 4, nedSize: 3, perTeam: 4, perfectBonus: 10, facitKilde: 'egneKampe', facitFase: null,
+      tabelDeling: false,
+      labels: {
+        overskrift: '🎄 Juletabellen', top: 'top 4 juleaften', ned: 'nedrykningszonen juleaften',
+        facit: 'stillingen, når alle efterårets 18 runder er spillet',
+      },
+    });
+  });
+
+  it('en liga-pulje ignorerer facitFase — kun en runde-pulje har en', async () => {
+    const { puljeKonfig } = await import('./superligaScoring');
+    expect(puljeKonfig({ pulje: { poolSize: 6, facitFase: 'Semifinaler' } }).facitFase).toBeNull();
+    expect(puljeKonfig({ pulje: { poolSize: 6, facitKilde: 'ukendt' } }).facitKilde).toBe('officiel');
+  });
+
+  const FASER = [
+    { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 1, til: 2, start: '2027-01-27', knockout: true, antalKampe: 4 },
+    { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 3, til: 3, start: '2027-01-29', knockout: true, antalKampe: 2 },
+  ];
+
+  it('runde-puljen: ordene kommer af kalenderen, og tabellen deles ikke', async () => {
+    const { puljeKonfig } = await import('./superligaScoring');
+    const k = puljeKonfig({
+      faser: FASER,
+      pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', labels: { overskrift: '🏆 Semifinalisterne' } },
+    });
+    expect(k).toEqual({
+      poolSize: 4, nedSize: 0, perTeam: 4, perfectBonus: 10, facitKilde: 'runde', facitFase: 'Semifinaler',
+      tabelDeling: false,
+      labels: {
+        overskrift: '🏆 Semifinalisterne', top: 'semifinalerne', ned: 'nedrykningsspillet',
+        facit: 'holdene i semifinalerne',
+      },
+    });
+    // Liga-ordene må IKKE sive ind i en turnering.
+    expect(k.labels.top).not.toBe('mesterskabsspillet');
+    expect(k.labels.facit).not.toMatch(/slutstilling/);
+  });
+
+  it('runde-puljen har aldrig et bundspørgsmål, selv om et er skrevet ind', async () => {
+    const { puljeKonfig } = await import('./superligaScoring');
+    const k = puljeKonfig({ faser: FASER, pulje: { poolSize: 4, nedSize: 3, facitKilde: 'runde', facitFase: 'Semifinaler' } });
+    expect(k.nedSize).toBe(0);
+  });
+
+  it('runde-puljen: egne labels vinder; uden fasen bruges navnet; uden facitFase intet gæt', async () => {
+    const { puljeKonfig } = await import('./superligaScoring');
+    const egne = puljeKonfig({ faser: FASER, pulje: { facitKilde: 'runde', facitFase: 'Semifinaler', labels: { top: 'de sidste fire' } } });
+    expect(egne.labels.top).toBe('de sidste fire');
+    expect(puljeKonfig({ pulje: { facitKilde: 'runde', facitFase: 'Semifinaler' } }).labels.top).toBe('semifinaler');
+    const uden = puljeKonfig({ faser: FASER, pulje: { facitKilde: 'runde' } });
+    expect(uden.facitFase).toBeNull();
+    expect(uden.labels.top).toBe('næste fase');
+    expect(uden.labels.facit).toBe('holdene i fasen');
+  });
+
+  it('runde-puljen: tabelDeling kan stadig sættes eksplicit', async () => {
+    const { puljeKonfig } = await import('./superligaScoring');
+    const k = puljeKonfig({ faser: FASER, pulje: { facitKilde: 'runde', facitFase: 'Semifinaler', tabelDeling: true } });
+    expect(k.tabelDeling).toBe(true);
+  });
+});

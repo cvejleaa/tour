@@ -24,11 +24,33 @@ on:
       seedSuperliga:
         # Labelen er det ENESTE, operatøren ser i klik-øjeblikket — YAML-
         # kommentarer er usynlige i Actions-UI'et. Derfor står forbeholdet her.
-        description: 'Seed Superliga-kampprogrammet (kampe, der allerede har odds, springes over). NB: skriver ALTID teams og eloCurrent, uden forhåndsvisning. Skal tidspunkter rettes, så brug seedKickoffs — skal kun farver/kortkoder rettes, så brug seedTeams.'
+        description: 'Seed Superliga-kampprogrammet og SKRIV straks (kampe, der allerede har odds, springes over; holdliste og eloCurrent skrives kun, hvis spillet ikke har dem). Vil du se tør-kørslen først, så brug seedKampe. Skal tidspunkter rettes, så brug seedKickoffs — skal kun trøjefarver/stadion rettes, så brug seedTeams.'
+        type: boolean
+        default: false
+      seedSpil:
+        # ÉT spil-felt for de tre spil-seed-trin (seedKampe, seedKickoffs,
+        # seedTeams). STRENG, ikke en fast liste: en `choice` er et spejl af
+        # scripts/games.mjs, og et nyt spil kunne så ikke vælges uden at
+        # redigere workflowet. Filerne (holdliste, kampprogram, runder) slås op
+        # i scripts/seed-filer.mjs af seed-football.mjs selv — et id uden post
+        # dér afvises med listen over kendte, før der læses eller skrives noget.
+        # Sendes som MILJØVARIABEL til trinnene, aldrig ind i argumentstrengen.
+        description: 'seedKampe / seedKickoffs / seedTeams: hvilket spil? Spil-id fra scripts/seed-filer.mjs, fx superliga2627. Et ukendt id afvises. Gælder ALLE tre trin i samme kørsel — skal de ramme hver sit spil, så kør dem i hver sin kørsel.'
+        type: string
+        default: superliga2627
+      seedKampe:
+        description: 'Seed kampprogrammet for spillet i seedSpil (kampe, der allerede har odds, springes over). Holdliste og eloCurrent skrives kun, hvis spillet ikke har dem.'
+        type: boolean
+        default: false
+      seedKampeSkriv:
+        # Default FALSE = tør-kørsel, samme mønster som seedKickoffsSkriv. Et
+        # nyt spils FØRSTE seed er det, der sætter alle startodds — det skal
+        # kunne læses igennem, før det skrives.
+        description: 'seedKampe: SKRIV i databasen? Uden dette flueben tørkøres der, og ændringerne vises kun.'
         type: boolean
         default: false
       seedKickoffs:
-        description: 'Ret KUN kickoff-tider fra kampprogram-filen (rører hverken odds, Elo eller resultater)?'
+        description: 'Ret KUN kickoff-tider fra kampprogram-filen for spillet i seedSpil (rører hverken odds, Elo eller resultater)?'
         type: boolean
         default: false
       seedKickoffsSkriv:
@@ -40,18 +62,11 @@ on:
         default: false
       seedTeams:
         # Egen knap, fordi holdlisten er det ENESTE, der skal rettes, når en
-        # trøjefarve er forældet. Alternativet — seedSuperliga — skriver også
-        # `teams[].elo` og `eloCurrent` og har ingen forhåndsvisning.
-        description: 'Ret KUN holdlisten (trøjefarver, kortkoder, stadion) — rører hverken kampe, odds, Elo eller resultater'
+        # trøjefarve er forældet. Et gen-seed (seedSuperliga/seedKampe) skriver
+        # ikke holdlisten, når spillet har en.
+        description: 'Ret KUN holdlisten for spillet i seedSpil (trøjefarver, stadion) — rører hverken kampe, odds, Elo eller resultater, og afviser ændret elo, kortkode eller antal hold'
         type: boolean
         default: false
-      seedTeamsSpil:
-        description: 'seedTeams: hvilket spil? (superliga2627 eller pl2627-efteraar)'
-        type: choice
-        options:
-          - superliga2627
-          - pl2627-efteraar
-        default: superliga2627
       seedTeamsSkriv:
         # Default FALSE = tør-kørsel, samme mønster som seedKickoffsSkriv.
         # Tør-kørslen printer hver eneste feltændring, og det er MENINGEN at
@@ -174,26 +189,39 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
         # Samme skrivninger som det tidligere seed-superliga.mjs — bevist felt
-        # for felt på et tomt spil (133 identiske skrivninger). ÉN forskel, og
-        # den er med vilje: kampe, der ALLEREDE har odds, springes nu over i
-        # stedet for at få dem overskrevet.
+        # for felt på et tomt spil (133 identiske skrivninger). TO forskelle, og
+        # de er med vilje: kampe, der ALLEREDE har odds, springes over i stedet
+        # for at få dem overskrevet — og spil-dokumentets `teams` og
+        # `eloCurrent` skrives kun, når spillet ikke har dem (første seed).
+        # Et gen-seed midt i sæsonen skriver altså kun kampe.
         #
-        # Bemærk at spil-dokumentet (teams, eloCurrent) skrives ubetinget, også
-        # når nul kampe skrives. Kørslen er altså ikke en ren no-op midt i en
-        # sæson — men eloCurrent genberegnes af recomputeSeasonElo ved næste
-        # resultat. `--skriv` står her, fordi tør-kørsel er default i scriptet.
+        # Holdliste og kampprogram slås op i scripts/seed-filer.mjs (samme
+        # filer som før). `--skriv` står her, fordi tør-kørsel er default i
+        # scriptet; vil man se tør-kørslen, er det seedKampe.
         run: |
           node scripts/seed-football.mjs \
             --game superliga2627 \
-            --teams src/data/superligaTeams2026.js \
-            --fixtures scripts/superliga-fixtures.json \
             --skriv
+
+      - name: Seed kampprogram for et spil (valgfrit)
+        if: ${{ inputs.seedKampe }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          SPIL: ${{ inputs.seedSpil }}
+        # Det fulde seed for ET VILKÅRLIGT spil: holdliste, kampprogram og
+        # runder slås op i scripts/seed-filer.mjs, så et nyt spil kræver en
+        # post dér — ikke en ændring her. Tørkører, indtil seedKampeSkriv er
+        # sat. Spil-id'et sendes som MILJØVARIABEL (se seedTeams).
+        run: |
+          node scripts/seed-football.mjs \
+            --game "$SPIL" \
+            ${{ inputs.seedKampeSkriv && '--skriv' || '' }}
 
       - name: Ret holdlisten (valgfrit)
         if: ${{ inputs.seedTeams }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-          SPIL: ${{ inputs.seedTeamsSpil }}
+          SPIL: ${{ inputs.seedSpil }}
         # Trøjefarverne bor i `games/{id}.teams`, og indtil nu kunne kun det
         # FULDE seed skrive dem — sammen med odds og Elo. En manglende
         # tredjefarve er ikke kosmetik: badgeFor falder tilbage på udetrøjen,
@@ -203,10 +231,13 @@ jobs:
         # Et felt, der ordsplittes af shellen, kan bære sit eget ekstra flag —
         # det var præcis sådan `--apply` kunne smugles ind gennem "begræns til
         # ét spil-id" i audit-workflowet.
+        #
+        # Holdlisten slås op i scripts/seed-filer.mjs. Her stod før en
+        # shell-ternær, der gav ALLE andre spil end PL Superligaens holdliste —
+        # et nyt spil fik altså tavst den forkerte liste.
         run: |
           node scripts/seed-football.mjs \
             --game "$SPIL" \
-            --teams "$([ "$SPIL" = pl2627-efteraar ] && echo src/data/premierLeagueTeams2026.js || echo src/data/superligaTeams2026.js)" \
             --teams-only \
             ${{ inputs.seedTeamsSkriv && '--skriv' || '' }}
 
@@ -214,14 +245,16 @@ jobs:
         if: ${{ inputs.seedKickoffs }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+          SPIL: ${{ inputs.seedSpil }}
         # Kickoff ER tip-deadlinen. Efter at seedSuperliga springer kampe med
         # odds over, kan den ikke længere rette et tidspunkt midt i sæsonen —
         # og alternativet ville være en produktionsnøgle på en bærbar.
         # Skriver KUN kickoff + updatedAt, og lader kampe med facit være.
+        # Kampprogram og runder slås op i scripts/seed-filer.mjs; trinnet var
+        # før låst til superliga2627.
         run: |
           node scripts/seed-football.mjs \
-            --game superliga2627 \
-            --fixtures scripts/superliga-fixtures.json \
+            --game "$SPIL" \
             --kickoffs-only \
             ${{ inputs.seedKickoffsSkriv && '--skriv' || '' }}
 

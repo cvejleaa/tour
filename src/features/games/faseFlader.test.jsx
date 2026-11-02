@@ -125,6 +125,38 @@ describe('FootballHelp — faserne læses af kalenderen', () => {
     expect(t).not.toContain('efter runde 3');
   });
 
+  it('håndbold med egen puljegrænse: «Starter ligaen efter dag 8»', () => {
+    const { container } = medSpil({ ...HB, pulje: { maksStartRunde: 8 } });
+    const t = container.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Starter ligaen efter dag 8, tæller puljebonussen ikke med');
+    expect(t).not.toContain('efter dag 3');
+  });
+
+  // Runde-puljen (semifinalisterne): HVORNÅR den afgøres står i kalenderen,
+  // og liga-sproget ("står lige nu") må ikke stå i en turnerings regelbog.
+  it('håndbold med runde-pulje: afgøres, når semifinalerne er lagt ind', () => {
+    const { container } = medSpil({ ...HB, pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' } });
+    const t = container.textContent.replace(/\s+/g, ' ');
+    // Et hold NÅR semifinalerne; «står i» er liga-sprog (PuljeTip.test.jsx
+    // forbyder det samme ord på pulje-kortet — de to flader siger nu det samme).
+    expect(t).toContain('forudsiger du de 4 hold, der når semifinalerne.');
+    expect(t).toContain('Puljen afgøres, når semifinalerne er lagt ind — de spilles fredag 29. januar. Hvert hold, du rammer, giver +4 point');
+    expect(t).toContain('og når semifinalerne er lagt ind, hvordan det gik i din liga.');
+    const afsnit = t.slice(t.indexOf('Bonus: pulje-tip'), t.indexOf('hvordan det gik i din liga'));
+    expect(afsnit).not.toMatch(/står i|står rigtigt|Afgøres på|grundspillets slutstilling|står lige nu i din liga/);
+  });
+
+  // MELLEMRUMMET (modstander-fund R1): «.» + linjeskift + {grenen} gav
+  // «mesterskabsspillet.Afgøres på». Teksten er her den samme som før D10 —
+  // byte for byte, uden at normalisere mellemrum væk.
+  it('Superligaen med pulje: pulje-afsnittet er uændret — med mellemrum efter punktum', () => {
+    const { container } = medSpil({ ...SL, pulje: { poolSize: 6 } });
+    const t = container.textContent;
+    expect(t).toContain('forudsiger du de 6 hold, der står i mesterskabsspillet. Afgøres på grundspillets slutstilling: hvert hold, der står rigtigt, giver +');
+    expect(t).not.toContain('mesterskabsspillet.Afgøres');
+    expect(t).not.toMatch(/der når|du rammer, giver|lagt ind/);
+  });
+
   it('Superligaen med pulje: «Starter ligaen efter runde 3» som før', () => {
     const { container } = medSpil({ ...SL, pulje: { type: 'top' } });
     const t = container.textContent.replace(/\s+/g, ' ');

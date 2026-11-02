@@ -9,8 +9,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   ligaPoint, puljenTaeller, harRundeVektor, vektorStemmer, DRIFT_LOFT,
-  PULJE_MAKS_STARTRUNDE, UDEN_RUNDE,
+  PULJE_MAKS_STARTRUNDE, UDEN_RUNDE, puljeMaksStartRunde, ligaPointFor,
 } from './ligaPoint';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { opdelPoint, buildRoundContext } from './pointOpdeling';
 
 describe('ligaPoint', () => {
@@ -275,5 +278,184 @@ describe('vektorStemmer — kan vektoren gengive spillets total?', () => {
 
   it('kampe uden rundenummer tæller med, præcis som i ligaPoint', () => {
     expect(vektorStemmer({ 1: 20, uden: 10 }, 30, 0)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SPILLETS PULJEGRÆNSE. 3 er valgt til en liga, hvor en runde er en UGE. I en
+// turnering med én runde pr. DAG betyder samme tal tre dage — derfor kan
+// spillet sætte sin egen (game.pulje.maksStartRunde). Uden feltet er den
+// præcis den gamle, så Superligaen og Premier League er uændrede.
+// ---------------------------------------------------------------------------
+describe('puljeMaksStartRunde', () => {
+  it('uden feltet: præcis den gamle grænse (SL, PL, intet spil)', () => {
+    expect(puljeMaksStartRunde({ pulje: { poolSize: 6 } })).toBe(3);
+    expect(puljeMaksStartRunde({ pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe' } })).toBe(3);
+    expect(puljeMaksStartRunde(null)).toBe(3);
+    expect(puljeMaksStartRunde({})).toBe(PULJE_MAKS_STARTRUNDE);
+  });
+
+  it('spillets egen grænse, når den er et positivt heltal', () => {
+    expect(puljeMaksStartRunde({ pulje: { maksStartRunde: 8 } })).toBe(8);
+    expect(puljeMaksStartRunde({ pulje: { maksStartRunde: 1 } })).toBe(1);
+  });
+
+  // En tastefejl må ikke tavst slå puljen fra (0) eller gøre grænsen
+  // uforudsigelig (2.5, "8"). Så hellere standarden.
+  it('alt andet giver standarden', () => {
+    for (const v of [0, -2, 2.5, '8', null, NaN, Infinity]) {
+      expect(puljeMaksStartRunde({ pulje: { maksStartRunde: v } }), String(v)).toBe(3);
+    }
+  });
+
+  it('puljenTaeller og ligaPoint følger den grænse, de får', () => {
+    // Grænsen 8: en liga fra dag 5 (den gamle grænse ville tage puljen) beholder den.
+    expect(puljenTaeller(5)).toBe(false);
+    expect(puljenTaeller(5, 8)).toBe(true);
+    expect(puljenTaeller(8, 8)).toBe(true);
+    expect(puljenTaeller(9, 8)).toBe(false);
+    expect(ligaPoint({ 5: 10 }, 5, 34)).toBe(10);
+    expect(ligaPoint({ 5: 10 }, 5, 34, 8)).toBe(44);
+  });
+
+  it('ligaPointFor binder spillets grænse og regner ellers som ligaPoint', () => {
+    const regn = ligaPointFor({ pulje: { maksStartRunde: 8 } });
+    expect(regn({ 5: 10 }, 5, 34)).toBe(44);
+    expect(regn({ 5: 10 }, 9, 34)).toBe(0);
+    // Superligaen: præcis som en bar ligaPoint.
+    const sl = ligaPointFor({ pulje: { poolSize: 6 } });
+    for (const r of [null, 1, 3, 4, 20]) expect(sl({ 4: 8, 5: 10 }, r, 34)).toBe(ligaPoint({ 4: 8, 5: 10 }, r, 34));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// INGEN KALDER MÅ GLEMME GRÆNSEN. Får `puljenTaeller` eller `ligaPoint` en
+// startrunde uden spillets grænse, regner fladen med 3 — og en turnering med
+// sin egen grænse viser så to forskellige totaler for samme liga på to faner,
+// uden en eneste fejl. En kalder, der glemmer det, kan ikke findes med en
+// render-test af hver flade; den kan findes i kildekoden. Her læses ALLE
+// ikke-test-filer i src/, functions-platform/ og scripts/.
+// ---------------------------------------------------------------------------
+describe('alle kaldere giver spillets puljegrænse med', () => {
+  const rod = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+  const filer = [];
+  const gaa = (mappe) => {
+    for (const navn of readdirSync(mappe)) {
+      if (navn === 'node_modules' || navn.startsWith('.')) continue;
+      const sti = join(mappe, navn);
+      if (statSync(sti).isDirectory()) gaa(sti);
+      else if (/\.(js|jsx|mjs)$/.test(navn) && !/\.test\./.test(navn)) filer.push(sti);
+    }
+  };
+  for (const m of ['src', 'functions-platform', 'scripts']) gaa(join(rod, m));
+
+  /** Argumenterne i hvert kald af `navn(` — med parentes-balance, så `a(b, c)` tæller som ét argument. */
+  function kald(kilde, navn) {
+    const ud = [];
+    const re = new RegExp(`(?<![\\w.])${navn}\\(`, 'g');
+    let m;
+    while ((m = re.exec(kilde))) {
+      let dybde = 1; let i = m.index + m[0].length; let arg = ''; const args = [];
+      for (; i < kilde.length && dybde > 0; i += 1) {
+        const c = kilde[i];
+        if ('([{'.includes(c)) dybde += 1;
+        if (')]}'.includes(c)) dybde -= 1;
+        if (dybde === 0) break;
+        if (c === ',' && dybde === 1) { args.push(arg.trim()); arg = ''; } else arg += c;
+      }
+      if (arg.trim()) args.push(arg.trim());
+      ud.push(args);
+    }
+    return ud;
+  }
+
+  const DEFINITIONER = /lib[\\/]ligaPoint\.js$|functions-platform[\\/]ligaPoint\.js$/;
+
+  it('finder overhovedet kalderne (ellers beviser testen intet)', () => {
+    const alle = filer.flatMap((f) => kald(readFileSync(f, 'utf8'), 'puljenTaeller'));
+    expect(alle.length).toBeGreaterThanOrEqual(8);
+  });
+
+  // DET ER IKKE NOK AT TÆLLE ARGUMENTERNE (modstander-fund R2). `puljenTaeller(x,
+  // 3)` og `ligaPointFor(null)` har det rigtige antal, men regner med
+  // standarden — og otte sådanne mutanter overlevede hele suiten. Grænsen
+  // skal være SPILLETS: et kald af puljeMaksStartRunde(<spil>), en variabel i
+  // samme fil, der er sat til netop det, eller — i en videresendende funktion
+  // — dens egen `maks`-parameter med standardværdi (og så tjekkes DENS
+  // kaldere i stedet: ligaOpdeling og puljeLigaForbehold er med nedenfor).
+  const SPIL_ARG = /^[A-Za-z_$][\w$]*(\??\.[A-Za-z_$][\w$]*)*$/;
+  const erSpilArg = (a) => SPIL_ARG.test(a || '') && !['null', 'undefined', 'true', 'false'].includes(a);
+  /** Variabler i filen, der er sat til spillets grænse: `const x = puljeMaksStartRunde(game)`. */
+  function graenseVariabler(kilde) {
+    const ud = new Set();
+    for (const m of kilde.matchAll(/(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*puljeMaksStartRunde\(\s*([^()]*?)\s*\)/g)) {
+      if (erSpilArg(m[2])) ud.add(m[1]);
+    }
+    return ud;
+  }
+  /** Videresender filen en `maks`-parameter med standardværdi? */
+  const videresender = (kilde) => /[(,]\s*maks\s*=\s*PULJE_MAKS_STARTRUNDE\s*[,)]/.test(kilde);
+  function erSpilletsGraense(arg, kilde) {
+    const a = (arg || '').trim();
+    const m = a.match(/^puljeMaksStartRunde\(\s*(.*?)\s*\)$/);
+    if (m) return erSpilArg(m[1]);
+    if (graenseVariabler(kilde).has(a)) return true;
+    return a === 'maks' && videresender(kilde);
+  }
+  /** En definition (en parameter har en standardværdi) er ikke et kald. */
+  const erDefinition = (args) => args.some((x) => /^[A-Za-z_$][\w$]*\s*=[^=>]/.test(x));
+  // [funktion, grænsens plads, gælder kun når…]
+  const KRAV = [
+    ['puljenTaeller', 1],
+    ['ligaPoint', 3, (args) => args[1] !== 'null'],  // uden startrunde tæller puljen altid
+    ['ligaOpdeling', 4],
+    ['puljeLigaForbehold', 1],
+  ];
+
+  it('hver kalder giver SPILLETS grænse — ikke et tal, ikke null, ikke ingenting', () => {
+    const mangler = [];
+    let set = 0;
+    for (const f of filer.filter((x) => !DEFINITIONER.test(x))) {
+      const kilde = readFileSync(f, 'utf8');
+      for (const [navn, plads, gaelder] of KRAV) {
+        for (const args of kald(kilde, navn)) {
+          if (erDefinition(args) || (gaelder && !gaelder(args))) continue;
+          set += 1;
+          if (!erSpilletsGraense(args[plads], kilde)) mangler.push(`${f}: ${navn}(${args.join(', ')})`);
+        }
+      }
+      // ligaRanking(..., ligaPoint, ...) / rundePile(..., ligaPoint, ...)
+      if (/[(,]\s*ligaPoint\s*[,)]/.test(kilde)) mangler.push(`${f}: bar ligaPoint som argument — brug ligaPointFor(game)`);
+      for (const navn of ['ligaPointFor', 'puljeMaksStartRunde']) {
+        for (const args of kald(kilde, navn)) {
+          if (erDefinition(args)) continue;
+          if (args.length !== 1 || !erSpilArg(args[0])) mangler.push(`${f}: ${navn}(${args.join(', ')})`);
+        }
+      }
+    }
+    expect(mangler).toEqual([]);
+    // Ikke tom: en scanning, der intet fandt, ville også være grøn.
+    expect(set).toBeGreaterThanOrEqual(10);
+  });
+
+  // VAGTEN SKAL KUNNE BLIVE RØD — på præcis de former, der overlevede.
+  it('scanningen fanger de overlevende former', () => {
+    const kilde = 'const puljeMaks = puljeMaksStartRunde(game);\n';
+    expect(erSpilletsGraense('3', kilde)).toBe(false);
+    expect(erSpilletsGraense('PULJE_MAKS_STARTRUNDE', kilde)).toBe(false);
+    expect(erSpilletsGraense('puljeMaksStartRunde(null)', kilde)).toBe(false);
+    expect(erSpilletsGraense('puljeMaksStartRunde()', kilde)).toBe(false);
+    expect(erSpilletsGraense('maks', kilde)).toBe(false);          // ingen videresendende parameter her
+    expect(erSpilletsGraense('andenVariabel', kilde)).toBe(false);
+    expect(erSpilletsGraense('puljeMaks', kilde)).toBe(true);
+    expect(erSpilletsGraense('puljeMaksStartRunde(game)', kilde)).toBe(true);
+    expect(erSpilletsGraense('puljeMaksStartRunde(l.game)', kilde)).toBe(true);
+    expect(erSpilletsGraense('puljeMaks', 'const puljeMaks = puljeMaksStartRunde(null);')).toBe(false);
+    expect(erSpilletsGraense('maks', 'function f(a, maks = PULJE_MAKS_STARTRUNDE) {}')).toBe(true);
+    expect(erSpilArg('null')).toBe(false);
+    expect(erSpilArg('{}')).toBe(false);
+    expect(erSpilArg('game')).toBe(true);
+    expect(erDefinition(['perRound', 'maks = PULJE_MAKS_STARTRUNDE'])).toBe(true);
+    expect(erDefinition(['a', 'b === c'])).toBe(false);
   });
 });

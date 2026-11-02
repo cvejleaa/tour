@@ -29,7 +29,7 @@
 //                                 det hænger sammen med stillingen.
 // ---------------------------------------------------------------------------
 
-const { outcomeFromScore } = require('./superligaScoring');
+const { outcomeFromScore, sportOrd } = require('./superligaScoring');
 
 /** Mærket på en kamp, hvis facit er sat i hånden. Synken rører den så ikke. */
 const RESULTAT_KILDE_MANUEL = 'manuel';
@@ -39,6 +39,16 @@ const AFGJORT = Object.freeze(['forlaenget', 'straffe']);
 const AFGJORT_NAVN = Object.freeze({
   forlaenget: 'efter forlænget spilletid',
   straffe: 'efter straffekast',
+});
+
+// FORKORTELSEN i en stilling: «30-30 · 35-34 e.f.» / «28-28 · 33-31 e.str.».
+// "e." = "efter" i begge, så de to læses som et par; "str." og ikke "s.", fordi
+// håndbold afgøres på STRAFFEKAST (ikke straffespark), og "e.s." kunne læses
+// som begge dele. Forkortelsen står aldrig alene: kampkortet oplæser den fulde
+// form (AFGJORT_NAVN), og guiden forklarer begge.
+const AFGJORT_KORT = Object.freeze({
+  forlaenget: 'e.f.',
+  straffe: 'e.str.',
 });
 
 // Et loft, så en tastefejl som 300 ikke bliver et facit. Håndbold ender
@@ -133,6 +143,63 @@ function facitFelter({ home, away, slut = null } = {}) {
   return ud;
 }
 
+/**
+ * Kampens slutresultat efter forlænget spilletid eller straffekast — KUN når
+ * det hænger sammen med stillingen efter ordinær tid (samme regel som
+ * facitFelter: uafgjort efter ordinær tid, en vinder, ikke færre mål). Ellers
+ * null, og kampen vises som det, den er: stillingen efter ordinær tid. Et
+ * slut, der modsiger sin egen stilling, må ikke stå på et kampkort.
+ *
+ * DATA-GATE, ikke en evne: feltet findes kun på en knockout-kamp, der gik
+ * ud over ordinær tid. Superligaen og Premier League har det aldrig.
+ * @returns {{home:number, away:number, afgjort:string}|null}
+ */
+function kampSlut(kamp) {
+  const slut = kamp?.slut;
+  // Kun null-vagten her: alt andet, der ikke er et gyldigt slut (en tekst, et
+  // tal, et ufuldstændigt objekt), afviser facitFejl — én vagt pr. regel.
+  if (slut == null) return null;
+  if (facitFejl({ home: kamp.homeGoals, away: kamp.awayGoals, slut }, { knockout: true }) != null) return null;
+  return { home: slut.home, away: slut.away, afgjort: slut.afgjort };
+}
+
+/**
+ * Slutresultatet som tekst: "35-34 e.f." — eller null uden et gyldigt slut.
+ * `vend` vender det til udeholdets side ("34-35 e.f."), som holdsiden skriver
+ * egne mål først.
+ */
+function slutTekst(kamp, { vend = false } = {}) {
+  const s = kampSlut(kamp);
+  if (!s) return null;
+  return `${vend ? s.away : s.home}-${vend ? s.home : s.away} ${AFGJORT_KORT[s.afgjort]}`;
+}
+
+/**
+ * Hele stillingen som tekst. "2-1" — og i en knockout-kamp, der gik ud over
+ * ordinær tid, "30-30 · 35-34 e.f.". Den første er ALTID stillingen efter
+ * ordinær tid: det er den, 1X2 afgøres af. null, når kampen ikke har mål.
+ */
+function stillingTekst(kamp, { vend = false } = {}) {
+  const tal = (g) => (g == null || g === '' ? NaN : Number(g));
+  const h = tal(kamp?.homeGoals);
+  const a = tal(kamp?.awayGoals);
+  if (!Number.isFinite(h) || !Number.isFinite(a)) return null;
+  const ordinaer = vend ? `${a}-${h}` : `${h}-${a}`;
+  const s = slutTekst(kamp, { vend });
+  return s ? `${ordinaer} · ${s}` : ordinaer;
+}
+
+/**
+ * KNOCKOUT-REGLEN i én sætning — med SPORTENS ordinære spilletid (60 min i
+ * håndbold). Spilførerens formulering, ordret: den skal stå ved
+ * tip-knapperne på en knockout-kamp, ikke kun ved resultatet, for den skal
+ * læses, FØR man tipper. Funktionen gater ikke selv: en kamp spørger
+ * erKnockout(game, round), hele spillet harKnockout(game).
+ */
+function knockoutRegel(game) {
+  return `Knockout: vi tipper stillingen efter ${sportOrd(game).ordinaerTid}. Uafgjort er X, også når nogen vinder i forlængelsen.`;
+}
+
 /** Er kampens facit sat i hånden (og dermed fredet for synken)? */
 function erManuelFacit(kamp) {
   return kamp?.resultatKilde === RESULTAT_KILDE_MANUEL;
@@ -156,6 +223,7 @@ function uenigTekst(u) {
 }
 
 module.exports = {
-  RESULTAT_KILDE_MANUEL, AFGJORT, AFGJORT_NAVN, MAKS_MAAL,
+  RESULTAT_KILDE_MANUEL, AFGJORT, AFGJORT_NAVN, AFGJORT_KORT, MAKS_MAAL,
   erKampspil, forventerFacit, facitFejl, facitFelter, erManuelFacit, uenigTekst,
+  kampSlut, slutTekst, stillingTekst, knockoutRegel,
 };

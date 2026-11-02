@@ -10,6 +10,7 @@ import ClubBadge from '../../../components/ClubBadge';
 import GameTabLink from '../GameTabLink';
 // Delt med kampkortet, så ▲/▼ betyder det samme begge steder.
 import Delta from './EloDelta';
+import { harFaseKalender, rundeKolonne, rundeOrdene } from '../../../lib/faser';
 
 export default function EloTable({ game }) {
   // Elo BEREGNES på serveren; her vises kun game.eloHistory (rundevis snapshots).
@@ -18,21 +19,24 @@ export default function EloTable({ game }) {
     () => eloRows(teams, game?.eloHistory), [teams, game?.eloHistory],
   );
   const colsDesc = [...cols].reverse(); // nyeste runde først
+  // «sæsonen»/«runde» i en liga, «turneringen»/«dag» med fasekalender. Uden
+  // kalender står teksterne præcis som før.
+  const o = rundeOrdene(game);
 
   return (
     <div>
       <div className="card mb-2">
-        <h3 className="card__title">📈 Elo-rating gennem sæsonen</h3>
+        <h3 className="card__title">📈 Elo-rating gennem {o.saesonen}</h3>
         <p style={{ color: 'var(--c-muted)', margin: 0 }}>
-          Holdenes styrke-rating (elo-lite), som odds og point bygger på. Efter hver spillet runde
-          kommer en ny kolonne til venstre med den nye rating og udviklingen. Ratingen starter fra de
-          kalibrerede sæson-startværdier.
+          Holdenes styrke-rating (elo-lite), som odds og point bygger på. Efter hver spillet {o.runde}
+          {' '}kommer en ny kolonne til venstre med den nye rating og udviklingen. Ratingen starter fra de
+          kalibrerede {harFaseKalender(game) ? 'startværdier' : 'sæson-startværdier'}.
         </p>
       </div>
 
       {cols.length === 0 && (
         <p className="badge badge--muted" style={{ display: 'inline-block', marginBottom: '0.6rem' }}>
-          Endnu ingen færdigspillede runder — tabellen viser start-ratingen. Kolonner tilføjes efterhånden.
+          Endnu ingen færdigspillede {o.runder} — tabellen viser start-ratingen. Kolonner tilføjes efterhånden.
         </p>
       )}
 
@@ -41,7 +45,7 @@ export default function EloTable({ game }) {
           <thead>
             <tr>
               <th className="elo-team-col">Hold</th>
-              {colsDesc.map((r) => <th key={r}>R{r}</th>)}
+              {colsDesc.map((r) => <th key={r}>{rundeKolonne(game, r)}</th>)}
               <th className="elo-start-col">Start</th>
             </tr>
           </thead>

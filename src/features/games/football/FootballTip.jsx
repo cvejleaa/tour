@@ -17,7 +17,7 @@ import { useVisibleGameStandings } from '../useVisibleGameStandings';
 import { rankDelta, ligaRanking } from '../gameStandings';
 import { rundePile } from '../rundePoint';
 import { rundensVildeste } from './xgRunde';
-import { ligaPoint, harRundeVektor, vektorStemmer } from '../../../lib/ligaPoint';
+import { ligaPointFor, harRundeVektor, vektorStemmer } from '../../../lib/ligaPoint';
 import ClubBadge from '../../../components/ClubBadge';
 import CountUp from '../../../components/CountUp';
 import { teamsOf, visOf, teamInfo } from './teamInfo';
@@ -31,11 +31,15 @@ import {
 import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import {
   harFaseKalender, rundeEtiket, rundeKort, rundeOrd, rundeNavneord, dagTaeller, ventetekst,
+  erKnockout, rundeOrdene,
 } from '../../../lib/faser';
 import {
   OUTCOME, OUTCOMES, round1, hitPoints, TRAEF_BONUS, COMBI,
-  chanceMaxStake, canUseChance, CHANCE, settleChance,
+  chanceMaxStake, canUseChance, CHANCE, settleChance, sportOrd,
 } from '../../../lib/superligaScoring';
+// Knockout: stillingen efter ordinær tid er facit; et slutresultat efter
+// forlængelse/straffekast står for sig (facit.js).
+import { kampSlut, slutTekst, knockoutRegel, AFGJORT_NAVN } from '../../../lib/facit';
 // Combi-reglen bor ÉT sted, spejlet med serveren. Fladen regnede den før selv.
 import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
 // Chance-deltaet udledes ÉT sted — se chanceUdfald.
@@ -364,6 +368,13 @@ export default function FootballTip({ game, me, matches }) {
   };
   const [rangeFrom, rangeTo] = spaend(kuponKampe.length ? kuponKampe : roundMatches);
   const [udenforFra, udenforTil] = spaend(udenforKupon);
+  // Ordene om kuponen. «Rundens uge» og «runde-bonussen» er liga-ord: en
+  // spilledag i en turnering har ingen uge af sin egen, og dens bonus hedder
+  // «dagens bonus» (som på combi-kortet). Uden kalender: præcis som før.
+  const kuponOrd = harFaseKalender(game)
+    ? { uden: 'ligger i en anden uge end dagens øvrige kampe', Uden: 'I en anden uge end dagens øvrige kampe', bonussen: 'dagens bonus' }
+    : { uden: 'ligger uden for rundens uge', Uden: 'Uden for rundens uge', bonussen: 'runde-bonussen' };
+  const kuponRunde = rundeOrdene(game);
   // Tælleren skal se de SAMME kampe som listen — også den udsatte kamp fra en
   // anden runde, der spilles i denne uge. Ejeren så "låser om 23 t" over et
   // kort, der låste om en time (FCK–FCN, runde 3, vist på runde 7).
@@ -439,7 +450,7 @@ export default function FootballTip({ game, me, matches }) {
     ? leagues[0]
     : null;
   const ligaSkala = enesteLiga
-    ? ligaRanking(standings, enesteLiga, ligaPoint, harRundeVektor, vektorStemmer)
+    ? ligaRanking(standings, enesteLiga, ligaPointFor(game), harRundeVektor, vektorStemmer)
     : standings;
   // En spiller uden brugbar runde-vektor kan ikke rangeres. Uden filteret
   // stod han med 0 point nederst og talte med i "af N" — et felt, han ikke er
@@ -447,7 +458,7 @@ export default function FootballTip({ game, me, matches }) {
   // og det er det rigtige: hellere ingen placering end en påstået.
   const rangerbare = ligaSkala.filter((r) => r.klar !== false);
   const raekker = Number.isFinite(current?.round)
-    ? rundePile(rangerbare, current.round, enesteLiga?.startRound ?? null, ligaPoint, harRundeVektor)
+    ? rundePile(rangerbare, current.round, enesteLiga?.startRound ?? null, ligaPointFor(game), harRundeVektor)
     : rangerbare;
   const myIdx = raekker.findIndex((r) => r.uid === me?.uid);
   const myRow = myIdx >= 0 ? raekker[myIdx] : null;
@@ -482,7 +493,7 @@ export default function FootballTip({ game, me, matches }) {
     const hvilken = harFaseKalender(game)
       ? ` · ${rundeEtiket(game, current?.round)}`
       : ` R${current?.round}`;
-    const parts = [`${game?.emoji || '⚽'} ${spil}${hvilken}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${spilledeIRunden} ramt)`];
+    const parts = [`${game?.emoji || sportOrd(game).emoji} ${spil}${hvilken}: ${fmtSignedPoints(roundEarned)} point (${roundHitsAll.length}/${spilledeIRunden} ramt)`];
     // 🔗 og ikke ⚡: ⚡ er Chancen overalt i appen (PointOpdeling siger det
     // eksplicit), og delingsteksten stod med begge betydninger på samme linje.
     if (roundBonus > 0) parts.push(`combi +${fmtDec(roundBonus)} 🔗`);
@@ -678,7 +689,8 @@ export default function FootballTip({ game, me, matches }) {
       {kupon > 0 && (
       <div className="card mb-2" style={{ borderStyle: 'dashed' }} data-testid="combi-kort">
         <div className="flex items-center justify-between" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 700 }}>🎯 Runde-bonus</span>
+          {/* «Dagens bonus» i en turnering: en spilledag er ingen «runde». */}
+          <span style={{ fontWeight: 700 }}>🎯 {harFaseKalender(game) ? 'Dagens bonus' : 'Runde-bonus'}</span>
           {/* Der er INTET krav om at have tippet hele kuponen. Kortet må derfor
               aldrig sige "for at være med" — man ER med, også med ét tip.
               Mangler der tips, er det en opfordring, ikke en spærring. */}
@@ -718,12 +730,12 @@ export default function FootballTip({ game, me, matches }) {
             {/* "Uden for rundens uge", ikke "udsat": en kamp kan være programsat
                 i næste uge helt legitimt, og så er "udsat" en påstand, vi ikke
                 kan bakke op. Det første holder altid. */}
-            🕒 {udenforKupon.length === 1 ? 'Én kamp i runden ligger' : `${udenforKupon.length} kampe i runden ligger`}
-            {' '}uden for rundens uge ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
+            🕒 {udenforKupon.length === 1 ? 'Én kamp' : `${udenforKupon.length} kampe`} {kuponRunde.iRunden}
+            {' '}{kuponOrd.uden} ({formatDateRange(udenforFra, udenforTil)}) og står derfor uden for
             kuponen: {udenforKupon.map((m) => `${visOf(hold, m.home)}–${visOf(hold, m.away)}`).join(', ')}.
-            {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point som altid — men runde-bonussen
-            venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}, og Chancen følger RUNDEN:
-            har du brugt din ⚡ i denne runde, er den brugt, også her.
+            {' '}{udenforKupon.length === 1 ? 'Den' : 'De'} giver 1X2-point som altid — men {kuponOrd.bonussen}
+            {' '}venter ikke på {udenforKupon.length === 1 ? 'den' : 'dem'}, og Chancen følger {kuponRunde.runden.toUpperCase()}:
+            har du brugt din ⚡ {kuponRunde.iDenneRunde}, er den brugt, også her.
           </p>
         )}
         {efterslaeb.length > 0 && (
@@ -779,6 +791,12 @@ export default function FootballTip({ game, me, matches }) {
         const { h, a } = matchBadges(hold, m.home, m.away, game?.teamStyles);
         const hit = m.result && bet?.pick ? bet.pick === m.result : null;
         const score = matchScore(m);
+        // Slutresultatet efter forlængelse/straffekast — kun på en knockout-
+        // kamp, der gik ud over ordinær tid (data-gate; SL og PL har det aldrig).
+        const slut = score ? kampSlut(m) : null;
+        // Reglen står ved KNAPPERNE på hver knockout-kamp — før og efter
+        // kampen. Den skal læses, før man tipper (Spilførerens krav).
+        const koRegel = erKnockout(game, m.round) ? knockoutRegel(game) : null;
         const live = liveScore(m, game?.liveHeartbeatAt, liveNu);
         // Live-listen findes kun, hvor live-stillingen findes: liveScore
         // svarer null på en kamp med facit, så et efterladt liveMaal på en
@@ -810,8 +828,8 @@ export default function FootballTip({ game, me, matches }) {
                     className={`kupon-maerke ${paaKupon ? 'kupon-maerke--med' : 'kupon-maerke--uden'}`}
                     data-testid={paaKupon ? 'kupon-med' : 'kupon-uden'}
                     title={paaKupon
-                      ? 'Tæller med i runde-bonussen'
-                      : 'Uden for rundens uge — giver point, men tæller ikke i runde-bonussen'}
+                      ? `Tæller med i ${kuponOrd.bonussen}`
+                      : `${kuponOrd.Uden} — giver point, men tæller ikke i ${kuponOrd.bonussen}`}
                   >
                     {paaKupon ? '🎯 På kuponen' : '🕒 Uden for kuponen'}
                   </span>
@@ -932,10 +950,28 @@ export default function FootballTip({ game, me, matches }) {
               {score ? (
                 <div
                   className="match-card__score"
-                  aria-label={`Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}.`
+                  // MED et slut er det store tal IKKE slutresultatet, men
+                  // stillingen efter ordinær tid — og oplæsningen siger det.
+                  // Uden slut: præcis som før.
+                  // Halvlegen hænger på BEGGE grene: den er en kvalifikator
+                  // på stillingen, uanset om kampen gik i forlængelse.
+                  aria-label={(slut
+                    ? `Stillingen efter ${sportOrd(game).ordinaerTid}: ${m.home} ${score.home}, ${m.away} ${score.away}.`
+                      + ` Slutresultat ${AFGJORT_NAVN[slut.afgjort]}: ${m.home} ${slut.home}, ${m.away} ${slut.away}.`
+                    : `Slutresultat: ${m.home} ${score.home}, ${m.away} ${score.away}.`)
                     + `${harHalvleg(m) ? ` Ved pausen stod den ${m.halvlegHome}-${m.halvlegAway}.` : ''}`}
                 >
                   <span aria-hidden="true">{score.home} – {score.away}</span>
+                  {/* «35-34 e.f.» under stillingen efter ordinær tid. EGEN
+                      klasse, ikke match-card__score (tripwiren dér tæller ét
+                      resultat pr. kort). Tallet ovenover er det, der tippes
+                      på — derfor står slutresultatet som en kvalifikator,
+                      ikke i stedet for. */}
+                  {slut && (
+                    <span className="match-card__slut" data-testid="kamp-slut" aria-hidden="true" title={AFGJORT_NAVN[slut.afgjort]}>
+                      {slutTekst(m)}
+                    </span>
+                  )}
                   {/* HALVLEGSSTILLINGEN er ikke et nyt tal på kortet — den er
                       en kvalifikator på et tal, der allerede står der, og
                       koster derfor ingen ny blok. Det er også den stærkeste af
@@ -1102,6 +1138,16 @@ export default function FootballTip({ game, me, matches }) {
 
             <MatchElo home={m.home} away={m.away} eloByTeam={eloByTeam} game={game} />
 
+            {/* KNOCKOUT-REGLEN, lige over knapperne — dér, hvor tippet
+                afgives (Spilførerens krav), og stående efter kampen, så den
+                også forklarer et X på en kamp, nogen vandt i forlængelsen.
+                Gaten er kalenderens erKnockout, aldrig sporten. */}
+            {koRegel && (
+              <p className="match-card__ko-regel" data-testid="ko-regel">
+                {koRegel}
+              </p>
+            )}
+
             <div className="pick-grid">
               {OUTCOMES.map((o) => {
                 const selected = bet?.pick === o;
@@ -1150,6 +1196,7 @@ export default function FootballTip({ game, me, matches }) {
       {/* Chancen */}
       <ChancePanel
         gameId={gameId}
+        ordene={rundeOrdene(game)}
         me={me}
         bank={bank}
         roundMatches={roundMatches}
@@ -1165,6 +1212,7 @@ export default function FootballTip({ game, me, matches }) {
 /** Chancen ⚡: sæt point på spil på ét 1X2-valg i runden. */
 function ChancePanel({
   gameId, me, bank, roundMatches, betsByMatch, chanceMatchId, nowMs, teams = null,
+  ordene = rundeOrdene(null),
 }) {
   const maxStake = chanceMaxStake(bank);
   const usable = canUseChance(bank);
@@ -1347,7 +1395,8 @@ function ChancePanel({
     <div className="card">
       <h3 className="card__title">Chancen ⚡</h3>
       <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
-        Sæt point på spil på ét af dine tips i runden. Rammer du, ganges indsatsen
+        {/* Ordene fra kalenderen: «på dagen» i en turnering, «i runden» i en liga. */}
+        Sæt point på spil på ét af dine tips {ordene.iRunden}. Rammer du, ganges indsatsen
         med kampens odds. Rammer du ikke, mister du kun indsatsen (du kan aldrig gå i minus).
       </p>
 
@@ -1357,7 +1406,7 @@ function ChancePanel({
         // Rundens chance er brugt og kan ikke flyttes. Vis kendsgerningen i
         // stedet for et valg, der ikke findes.
         <p className="badge badge--muted">
-          Chancen er brugt i denne runde — kampen er låst, så den kan hverken
+          Chancen er brugt {ordene.iDenneRunde} — kampen er låst, så den kan hverken
           flyttes eller fjernes.
         </p>
       ) : options.length === 0 ? (
@@ -1367,8 +1416,8 @@ function ChancePanel({
         // kan under ingen omstændigheder gøre det, sætningen beder om.
         <p className="badge badge--muted">
           {alleLaast
-            ? 'Runden er låst — Chancen kan ikke ændres nu.'
-            : 'Tip mindst én kamp i runden først.'}
+            ? `${ordene.Runden} er låst — Chancen kan ikke ændres nu.`
+            : `Tip mindst én kamp ${ordene.iRunden} først.`}
         </p>
       ) : (
         <>

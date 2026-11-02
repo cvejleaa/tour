@@ -91,6 +91,21 @@ describe('spejling mod src/lib', () => {
     }
   });
 
+  // SPILLETS GRÆNSE (game.pulje.maksStartRunde) — samme svar begge steder,
+  // også for de værdier, der skal falde tilbage til standarden.
+  it('matcher src på spillets puljegrænse', async () => {
+    const src = await import('../src/lib/ligaPoint.js');
+    const SPIL = [null, {}, { pulje: { poolSize: 6 } }, { pulje: { maksStartRunde: 8 } },
+      { pulje: { maksStartRunde: 0 } }, { pulje: { maksStartRunde: 2.5 } }, { pulje: { maksStartRunde: '8' } }];
+    for (const g of SPIL) {
+      expect(server.puljeMaksStartRunde(g), JSON.stringify(g)).toBe(src.puljeMaksStartRunde(g));
+      for (const r of [null, 3, 4, 8, 9]) {
+        expect(server.puljenTaeller(r, server.puljeMaksStartRunde(g))).toBe(src.puljenTaeller(r, src.puljeMaksStartRunde(g)));
+        expect(server.ligaPointFor(g)({ 5: 10 }, r, 34)).toBe(src.ligaPointFor(g)({ 5: 10 }, r, 34));
+      }
+    }
+  });
+
   // PARITETEN KAN IKKE SE SYMMETRISK DRIFT. Ændres begge spejle ens, bliver de
   // ved med at være enige. Grænsen måles derfor mod en HÅNDSKREVET forventning.
   it('serverudgaven har præcis ét rundes slæk til puljens deadline', () => {
@@ -98,5 +113,19 @@ describe('spejling mod src/lib', () => {
     expect(server.PULJE_MAKS_STARTRUNDE).toBe(3);
     expect(server.puljenTaeller(3)).toBe(true);
     expect(server.puljenTaeller(4)).toBe(false);
+  });
+});
+
+// Runde-Botten regner ligaens total med SPILLETS grænse. Uden den ville en
+// turnering med maksStartRunde: 8 få et opslag, hvor en liga fra dag 5 står
+// uden sin puljebonus, mens Ligaer-fanen viser den med.
+describe('gameRecap bruger spillets puljegrænse', () => {
+  it('kilden kalder ligaPoint med puljeMaks begge steder', () => {
+    const { readFileSync } = require('fs');
+    const kilde = readFileSync(require.resolve('./gameRecap'), 'utf8');
+    const kald = kilde.match(/ligaPoint\([^\n]*\)/g) || [];
+    expect(kald.length).toBe(2);
+    for (const k of kald) expect(k).toMatch(/, puljeMaks\)$/);
+    expect(kilde).toMatch(/const puljeMaks = puljeMaksStartRunde\(game\);/);
   });
 });

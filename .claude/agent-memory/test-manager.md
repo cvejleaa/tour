@@ -1862,3 +1862,15 @@ faser, facit, synk, aftryk, flade); de overlevende er mønstre værd at kende:
   ændring af de nævnte tokens, ikke adfærd (sweep'ets netopRettet-fradrag køres aldrig).
   Det er husets accepterede niveau for index.js, men husk det ved næste ledningsmutant.
 - Harness: `scratchpad/tm-del2/mut.py [id…]` (kører mod worktree, gendanner pr. mutant).
+
+## Håndbold-VM del 3 / D12: tekster gatet på evner (bb9758a, nov. 2026)
+
+270 mutationer (harness: scratchpad `tm-del3-D12/`), 260 dræbt, 47 overlevede, de fleste smånit. Mønstre:
+
+- **En ordbogs-tabel (`ORDENE_LIGA`/`ORDENE_TURNERING`) er pinnet nøgle for nøgle af `faser.test.js`, men BRUGEN af hver nøgle i en komponent er det ikke.** Hardkodes `o.iRunden` til «i runden» i `GameStandings.jsx` (title, aria-label, «Stregen – …»-linjen), overlever det — fixturet har ingen række med `rundePoint == null`, og title/aria-label ligger ikke i `textContent`. Tjek næste gang en tekst gøres til en variabel: findes en assertion på ATTRIBUTTEN (title/aria-label), og et fixture der når grenen?
+- **Kun den ene side af en gate pinnet.** `FootballTip.jsx` combi-kortets `harFaseKalender ? 'Dagens bonus' : 'Runde-bonus'`: turnering-siden har en test, Superligaens «Runde-bonus» har INGEN (mutation: altid «Dagens bonus» giver grøn suite). Samme for `ChancePanel` «Tip mindst én kamp {iRunden} først» (liga testet, turnering ikke) og `inviteTemplate.js` turneringstekster (`bonus`, `puljeTitel`, `puljeStart`, `facitTekst`, `kort1Alt`): testfixturet er en turnering UDEN pulje, så den mail, der rent faktisk skal sendes (turnering + pulje), er ikke pinnet.
+- **Flere led i en sum, ét fixture med nuller.** `HoldSide.jsx` V-U-T (`hu.hjemme.v + hu.ude.v` osv.): alle tre led kan droppes ét ad gangen med grøn suite — testen bruger én kamp (0-1-0), så ingen af leddene har en værdi at miste.
+- **Gate uden fraværs-assertion.** `FootballHelp.jsx` `{loftHistorie && …Premier League … 187}` kan sættes til `true` uden rød: forbudt-listen nævner andre PL-ord, ikke dette afsnits.
+- **Fastfrosset fejl i samme PR som rettelsen.** bb9758a gatede «puljen tæller ikke» på `game.pulje` to steder, men `GameStandings.jsx:818` («…, uden puljen») er ugatet, og `GameStandings.test.jsx` (HB-fixturet uden pulje) asserterer eksplicit teksten. Søg efter ALLE steder med samme formulering, ikke kun dem, rettelsen kom forbi.
+- **Callable-wiring uden test.** `functions-platform/index.js` har ingen testfil: `puljeRykMail({game, konfig, deadlineTxt, …})` kan miste `game` (så en turnering får «sæsonens») uden at noget bliver rødt. Udtræk til en ren funktion er kun halvdelen; kaldestedet er den anden.
+- **Paritetsscript mod den gamle kode virker:** jeg kørte den gamle inline-mailskabelon (hentet fra base-commit) mod `puljeRykMail` — byte-identisk for SL/PL, med og uden deadline. Gør det for hver «uændret byte for byte»-påstand, hvor testens egen `gammel()` kunne være en kopi med samme fejl.

@@ -14,7 +14,7 @@ import {
 import { faerdigeRunder } from './rundeSejre';
 import { ligaOpdeling } from './ligaOpdeling';
 import {
-  ligaPoint, harRundeVektor, puljenTaeller, vektorStemmer,
+  ligaPointFor, harRundeVektor, puljenTaeller, vektorStemmer, puljeMaksStartRunde,
 } from '../../lib/ligaPoint';
 import { GAME_TYPE } from '../../lib/constants';
 import GameTabLink from './GameTabLink';
@@ -23,8 +23,11 @@ import { fmtSignedPoints } from '../../lib/daNum';
 import { RUBRIKKER, opdelingsAfvigelse, afvigelsesTekst } from './football/PointOpdeling';
 import SpillerDetalje from './football/SpillerDetalje';
 import Pokaler from './Pokaler';
-import { rundeKort, rundeOrd } from '../../lib/faser';
+import { rundeKort, rundeOrd, rundeOrdene } from '../../lib/faser';
 import { useKlubFarver } from './football/useKlubFarver';
+
+// Ligaens ord — standarden for de små celler, der ikke kender spillet.
+const LIGA_ORD = rundeOrdene(null);
 
 // Værdien for "vis alle mine ligaer samlet". Tom streng ville kollidere med
 // et manglende valg.
@@ -75,19 +78,21 @@ function rundeTal(p) {
  * siger hvorfor — undtagen ved klar:false, hvor det ikke er sandt (hun kan have
  * et tal, som er afvist): dér forklarer badget «ikke klar» i samme celle.
  */
-function IngenRundePoint({ r }) {
+function IngenRundePoint({ r, o = LIGA_ORD }) {
   return (
-    <span title={r?.klar === false ? undefined : 'Ingen afgjorte tips i runden endnu'} style={{ color: 'var(--c-muted)' }}>–</span>
+    <span title={r?.klar === false ? undefined : `Ingen afgjorte tips ${o.iRunden} endnu`} style={{ color: 'var(--c-muted)' }}>–</span>
   );
 }
 
-function RundeCelle({ r, runde, foerende }) {
+// `o` er spillets ord (rundeOrdene): «i runden» i en liga, «på dagen» i en
+// turnering med fasekalender.
+function RundeCelle({ r, runde, foerende, o = LIGA_ORD }) {
   const p = rundensPoint(r, runde);
-  if (p == null) return <IngenRundePoint r={r} />;
+  if (p == null) return <IngenRundePoint r={r} o={o} />;
   const foerer = foerende.has(r.uid);
   return (
-    <span title={foerer ? 'Flest point i runden indtil videre' : undefined}>
-      {foerer && <span aria-label="Flest point i runden">🔥</span>}
+    <span title={foerer ? `Flest point ${o.iRunden} indtil videre` : undefined}>
+      {foerer && <span aria-label={`Flest point ${o.iRunden}`}>🔥</span>}
       {foerer ? ' ' : ''}
       {rundeTal(p)}
     </span>
@@ -135,7 +140,8 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null, ga
   // væk ALLE tre steder — overskrift, celler og forklaringslinjen. En
   // forklaring på en kolonne, der ikke findes, er samme slags modsigelse som
   // to skalaer i én tabel.
-  const rubrikker = liga && !puljenTaeller(startRunde)
+  const puljeMaks = puljeMaksStartRunde(game);
+  const rubrikker = liga && !puljenTaeller(startRunde, puljeMaks)
     ? RUBRIKKER.filter(({ key }) => key !== 'pulje')
     : RUBRIKKER;
   // Rubrikkerne pr. række. null betyder «har vi ikke» og bliver til en streg —
@@ -143,7 +149,7 @@ function OpdelingsTabel({ rows, meUid, aabenUid, onToggle, startRunde = null, ga
   const dele = rows.map((r) => {
     if (!liga) return r.opdeling;
     if (r.klar === false) return null;
-    return ligaOpdeling(r.perRound, r.opdelingPerRunde, startRunde, r.bonusPoints);
+    return ligaOpdeling(r.perRound, r.opdelingPerRunde, startRunde, r.bonusPoints, puljeMaks);
   });
   const harNogen = dele.some(Boolean);
   // Afvigelserne regnes med SAMME funktion som kortet, så noten siger det
@@ -347,9 +353,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // (ligaRanking); uden er den bare en delmængde af spillet (subsetRanking).
   const standings = useMemo(
     () => (valgt
-      ? ligaRanking(alleMine, valgt, ligaPoint, harRundeVektor, vektorStemmer)
+      ? ligaRanking(alleMine, valgt, ligaPointFor(game), harRundeVektor, vektorStemmer)
       : alleMine),
-    [alleMine, valgt],
+    [alleMine, valgt, game],
   );
 
   // RUNDENS POINT. Regnes af det VISTE felt (standings), ikke af hele kredsen:
@@ -361,6 +367,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // At lægge football:true på selve Stilling-fanen ville fjerne den helt fra
   // cykelspillet — en anden beslutning, som ikke hører til her (opgave #56).
   const harRunder = game?.type === GAME_TYPE.FOOTBALL;
+  const o = rundeOrdene(game);
   const rundeNr = useMemo(
     () => (harRunder ? sidsteRunde(standings, ligaStart) : null),
     [harRunder, standings, ligaStart],
@@ -379,9 +386,9 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // ellers beholder cykelspil og spil uden runder serverens billede.
   const raekker = useMemo(
     () => (visRunde
-      ? rundePile(standings, rundeNr, ligaStart, ligaPoint, harRundeVektor)
+      ? rundePile(standings, rundeNr, ligaStart, ligaPointFor(game), harRundeVektor)
       : standings),
-    [visRunde, standings, rundeNr, ligaStart],
+    [visRunde, standings, rundeNr, ligaStart, game],
   );
 
   // VISNINGEN UDLEDES, DEN GEMMES IKKE RÅT (QC på planen). Skifter man til
@@ -472,7 +479,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
             ? (
               <span
                 title={visning !== 'runde' || r.klar === false ? undefined
-                  : (r.rundePoint == null ? 'Ingen afgjorte tips i runden endnu' : 'Ingen rang — ingen fører runden endnu')}
+                  : (r.rundePoint == null ? `Ingen afgjorte tips ${o.iRunden} endnu` : `Ingen rang — ingen fører ${o.runden} endnu`)}
               >
                 –
               </span>
@@ -499,7 +506,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   nr. 13 samlet» er selve pointen). En urangeret række viser
                   samme streg og samme title som RundeCelle; klar:false viser
                   badget og aldrig ligaRankings 0. */}
-              {r.rundePoint == null ? <IngenRundePoint r={r} /> : rundeTal(r.rundePoint)}
+              {r.rundePoint == null ? <IngenRundePoint r={r} o={o} /> : rundeTal(r.rundePoint)}
               <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
                 {r.klar === false
                   ? <IkkeKlar />
@@ -519,7 +526,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   overskriften siger, det er. */}
               {visRunde && (
                 <div style={{ fontSize: '0.8rem', color: 'var(--c-muted)', fontWeight: 400 }}>
-                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
+                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} o={o} />
                 </div>
               )}
             </>
@@ -542,7 +549,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
   // spillets og ikke ligaens. Samme fejl som gaten selv, gentaget i teksten.
   const ligaGate = valgt
     ? (Number.isFinite(valgt.startRound)
-      ? ` Tæller fra ${rundeOrd(game, valgt.startRound)}${puljenTaeller(valgt.startRound) ? '' : ' — puljen tæller ikke'}.`
+      ? ` Tæller fra ${rundeOrd(game, valgt.startRound)}${!game?.pulje || puljenTaeller(valgt.startRound, puljeMaksStartRunde(game)) ? '' : ' — puljen tæller ikke'}.`
       : '')
     : ` Tæller fra ${rundeOrd(game, 1)} — spillets egen skala, ikke en ligas.`;
   const opsummering = (valgt
@@ -723,10 +730,10 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
           <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.6rem' }}>
             {visning === 'runde' ? (
               <>
-                {rundeKort(game, rundeNr)} alene — sorteret efter rundens point.
-                {!rundeFaerdig && ' Rækkefølgen er foreløbig — runden er ikke færdigspillet.'}
+                {rundeKort(game, rundeNr)} alene — sorteret efter {o.rundens} point.
+                {!rundeFaerdig && ` Rækkefølgen er foreløbig — ${o.runden} er ikke færdigspillet.`}
                 {' '}Det lille tal er placering og point i Samlet.
-                {viste.some((r) => r.rundePoint == null) && ' Stregen – betyder ingen afgjorte tips i runden endnu.'}
+                {viste.some((r) => r.rundePoint == null) && ` Stregen – betyder ingen afgjorte tips ${o.iRunden} endnu.`}
                 {/* Fredag aften, hvor alle ramte den første kamp forbi (eller én
                     tabte sin Chance): tal, men ingen rang — og en title findes
                     ikke på en telefon, så linjen siger det selv. Spilførers ord:
@@ -736,7 +743,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
               </>
             ) : (
               <>
-                {rundeKort(game, rundeNr)}: tallet under totalen er rundens point.
+                {rundeKort(game, rundeNr)}: tallet under totalen er {o.rundens} point.
                 {foerende.size > 0 && ' 🔥 har flest indtil videre.'}
               </>
             )}
@@ -766,7 +773,7 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                 </span>
               ) : visRunde && (
                 <span style={{ fontSize: '0.8rem', color: 'var(--c-muted)' }}>
-                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} />
+                  <RundeCelle r={r} runde={rundeNr} foerende={foerende} o={o} />
                 </span>
               )}
               {/* Selve trinnet. Højden følger PLACERINGEN og ikke pladsen i
@@ -805,11 +812,13 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   (Spilfører): den, der kun er i én liga, har ingen vælger, så
                   panelet er hans eneste vej derhen. Uden startrunde er
                   regnskabet spillets, og i «Alle mine ligaer» står der tilmed,
-                  at skalaen ikke er en ligas. */}
+                  at skalaen ikke er en ligas. «Uden puljen» følger PULJEN
+                  (samme gate som Tæller fra-linjen og GameLeagues): et spil
+                  uden pulje har ingen bonus at miste. */}
               {ligaStart != null ? (
                 <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
-                  {`Regnskabet tæller som ligaen: kun point fra ${rundeOrd(game, ligaStart)} og frem${puljenTaeller(ligaStart) ? '' : ', uden puljen'}. `
-                    + 'I alt er derfor det samme tal som i stillingen. Hele sæsonen for en spiller: tryk på navnet.'}
+                  {`Regnskabet tæller som ligaen: kun point fra ${rundeOrd(game, ligaStart)} og frem${!game?.pulje || puljenTaeller(ligaStart, puljeMaksStartRunde(game)) ? '' : ', uden puljen'}. `
+                    + `I alt er derfor det samme tal som i stillingen. Hele ${o.saesonen} for en spiller: tryk på navnet.`}
                 </p>
               ) : ligaGate && (
                 <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>

@@ -4,7 +4,7 @@
 // én giver præcis 3 (kun podie). Ellers ville assertions ramme podiet, mens
 // man tror, man læser tabellen.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('../../firebase', () => ({ db: {} }));
@@ -346,6 +346,18 @@ describe('GameStandings — liga-filter', () => {
       expect(screen.getByText(/Tæller fra runde 12/)).toBeInTheDocument();
     });
 
+    // Puljeforbeholdet følger PULJEN: en liga fra runde 12 mister puljebonussen
+    // i et spil med pulje (grænsen er 3), men et spil uden pulje har ingen
+    // bonus at miste, og så må teksten ikke advare om den.
+    it('nævner, at puljen ikke tæller — kun når spillet har en pulje', () => {
+      setup({ standings: MED_VEKTOR, leagues: LIGA12, game: { id: 'sl', type: 'football', pulje: { poolSize: 6 } } });
+      expect(screen.getByText(/Tæller fra runde 12 — puljen tæller ikke\./)).toBeInTheDocument();
+      cleanup();
+      setup({ standings: MED_VEKTOR, leagues: LIGA12, game: { id: 'sl', type: 'football' } });
+      expect(screen.getByText(/Tæller fra runde 12\./)).toBeInTheDocument();
+      expect(screen.queryByText(/puljen tæller ikke/)).toBeNull();
+    });
+
     it('siger i spillerpanelet, at DETS tal er på en anden skala', () => {
       // Quality Controls B-4. Panelet får bevidst spillets total, fordi det
       // lister runder fra spillets start — men rækken ovenfor viser ligaens.
@@ -419,7 +431,8 @@ describe('GameStandings — liga-filter', () => {
       });
 
       it('siger, at regnskabet tæller som ligaen — og IKKE, at det viser spillets point', () => {
-        setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+        // Med pulje (som Superligaen): først dér har ligaen en bonus at miste.
+        setup({ standings: MED_VEKTOR, leagues: LIGA12, game: { id: 'sl', type: 'football', pulje: { poolSize: 6 } } });
         aabn();
         expect(screen.getByText(
           'Regnskabet tæller som ligaen: kun point fra runde 12 og frem, uden puljen. '
@@ -486,14 +499,31 @@ describe('GameStandings — liga-filter', () => {
           ],
         };
 
-        it('regnskabet: «kun point fra dag 12 og frem»', () => {
+        it('regnskabet: «kun point fra dag 12 og frem» — og intet «uden puljen» uden pulje', () => {
           setup({ standings: MED_VEKTOR, leagues: LIGA12, game: HB });
           aabn();
+          // VENDT (fix D): testen krævede «…og frem, uden puljen.» for HB, der
+          // INGEN pulje har — grøn, fordi den forsvarede fejlen. Tæller fra-
+          // linjen og GameLeagues var gatet på game.pulje i bb9758a; regnskabet
+          // var glemt. Et spil uden pulje har ingen bonus at miste.
           expect(screen.getByText(
-            'Regnskabet tæller som ligaen: kun point fra dag 12 og frem, uden puljen. '
-            + 'I alt er derfor det samme tal som i stillingen. Hele sæsonen for en spiller: tryk på navnet.',
+            'Regnskabet tæller som ligaen: kun point fra dag 12 og frem. '
+            + 'I alt er derfor det samme tal som i stillingen. Hele turneringen for en spiller: tryk på navnet.',
           )).toBeInTheDocument();
+          expect(screen.queryByText(/uden puljen/)).toBeNull();
           expect(container.textContent).not.toMatch(/fra runde 12/);
+          // VENDT (D12): testen fastholdt «Hele sæsonen» om en turnering —
+          // grøn, fordi den forsvarede fejlen.
+          expect(container.textContent).not.toMatch(/sæson/);
+        });
+
+        it('regnskabet med runde-pulje: «uden puljen» står stadig, når ligaen starter for sent', () => {
+          setup({
+            standings: MED_VEKTOR, leagues: LIGA12,
+            game: { ...HB, pulje: { poolSize: 8, facitKilde: 'runde', maksStartRunde: 1 } },
+          });
+          aabn();
+          expect(screen.getByText(/^Regnskabet tæller som ligaen: kun point fra dag 12 og frem, uden puljen\. /)).toBeInTheDocument();
         });
 
         it('stregens forklaring: «ikke delt op fra dag 12»', () => {

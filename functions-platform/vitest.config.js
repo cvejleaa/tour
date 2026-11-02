@@ -42,6 +42,8 @@ export default defineConfig({
       'facit.test.js',
       'manuelFacit.test.js',
       'facitVagt.test.js',
+      'puljeFacit.test.js',
+      'puljeRykMail.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

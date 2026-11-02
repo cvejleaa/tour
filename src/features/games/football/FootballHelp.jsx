@@ -8,17 +8,20 @@ import GameTabLink from '../GameTabLink';
 import {
   CHANCE, COMBI, eloExpectedHome, puljeKonfig, roundComboBonus, sportProfil, TRAEF_BONUS,
 } from '../../../lib/superligaScoring';
-import { PULJE_MAKS_STARTRUNDE } from '../../../lib/ligaPoint';
+import { puljeMaksStartRunde } from '../../../lib/ligaPoint';
+import { rundePuljeTekster } from '../../../lib/puljeFacit';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
 // denne fils formål er at undgå.
-import { harXg, harKampdetaljer } from '../spilEvner';
+import { harXg, harKampdetaljer, harLiveStilling } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
-import { sportOrd } from '../../../lib/superligaScoring';
+import { sportOrd, harHjemmebane } from '../../../lib/superligaScoring';
 import {
-  harFaseKalender, rundeKort, rundeOrd, sidsteKalenderRunde,
+  harFaseKalender, harKnockout, rundeKort, rundeOrd, rundeOrdene, sidsteKalenderRunde,
 } from '../../../lib/faser';
+import { knockoutRegel, stillingTekst, AFGJORT_KORT, AFGJORT_NAVN } from '../../../lib/facit';
+
 
 // Udbetalingstabellen REGNES af den rigtige formel, den skrives ikke af.
 // En håndskrevet tabel er en anden udgave af reglen, og to udgaver driver fra
@@ -69,6 +72,9 @@ export default function FootballHelp({ game }) {
   // 'mesterskabsspillet', PL 'Juletabellen'; hardkodede 6-taller ville lyve
   // i det ene af spillene (QC-fund på planen).
   const pulje = puljeKonfig(game);
+  // En RUNDE-pulje ("hvem når semifinalerne?") afgøres af en fase, ikke af en
+  // slutstilling — og dens tekst og dato kommer af kalenderen. null for SL/PL.
+  const rundePulje = rundePuljeTekster(game, pulje);
   // Elo- og odds-tallene kommer fra SPILLETS sportsprofil, ikke fra de globale
   // konstanter — så guiden siger det, spillets odds faktisk er regnet med.
   const profil = sportProfil(game);
@@ -82,17 +88,40 @@ export default function FootballHelp({ game }) {
   const oddsGulv = String(profil.odds.min).replace('.', ',');
   // Sportens ord ("Dagens konge" i håndbold) — fra registret, ikke en if.
   const ord = sportOrd(game);
+  // EVNERNE, guiden gater på. Uden fasekalender, med hjemmebane, med
+  // live-stilling og uden knockout — Superligaen og Premier League — står
+  // hver sætning præcis som før.
+  //   kal     turnering med faser: «dag» for «runde», «turneringen» for
+  //           «sæsonen», og ingen liga-begreber (udsatte kampe over flere
+  //           uger, start midt i sæsonen, storklub/oprykker).
+  //   hjemme  hjemmebane i sporten OG modellen (harHjemmebane).
+  //   live    kilden leverer en levende stilling (DIREKTE).
+  //   ko      kalenderen har knockout-faser.
+  const kal = harFaseKalender(game);
+  const o = rundeOrdene(game);
+  const hjemme = harHjemmebane(game);
+  const live = harLiveStilling(game);
+  const ko = harKnockout(game);
+  const startOrd = kal ? 'startdag' : 'startrunde';
+  const startOrdet = kal ? 'startdagen' : 'startrunden';
+  // Loftets historie er en LIGA-historie (Superligaen og Premier League
+  // havde loftet); en turnering har aldrig haft det.
+  const loftHistorie = !kal;
+  // Eksemplerne på knockout-stillingen BYGGES af samme funktion som kortet,
+  // så forkortelserne her ikke kan drive fra dem på kampkortet.
+  const koEf = stillingTekst({ homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' } });
+  const koStr = stillingTekst({ homeGoals: 28, awayGoals: 28, slut: { home: 33, away: 31, afgjort: 'straffe' } });
   return (
     <div>
       <p style={{ color: 'var(--c-muted)', margin: '0 0 1rem', fontSize: '0.95rem' }}>
-        Alt om at tippe her — fra dit ugentlige flow til point, bonus, Elo og mini-ligaer.
+        Alt om at tippe her — fra dit {kal ? 'daglige' : 'ugentlige'} flow til point, bonus, Elo og mini-ligaer.
       </p>
 
       {/* Det daglige/ugentlige flow først — så resten er detaljerne. */}
-      <Section emoji="🗓️" title="Sådan forløber en runde">
+      <Section emoji="🗓️" title={`Sådan forløber en ${o.runde}`}>
         <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>Før kampene:</strong> På <Tab fane="tip">Tip</Tab> sætter du 1X2 på rundens kampe — du kan rette
+            <strong>Før kampene:</strong> På <Tab fane="tip">Tip</Tab> sætter du 1X2 på {o.rundens} kampe — du kan rette
             frit indtil hver kampstart. Jo flere kampe du tipper, jo større kan combi-bonussen blive. Brug evt.
             {' '}<strong>Chancen</strong> på den kamp, du har bedst fornemmelse for.
           </li>
@@ -109,27 +138,39 @@ export default function FootballHelp({ game }) {
             kampe — og de kan se dine på samme måde. Før kampstart er alles tips skjult, så ingen kan
             kigge efter.
           </li>
+          {/* KUN MED LEVENDE STILLING. Uden den lovede guiden et rødt
+              DIREKTE, kortet aldrig viser. */}
+          {live && (
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Mens kampen spilles:</strong> Stillingen står mellem holdnavnene med et rødt
             {' '}<em>DIREKTE</em> og halvlegen, og den opdaterer sig selv hvert minut — du behøver ikke
             hente siden igen. Under tallet står klokkeslættet for seneste opdatering; holder den op med at
             komme, siger kortet det i stedet for at lade som ingenting.
           </li>
+          )}
+          {live ? (
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Når kampen er slut:</strong> Ved slutfløjt bliver stillingen stående, og kortet
             skifter til <em>Slut · afventer facit</em> — tallet forsvinder ikke. Så lander slutresultatet,
             det rigtige 1X2 markeres, og dine point afregnes i samme øjeblik. Alt kommer fra ligaens
             eget system, så der kan gå et minut eller to, hvor kampen er slut, uden at resultatet er nået frem.
           </li>
+          ) : (
+          <li style={{ marginBottom: '0.4rem' }} data-testid="hjaelp-uden-live">
+            <strong>Når kampen er slut:</strong> Stillingen vises ikke undervejs. Når slutresultatet
+            lander på <Tab fane="tip">Tip</Tab>, markeres det rigtige 1X2, og dine point afregnes i samme
+            øjeblik.
+          </li>
+          )}
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>Efter runden:</strong> Se dit facit og din træfprocent under <Tab fane="mine">📋 Mine tips</Tab>, og
+            <strong>Efter {o.runden}:</strong> Se dit facit og din træfprocent under <Tab fane="mine">📋 Mine tips</Tab>, og
             hvordan holdenes rating flyttede sig under <Tab fane="elo">📈 Elo</Tab>.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>Hvilken runde lander du på?</strong> <Tab fane="tip">Tip</Tab> bliver stående på den runde, der
+            <strong>Hvilken {o.runde} lander du på?</strong> <Tab fane="tip">Tip</Tab> bliver stående på den {o.runde}, der
             har en kamp <strong>i gang</strong> — så forsvinder kampen, du sidder og ser, ikke fra skærmen. Ellers
-            viser den runden med den <strong>næste kamp</strong>. Vil du videre før tid, bruger du
-            {' '}<strong>{rundeKort(game, 'X')} →</strong> øverst; du kan tippe frit i enhver runde, der ikke er begyndt.
+            viser den {o.runden} med den <strong>næste kamp</strong>. Vil du videre før tid, bruger du
+            {' '}<strong>{rundeKort(game, 'X')} →</strong> øverst; du kan tippe frit {o.i} enhver {o.runde}, der ikke er begyndt.
           </li>
           {/* TURNERINGENS FASER — kun med en fasekalender, og navnene LÆSES
               af kalenderen (ikke en hardkodet liste, der kan blive en
@@ -148,6 +189,10 @@ export default function FootballHelp({ game }) {
               : <>Dyst i</>}
             {' '}<Tab fane="ligaer">👥 Ligaer</Tab> med vennerne, og vælg dit hold under <Tab fane="profil">🙂 Mit hold</Tab>.
           </li>
+          {/* En LIGA-regel: en sæson kan være i gang, når spillet åbner. En
+              turnering med fasekalender begynder på dag 1 (formkontrollen
+              kræver det), så punktet ville forklare noget, der ikke sker. */}
+          {!kal && (
           <li>
             <strong>Spillet kan starte midt i sæsonen.</strong> Runder <em>før</em> spillets startrunde
             vises ikke og giver ingen point — så alle er med fra samme runde. Derfor kan runde 1 mangle,
@@ -155,14 +200,34 @@ export default function FootballHelp({ game }) {
             spredt over flere uger, hvis en kamp er udsat, og de udsatte kampe følger stadig deres runde,
             når spillet afgør, hvad der tæller med.
           </li>
+          )}
         </ul>
       </Section>
 
-      <Section emoji="⚽" title="Tip kampene (1X2)">
-        På <Tab fane="tip">Tip</Tab> gætter du udfaldet af hver kamp i runden: <strong>1</strong> (hjemmesejr),
-        {' '}<strong>X</strong> (uafgjort) eller <strong>2</strong> (udesejr). Du kan rette dit tip helt
+      <Section emoji={ord.emoji} title="Tip kampene (1X2)">
+        {/* Uden hjemmebane er «hjemmesejr» et ord uden indhold: 1 er bare
+            det hold, der står først på kampkortet. */}
+        På <Tab fane="tip">Tip</Tab> gætter du udfaldet af hver kamp {o.iRunden}: {hjemme ? (
+          <><strong>1</strong> (hjemmesejr),
+          {' '}<strong>X</strong> (uafgjort) eller <strong>2</strong> (udesejr).</>
+        ) : (
+          <><strong>1</strong> (det første hold på kampkortet vinder),
+          {' '}<strong>X</strong> (uafgjort) eller <strong>2</strong> (det andet hold vinder).</>
+        )} Du kan rette dit tip helt
         indtil <strong>kampstart</strong> — derefter låses netop den kamp. Du behøver ikke tippe hele
-        runden, og en glemt kamp koster dig ikke combi-bonussen — men hver kamp, du rammer, ganger den op.
+        {' '}{o.runden}, og en glemt kamp koster dig ikke combi-bonussen — men hver kamp, du rammer, ganger den op.
+        {/* KNOCKOUT-REGLEN (ejerens beslutning §11.1). Gaten er kalenderens
+            knockout-faser — aldrig sporten. Eksemplerne bygges af samme
+            funktion som kampkortet. */}
+        {ko && (
+          <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-knockout">
+            <strong>{knockoutRegel(game)}</strong> Står den lige efter {ord.ordinaerTid}, er
+            {' '}<strong>X</strong> det rigtige tip — også når kampen afgøres i forlængelsen eller på
+            straffekast. Kampkortet viser begge stillinger: <strong>{koEf}</strong> ({AFGJORT_KORT.forlaenget}
+            {' '}= {AFGJORT_NAVN.forlaenget}) eller <strong>{koStr}</strong> ({AFGJORT_KORT.straffe}
+            {' '}= {AFGJORT_NAVN.straffe}). Den første stilling er den, der giver point.
+          </p>
+        )}
       </Section>
 
       <Section emoji="🎯" title="Point følger oddsene">
@@ -179,6 +244,7 @@ export default function FootballHelp({ game }) {
           overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre valg altså
           lige gode.
         </p>
+        {loftHistorie ? (
         <p style={{ margin: '0.5rem 0 0' }}>
           <strong>Der er ikke længere et loft over oddsene.</strong> Tidligere blev alt over 6,00
           skåret ned til 6,00, og det gjorde tre ting: de vildeste langskud var underbetalte, to
@@ -186,6 +252,12 @@ export default function FootballHelp({ game }) {
           i praksis et tab. Nu betaler et udfald altid, hvad det er værd — i Superligaen op til
           omkring 8, i Premier League helt op til 24.
         </p>
+        ) : (
+        <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-intet-loft">
+          <strong>Der er intet loft over oddsene.</strong> Et udfald betaler altid, hvad det er
+          værd — også det vildeste langskud.
+        </p>
+        )}
         <p style={{ margin: '0.5rem 0 0' }}>
           <strong>Oddsene kan nå at flytte sig, indtil kampen går i gang.</strong> Efter hvert
           resultat opdateres holdenes styrke, og så friskes oddsene på alle kampe, der ikke er
@@ -197,36 +269,42 @@ export default function FootballHelp({ game }) {
           <strong>Combi-bonussen</strong> ganger de <strong>rene odds</strong> sammen: rammer du
           to overraskelser til odds 4,5, giver den{' '}
           <strong>{fmtDec(roundComboBonus([4.5, 4.5], 2))}</strong>; rammer du fem favoritter til odds 1,6,
-          giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>. Den er
-          nu det eneste sted i spillet, der stadig har et loft — på{' '}
+          giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>.
+          {/* «nu … stadig» henviser til loftets historie — uden den
+              (en turnering) er det bare et loft. */}
+          {loftHistorie
+            ? <> Den er nu det eneste sted i spillet, der stadig har et loft — på{' '}</>
+            : <> Den er det eneste sted i spillet, der har et loft — på{' '}</>}
           <strong>{COMBI.LOFT}</strong>.
         </p>
       </Section>
 
       <Section emoji="⚡" title="Chancen">
-        På én kamp pr. runde kan du bruge <strong>Chancen</strong>: sæt et lille antal point i spil på dit
+        På én kamp pr. {o.runde} kan du bruge <strong>Chancen</strong>: sæt et lille antal point i spil på dit
         1X2-valg. Rammer du, vinder du <strong>indsats × (odds − 1)</strong> oveni; rammer du forkert,
         mister du kun indsatsen. Indsatsen er mellem <strong>{CHANCE.MIN}</strong> og{' '}
         <strong>{CHANCE.MAX_ABS}</strong> point og kan aldrig være mere end{' '}
         {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus. Indsatsen
         tages fra dine <strong>optjente point</strong>, så du kan først bruge Chancen, når du har samlet
         nogle point.
+        {loftHistorie && (
         <p style={{ margin: '0.5rem 0 0' }}>
           Fordi oddsene ikke længere har et loft, er det her, ændringen mærkes mest. Fuld indsats
           på et udfald til odds 8 giver <strong>56 point</strong>; i Premier League kan en enkelt
           Chance til odds 24 give <strong>187</strong>. Det sker sjældent — og de gange du ikke
           rammer, koster det stadig kun indsatsen.
         </p>
+        )}
       </Section>
 
-      <Section emoji="🎰" title="Combi-runde-bonus">
+      <Section emoji="🎰" title={kal ? 'Combi-bonus pr. dag' : 'Combi-runde-bonus'}>
         Oveni pointene pr. kamp får du en <strong>combi-bonus</strong> — som en tæmmet
         bookmaker-kupon. <strong>Sådan beregnes den:</strong> de odds, du <strong>rammer</strong>, ganges
         sammen, og bonussen er <strong>{COMBI.FAKTOR} × kvadratroden</strong> af det produkt, med et loft
         på <strong>{COMBI.LOFT}</strong> point.
         <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem' }}>
           <li><strong>Hver ramt kamp tæller — fra to rigtige og opefter.</strong> Du behøver ikke ramme dem alle. Rammer du kun én, er der ingen kupon at gange; den kamp har allerede fået sine point.</li>
-          <li><strong>Du behøver ikke tippe hele runden.</strong> Har du glemt en kamp, tæller den bare ikke med — den koster dig ikke bonussen. Men hver kamp, du tipper og rammer, ganger den op.</li>
+          <li><strong>Du behøver ikke tippe hele {o.runden}.</strong> Har du glemt en kamp, tæller den bare ikke med — den koster dig ikke bonussen. Men hver kamp, du tipper og rammer, ganger den op.</li>
           <li><strong>De forkerte tæller ikke med</strong> i produktet — de trækker heller ikke fra.</li>
         </ul>
         <p style={{ margin: '0.5rem 0 0' }}>
@@ -234,10 +312,10 @@ export default function FootballHelp({ game }) {
           {' '}{COMBI.FAKTOR} × √9,0 = <strong>{fmtDec(bonusAfProdukt(9))} point</strong> oveni.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
-          Kvadratroden er ikke pynt. Uden den var bonussen så stor, at én heldig runde afgjorde
-          sæsonen — og så lidt værd ved 4-5 rigtige, at det bedste træk var at tippe favoritter og håbe
-          på en perfekt runde. Nu vokser den <em>jævnt</em>: det kan betale sig at turde en outsider,
-          også når man ved, at man ikke rammer alle seks.
+          Kvadratroden er ikke pynt. Uden den var bonussen så stor, at én heldig {o.runde} afgjorde
+          {' '}{o.saesonen} — og så lidt værd ved 4-5 rigtige, at det bedste træk var at tippe favoritter og håbe
+          på en perfekt {o.runde}. Nu vokser den <em>jævnt</em>: det kan betale sig at turde en outsider,
+          også når man ved, at man ikke rammer {kal ? 'dem alle' : 'alle seks'}.
         </p>
 
         <h4 style={{ margin: '0.9rem 0 0.3rem', fontSize: '0.92rem' }}>Udbetalingstabel</h4>
@@ -267,6 +345,10 @@ export default function FootballHelp({ game }) {
         </div>
       </Section>
 
+      {/* EN LIGA-REGEL. En liga-runde kan sprede sig over uger, når en kamp
+          bliver udsat; en spilledag i en turnering er én dag. Kortets
+          «🕒 Uden for kuponen» forklarer sig selv, hvis det alligevel sker. */}
+      {!kal && (
       <Section emoji="🕒" title="Når en kamp bliver udsat">
         En runde kan blive splittet: fire kampe spilles i weekenden, to bliver rykket en måned. Så ville
         rundens bonus først falde, længe efter alle havde glemt runden.
@@ -278,9 +360,10 @@ export default function FootballHelp({ game }) {
           <li><strong>Kuponen bliver mindre — men du mister ingenting.</strong> Formlen er den samme, og de udsatte kampe giver stadig deres egne point, når de spilles.</li>
         </ul>
       </Section>
+      )}
 
       <Section emoji="📋" title="Mine tips">
-        <Tab fane="mine">📋 Mine tips</Tab> samler alle dine tips runde for runde med facit, point pr. kamp og din
+        <Tab fane="mine">📋 Mine tips</Tab> samler alle dine tips {o.runde} for {o.runde} med facit, point pr. kamp og din
         combi-bonus — plus din træfprocent og øverst en opdeling af, hvor pointene kommer fra:
         {' '}{RUBRIKKER.map(({ ikon, navn }, i) => (
           <span key={navn}>
@@ -297,46 +380,46 @@ export default function FootballHelp({ game }) {
         ligaer</strong>, kan du vælge én ad gangen øverst — så tælles placeringerne forfra inden
         for den liga; uden et valg vises alle dine ligakammerater på spillets egen skala. Er du
         kun med i <strong>én</strong> liga, er stillingen altid dén ligas. En liga kan desuden have
-        sin egen <strong>startrunde</strong>: så tæller kun
-        runder fra den og frem i ligaens stilling — hele runder, aldrig halve, så en udsat kamp
-        følger sin runde. Ligaens ejer sætter den under <Tab fane="ligaer">👥 Ligaer</Tab>, og den
-        står på liga-kortet.{game?.pulje && <>{' '}Starter ligaen efter {rundeOrd(game, PULJE_MAKS_STARTRUNDE)}, tæller
-        puljebonussen ikke med — den blev tippet før sæsonen, så nye medlemmer kunne ikke være med.</>}
+        sin egen <strong>{startOrd}</strong>: så tæller kun
+        {' '}{o.runder} fra den og frem i ligaens stilling — hele {o.runder}, aldrig halve, så en udsat kamp
+        følger sin {o.runde}. Ligaens ejer sætter den under <Tab fane="ligaer">👥 Ligaer</Tab>, og den
+        står på liga-kortet.{game?.pulje && <>{' '}Starter ligaen efter {rundeOrd(game, puljeMaksStartRunde(game))}, tæller
+        puljebonussen ikke med — den blev tippet før {o.saesonen}, så nye medlemmer kunne ikke være med.</>}
         {' '}Din <strong>saldo</strong> øverst er altid spillets samlede — det er den, Chancen må satse af.
         <ul style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>Rundens point</strong> — tallet under totalen er, hvad du har hentet i den
-            seneste runde med et afgjort tip — som regel den, der er i gang. Det er
+            <strong>{o.Rundens} point</strong> — tallet under totalen er, hvad du har hentet {o.i} den
+            seneste {o.runde} med et afgjort tip — som regel den, der er i gang. Det er
             {' '}<strong>levende</strong>: det vokser, efterhånden som kampene
-            afgøres, så føringen i runden kan skifte, indtil den sidste kamp er spillet. Et
+            afgøres, så føringen {o.iRunden} kan skifte, indtil den sidste kamp er spillet. Et
             {' '}<strong>🔥</strong> brænder hos den, der har flest indtil videre — står to lige, brænder
-            det hos dem begge. Har hele feltet tabt runden, er der ingen ild. En <strong>–</strong>
-            {' '}betyder, at ingen af dine tips i runden er afgjort endnu — har du ramt forbi, står
+            det hos dem begge. Har hele feltet tabt {o.runden}, er der ingen ild. En <strong>–</strong>
+            {' '}betyder, at ingen af dine tips {o.iRunden} er afgjort endnu — har du ramt forbi, står
             der 0 (eller minus, hvis du tabte Chancen).
-            {' '}Med knappen <strong>{rundeKort(game, 'N')}</strong> over podiet (N er den seneste runde med et
+            {' '}Med knappen <strong>{rundeKort(game, 'N')}</strong> over podiet (N er den seneste {o.runde} med et
             afgjort tip) ser
-            du runden alene: sorteret efter rundens point, og placering og point fra Samlet står med
+            du {o.runden} alene: sorteret efter {o.rundens} point, og placering og point fra Samlet står med
             småt under. Dér er der hverken pil eller 🔥 — placeringen siger, hvem der fører indtil
             videre — og <strong>Samlet</strong> bringer dig tilbage.
             {' '}I Samlet: <strong>pilen</strong> ved din placering i listen måler den <strong>samme
-            runde</strong>: den viser, hvad runden har gjort ved din placering. Står der ingen pil,
+            {' '}{o.runde}</strong>: den viser, hvad {o.runden} har gjort ved din placering. Står der ingen pil,
             har du holdt din plads — også selv om du har hentet mange point, for det kan alle andre
-            have gjort. De tre på podiet har ingen pil; dér vises kun medalje, point og rundens tal.
+            have gjort. De tre på podiet har ingen pil; dér vises kun medalje, point og {o.rundens} tal.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
-            <strong>👑 {ord.rundeKonge}</strong> — hvem har vundet flest <strong>hele</strong> runder? En runde
-            tæller først, når hver eneste af dens kampe har facit, så en udsat kamp udskyder kåringen.
-            Står to lige, deler de sejren. Det er en anden pokal end tabellen: man kan vinde fire runder
-            og alligevel ligge midt i feltet. Bemærk forskellen på 🔥 i listen: den er
-            <strong> foreløbig</strong> og flytter sig, mens runden spilles — kronen her er
-            <strong> endelig</strong> og tælles først, når runden er helt færdig. Derfor to
+            <strong>👑 {ord.rundeKonge}</strong> — hvem har vundet flest <strong>hele</strong> {o.runder}? En {o.runde}
+            {' '}tæller først, når hver eneste af dens kampe har facit, så en udsat kamp udskyder kåringen.
+            Står to lige, deler de sejren. Det er en anden pokal end tabellen: man kan vinde fire {o.runder}
+            {' '}og alligevel ligge midt i feltet. Bemærk forskellen på 🔥 i listen: den er
+            <strong> foreløbig</strong> og flytter sig, mens {o.runden} spilles — kronen her er
+            <strong> endelig</strong> og tælles først, når {o.runden} er helt færdig. Derfor to
             forskellige tegn.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>⚡ Chance-kongen</strong> — hvem står bedst? Er nogen i minus, står den modigste af dem også. Kortet viser altid
-            <strong> hele sæsonen</strong>, også når du kigger på en liga med startrunde — derfor kan tallet
+            <strong> hele {o.saesonen}</strong>, også når du kigger på en liga med {startOrd} — derfor kan tallet
             afvige fra Chancen-kolonnen i regnskabet, som tæller fra ligaens start, og derfor står der
-            &quot;hele sæsonen&quot; på kortet.
+            &quot;hele {o.saesonen}&quot; på kortet.
           </li>
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>⚔️ Jer to imellem</strong> — klik på et navn i stillingen og fold den ud: de kampe,
@@ -351,13 +434,13 @@ export default function FootballHelp({ game }) {
                 <strong>{ikon} {navn}</strong> ({hjaelp.replace(/\.$/, '').toLowerCase()})
               </span>
             ))}. Summen kan afvige lidt fra totalen — så står forklaringen under tabellen, og totalen
-            er den rigtige. Kigger du på en liga med startrunde, regner tabellen som ligaen: kun
-            runderne fra startrunden tæller, og puljen kun når ligaen tæller den — så I alt er det
+            er den rigtige. Kigger du på en liga med {startOrd}, regner tabellen som ligaen: kun
+            {' '}{o.runderne} fra {startOrdet} tæller, og puljen kun når ligaen tæller den — så I alt er det
             samme tal som i stillingen. Spillets samlede regnskab for en spiller ser du ved at klikke
             på navnet.
           </li>
           <li>
-            <strong>Klik på et navn</strong> — så folder du den spillers tips ud runde for runde, med facit
+            <strong>Klik på et navn</strong> — så folder du den spillers tips ud {o.runde} for {o.runde}, med facit
             og udbytte, for alle kampe der er <strong>afgjort og gået i gang</strong>. Det virker begge
             veje: de andre i dine ligaer kan se dine på samme måde.
           </li>
@@ -480,27 +563,45 @@ export default function FootballHelp({ game }) {
 
       <Section emoji="📈" title="Elo på kampkortet">
         På <Tab fane="tip">Tip</Tab> står begge holds <strong>styrke-rating</strong> under kampen sammen med de
-        seneste op til fem runders udvikling (▲/▼ pr. runde — samme betydning som i Elo-tabellen).
-        Ratingen er holdets styrke <strong>efter seneste hele runde</strong> — den er ikke et bud på
+        seneste op til fem {kal ? 'dages' : 'runders'} udvikling (▲/▼ pr. {o.runde} — samme betydning som i Elo-tabellen).
+        Ratingen er holdets styrke <strong>efter seneste hele {o.runde}</strong> — den er ikke et bud på
         netop denne kamp. Hvem der er favorit, kan du læse direkte på 1X2-knapperne: der står, hvor
-        mange point hvert udfald giver. De tal er ikke bare forskellen i rating — hjemmebanen tæller
-        også med.
+        mange point hvert udfald giver.{hjemme && <> De tal er ikke bare forskellen i rating — hjemmebanen tæller
+        også med.</>}
       </Section>
 
       <Section emoji="📈" title="Elo-tabellen">
-        På <Tab fane="elo">📈 Elo</Tab> kan du følge holdenes <strong>styrke-rating</strong> hele sæsonen. Efter hver
-        færdigspillet runde kommer der en ny kolonne forrest med den nye rating og en pil, der viser
+        På <Tab fane="elo">📈 Elo</Tab> kan du følge holdenes <strong>styrke-rating</strong> hele {o.saesonen}. Efter hver
+        færdigspillet {o.runde} kommer der en ny kolonne forrest med den nye rating og en pil, der viser
         udviklingen. Elo-ratingen er også det, <strong>oddsene bygger på</strong>.
         <p style={{ margin: '0.5rem 0 0' }}><strong>Sådan beregnes Elo:</strong></p>
         <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.2rem' }}>
+          {/* «Storklub» og «oprykker» er LIGA-ord; en turnering har hverken
+              det ene eller det andet. */}
+          {kal ? (
+          <li><strong>Holdene starter ikke alle på {START}.</strong> {START} er blot det neutrale
+            nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra holdets
+            resultater ved de seneste slutrunder — så en favorit starter <em>over</em> {START} og en
+            outsider <em>under</em>. Derfor er favoritter og outsidere forskellige allerede fra første kamp.</li>
+          ) : (
           <li><strong>Holdene starter ikke alle på {START}.</strong> {START} er blot det neutrale
             nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra de
             <strong> sidste 3 års resultater</strong> plus en vurdering af holdets aktuelle styrke — så en
             storklub starter <em>over</em> {START} og et oprykker-/svagt hold <em>under</em>. Derfor
             er favoritter og outsidere forskellige allerede fra første kamp.</li>
+          )}
+          {/* HJEMMEBANEN KUN, HVOR DEN FINDES (evnen harHjemmebane). Uden den
+              sagde guiden «hjemmebanefordel på ~0 point … ikke 50/50 …
+              takket være hjemmebanen» — tre påstande, der modsagde tallet. */}
+          {hjemme ? (
           <li>Før en kamp regnes en <strong>forventning</strong> til hjemmeholdet ud fra forskellen i rating
             {' '}plus en <strong>hjemmebanefordel på ~{HFA}</strong> point. To hold med samme rating er altså
             ikke 50/50 — hjemmeholdet forventes at tage omkring {hjemmeLige} % takket være hjemmebanen.</li>
+          ) : (
+          <li data-testid="hjaelp-neutral-bane">Før en kamp regnes en <strong>forventning</strong> ud fra
+            forskellen i rating — og kun den: der regnes ingen hjemmebanefordel. To hold med samme
+            rating står altså lige.</li>
+          )}
           <li>Efter kampen flyttes rating mod resultatet: <em>ny rating = gammel + {K} ×
             (resultat − forventning)</em>, hvor resultat er 1 (sejr), ½ (uafgjort) eller 0 (nederlag).
             Vinderens point lægges til, taberens trækkes fra — lige meget begge veje.</li>
@@ -508,8 +609,8 @@ export default function FootballHelp({ game }) {
             en favorit, rykker det meget; vinder favoritten som ventet, rykker det lidt).</li>
         </ul>
         <p style={{ margin: '0.5rem 0 0' }}>
-          <em>Eksempel 1 — jævnbyrdige:</em> to lige stærke hold (forventning 50 %). Vinder hjemmeholdet,
-          får det {K} × (1 − 0,5) = <strong>+{Math.round(K * 0.5)}</strong> point, og udeholdet
+          <em>Eksempel 1 — jævnbyrdige:</em> to lige stærke hold (forventning 50 %). Vinder {hjemme ? 'hjemmeholdet' : 'det ene hold'},
+          får det {K} × (1 − 0,5) = <strong>+{Math.round(K * 0.5)}</strong> point, og {hjemme ? 'udeholdet' : 'det andet'}
           {' '}−{Math.round(K * 0.5)}.
         </p>
         <p style={{ margin: '0.35rem 0 0' }}>
@@ -522,9 +623,11 @@ export default function FootballHelp({ game }) {
       </Section>
 
       <Section emoji="🏟️" title="Holdsiden">
-        <strong>Klik på et holdnavn</strong> — i Elo-tabellen, i den officielle tabel, i
+        {/* «den officielle tabel» kun, hvor fanen findes (samme gate som
+            Tabel-fanen og guidens øvrige henvisninger til den). */}
+        <strong>Klik på et holdnavn</strong> — i Elo-tabellen,{game?.standings ? ' i den officielle tabel,' : ''} i
         trøjeoversigten under <Tab fane="profil">🙂 Mit hold</Tab> eller på et kampkort — så får du
-        holdets egne tal i dette spil: form, hjemme og ude, mål, og hvor stort holdet vinder,
+        holdets egne tal i dette spil: form, {hjemme ? 'hjemme og ude, ' : ''}mål, og hvor stort holdet vinder,
         når det vinder. Nederst står holdets kampe i dette spil — klik på en række, og du lander
         på kampens kort på Tip-fanen.
         <p style={{ margin: '0.5rem 0 0' }}>Nogle af tallene er værd at forklare:</p>
@@ -533,18 +636,22 @@ export default function FootballHelp({ game }) {
             ofte det vandt som udfordrer. Favoritten er den, der havde lavest odds i kampen.
             Har holdet aldrig været favorit, står der ingenting — en brøk med nul i nævneren er
             ikke et resultat.</li>
+          {/* Kortet findes kun med målchancer (HoldSide: xgTal) — samme
+              evne som guidens xG-afsnit. */}
+          {harXg(game) && (
           <li><strong>Mål og målchancer (xG).</strong> Hvad holdet scorede og lukkede ind, ved
             siden af hvor gode chancer der var i begge ender. Begge kolonner dækker de samme
             kampe — ellers ville en manglende måling ligne en overpræstation. Der står ingen dom
             om, hvorvidt holdet har været heldigt; to rækker tal, og så dømmer du selv.</li>
+          )}
           <li><strong>Mod modellens forventning.</strong> Holdets point målt mod det, styrketallene
             ventede. Står der <em>+4 point efter 12 kampe</em>, har holdet hentet fire point mere,
             end modellen regnede med. Det er <strong>vores egen model</strong>, ikke rigtige
             bookmakerodds.</li>
         </ul>
         <p style={{ margin: '0.5rem 0 0', color: 'var(--c-muted)' }}>
-          Tallene gælder <strong>dette spil</strong> — ikke hele sæsonen. Er spillet kun et
-          efterår, tæller forårets kampe ikke med. Og tidligt i et spil er tallene tynde: derfor
+          Tallene gælder <strong>dette spil</strong>{kal ? '.' : <> — ikke hele sæsonen. Er spillet kun et
+          efterår, tæller forårets kampe ikke med.</>} Og tidligt i et spil er tallene tynde: derfor
           står der altid, hvor mange kampe de bygger på, og nogle af kortene dukker først op,
           når der er nok at regne på.
         </p>
@@ -554,10 +661,16 @@ export default function FootballHelp({ game }) {
           der forklarer en fane, spillet ikke har, er en forkert regelbog. */}
       {pulje && (
         <Section emoji="🎖️" title="Bonus: pulje-tip">
-          På <Tab fane="pulje">🎖️ Pulje</Tab> forudsiger du de <strong>{pulje.poolSize} hold</strong>, der står i
+          {/* MELLEMRUMMET FØR GRENEN ER EKSPLICIT. JSX fjerner et linjeskift
+              mellem tekst og {…}, så «.» + linjeskift + {grenen} gav
+              «mesterskabsspillet.Afgøres på» for Superligaen (modstander-fund
+              R1). En runde-pulje NÅR semifinalerne; den «står» ikke i dem. */}
+          På <Tab fane="pulje">🎖️ Pulje</Tab> forudsiger du de <strong>{pulje.poolSize} hold</strong>, der {rundePulje ? 'når' : 'står i'}
           <strong> {pulje.labels.top}</strong>
           {pulje.nedSize > 0 && <> — og de <strong>{pulje.nedSize}</strong>, der hænger i <strong>{pulje.labels.ned}</strong></>}.
-          Afgøres på {pulje.labels.facit}: hvert hold, der står rigtigt, giver
+          {' '}{rundePulje
+            ? <>{rundePulje.afgoeres} Hvert hold, du rammer, giver</>
+            : <>Afgøres på {pulje.labels.facit}: hvert hold, der står rigtigt, giver</>}
           {' '}<strong>+{pulje.perTeam} point</strong>
           {pulje.perfectBonus > 0 && <>, og en perfekt række giver <strong>+{pulje.perfectBonus}</strong> i bonus</>}.
           Deadline sættes af arrangøren og vises på fanen.
@@ -569,7 +682,9 @@ export default function FootballHelp({ game }) {
               love mere fortrolighed, end reglen bærer. */}
           {' '}Indtil deadline er dit tip skjult for alle andre. Efter deadline kan alle i spillet
           se hinandens pulje-tip på fanen — hvilke hold flest tror på, hvem der står alene med
-          et hold, og hvordan puljen står lige nu i din liga.
+          et hold, og {rundePulje
+            ? <>når {pulje.labels.top} er lagt ind, hvordan det gik i din liga</>
+            : <>hvordan puljen står lige nu i din liga</>}.
         </Section>
       )}
 
@@ -584,8 +699,8 @@ export default function FootballHelp({ game }) {
           vises som <strong>(+X❓)</strong> i liga-stillingen.
         </p>
         <p style={{ margin: '0.5rem 0 0' }}>
-          <strong>Runde-Botten 🤖:</strong> efter rundens sidste kamp skriver en bot et kort resumé på jeres
-          væg — hvem der løb med runden, hvem der brændte den, hvem der turde bruge Chancen, og hvordan stillingen ser ud.
+          <strong>Runde-Botten 🤖:</strong> efter {o.rundens} sidste kamp skriver en bot et kort resumé på jeres
+          væg — hvem der løb med {o.runden}, hvem der brændte den, hvem der turde bruge Chancen, og hvordan stillingen ser ud.
           Når et liga-spørgsmål får facit, poster den også <strong>afsløringen</strong>: hvem svarede hvad,
           hvem ramte — og hvem der aldrig fik svaret.
         </p>

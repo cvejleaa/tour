@@ -80,6 +80,26 @@ export async function callRecomputeGameScores(gameId) {
 }
 
 /**
+ * Afregn spillets pulje-tip med vilje (callablen afregnPuljeNu).
+ *
+ * Triggeren afregner kun, når en kamps facit ændrer sig. En runde-pulje
+ * afgøres af, at en fase LÆGGES IND — rettes en fejl i fasen efter finalen,
+ * ville intet ellers starte afregningen.
+ *
+ * dryRun er DEFAULT SAND: kun et eksplicit `dryRun: false` skriver.
+ * @param {{gameId:string, dryRun?:boolean}} p
+ */
+export async function callAfregnPuljeNu({ gameId, dryRun = true }) {
+  try {
+    const fn = httpsCallable(functions, 'afregnPuljeNu', { timeout: 120000 });
+    const res = await fn({ gameId, dryRun: dryRun !== false });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke afregne puljen.' };
+  }
+}
+
+/**
  * Ompris alle IKKE-LÅSTE kampe med den nuværende odds-model.
  *
  * Odds skrives normalt kun om, når en kamps facit ændrer sig. En ændring i

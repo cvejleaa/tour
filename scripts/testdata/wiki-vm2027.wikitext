@@ -1,0 +1,2862 @@
+<!-- Fixture til scripts/lib/haandboldProgram.test.mjs. Kilde: Wikipedia, «2027 World Men's Handball Championship» (https://en.wikipedia.org/wiki/2027_World_Men's_Handball_Championship), revision ukendt, hentet 2026-11-02T13:33:03.303Z. Indholdet er CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/). Beskåret til kampene af scripts/haandbold-program.mjs --skriv; ret aldrig i hånden. -->
+==Preliminary round==
+The schedule was announced on 9 February 2026,<ref name=Seeding /> with the throw-off times being revealed on 18 June 2026.<ref>{{cite web|url=https://www.ihf.info/media-center/news/match-schedule-confirmed-2027-ihf-mens-world-championship|title=Match schedule confirmed for the 2027 IHF Men's World Championship|publisher=International Handball Federation |date=18 June 2026|access-date=18 June 2026}}</ref>
+
+''All times are local ([[Central European Time|UTC+1]]).''
+
+===Group A===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=13 January 2027
+|source=[https://www.ihf.info/competitions/men/308/30th-ihf-mens-handball-world-championship-2027-germany/263667/groups-rankings IHF]
+|winpoints=2
+
+|team_order=GER, SRB, TUN, URU
+
+|win_GER=0 |draw_GER=0 |loss_GER=0 |gf_GER=0 |ga_GER=0 |status_GER=H
+|win_SRB=0 |draw_SRB=0 |loss_SRB=0 |gf_SRB=0 |ga_SRB=0
+|win_TUN=0 |draw_TUN=0 |loss_TUN=0 |gf_TUN=0 |ga_TUN=0
+|win_URU=0 |draw_URU=0 |loss_URU=0 |gf_URU=0 |ga_URU=0
+
+|name_GER={{hb|GER}}
+|name_SRB={{hb|SRB}}
+|name_TUN={{hb|TUN}}
+|name_URU={{hb|URU}}
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q |result3=Q |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Main round|Main round]]
+|col_P=red1   |text_P=[[#Presidents Cup|Presidents Cup]]
+}}
+
+{{handballbox
+|date=13 January 2027
+|time=17:30
+|team1={{hb-rt|SRB}}
+|score=
+|team2={{hb|URU}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=13 January 2027
+|time=20:30
+|team1={{hb-rt|GER}}
+|score=
+|team2={{hb|TUN}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=15 January 2027
+|time=18:00
+|team1={{hb-rt|SRB}}
+|score=
+|team2={{hb|TUN}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=15 January 2027
+|time=20:30
+|team1={{hb-rt|URU}}
+|score=
+|team2={{hb|GER}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=17 January 2027
+|time=18:00
+|team1={{hb-rt|TUN}}
+|score=
+|team2={{hb|URU}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=17 January 2027
+|time=20:30
+|team1={{hb-rt|GER}}
+|score=
+|team2={{hb|SRB}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group B===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=13 January 2027
+|source=[https://www.ihf.info/competitions/men/308/30th-ihf-mens-handball-world-championship-2027-germany/263667/groups-rankings IHF]
+|winpoints=2
+
+|team_order=EGY, ITA, CPV, KSA
+
+|win_EGY=0 |draw_EGY=0 |loss_EGY=0 |gf_EGY=0 |ga_EGY=0
+|win_ITA=0 |draw_ITA=0 |loss_ITA=0 |gf_ITA=0 |ga_ITA=0
+|win_CPV=0 |draw_CPV=0 |loss_CPV=0 |gf_CPV=0 |ga_CPV=0
+|win_KSA=0 |draw_KSA=0 |loss_KSA=0 |gf_KSA=0 |ga_KSA=0
+
+|name_EGY={{hb|EGY}}
+|name_ITA={{hb|ITA}}
+|name_CPV={{hb|CPV}}
+|name_KSA={{hb|KSA}}
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q |result3=Q |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Main round|Main round]]
+|col_P=red1   |text_P=[[#Presidents Cup|Presidents Cup]]
+}}
+
+{{handballbox
+|date=13 January 2027
+|time=18:00
+|team1={{hb-rt|ITA}}
+|score=
+|team2={{hb|KSA}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=13 January 2027
+|time=20:30
+|team1={{hb-rt|EGY}}
+|score=
+|team2={{hb|CPV}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=15 January 2027
+|time=18:00
+|team1={{hb-rt|KSA}}
+|score=
+|team2={{hb|EGY}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=15 January 2027
+|time=20:30
+|team1={{hb-rt|ITA}}
+|score=
+|team2={{hb|CPV}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=17 January 2027
+|time=18:00
+|team1={{hb-rt|CPV}}
+|score=
+|team2={{hb|KSA}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=17 January 2027
+|time=20:30
+|team1={{hb-rt|EGY}}
+|score=
+|team2={{hb|ITA}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group C===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=14 January 2027
+|source=[https://www.ihf.info/competitions/men/308/30th-ihf-mens-handball-world-championship-2027-germany/263667/groups-rankings IHF]
+|winpoints=2
+
+|team_order=CRO, ESP, CHI, TUR
+
+|win_CRO=0 |draw_CRO=0 |loss_CRO=0 |gf_CRO=0 |ga_CRO=0
+|win_ESP=0 |draw_ESP=0 |loss_ESP=0 |gf_ESP=0 |ga_ESP=0
+|win_CHI=0 |draw_CHI=0 |loss_CHI=0 |gf_CHI=0 |ga_CHI=0
+|win_TUR=0 |draw_TUR=0 |loss_TUR=0 |gf_TUR=0 |ga_TUR=0
+
+|name_CRO={{hb|CRO}}
+|name_ESP={{hb|ESP}}
+|name_CHI={{hb|CHI}}
+|name_TUR={{hb|TUR}}
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q |result3=Q |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Main round|Main round]]
+|col_P=red1   |text_P=[[#Presidents Cup|Presidents Cup]]
+}}
+
+{{handballbox
+|date=14 January 2027
+|time=18:00
+|team1={{hb-rt|ESP}}
+|score=
+|team2={{hb|TUR}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=14 January 2027
+|time=20:30
+|team1={{hb-rt|CRO}}
+|score=
+|team2={{hb|CHI}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=16 January 2027
+|time=18:00
+|team1={{hb-rt|ESP}}
+|score=
+|team2={{hb|CHI}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=16 January 2027
+|time=20:30
+|team1={{hb-rt|TUR}}
+|score=
+|team2={{hb|CRO}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=18 January 2027
+|time=18:00
+|team1={{hb-rt|CHI}}
+|score=
+|team2={{hb|TUR}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=18 January 2027
+|time=20:30
+|team1={{hb-rt|CRO}}
+|score=
+|team2={{hb|ESP}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[SAP Garden]], [[Munich]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group D===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=14 January 2027
+|source=[https://www.ihf.info/competitions/men/308/30th-ihf-mens-handball-world-championship-2027-germany/263667/groups-rankings IHF]
+|winpoints=2
+
+|team_order=ARG, FRA, BRA, KUW
+
+|win_ARG=0 |draw_ARG=0 |loss_ARG=0 |gf_ARG=0 |ga_ARG=0
+|win_FRA=0 |draw_FRA=0 |loss_FRA=0 |gf_FRA=0 |ga_FRA=0
+|win_BRA=0 |draw_BRA=0 |loss_BRA=0 |gf_BRA=0 |ga_BRA=0
+|win_KUW=0 |draw_KUW=0 |loss_KUW=0 |gf_KUW=0 |ga_KUW=0
+
+|name_ARG={{hb|ARG}}
+|name_FRA={{hb|FRA}}
+|name_BRA={{hb|BRA}}
+|name_KUW={{hb|KUW}}
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q |result3=Q |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Main round|Main round]]
+|col_P=red1   |text_P=[[#Presidents Cup|Presidents Cup]]
+}}
+
+{{handballbox
+|date=14 January 2027
+|time=18:00/30
+|team1={{hb-rt|ARG}}
+|score=
+|team2={{hb|BRA}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=14 January 2027
+|time=20:30/21:00
+|team1={{hb-rt|FRA}}
+|score=
+|team2={{hb|KUW}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=16 January 2027
+|time=18:00/30
+|team1={{hb-rt|FRA}}
+|score=
+|team2={{hb|BRA}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=16 January 2027
+|time=20:30/21:00
+|team1={{hb-rt|KUW}}
+|score=
+|team2={{hb|ARG}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=18 January 2027
+|time=18:00/30
+|team1={{hb-rt|BRA}}
+|score=
+|team2={{hb|KUW}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=18 January 2027
+|time=20:30/21:00
+|team1={{hb-rt|ARG}}
+|score=
+|team2={{hb|FRA}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Porsche-Arena]], [[Stuttgart]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group E===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=14 January 2027
+|source=[https://www.ihf.info/competitions/men/308/30th-ihf-mens-handball-world-championship-2027-germany/263667/groups-rankings IHF]
+|winpoints=2
+
+|team_order=SWE, NOR, GRE, QAT
+
+|win_SWE=0 |draw_SWE=0 |loss_SWE=0 |gf_SWE=0 |ga_SWE=0
+|win_NOR=0 |draw_NOR=0 |loss_NOR=0 |gf_NOR=0 |ga_NOR=0
+|win_GRE=0 |draw_GRE=0 |loss_GRE=0 |gf_GRE=0 |ga_GRE=0
+|win_QAT=0 |draw_QAT=0 |loss_QAT=0 |gf_QAT=0 |ga_QAT=0
+
+|name_SWE={{hb|SWE}}
+|name_NOR={{hb|NOR}}
+|name_GRE={{hb|GRE}}
+|name_QAT={{hb|QAT}}
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q |result3=Q |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Main round|Main round]]
+|col_P=red1   |text_P=[[#Presidents Cup|Presidents Cup]]
+}}
+
+{{handballbox
+|date=14 January 2027
+|time=18:00
+|team1={{hb-rt|SWE}}
+|score=
+|team2={{hb|GRE}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=14 January 2027
+|time=20:30
+|team1={{hb-rt|NOR}}
+|score=
+|team2={{hb|QAT}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=16 January 2027
+|time=18:00
+|team1={{hb-rt|QAT}}
+|score=
+|team2={{hb|SWE}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=16 January 2027
+|time=20:30
+|team1={{hb-rt|NOR}}
+|score=
+|team2={{hb|GRE}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=18 January 2027
+|time=18:00
+|team1={{hb-rt|GRE}}
+|score=
+|team2={{hb|QAT}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=18 January 2027
+|time=20:30
+|team1={{hb-rt|SWE}}
+|score=
+|team2={{hb|NOR}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group F===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=14 January 2027
+|source=[https://www.ihf.info/competitions/men/308/30th-ihf-mens-handball-world-championship-2027-germany/263667/groups-rankings IHF]
+|winpoints=2
+
+|team_order=POR, FRO, POL, ALG
+
+|win_POR=0 |draw_POR=0 |loss_POR=0 |gf_POR=0 |ga_POR=0
+|win_FRO=0 |draw_FRO=0 |loss_FRO=0 |gf_FRO=0 |ga_FRO=0
+|win_POL=0 |draw_POL=0 |loss_POL=0 |gf_POL=0 |ga_POL=0
+|win_ALG=0 |draw_ALG=0 |loss_ALG=0 |gf_ALG=0 |ga_ALG=0
+
+|name_POR={{hb|POR}}
+|name_FRO={{hb|FRO}}
+|name_POL={{hb|POL}}
+|name_ALG={{hb|ALG}}
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q |result3=Q |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Main round|Main round]]
+|col_P=red1   |text_P=[[#Presidents Cup|Presidents Cup]]
+}}
+
+{{handballbox
+|date=14 January 2027
+|time=18:00
+|team1={{hb-rt|FRO}}
+|score=
+|team2={{hb|ALG}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=14 January 2027
+|time=20:30
+|team1={{hb-rt|POR}}
+|score=
+|team2={{hb|POL}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=16 January 2027
+|time=18:00
+|team1={{hb-rt|ALG}}
+|score=
+|team2={{hb|POR}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=16 January 2027
+|time=20:30
+|team1={{hb-rt|FRO}}
+|score=
+|team2={{hb|POL}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=18 January 2027
+|time=18:00
+|team1={{hb-rt|POL}}
+|score=
+|team2={{hb|ALG}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=18 January 2027
+|time=20:30
+|team1={{hb-rt|POR}}
+|score=
+|team2={{hb|FRO}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group G===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=15 January 2027
+|source=[https://www.ihf.info/competitions/men/308/30th-ihf-mens-handball-world-championship-2027-germany/263667/groups-rankings IHF]
+|winpoints=2
+
+|team_order=DEN, SLO, USA, ANG
+
+|win_DEN=0 |draw_DEN=0 |loss_DEN=0 |gf_DEN=0 |ga_DEN=0
+|win_SLO=0 |draw_SLO=0 |loss_SLO=0 |gf_SLO=0 |ga_SLO=0
+|win_USA=0 |draw_USA=0 |loss_USA=0 |gf_USA=0 |ga_USA=0
+|win_ANG=0 |draw_ANG=0 |loss_ANG=0 |gf_ANG=0 |ga_ANG=0
+
+|name_DEN={{hb|DEN}}
+|name_SLO={{hb|SLO}}
+|name_USA={{hb|USA}}
+|name_ANG={{hb|ANG}}
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q |result3=Q |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Main round|Main round]]
+|col_P=red1   |text_P=[[#Presidents Cup|Presidents Cup]]
+}}
+
+{{handballbox
+|date=15 January 2027
+|time=18:00
+|team1={{hb-rt|SLO}}
+|score=
+|team2={{hb|ANG}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=15 January 2027
+|time=20:30
+|team1={{hb-rt|DEN}}
+|score=
+|team2={{hb|USA}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=17 January 2027
+|time=18:00
+|team1={{hb-rt|SLO}}
+|score=
+|team2={{hb|USA}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=17 January 2027
+|time=20:30
+|team1={{hb-rt|ANG}}
+|score=
+|team2={{hb|DEN}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=19 January 2027
+|time=18:00
+|team1={{hb-rt|USA}}
+|score=
+|team2={{hb|ANG}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=19 January 2027
+|time=20:30
+|team1={{hb-rt|DEN}}
+|score=
+|team2={{hb|SLO}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Wunderino Arena]], [[Kiel]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group H===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=15 January 2027
+|source=[https://www.ihf.info/competitions/men/308/30th-ihf-mens-handball-world-championship-2027-germany/263667/groups-rankings IHF]
+|winpoints=2
+
+|team_order=ISL, MKD, BHR, JPN
+
+|win_ISL=0 |draw_ISL=0 |loss_ISL=0 |gf_ISL=0 |ga_ISL=0
+|win_MKD=0 |draw_MKD=0 |loss_MKD=0 |gf_MKD=0 |ga_MKD=0
+|win_BHR=0 |draw_BHR=0 |loss_BHR=0 |gf_BHR=0 |ga_BHR=0
+|win_JPN=0 |draw_JPN=0 |loss_JPN=0 |gf_JPN=0 |ga_JPN=0
+
+|name_ISL={{hb|ISL}}
+|name_MKD={{hb|MKD}}
+|name_BHR={{hb|BHR}}
+|name_JPN={{hb|JPN}}
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q |result3=Q |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Main round|Main round]]
+|col_P=red1   |text_P=[[#Presidents Cup|Presidents Cup]]
+}}
+
+{{handballbox
+|date=15 January 2027
+|time=18:00
+|team1={{hb-rt|MKD}}
+|score=
+|team2={{hb|JPN}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=15 January 2027
+|time=20:30
+|team1={{hb-rt|ISL}}
+|score=
+|team2={{hb|BHR}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=17 January 2027
+|time=18:00
+|team1={{hb-rt|MKD}}
+|score=
+|team2={{hb|BHR}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=17 January 2027
+|time=20:30
+|team1={{hb-rt|JPN}}
+|score=
+|team2={{hb|ISL}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=19 January 2027
+|time=18:00
+|team1={{hb-rt|BHR}}
+|score=
+|team2={{hb|JPN}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=19 January 2027
+|time=20:30
+|team1={{hb-rt|ISL}}
+|score=
+|team2={{hb|MKD}}
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+==Presidents Cup==
+===Group I===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=20 January 2027
+|source=
+|winpoints=2
+
+|team_order=A4, B4, E4, F4
+
+|win_A4=0 |draw_A4=0 |loss_A4=0 |gf_A4=0 |ga_A4=0
+|win_B4=0 |draw_B4=0 |loss_B4=0 |gf_B4=0 |ga_B4=0
+|win_E4=0 |draw_E4=0 |loss_E4=0 |gf_E4=0 |ga_E4=0
+|win_F4=0 |draw_F4=0 |loss_F4=0 |gf_F4=0 |ga_F4=0
+
+|name_A4=A4
+|name_B4=B4
+|name_E4=E4
+|name_F4=F4
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=A |result3=S |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#25th place game|25th place game]]
+|col_A=blue1  |text_A=[[#27th place game|27th place game]]
+|col_S=yellow1|text_S=[[#29st place game|29th place game]]
+|col_P=red1   |text_P=[[#31st place game|31st place game]]
+}}
+
+{{handballbox
+|date=20 January 2027
+|time=
+|team1=A4
+|score=
+|team2=B4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=20 January 2027
+|time=
+|team1=E4
+|score=
+|team2=F4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=22 January 2027
+|time=
+|team1=A4
+|score=
+|team2=E4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=22 January 2027
+|time=
+|team1=B4
+|score=
+|team2=F4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=24 January 2027
+|time=
+|team1=F4
+|score=
+|team2=A4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=24 January 2027
+|time=
+|team1=B4
+|score=
+|team2=E4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group II===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=21 January 2027
+|source=
+|winpoints=2
+
+|team_order=C4, D4, G4, H4
+
+|win_C4=0 |draw_C4=0 |loss_C4=0 |gf_C4=0 |ga_C4=0
+|win_D4=0 |draw_D4=0 |loss_D4=0 |gf_D4=0 |ga_D4=0
+|win_G4=0 |draw_G4=0 |loss_G4=0 |gf_G4=0 |ga_G4=0
+|win_H4=0 |draw_H4=0 |loss_H4=0 |gf_H4=0 |ga_H4=0
+
+|name_C4=C4
+|name_D4=D4
+|name_G4=G4
+|name_H4=H4
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=A |result3=S |result4=P
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#25th place game|25th place game]]
+|col_A=blue1  |text_A=[[#27th place game|27th place game]]
+|col_S=yellow1|text_S=[[#29st place game|29th place game]]
+|col_P=red1   |text_P=[[#31st place game|31st place game]]
+}}
+
+{{handballbox
+|date=21 January 2027
+|time=
+|team1=C4
+|score=
+|team2=D4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=21 January 2027
+|time=
+|team1=G4
+|score=
+|team2=H4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=23 January 2027
+|time=
+|team1=C4
+|score=
+|team2=G4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=23 January 2027
+|time=
+|team1=D4
+|score=
+|team2=H4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=25 January 2027
+|time=
+|team1=H4
+|score=
+|team2=C4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=25 January 2027
+|time=
+|team1=D4
+|score=
+|team2=G4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===31st place game===
+{{handballbox
+|date=27 January 2027
+|time=
+|team1=I4
+|score=
+|team2=II4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===29th place game===
+{{handballbox
+|date=27 January 2027
+|time=
+|team1=I3
+|score=
+|team2=II3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===27th place game===
+{{handballbox
+|date=27 January 2027
+|time=
+|team1=I2
+|score=
+|team2=II2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===25th place game===
+{{handballbox
+|date=27 January 2027
+|time=
+|team1=I1
+|score=
+|team2=II1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[GETEC Arena]], [[Magdeburg]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+==Main round==
+All points obtained in the preliminary round against teams that advance as well are carried over.
+
+===Group I===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=20 January 2027
+|source=
+|winpoints=2
+
+|team_order=A1, B1, A2, B2, A3, B3
+
+|win_A1=0 |draw_A1=0 |loss_A1=0 |gf_A1=0 |ga_A1=0
+|win_B1=0 |draw_B1=0 |loss_B1=0 |gf_B1=0 |ga_B1=0
+|win_A2=0 |draw_A2=0 |loss_A2=0 |gf_A2=0 |ga_A2=0
+|win_B2=0 |draw_B2=0 |loss_B2=0 |gf_B2=0 |ga_B2=0
+|win_A3=0 |draw_A3=0 |loss_A3=0 |gf_A3=0 |ga_A3=0
+|win_B3=0 |draw_B3=0 |loss_B3=0 |gf_B3=0 |ga_B3=0
+
+|name_A1=A1
+|name_B1=B1
+|name_A2=A2
+|name_B2=B2
+|name_A3=A3
+|name_B3=B3
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Quarterfinals|Quarterfinals]]
+}}
+
+{{handballbox
+|date=20 January 2027
+|time=
+|team1=A1
+|score=
+|team2=B3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=20 January 2027
+|time=
+|team1=B1
+|score=
+|team2=A2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=20 January 2027
+|time=
+|team1=A3
+|score=
+|team2=B2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=22 January 2027
+|time=
+|team1=A2
+|score=
+|team2=B3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=22 January 2027
+|time=
+|team1=B2
+|score=
+|team2=A1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=22 January 2027
+|time=
+|team1=A3
+|score=
+|team2=B1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=24 January 2027
+|time=
+|team1=B1
+|score=
+|team2=A1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=24 January 2027
+|time=
+|team1=B2
+|score=
+|team2=A2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=24 January 2027
+|time=
+|team1=B3
+|score=
+|team2=A3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group II===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=21 January 2027
+|source=
+|winpoints=2
+
+|team_order=C1, D1, C2, D2, C3, D3
+
+|win_C1=0 |draw_C1=0 |loss_C1=0 |gf_C1=0 |ga_C1=0
+|win_D1=0 |draw_D1=0 |loss_D1=0 |gf_D1=0 |ga_D1=0
+|win_C2=0 |draw_C2=0 |loss_C2=0 |gf_C2=0 |ga_C2=0
+|win_D2=0 |draw_D2=0 |loss_D2=0 |gf_D2=0 |ga_D2=0
+|win_C3=0 |draw_C3=0 |loss_C3=0 |gf_C3=0 |ga_C3=0
+|win_D3=0 |draw_D3=0 |loss_D3=0 |gf_D3=0 |ga_D3=0
+
+|name_C1=C1
+|name_D1=D1
+|name_C2=C2
+|name_D2=D2
+|name_C3=C3
+|name_D3=D3
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Quarterfinals|Quarterfinals]]
+}}
+
+{{handballbox
+|date=21 January 2027
+|time=
+|team1=C1
+|score=
+|team2=D3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=21 January 2027
+|time=
+|team1=D1
+|score=
+|team2=C2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=21 January 2027
+|time=
+|team1=C3
+|score=
+|team2=D2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=23 January 2027
+|time=
+|team1=C2
+|score=
+|team2=D3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=23 January 2027
+|time=
+|team1=D2
+|score=
+|team2=C1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=23 January 2027
+|time=
+|team1=C3
+|score=
+|team2=D1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=25 January 2027
+|time=
+|team1=D1
+|score=
+|team2=C1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=25 January 2027
+|time=
+|team1=D2
+|score=
+|team2=C2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=25 January 2027
+|time=
+|team1=D3
+|score=
+|team2=C3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group III===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=20 January 2027
+|source=
+|winpoints=2
+
+|team_order=E1, F1, E2, F2, E3, F3
+
+|win_E1=0 |draw_E1=0 |loss_E1=0 |gf_E1=0 |ga_E1=0
+|win_F1=0 |draw_F1=0 |loss_F1=0 |gf_F1=0 |ga_F1=0
+|win_E2=0 |draw_E2=0 |loss_E2=0 |gf_E2=0 |ga_E2=0
+|win_F2=0 |draw_F2=0 |loss_F2=0 |gf_F2=0 |ga_F2=0
+|win_E3=0 |draw_E3=0 |loss_E3=0 |gf_E3=0 |ga_E3=0
+|win_F3=0 |draw_F3=0 |loss_F3=0 |gf_F3=0 |ga_F3=0
+
+|name_E1=E1
+|name_F1=F1
+|name_E2=E2
+|name_F2=F2
+|name_E3=E3
+|name_F3=F3
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Quarterfinals|Quarterfinals]]
+}}
+
+{{handballbox
+|date=20 January 2027
+|time=
+|team1=E1
+|score=
+|team2=F3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=20 January 2027
+|time=
+|team1=F1
+|score=
+|team2=E2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=20 January 2027
+|time=
+|team1=E3
+|score=
+|team2=F2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=22 January 2027
+|time=
+|team1=E2
+|score=
+|team2=F3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=22 January 2027
+|time=
+|team1=F2
+|score=
+|team2=E1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=22 January 2027
+|time=
+|team1=E3
+|score=
+|team2=F1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=24 January 2027
+|time=
+|team1=F1
+|score=
+|team2=E1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=24 January 2027
+|time=
+|team1=F2
+|score=
+|team2=E2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=24 January 2027
+|time=
+|team1=F3
+|score=
+|team2=E3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Group IV===
+{{#invoke:Sports table|main|style=WDL
+|update=future |start_date=21 January 2027
+|source=
+|winpoints=2
+
+|team_order=G1, H1, G2, H2, G3, H3
+
+|win_G1=0 |draw_G1=0 |loss_G1=0 |gf_G1=0 |ga_G1=0
+|win_H1=0 |draw_H1=0 |loss_H1=0 |gf_H1=0 |ga_H1=0
+|win_G2=0 |draw_G2=0 |loss_G2=0 |gf_G2=0 |ga_G2=0
+|win_H2=0 |draw_H2=0 |loss_H2=0 |gf_H2=0 |ga_H2=0
+|win_G3=0 |draw_G3=0 |loss_G3=0 |gf_G3=0 |ga_G3=0
+|win_H3=0 |draw_H3=0 |loss_H3=0 |gf_H3=0 |ga_H3=0
+
+|name_G1=G1
+|name_H1=H1
+|name_G2=G2
+|name_H2=H2
+|name_G3=G3
+|name_H3=H3
+
+|class_rules = 1) points; 2) head-to-head points; 3) head-to-head goal difference; 4) head-to-head number of goals scored; 5) goal difference.
+
+|result1=Q |result2=Q
+
+|res_col_header=Q
+|col_Q=green1 |text_Q=[[#Quarterfinals|Quarterfinals]]
+}}
+
+{{handballbox
+|date=21 January 2027
+|time=
+|team1=G1
+|score=
+|team2=H3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=21 January 2027
+|time=
+|team1=H1
+|score=
+|team2=G2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=21 January 2027
+|time=
+|team1=G3
+|score=
+|team2=H2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=23 January 2027
+|time=
+|team1=G2
+|score=
+|team2=H3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=23 January 2027
+|time=
+|team1=H2
+|score=
+|team2=G1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=23 January 2027
+|time=
+|team1=G3
+|score=
+|team2=H1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=25 January 2027
+|time=
+|team1=H1
+|score=
+|team2=G1
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=25 January 2027
+|time=
+|team1=H2
+|score=
+|team2=G2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+{{handballbox
+|date=25 January 2027
+|time=
+|team1=H3
+|score=
+|team2=G3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[ZAG-Arena]], [[Hanover]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+==Final round==
+===Bracket===
+{{#invoke:RoundN|N8
+|widescore=yes|bold_winner=high
+|3rdplace=yes
+<!-- Date-Place/Team 1/Score 1/Team 2/Score 2 -->
+<!-- quarter finals -->
+|26 January|I1||III2|
+|27 January|II1||IV2|
+|26 January|III1||I2|
+|27 January|IV1||II2|
+<!-- semi finals -->
+|29 January||||
+|29 January||||
+<!-- final -->
+|31 January||||
+<!-- third place -->
+|31 January||||
+}}
+
+'''Fifth place bracket'''
+{{#invoke:RoundN|N4
+|widescore=yes|bold_winner=high
+|3rdplace=yes
+|RD1=5–8th place semifinals
+|RD2=Fifth place game
+|Consol=Seventh place game
+<!-- Date-Place/Team 1/Score 1/Team 2/Score 2 -->
+<!-- semi finals -->
+|29 January||||
+|29 January||||
+<!-- final -->
+|31 January||||
+<!-- third place -->
+|31 January||||
+}}
+
+===Quarterfinals===
+{{handballbox
+|date=26 January 2027
+|time=
+|team1=I1
+|score=
+|team2=III2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=26 January 2027
+|time=
+|team1=III1
+|score=
+|team2=I2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=27 January 2027
+|time=
+|team1=II1
+|score=
+|team2=IV2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=27 January 2027
+|time=
+|team1=IV1
+|score=
+|team2=II2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===5–8th place semifinals===
+{{handballbox
+|date=29 January 2027
+|time=
+|team1=LQF1
+|score=
+|team2=LQF3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=29 January 2027
+|time=
+|team1=LQF2
+|score=
+|team2=LQF4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Semifinals===
+{{handballbox
+|date=29 January 2027
+|time=
+|team1=WQF1
+|score=
+|team2=WQF3
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+----
+{{handballbox
+|date=29 January 2027
+|time=
+|team1=WQF2
+|score=
+|team2=WQF4
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Seventh place game===
+{{handballbox
+|date=31 January 2027
+|time=
+|team1=LQF1
+|score=
+|team2=LQF2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Fifth place game===
+{{handballbox
+|date=31 January 2027
+|time=
+|team1=WSF1
+|score=
+|team2=WSF2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Third place game===
+{{handballbox
+|date=31 January 2027
+|time=
+|team1=LSF1
+|score=
+|team2=LSF2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+
+===Final===
+{{handballbox
+|date=31 January 2027
+|time=
+|team1=WSF1
+|score=
+|team2=WSF2
+|report=
+|goals1=
+|goals2=
+|HT=
+|twomin1=
+|yellow1=
+|red1=
+|twomin2=
+|yellow2=
+|red2=
+|stadium=[[Lanxess Arena]], [[Cologne]]
+|attendance=
+|referee=
+|refnat=
+}}
+

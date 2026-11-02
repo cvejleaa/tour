@@ -10,7 +10,7 @@ const {
   outcomeOdds, updateElo, actualHomeFromOutcome, outcomeProbabilities, fairOdds,
   leagueTable, championshipTeams, puljeScore, bundTeams, puljeKonfig,
   STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
-  SPORT_ORD, sportOrd,
+  SPORT_ORD, sportOrd, SPORT_EVNER, sportEvner, harHjemmebane,
 } = require('./superligaScoring');
 
 describe('superligaScoring (server-spejl)', () => {
@@ -178,7 +178,12 @@ describe('superligaScoring (server-spejl)', () => {
       { home: 'C', away: 'D', homeGoals: 0, awayGoals: 1 },
     ];
     expect(bundTeams(kampe, 2)).toEqual(src.bundTeams(kampe, 2));
-    for (const g of [{ pulje: { poolSize: 6 } }, { pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe', tabelDeling: false } }, {}]) {
+    // + runde-puljen (semifinalisterne), med og uden kalender: ordene kommer
+    // af game.faser, så normalizeren læser kalenderen ens begge steder.
+    const RUNDE = { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', labels: { overskrift: '🏆 Semifinalisterne' } };
+    const FASER = [{ navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 1, til: 1, start: '2027-01-29', antalKampe: 2 }];
+    for (const g of [{ pulje: { poolSize: 6 } }, { pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe', tabelDeling: false } }, {},
+      { pulje: RUNDE, faser: FASER }, { pulje: RUNDE }, { pulje: { ...RUNDE, nedSize: 3, tabelDeling: true } }]) {
       expect(puljeKonfig(g)).toEqual(src.puljeKonfig(g));
     }
     // Superligaens LITERALE dokument giver PRÆCIS dagens adfærd — bliver
@@ -446,5 +451,40 @@ describe('sportOrd: server-spejlet er identisk med src', () => {
     }
     expect(sportOrd({ sport: 'haandbold' }).rundeKonge).toBe('Dagens konge');
     expect(sportOrd({ sport: 'toString' })).toBe(SPORT_ORD.fodbold);
+  });
+});
+
+// Evnerne er spejlet af samme grund: invitationen (serveren) og guiden
+// (fladen) må ikke være uenige om, hvorvidt der er en hjemmebane.
+describe('sportEvner/harHjemmebane: server-spejlet er identisk med src', () => {
+  it('samme register og samme svar', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    expect(SPORT_EVNER).toEqual(src.SPORT_EVNER);
+    for (const g of [undefined, null, {}, { sport: 'haandbold' }, { sport: 'fodbold' }, { sport: 'toString' },
+      { sport: ['haandbold'] }, { sport: 'curling' }]) {
+      expect(sportEvner(g), JSON.stringify(g)).toEqual(src.sportEvner(g));
+      expect(harHjemmebane(g), JSON.stringify(g)).toBe(src.harHjemmebane(g));
+    }
+    expect(harHjemmebane({ sport: 'haandbold' })).toBe(false);
+    expect(harHjemmebane({})).toBe(true);
+  });
+
+  // MODELLENS HALVDEL af evnen. Fodbold har HFA > 0 og håndbold ingen
+  // evne-post, så uden en sport med evnen JA og HFA 0 kunne serveren droppe
+  // `HFA > 0` med grøn suite (modstanderens S6). Prøvesporten (samme tal som
+  // src/test/proeveSport.js) lægges i BEGGE ender, og de skal svare ens.
+  it('en model uden hjemmebanefordel (HFA 0): nej — i begge ender', async () => {
+    const src = await import('../src/lib/superligaScoring.js');
+    const { PROEVE } = await import('../src/test/proeveSport.js');
+    SPORT_PROFILER.proeve = PROEVE;
+    src.SPORT_PROFILER.proeve = PROEVE;
+    try {
+      expect(sportEvner({ sport: 'proeve' })).toBe(SPORT_EVNER.fodbold);
+      expect(harHjemmebane({ sport: 'proeve' })).toBe(false);
+      expect(src.harHjemmebane({ sport: 'proeve' })).toBe(false);
+    } finally {
+      delete SPORT_PROFILER.proeve;
+      delete src.SPORT_PROFILER.proeve;
+    }
   });
 });

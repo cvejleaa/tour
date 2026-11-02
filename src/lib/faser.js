@@ -204,6 +204,53 @@ export function rundeOrd(game, round) {
   return `${rundeNavneord(game)} ${round}`;
 }
 
+/**
+ * Kolonne-overskriften for en runde, hvor pladsen er knap: "R7" (liga) /
+ * "Dag 7" (turnering). "R7" er en forkortelse af et ord, ingen bruger i en
+ * turnering ("runde" er et fase-ord dér), og "D7" kan ingen tyde. Uden
+ * kalender: præcis som før.
+ */
+export function rundeKolonne(game, round) {
+  return harFaseKalender(game) ? `Dag ${round}` : `R${round}`;
+}
+
+// Ordene i en sætning om runder. Frosset: listen deles af alle kald.
+// Forholdsordet følger med ("i runden", men "på dagen") — det kan ikke
+// sættes foran et ord, der skifter.
+const ORDENE_LIGA = Object.freeze({
+  runde: 'runde', runden: 'runden', rundens: 'rundens', runder: 'runder', runderne: 'runderne',
+  Runde: 'Runde', Runden: 'Runden', Rundens: 'Rundens', saesonen: 'sæsonen', saesonens: 'sæsonens',
+  i: 'i', iRunden: 'i runden', iDenneRunde: 'i denne runde',
+});
+const ORDENE_TURNERING = Object.freeze({
+  runde: 'dag', runden: 'dagen', rundens: 'dagens', runder: 'dage', runderne: 'dagene',
+  Runde: 'Dag', Runden: 'Dagen', Rundens: 'Dagens', saesonen: 'turneringen', saesonens: 'turneringens',
+  i: 'på', iRunden: 'på dagen', iDenneRunde: 'på denne dag',
+});
+
+/**
+ * Ordene for "runde" i alle de bøjninger, en sætning skal bruge — og hvad
+ * hele forløbet hedder ("sæsonen" / "turneringen"). Dansk bøjning kan ikke
+ * udledes af grundformen, så de står skrevet. Uden kalender: ligaens ord,
+ * præcis som teksterne altid har stået.
+ * @returns {runde:string, runden:string, rundens:string, runder:string, runderne:string,
+ *   Runde:string, Runden:string, Rundens:string, saesonen:string, saesonens:string,
+ *   i:string, iRunden:string, iDenneRunde:string}
+ *   `i` er forholdsordet alene («i»/«på»); `iRunden` og `iDenneRunde` er
+ *   færdige led med forholdsord («i runden»/«på dagen», «i denne runde»/«på denne dag»).
+ */
+export function rundeOrdene(game) {
+  return harFaseKalender(game) ? ORDENE_TURNERING : ORDENE_LIGA;
+}
+
+/**
+ * Har turneringen knockout-faser? Til tekster, der gælder HELE spillet
+ * (invitationen, guiden) — en enkelt kamp spørger erKnockout(game, round).
+ */
+export function harKnockout(game) {
+  return harFaseKalender(game) && game.faser.some((f) => f.knockout === true);
+}
+
 /** Copenhagen-datoen for et tidspunkt som [år, måned (1-12), dag, ugedag (0=søn)]. */
 function kbhDel(ms) {
   const dele = new Intl.DateTimeFormat('en-US', {

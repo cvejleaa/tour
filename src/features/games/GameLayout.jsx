@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { GAME_STATUS_LABEL as STATUS_LABEL } from '../../lib/constants';
 import { fmtPoints } from '../../lib/daNum';
 import { useSpilTema } from './useSpilTema';
+import { harFaseKalender } from '../../lib/faser';
 
 /** Spillerens saldo (bank) ud fra players-dokumentet. */
 export function playerBank(me) {
@@ -50,7 +51,10 @@ export default function GameLayout({ game, me, children }) {
         )}
       </div>
       <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
-        {game?.season ? `Sæson ${game.season} · ` : ''}
+        {/* Sæson-chippen hører til en liga. En turnering med fasekalender
+            har ingen sæson — og årstallet står allerede i navnet
+            («Håndbold-VM 2027»). Gaten er EVNEN, ikke sporten. */}
+        {game?.season && !harFaseKalender(game) ? `Sæson ${game.season} · ` : ''}
         {STATUS_LABEL[game?.status] ?? game?.status}
       </p>
 

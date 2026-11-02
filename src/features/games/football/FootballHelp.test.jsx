@@ -5,6 +5,8 @@ import FootballHelp from './FootballHelp';
 import { RUBRIKKER } from './PointOpdeling';
 import { COMBI, ODDS, TRAEF_BONUS } from '../../../lib/superligaScoring';
 import { medProeveSport } from '../../../test/proeveSport';
+import { createHash } from 'node:crypto';
+import { GAMES } from '../../../../scripts/games.mjs';
 
 // Guiden får SPILLET og må kun beskrive de faner, spillet har. Uden gaten
 // forklarede den pulje-tippet og Superligaens tabel-deling i Premier
@@ -114,17 +116,29 @@ describe('FootballHelp (spil-intern hjælp)', () => {
   // Hjælpesiden skal blive ved med at passe på appen. Fjernes afsnittet, står
   // der intet sted, at stillingen kommer af sig selv — og så genindlæser folk
   // siden manuelt for at se, om der er sket noget.
+  // Gatet på EVNEN harLiveStilling (kilden har hentLive): Superligaens og
+  // Premier Leagues kilder har den. Et spil uden kilde får ingen løfte om et
+  // DIREKTE, kortet aldrig viser.
   it('forklarer, at stillingen opdaterer sig selv under kampen', () => {
-    render(<MemoryRouter><FootballHelp /></MemoryRouter>);
+    render(<MemoryRouter><FootballHelp game={{ sync: { provider: 'superliga' } }} /></MemoryRouter>);
     expect(screen.getByText(/Mens kampen spilles/)).toBeInTheDocument();
     expect(screen.getByText(/opdaterer sig selv hvert minut/)).toBeInTheDocument();
+    expect(screen.queryByTestId('hjaelp-uden-live')).toBeNull();
+  });
+
+  it('et spil uden levende stilling lover hverken DIREKTE eller «Slut · afventer facit»', () => {
+    const { container } = render(<MemoryRouter><FootballHelp game={{ id: 'uden-kilde' }} /></MemoryRouter>);
+    expect(screen.queryByText(/Mens kampen spilles/)).toBeNull();
+    expect(container.textContent).not.toMatch(/DIREKTE|Slut · afventer facit|hvert minut/);
+    expect(screen.getByTestId('hjaelp-uden-live').textContent)
+      .toBe('Når kampen er slut: Stillingen vises ikke undervejs. Når slutresultatet lander på Tip, markeres det rigtige 1X2, og dine point afregnes i samme øjeblik.');
   });
 
   // Hjælpeteksten og kortet er drevet fra hinanden to gange på to dage: først
   // lovede den, at slutresultatet AFLØSER den levende stilling, og derefter at
   // kortet står uden tal. Begge dele var forkerte, og intet fangede det.
   it('lover det samme om slutfløjt, som kortet faktisk gør', () => {
-    render(<MemoryRouter><FootballHelp /></MemoryRouter>);
+    render(<MemoryRouter><FootballHelp game={{ sync: { provider: 'pulselive' } }} /></MemoryRouter>);
     expect(screen.getByText(/Slut · afventer facit/)).toBeInTheDocument();
     expect(screen.getByText(/tallet forsvinder ikke/)).toBeInTheDocument();
   });
@@ -524,33 +538,81 @@ describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
     expect(afsnit(/Point følger oddsene/)).toMatch(/mindst 1,1, og ellers uden loft/);
   });
 
-  // VENDES I D12 (tekster gates på harHjemmebane). TEKSTEN HER ER IKKE FACIT.
-  // For en sport uden hjemmebane siger guiden i dag noget selvmodsigende:
-  // «hjemmebanefordel på ~0 point. To hold med samme rating er altså ikke
-  // 50/50 — hjemmeholdet forventes at tage omkring 50 % takket være
-  // hjemmebanen». Ingen bruger ser det endnu (der er ingen sådan sport), og
-  // D12 gater sætningen på evnen harHjemmebane. Derfor assertes KUN de TAL,
-  // der kommer fra profilen (0 og 50) — aldrig sætningen omkring dem, så en
-  // rettelse i D12 ikke møder en grøn test, der forsvarer fejlen. Når D12
-  // lander, skal her stå fraværs-assertions: uden hjemmebane hverken «ikke
-  // 50/50» eller «takket være hjemmebanen». (Ikke som it.todo: test-rapporten,
-  // scripts/build-test-report.mjs, tæller alt andet end 'passed' som fejlet.)
-  it('prøvesporten: prøvesportens tal — og ingen af fodboldens (sætningerne VENDES I D12)', () => {
+  // VENDT I D12. Prøvesporten har HFA 0 — en model uden hjemmebanefordel.
+  // Før sagde guiden «hjemmebanefordel på ~0 point. To hold med samme rating
+  // er altså ikke 50/50 — hjemmeholdet forventes at tage omkring 50 % takket
+  // være hjemmebanen»: tre påstande, der modsagde tallet. Nu gater sætningen
+  // på evnen harHjemmebane (sporten OG modellen), og her står fraværet.
+  it('prøvesporten: prøvesportens tal — og INGEN hjemmebane-sætning', () => {
     const afsnit = vis({ id: 'x', sport: 'proeve' });
     const elo = afsnit(/Elo-tabellen/);
     expect(elo).toMatch(/Holdene starter ikke alle på 1000\./);
-    expect(elo).toMatch(/~0 point/);       // HFA fra profilen
-    expect(elo).toMatch(/omkring 50 %/);   // eloExpectedHome(START, START, HFA 0)
+    expect(elo).toContain('der regnes ingen hjemmebanefordel. To hold med samme rating står altså lige.');
+    expect(elo).not.toMatch(/ikke 50\/50|takket være hjemmebanen|hjemmebanefordel på|~0 point|hjemmeholdet|udeholdet/);
     expect(elo).toMatch(/gammel \+ 40 ×/);
     expect(elo).toMatch(/40 × \(1 − 0,5\) = \+20 point/);
     expect(elo).toMatch(/40 × \(1 − 0,2\) = \+32 point/);
-    expect(elo).toMatch(/og udeholdet −20\./);
+    expect(elo).toMatch(/og det andet −20\./);
     expect(elo).toMatch(/og favoritten −32 — et langt større udsving/);
     expect(elo).not.toMatch(/1500|~60|59 %|\+ 20 ×|−10\b|−16\b/);
+    // Og Elo-på-kampkortet-afsnittet lover ikke, at hjemmebanen tæller med.
+    expect(afsnit(/Elo på kampkortet/)).not.toMatch(/hjemmebanen/);
     // Gulvet med sine egne decimaler: 1,01 — ikke fmtDec's "1,0", som ville
     // sige, at et ramt tip kan betale mindre end indsatsen.
     const odds = afsnit(/Point følger oddsene/);
     expect(odds).toMatch(/mindst 1,01, og ellers uden loft/);
     expect(odds).not.toMatch(/mindst 1,1,|mindst 1,0,/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LIGAENS GUIDE, BYTE FOR BYTE (P1: «Superligaen og PL er uændrede»).
+//
+// Gaterne og ordnøglerne er testet hver for sig, men de bogstavelige
+// ligasætninger var det ikke (TM-D12: «daglige/ugentlige», «alle seks»,
+// «storklub», udsat-afsnittet, «midt i sæsonen» … overlevede alle som
+// mutanter). Her renderes guiden for de RIGTIGE spil-dokumenter fra
+// scripts/games.mjs, og hele den renderede HTML hashes.
+//
+// Hashen er taget af udgaven FØR håndbold-VM del 3 (f34c4a9, main før del 3),
+// renderet med samme harness. Testen ruller de to BEVIDSTE ændringer tilbage,
+// før den hasher — så hashen beviser, at ALT andet er byte-uændret, og at de
+// to ændringer er præcis dem, vi har valgt:
+//   1. Pulje-rubrikken (bb9758a): «sæsonens bonusspørgsmål» →
+//      «bonusspørgsmålet ved siden af kampene» — i både SL og PL.
+//   2. Holdsiden (D12): «i den officielle tabel» står kun med `standings`
+//      (samme gate som Tabel-fanen). PL har ingen standings og mister den.
+// Superligaens dokument får `standings`, fordi synken skriver feltet i
+// produktion (superligaSync.js) — games.mjs gør ikke. Uden ville guiden
+// rendere en SL, der ikke findes.
+//
+// Rødt her betyder: en ligatekst har flyttet sig. Er det bevidst, så føj det
+// til tilbagerulningen nedenfor med en linje om hvorfor — ret ikke hashen.
+// ---------------------------------------------------------------------------
+describe('ligaens guide er byte-uændret (Superligaen og Premier League)', () => {
+  const sha = (s) => createHash('sha256').update(s).digest('hex');
+  const html = (game) => render(
+    <MemoryRouter initialEntries={[`/spil/${game.id}?fane=hjaelp`]}>
+      <Routes><Route path="/spil/:gameId" element={<FootballHelp game={game} />} /></Routes>
+    </MemoryRouter>,
+  ).container.innerHTML;
+  const spil = (id) => GAMES.find((g) => g.id === id);
+  /** Ruller én bevidst ændring tilbage — og kræver, at den står præcis én gang. */
+  const tilbage = (h, ny, gammel) => {
+    expect(h.split(ny), ny).toHaveLength(2);
+    return h.replace(ny, gammel);
+  };
+  const RUBRIK_NY = '(point fra pulje-tippet — bonusspørgsmålet ved siden af kampene)';
+  const RUBRIK_GAMMEL = '(point fra pulje-tippet — sæsonens bonusspørgsmål)';
+
+  it('Superligaen: kun pulje-rubrikken er ændret', () => {
+    const h = tilbage(html({ ...spil('superliga2627'), standings: { rows: [] } }), RUBRIK_NY, RUBRIK_GAMMEL);
+    expect(sha(h)).toBe('627bbe82c683e729b99fd6b9d2eb73509cb153937e012f2ca02d8de531047c96');
+  });
+
+  it('Premier League: pulje-rubrikken og «i den officielle tabel» (ingen standings)', () => {
+    let h = tilbage(html(spil('pl2627-efteraar')), RUBRIK_NY, RUBRIK_GAMMEL);
+    h = tilbage(h, '— i Elo-tabellen, i trøjeoversigten under', '— i Elo-tabellen, i den officielle tabel, i trøjeoversigten under');
+    expect(sha(h)).toBe('d631d0f77d172840cd7e487a0d8357e84195cf2ca1ba5f135acc7c9f1d785585');
   });
 });

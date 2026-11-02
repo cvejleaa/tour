@@ -17,6 +17,10 @@ const {
 // beslutning før lå fem steder i DEN HER fil alene.
 const { gatedeKampe, startRundeFor, foerStart } = require('./startGate');
 const { aktiveSpillere } = require('./forladSpil');
+const {
+  puljeKanAfregnes, rundeFacit, puljeKonfigFejl, puljeFaseFejl,
+} = require('./puljeFacit');
+const { meldAlarm, loesDriftAlarmer } = require('./driftlog');
 // kickoffMs, matchOutcome og buildRoundContext bor i pointOpdeling, fordi
 // KLIENTEN skal bruge samme runde-kontekst for at kunne kalde opdelPoint.
 // Ét sted, ikke to — ellers driver serverens og fladens forestilling om
@@ -480,22 +484,183 @@ function officielTop(standings, expectedPlayed, poolSize, antalHold) {
 }
 
 /**
- * Afregn pulje-tip (mesterskabsspil-forudsigelse) NÅR hele grundspillet er
- * spillet. Beregner top-6 fra slutstillingen, scorer hvert pulje-tip, gemmer
- * point/correct på tippet + bonusPoints på spilleren, og genberegner totalerne.
- * Self-guardet (gør intet før alle kampe har mål) og idempotent.
- * @returns {Promise<{settled:number}>}
+ * Afregn pulje-tip NÅR puljen er afgjort. For en liga-pulje er det, når hele
+ * grundspillet er spillet (top-6 fra slutstillingen); for en runde-pulje, når
+ * facit-fasen er HELT lagt ind (holdene i semifinalerne). Scorer hvert
+ * pulje-tip, gemmer point/correct på tippet + bonusPoints på spilleren, og
+ * genberegner totalerne. Self-guardet og idempotent.
+ *
+ * TO UDLØSERE: triggeren (recomputeGameMatchCore, ved hver facit-ændring) og
+ * knappen «🎖️ Afregn puljen» under Spil-tidsplan (callablen afregnPuljeNu).
+ * Knappen findes, fordi en runde-pulje afgøres af, at en fase LÆGGES IND —
+ * ikke af et resultat. Rettes en fejl i fasen efter finalen, ville intet
+ * ellers starte afregningen (modstander-fund R4a; CLAUDE.md: «kun kan
+ * startes af en tilfældig hændelse»).
+ *
+ * dryRun: regn alt og skriv INTET — hverken tip, spillere eller alarm. Én
+ * vagt (`if (dryRun) return`) foran alle skrivninger, så en mutation af den
+ * bliver rød (CLAUDE.md: én vagt pr. sikkerhedsregel). Uden dryRun er svaret
+ * præcis som før ({settled}, evt. ingenPulje) — triggeren læser det ikke.
+ *
+ * KAN IKKE FEJLE TAVST (runde-puljen): kan puljen ikke afgøres, fordi
+ * konfigurationen er forkert (puljeKonfigFejl) eller fasens kampe er lagt
+ * forkert ind (puljeFaseFejl), logges det med console.error OG meldes som
+ * drift-alarm `puljeFacit` (Drift-fanen + alarm-mailen). Alarmen lukkes, når
+ * puljen kan afgøres igen (meldPuljeAlarm). En fase, der ALDRIG lægges ind,
+ * giver intet resultat og dermed ingen kørsel her — den fanges af
+ * times-sweep'et (facitVagt.puljeVagt) fra dagen efter fasens startdag.
+ * Liga-puljerne har ingen af delene — deres afregning og læsninger er uændrede.
+ * @returns {Promise<{settled:number, ingenPulje?:true, dryRun?:true, kanAfregnes?:boolean,
+ *   aarsag?:string|null, fejl?:string[], facit?:string[]|null, tip?:number, point?:number}>}
  */
-async function settlePuljeBets(db, FieldValue, gameId, matches) {
-  const goalOf = (g) => (g == null || g === '' ? NaN : Number(g));
-  const complete = matches.length > 0 && matches.every(
-    (m) => Number.isFinite(goalOf(m.homeGoals)) && Number.isFinite(goalOf(m.awayGoals)),
-  );
-  if (!complete) return { settled: 0 };
-
+async function settlePuljeBets(db, FieldValue, gameId, matches, { dryRun = false, nowMs = Date.now() } = {}) {
+  // HVORNÅR puljen er afgjort, afhænger af dens facit-kilde — og den står på
+  // spillet. Derfor læses spillet FØRST. Før stod "alle kampe har mål" her
+  // som eneste vagt, og det er forkert for en runde-pulje i BEGGE retninger:
+  // efter kvartfinalerne har alle oprettede kampe mål, før semifinalerne er
+  // lagt ind (for tidligt — og facit ville blive en tabel over hele
+  // turneringen), og når de er lagt ind, mangler de mål til efter finalen.
+  // Prædikatet er DELT med fladen (puljeFacit.puljeKanAfregnes), så PuljeTip
+  // ikke kan vise et facit, serveren ikke afregner — eller omvendt.
   const gameRef = db.collection('games').doc(gameId);
+  const gameSnap = await gameRef.get();
+  const spil = gameSnap.exists ? gameSnap.data() : null;
+  const konfig = puljeKonfig(spil);
+  const rundePulje = konfig?.facitKilde === 'runde';
+  const plan = await planPuljeAfregning(gameRef, gameId, spil, konfig, matches, nowMs);
+  if (plan.fejl.length) {
+    console.error(`settlePuljeBets(${gameId}): puljen kan ikke afgøres — ${plan.fejl.join('; ')}`);
+  }
+  if (plan.ingenPulje) {
+    console.log(`settlePuljeBets(${gameId}): spillet har ingen pulje — ${plan.antalTip} tip afregnes IKKE.`);
+  }
+
+  // DEN ENE VAGT. Alt under denne linje skriver.
+  if (dryRun) {
+    return {
+      settled: 0,
+      dryRun: true,
+      kanAfregnes: plan.kan,
+      aarsag: plan.aarsag,
+      fejl: plan.fejl,
+      facit: plan.top ? [...plan.top] : null,
+      tip: plan.tip.length,
+      point: plan.tip.reduce((sum, t) => sum + t.bonus, 0),
+    };
+  }
+
+  // AFREGNINGEN AFHÆNGER IKKE AF ALARMEN. Kaster Firestore i driftAlarmer,
+  // skal pulje-tippene stadig afregnes — alarmen er et signal om puljen, ikke
+  // en forudsætning for den. Konsollen er bagstopperen, og den næste kørsel
+  // (triggeren eller times-sweep'ets facitVagt) melder alarmen igen.
+  if (rundePulje) {
+    try {
+      await meldPuljeAlarm(db, FieldValue, { gameId, spil, tilstand: { kan: plan.kan, fejl: plan.fejl }, nowMs });
+    } catch (err) {
+      console.error(`settlePuljeBets(${gameId}): puljeFacit-alarmen kunne ikke skrives (afregningen fortsætter):`, err?.message || err);
+    }
+  }
+  if (!plan.kan) return { settled: 0 };
+  if (plan.ingenPulje) return { settled: 0, ingenPulje: true };
+  if (!plan.tip.length) return { settled: 0 };
+
+  const batch = db.batch();
+  for (const t of plan.tip) {
+    batch.update(t.ref, t.felter);
+    const playerRef = db.collection('games').doc(gameId).collection('players').doc(t.uid);
+    batch.set(playerRef, { bonusPoints: t.bonus }, { merge: true });
+  }
+  await batch.commit();
+
+  // VIGTIGT: send runde-konteksten med. Uden den giver combiBonus 0, og
+  // spillerne ville miste hele deres opsparede combi-bonus i samme øjeblik
+  // puljen blev afregnet — altså præcis ved sæsonafslutningen.
+  const roundCtx = buildRoundContext(matches);
+  const uids = plan.tip.map((t) => t.uid);
+  const CHUNK = 10;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    await Promise.all(uids.slice(i, i + CHUNK)
+      .map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx, plan.gated)));
+  }
+  return { settled: uids.length };
+}
+
+/**
+ * Runde-puljens tilstand: kan den afgøres — og hvis ikke, hvad er GALT?
+ * null for alle andre puljer (og et spil uden pulje): de har ingen alarm.
+ *
+ * Tom `fejl` med `kan: false` er «ikke lagt ind endnu» — normalt, før fasens
+ * startdag. Én funktion for begge udløsere af alarmen: afregningen
+ * (settlePuljeBets, ved et facit eller knappen) og times-sweep'et
+ * (facitVagt.puljeVagt, der fanger den UDEBLEVNE fase — den kommer der
+ * intet resultat af, og så ville afregningen aldrig se den).
+ * @returns {{kan:boolean, fejl:string[]}|null}
+ */
+function rundePuljeTilstand(spil, matches, nowMs) {
+  const konfig = puljeKonfig(spil);
+  if (konfig?.facitKilde !== 'runde') return null;
+  const kan = puljeKanAfregnes(konfig, spil, matches);
+  return {
+    kan,
+    fejl: kan ? [] : [...puljeKonfigFejl(spil), puljeFaseFejl(spil, matches, nowMs)].filter(Boolean),
+  };
+}
+
+/**
+ * Meld eller luk alarmen `puljeFacit` ud fra tilstanden — og kun sådan:
+ *   fejl          → meld (Drift-fanen + alarm-mailen)
+ *   kan afgøres   → luk, uanset om nogen har tippet
+ *   ellers        → intet: «ikke lagt ind endnu» lukker IKKE en åben alarm.
+ *                   Sletter admin en dublet-semifinale, er puljen stadig ikke
+ *                   afgjort, og alarmen skal stå, til den er.
+ * Kaster videre — kalderen bestemmer, hvad en fejlet alarm koster.
+ * @returns {Promise<'meldt'|'loest'|null>}
+ */
+async function meldPuljeAlarm(db, FieldValue, {
+  gameId, spil, tilstand, nowMs = Date.now(), meld = meldAlarm, loes = loesDriftAlarmer,
+}) {
+  if (!tilstand) return null;
+  if (tilstand.fejl.length) {
+    await meld(db, FieldValue, {
+      type: 'puljeFacit', gameId, nowMs,
+      besked: `Pulje-tippene i «${spil?.name || gameId}» kan ikke afregnes: ${tilstand.fejl.join('; ')}. `
+        + 'Ret fasens kampe (eller pulje/faser i scripts/games.mjs), og tryk så 🎖️ Afregn puljen under Spil-tidsplan.',
+    });
+    return 'meldt';
+  }
+  if (tilstand.kan) {
+    await loes(db, FieldValue, { type: 'puljeFacit', gameId, aktuelleKampIds: [], nowMs });
+    return 'loest';
+  }
+  return null;
+}
+
+/**
+ * REGN afregningen uden at skrive noget. Læser kun pulje-tippene, og kun når
+ * puljen kan afgøres — som før: et liga-spil uden komplet sæson betaler ikke
+ * en ekstra læsning pr. resultat.
+ * @returns {Promise<{kan:boolean, fejl:string[], aarsag:string|null, ingenPulje:boolean,
+ *   antalTip:number, top:Set<string>|null, gated:Set<string>|null,
+ *   tip:Array<{uid:string, ref:object, felter:object, bonus:number}>}>}
+ */
+async function planPuljeAfregning(gameRef, gameId, spil, konfig, matches, nowMs) {
+  // Kun en runde-pulje kan være "lagt forkert ind"; en liga-pulje venter
+  // bare på sin sidste kamp. Samme tilstand som alarmen (rundePuljeTilstand).
+  const runde = rundePuljeTilstand(spil, matches, nowMs);
+  const ud = {
+    kan: runde ? runde.kan : puljeKanAfregnes(konfig, spil, matches), fejl: runde ? runde.fejl : [], aarsag: null,
+    ingenPulje: false, antalTip: 0, top: null, gated: null, tip: [],
+  };
+  if (!ud.kan) {
+    ud.aarsag = ud.fejl.length ? ud.fejl.join('; ')
+      : konfig?.facitKilde === 'runde' ? `${konfig.labels.top} er ikke lagt ind endnu`
+        : 'ikke alle kampe har et resultat endnu';
+    return ud;
+  }
+
   const puljeSnap = await gameRef.collection('puljeBets').get();
-  if (puljeSnap.empty) return { settled: 0 };
+  if (puljeSnap.empty) { ud.aarsag = 'ingen har afgivet et pulje-tip'; return ud; }
+  ud.antalTip = puljeSnap.size;
 
   // SPILLET SKAL HAVE EN PULJE. Puljen er et tip om, hvem der ender i
   // mesterskabsspillet, og det findes kun i ligaer, der HAR et mesterskabsspil.
@@ -505,19 +670,18 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   // Spil-tidsplan), accepterer firestore.rules puljetips, og de blev afregnet
   // her mod en top-6 af Premier Leagues tabel. Bonuspoint i en liga uden
   // pulje, én tastefejl væk. CLAUDE.md: serveren er eneste autoritet.
-  const gameSnap = await gameRef.get();
-  const konfig = puljeKonfig(gameSnap.exists ? gameSnap.data() : null);
   if (!konfig) {
-    console.log(`settlePuljeBets(${gameId}): spillet har ingen pulje — ${puljeSnap.size} tip afregnes IKKE.`);
-    return { settled: 0, ingenPulje: true };
+    ud.ingenPulje = true;
+    ud.aarsag = 'spillet har ingen pulje';
+    return ud;
   }
-  const gated = gatedIds(matches, gameSnap.data());
+  ud.gated = gatedIds(matches, spil);
   // Kampe pr. runde = antal hold / 2. Formlen var før hårdkodet til 6 (12
   // hold): for PL's 20 hold gav den 30 forventede kampe pr. hold i stedet for
   // 18, så den officielle stilling ALDRIG blev godkendt, og fallbacken bar
   // afregningen ved et held (QC-fund). Udledes nu af spillets egen holdliste.
-  const antalHold = Array.isArray(gameSnap.data().teams) && gameSnap.data().teams.length >= 2
-    ? gameSnap.data().teams.length : 12;
+  const antalHold = Array.isArray(spil.teams) && spil.teams.length >= 2
+    ? spil.teams.length : 12;
   const kampePrRunde = antalHold / 2;
   const expectedPlayed = matches.length % kampePrRunde === 0 ? matches.length / kampePrRunde : null;
 
@@ -526,43 +690,37 @@ async function settlePuljeBets(db, FieldValue, gameId, matches) {
   // 'egneKampe' (PL-efterår) beregner ALTID af spillets egne kampe og rører
   // aldrig standings — et halvsæson-spil må ikke kunne genafregnes mod
   // forårets officielle tabel og tavst overskrive december-resultatet.
-  const standings = gameSnap.data().standings;
-  const top = new Set(konfig.facitKilde === 'egneKampe'
-    ? championshipTeams(matches, konfig.poolSize)
-    : (officielTop(standings, expectedPlayed, konfig.poolSize, antalHold)
-      || championshipTeams(matches, konfig.poolSize)));
+  // 'runde' (semifinalisterne): holdene i facit-fasens kampe — samme
+  // funktion, som prædikatet ovenfor har godkendt, og som fladen viser.
+  let topListe;
+  if (konfig.facitKilde === 'runde') topListe = rundeFacit(konfig, spil, matches);
+  else if (konfig.facitKilde === 'egneKampe') topListe = championshipTeams(matches, konfig.poolSize);
+  else {
+    topListe = officielTop(spil.standings, expectedPlayed, konfig.poolSize, antalHold)
+      || championshipTeams(matches, konfig.poolSize);
+  }
+  ud.top = new Set(topListe);
   const bund = konfig.nedSize > 0 ? new Set(bundTeams(matches, konfig.nedSize)) : null;
 
-  const batch = db.batch();
-  const uids = [];
+  const valg = { antal: konfig.poolSize, perTeam: konfig.perTeam, perfectBonus: konfig.perfectBonus };
   for (const d of puljeSnap.docs) {
-    const valg = { antal: konfig.poolSize, perTeam: konfig.perTeam, perfectBonus: konfig.perfectBonus };
-    const { correct, points } = puljeScore(d.data().championship, top, valg);
+    const { correct, points } = puljeScore(d.data().championship, ud.top, valg);
     // Bundspørgsmålet skrives KUN når spillet har et — SL-dokumenter får
     // ingen nye felter. Facit-kortet i fladen viser de to spørgsmål hver for
     // sig, så bonusPoints-summen har en forklaring (QC-krav).
     const ned = bund
       ? puljeScore(d.data().relegation, bund, { ...valg, antal: konfig.nedSize })
       : null;
-    batch.update(d.ref, ned
-      ? { correct, points, nedCorrect: ned.correct, nedPoints: ned.points }
-      : { correct, points });
-    const playerRef = db.collection('games').doc(gameId).collection('players').doc(d.id);
-    batch.set(playerRef, { bonusPoints: points + (ned ? ned.points : 0) }, { merge: true });
-    uids.push(d.id);
+    ud.tip.push({
+      uid: d.id,
+      ref: d.ref,
+      felter: ned
+        ? { correct, points, nedCorrect: ned.correct, nedPoints: ned.points }
+        : { correct, points },
+      bonus: points + (ned ? ned.points : 0),
+    });
   }
-  await batch.commit();
-
-  // VIGTIGT: send runde-konteksten med. Uden den giver combiBonus 0, og
-  // spillerne ville miste hele deres opsparede combi-bonus i samme øjeblik
-  // puljen blev afregnet — altså præcis ved sæsonafslutningen.
-  const roundCtx = buildRoundContext(matches);
-  const CHUNK = 10;
-  for (let i = 0; i < uids.length; i += CHUNK) {
-    await Promise.all(uids.slice(i, i + CHUNK)
-      .map((uid) => recalcPlayerTotal(db, FieldValue, gameId, uid, roundCtx, gated)));
-  }
-  return { settled: uids.length };
+  return ud;
 }
 
 /**
@@ -690,8 +848,10 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
     }
   }
 
-  // Pulje-tip: afregn mesterskabsspil-tippene når HELE grundspillet er spillet
-  // (self-guardet + idempotent — rescores hvis et resultat senere rettes).
+  // Pulje-tip: afregn, når puljen er afgjort — for en liga-pulje, når HELE
+  // grundspillet er spillet; for en runde-pulje, når facit-fasen er lagt ind
+  // (puljeFacit.puljeKanAfregnes). Self-guardet + idempotent — rescores, hvis
+  // et resultat senere rettes.
   await settlePuljeBets(db, FieldValue, gameId, allMatches);
 
   return { rescored, players: uids.length, roundCompleted };
@@ -799,6 +959,6 @@ module.exports = {
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo, rescoreAllBets,
   dryRunFraKald, ukendtSportFejl, tilHttpsFejl, omprisFraKnap,
   computeRanks, snapshotRoundRanks,
-  settlePuljeBets, officielTop, puljeTipKomplet, gatedIds, recomputeAllPlayerTotals,
+  settlePuljeBets, rundePuljeTilstand, meldPuljeAlarm, officielTop, puljeTipKomplet, gatedIds, recomputeAllPlayerTotals,
   spillereTriggerenGenberegner,
 };

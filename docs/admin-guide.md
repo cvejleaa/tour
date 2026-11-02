@@ -50,10 +50,13 @@ Liga-admin følger med at have oprettet ligaen.
   ikke, giver ingen point og udløser ingen påmindelser — så en sæson kan starte
   midt i, fx fra runde 2.
 - **Bonus-deadline** lukker pulje-tippet. Den behøver ikke ligge før runde 1;
-  giv gerne tid til at få spillere med. **Men aldrig senere end runde 3:**
-  ligaer med senere startrunde tæller ikke puljebonussen med (den blev tippet
-  før deres start), så en deadline efter runde 3 ville tage bonuspoint fra
-  ligaer, der ellers kunne have været med.
+  giv gerne tid til at få spillere med. **Men aldrig senere end puljegrænsen**
+  (runde 3, medmindre spillet har sin egen — `pulje.maksStartRunde` i
+  `scripts/games.mjs`): ligaer med senere startrunde tæller ikke puljebonussen
+  med (den blev tippet før deres start), så en senere deadline ville tage
+  bonuspoint fra ligaer, der ellers kunne have været med. I en turnering er en
+  runde en **dag**, så standardgrænsen betyder dér, at en liga oprettet på
+  turneringens 4. dag mister puljebonussen.
 
   Et spil kan i stedet få deadlinen **udledt af en runde** (`puljeLockRound` i
   `scripts/games.mjs` — sådan er Premier League sat op): så sættes bonus-
@@ -64,12 +67,41 @@ Liga-admin følger med at have oprettet ligaen.
   åbnet". En passeret deadline skubbes aldrig ud i fremtiden igen, selv om en
   kamp flyttes frem — så puljen ikke kan genåbnes, efter alle har set
   hinandens tip.
+
+  Har spillet `puljeLockRound`, men **ingen kickoff-synk** (en turnering, hvis
+  kilde ikke er i drift endnu), udleder intet deadlinen. Så er feltet
+  redigerbart, og der står hvorfor: sæt det til rundens første kickoff — aldrig
+  en placeholder. Får spillet senere en kickoff-synk, flytter den deadlinen til
+  rundens tidligste kickoff, så længe den ikke er passeret.
+- **Runde-pulje (turnering):** en pulje med `facitKilde: 'runde'` og
+  `facitFase: 'Semifinaler'` spørger "hvilke hold når semifinalerne?". Den
+  afgøres, så snart **alle** fasens kampe (fasens `antalKampe`) er lagt ind med
+  begge hold — ikke når kampene er spillet. Pointene skrives på stillingen ved
+  den næste kamp, der får et facit — eller med vilje: **🎖️ Afregn puljen**
+  her under Spil-tidsplan (kun for en runde-pulje) viser først i en tør-kørsel
+  facit, antal tip og point, og først derefter kommer knappen, der afregner.
+  Brug den, hvis fasen er rettet efter sidste kamp — så starter intet resultat
+  afregningen. Kan puljen aldrig afgøres (fasen findes ikke i kalenderen,
+  forkert antal hold, et bundspørgsmål …), står det med rødt øverst på spillet
+  her — og så afregnes intet, heller ikke når fasens kampe er rigtige. Drift-
+  alarmen **«Puljen kan ikke afgøres»** (under 🩺 Driftstatus og i
+  alarm-mailen) tjekkes i hver Times-sweep (kl. 02:25 og hver time 13:25–23:25
+  dansk tid, så længe spillet er Åbent eller I gang) og ved hvert nyt facit:
+  - en konfigurationsfejl, for mange kampe i fasen eller et hold i to kampe
+    melder den med det samme;
+  - for få kampe eller et manglende hold melder den først fra dagen **efter**
+    fasens startdag (dansk dato) — i praksis ved sweep'et kl. 02:25 natten
+    efter. Det gælder også, når semifinalerne slet ikke er lagt ind.
+
+  Alarmen lukker selv, når puljen kan afgøres — også selv om ingen har tippet.
+  Den lukker **ikke**, blot fordi den forkerte kamp er slettet: står fasen
+  derefter halvt lagt ind, er puljen stadig ikke afgjort.
 - **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
   automatisk starttidspunktet eller sidste kamp:
 
   | Status | Betyder |
   |---|---|
-  | **Åben** | Kan tilmeldes. Spillerne kan også forlade spillet igen, også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende kampe slettes, men point og historik arkiveres (`forladt: true` på deltagelsen) — kommer de tilbage i sæsonen, får de stillingen igen. Ejer spilleren en liga i spillet, skal ligaen slettes først. |
+  | **Åben** | Kan tilmeldes. Spillerne kan også forlade spillet igen, også med point: de forsvinder fra stillingen og deres ligaer, tips på kommende kampe slettes, men point og historik arkiveres (`forladt: true` på deltagelsen) — kommer de tilbage i sæsonen (eller turneringen), får de stillingen igen. Ejer spilleren en liga i spillet, skal ligaen slettes først. |
   | **I gang** | Forlad-knappen er væk. Påmindelser sendes — medmindre de er sat på pause under 🔔 Påmindelser. |
   | **Afsluttet** | Ude af "Åbne spil — deltag" og af 🔔 Påmindelser-fanen, og det daglige påmindelses-job springer spillet over. Stilling og historik kan stadig ses, og du kan stadig rette facit (✍️ Sæt eller ret facit i hånden) og genberegne. Strandet-alarmen vogter ikke længere et afsluttet spil uden synk. |
 
@@ -272,7 +304,12 @@ at rette et forkert facit.
    knockout-kampe, før kalenderen er rettet), og står den lige efter
    ordinær tid, skal du også taste **slutresultatet efter forlængelse/straffekast**
    og hvordan kampen blev afgjort. Det vises separat og flytter ingen point;
-   X er et gyldigt facit i knockout.
+   X er et gyldigt facit i knockout. Spillerne ser begge stillinger —
+   «30-30 · 35-34 e.f.» eller «28-28 · 33-31 e.str.» — på kampkortet, i Mine
+   tips, i spillerdetaljen, under Jer to imellem og på holdsiden, og
+   Runde-Botten får begge med. Reglen («Knockout: vi tipper stillingen efter
+   60 min. Uafgjort er X, også når nogen vinder i forlængelsen.») står ved
+   1X2-knapperne på hver knockout-kamp, i guiden og i invitationen.
 3. **Vis hvad der ændrer sig** er en tør-kørsel: 1/X/2 før → efter, hvor mange
    tips og spillere der får ændret point, hvor mange point der flytter sig i
    alt (inkl. combi), og om det er rundens sidste kamp. Først derefter dukker

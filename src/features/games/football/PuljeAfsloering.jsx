@@ -35,6 +35,7 @@ import ClubBadge from '../../../components/ClubBadge';
 import { fmtPoints } from '../../../lib/daNum';
 import {
   erAfgjort, holdTilslutning, puljeRangliste, puljeVindere,
+  rundeAfventerTekst, rundeRanglisteVenter,
 } from './puljeAfsloering';
 
 /** Set uanset om kilden gav et Set, en liste eller ingenting. */
@@ -110,6 +111,14 @@ export default function PuljeAfsloering({
   // faktisk afgøres (QC-fund, blokerende). Derfor falder "lige nu" tilbage på
   // klientens facit, når den selv er tom.
   const kilde = afgjort ? facit : (ligeNu || facit);
+  // EN RUNDE-PULJE HAR INTET "LIGE NU" (PuljeTip: en tabel på tværs af
+  // grupper siger intet om semifinalerne). Uden facit er der derfor INGEN
+  // kilde — og en rangliste på ingen kilde gav «0 af 4» til alle under «hvis
+  // tabellen sluttede i dag». Med facit er tallet ikke "lige nu", men
+  // endeligt og kun ikke afregnet endnu (modstander-fund B1). Gaten er
+  // facit-kilden, ikke sporten.
+  const rundePulje = konfig.facitKilde === 'runde';
+  const fraFacit = afgjort || (rundePulje && facit != null);
   const topSet = useMemo(() => saet(kilde?.top), [kilde]);
   const bundSet = useMemo(() => saet(kilde?.bund), [kilde]);
 
@@ -143,7 +152,7 @@ export default function PuljeAfsloering({
   // afregnes hver for sig med samme `perfectBonus`). En perfekt række i PL er
   // derfor +20, ikke +10 — første udgave skrev spillets ene tal.
   const perfektBonus = konfig.perfectBonus * (nedSize > 0 ? 2 : 1);
-  const raekker = medlemmer.length >= 2
+  const raekker = medlemmer.length >= 2 && !(rundePulje && !fraFacit)
     ? puljeRangliste(bets, medlemmer, { top: topSet, bund: bundSet }, valg, afgjort)
     : null;
   // Ligaen findes, men dens medlemmer er (endnu) ikke i `standings` — det
@@ -187,7 +196,7 @@ export default function PuljeAfsloering({
                 </td>
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                   <strong>{h.antal} af {antalTip}</strong>
-                  {topSet.has(h.navn) && <span title={afgjort ? 'Facit' : 'Står der lige nu'}> 🏆</span>}
+                  {topSet.has(h.navn) && <span title={fraFacit ? 'Facit' : 'Står der lige nu'}> 🏆</span>}
                 </td>
                 <td style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>
                   {ene && <>— {ene}</>}
@@ -201,6 +210,12 @@ export default function PuljeAfsloering({
       {ligaUdenFaeller && (
         <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0.9rem 0 0' }} data-testid="pulje-ingen-faeller">
           Ingen af ligaens medlemmer er med i stillingen endnu — puljens rangliste kommer, når de er.
+        </p>
+      )}
+
+      {rundePulje && !fraFacit && medlemmer.length >= 2 && (
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0.9rem 0 0' }} data-testid="pulje-rangliste-venter">
+          {rundeRanglisteVenter(konfig)}
         </p>
       )}
 
@@ -244,8 +259,10 @@ export default function PuljeAfsloering({
             ))}
           </ol>
           {!afgjort && (
-            <p style={{ color: 'var(--c-muted)', fontSize: '0.8rem', margin: '0.35rem 0 0' }}>
-              Lige nu, hvis tabellen sluttede i dag. Intet er afgjort endnu.
+            <p style={{ color: 'var(--c-muted)', fontSize: '0.8rem', margin: '0.35rem 0 0' }} data-testid="pulje-rangliste-fodnote">
+              {rundePulje
+                ? rundeAfventerTekst(konfig)
+                : 'Lige nu, hvis tabellen sluttede i dag. Intet er afgjort endnu.'}
             </p>
           )}
         </>

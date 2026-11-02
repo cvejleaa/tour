@@ -4,7 +4,7 @@
  */
 import { ligaRanking } from './gameStandings';
 import {
-  ligaPoint, harRundeVektor, puljenTaeller, vektorStemmer, PULJE_MAKS_STARTRUNDE,
+  ligaPointFor, harRundeVektor, puljenTaeller, vektorStemmer, puljeMaksStartRunde,
 } from '../../lib/ligaPoint';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -19,7 +19,7 @@ import LeagueQuestions from './LeagueQuestions';
 import { formatPoints } from './GameLayout';
 import { useKlubFarver } from './football/useKlubFarver';
 import { relativeTime } from '../../lib/daDate';
-import { rundeOrd, rundeNavneord } from '../../lib/faser';
+import { rundeOrd, rundeNavneord, rundeOrdene } from '../../lib/faser';
 import {
   createLeague, joinLeagueByCode, leaveLeague, renameLeague, deleteLeague,
   setLeagueStartRound,
@@ -159,11 +159,11 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
   // basen spillets tal, som altid.
   const rows = useMemo(
     () => leagueRankingWithQuestions(
-      ligaRanking(standings, league, ligaPoint, harRundeVektor, vektorStemmer),
+      ligaRanking(standings, league, ligaPointFor(game), harRundeVektor, vektorStemmer),
       league.memberUids,
       lqByUid,
     ),
-    [standings, league, lqByUid],
+    [standings, league, lqByUid, game],
   );
 
   const [vaelgerRunde, setVaelgerRunde] = useState(false);
@@ -241,7 +241,7 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
             {Number.isFinite(league.startRound) && (
               <span className="badge badge--muted" data-testid="liga-startrunde">
                 Tæller fra {rundeOrd(game, league.startRound)}
-                {!puljenTaeller(league.startRound) && ' · puljen tæller ikke'}
+                {game?.pulje && !puljenTaeller(league.startRound, puljeMaksStartRunde(game)) && ' · puljen tæller ikke'}
               </span>
             )}
           </div>
@@ -263,8 +263,8 @@ function LeagueCard({ league, standings, byUid, meUid, gameId, game, forvalgt, k
                   runder før tæller ikke, og puljen har sin egen grænse. */}
               <span style={{ flexBasis: '100%', fontSize: '0.78rem', color: 'var(--c-muted)' }}>
                 {rundeNavneord(game) === 'dag' ? 'Dage' : 'Runder'} før den valgte tæller ikke i ligaens stilling. Tomt felt = hele spillet.
-                Starter ligaen efter {rundeOrd(game, PULJE_MAKS_STARTRUNDE)}, tæller puljebonussen ikke med
-                — den blev tippet før sæsonen.
+                Starter ligaen efter {rundeOrd(game, puljeMaksStartRunde(game))}, tæller puljebonussen ikke med
+                — den blev tippet før {rundeOrdene(game).saesonen}.
               </span>
             </div>
           )}

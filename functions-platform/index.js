@@ -25,7 +25,7 @@ const crypto = require('crypto');
 const {
   recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets,
   dryRunFraKald, omprisFraKnap,
-  puljeTipKomplet,
+  puljeTipKomplet, settlePuljeBets,
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore, syncXgCore,
@@ -80,6 +80,7 @@ const { puljeKonfig } = require('./superligaScoring');
 const { membershipDelta, applyMembershipDelta, rebuildGamePlayerLeagues } = require('./playerLeagues');
 const { hentSpoergsmaalStatus } = require('./gameLeagues');
 const { invitationsHtml, ligaProfil, invitationsFejl } = require('./inviteTemplate');
+const { puljeRykMail } = require('./puljeRykMail');
 const { validerBroadcastBillede, broadcastBilledeSti } = require('./broadcastImage');
 
 initializeApp();
@@ -303,6 +304,35 @@ exports.recomputeGameScores = onCall({ region: REGION }, async (request) => {
   const gameId = String(request.data?.gameId || '').trim();
   if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
   return recomputeAllPlayerTotals(db, FieldValue, gameId);
+});
+
+// afregnPuljeNu — afregn spillets pulje-tip MED VILJE.
+//
+// HVORFOR DEN FINDES. Triggeren (recomputeGameMatch → settlePuljeBets) kører
+// kun, når en kamps facit ÆNDRER sig. En runde-pulje ("hvem når
+// semifinalerne?") afgøres af, at en fase LÆGGES IND — og rettes en fejl i
+// fasens kampe eller i puljens konfiguration efter finalen, ville intet
+// starte afregningen igen (modstander-fund R4a; CLAUDE.md: en funktion, der
+// kun kan startes af en tilfældig hændelse, er ikke færdig).
+//
+// HVAD DEN GØR: præcis det, triggeren gør — settlePuljeBets er self-guardet
+// og idempotent — og intet andet. Den rører ingen bets og ingen kampe.
+//
+// dryRun er DEFAULT SAND, som rescoreGameBets: kun et eksplicit dryRun: false
+// skriver. Tør-kørslen svarer med facit, antal tip og point i alt — eller
+// hvorfor puljen ikke kan afgøres.
+exports.afregnPuljeNu = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const gameId = String(request.data?.gameId || '').trim();
+  if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+  const dryRun = dryRunFraKald(request.data);
+  const snap = await db.collection('games').doc(gameId).collection('matches').get();
+  const matches = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+  const res = await settlePuljeBets(db, FieldValue, gameId, matches, { dryRun });
+  // dryRun bæres ALTID i svaret, så fladen kan skelne en tør fra en våd
+  // kørsel (samme fælde som Ompris: "afregnet" om en kørsel, der intet skrev).
+  return { ...res, dryRun };
 });
 
 // rescoreGameBets — genscor ALLE bets mod deres kamps facit.
@@ -611,8 +641,9 @@ exports.syncSuperligaSweep = onSchedule(
   },
   async () => {
     const db = getFirestore();
-    // FØRST: strandede-vagten for kampspil UDEN resultat-synk (facitVagt.js).
-    // Den står før løkken over de synkede spil med vilje: dér ligger xG og
+    // FØRST: strandede-vagten for kampspil UDEN resultat-synk (facitVagt.js)
+    // — og runde-puljens udeblivelses-alarm (puljeFacit) for ALLE åbne og
+    // igangværende spil med runde-pulje, synkede eller ej. Den står før løkken over de synkede spil med vilje: dér ligger xG og
     // kampdetaljer, der kan bruge budgettet op, og en platform-timeout kan
     // ikke fanges af try/catch. Vagten er billig (ét opslag af spillene og
     // ét af hvert spils kampe), så den skal ikke kunne dø af naboens kilde.
@@ -1563,7 +1594,7 @@ exports.sendGameTipRemindersNow = onCall(
     const gSnap = await db.collection('games').doc(gameId).get();
     if (!forventerPaamindelser(gSnap.exists ? gSnap.data() : null)) {
       throw new HttpsError('failed-precondition',
-        'Spillet får ikke påmindelser (kræver et fodbold-spil med status Åbent eller I gang).');
+        'Spillet får ikke påmindelser (kræver et kampspil med status Åbent eller I gang).');
     }
     const transporter = buildTransport(SMTP_PASSWORD.value());
     if (!transporter) throw new HttpsError('failed-precondition', 'SMTP_PASSWORD er ikke sat endnu.');
@@ -1654,7 +1685,7 @@ exports.sendGameTestReminderToMe = onCall(
     const gSnap = await db.collection('games').doc(gameId).get();
     if (!forventerPaamindelser(gSnap.exists ? gSnap.data() : null)) {
       throw new HttpsError('failed-precondition',
-        'Spillet får ikke påmindelser (kræver et fodbold-spil med status Åbent eller I gang).');
+        'Spillet får ikke påmindelser (kræver et kampspil med status Åbent eller I gang).');
     }
     const contactSnap = await db.collection('userContacts').doc(request.auth.uid).get();
     const email = request.auth.token?.email || contactSnap.data()?.email || caller?.email;
@@ -1730,17 +1761,13 @@ exports.gamePuljeStatus = onCall(
       for (const m of missing) {
         const email = emailOf.get(m.uid);
         if (!email || optOut.has(m.uid)) continue;
-        const html = `
-          <p>Hej ${escapeHtml(m.name)} 👋</p>
-          <p>Du mangler at sætte dit <strong>pulje-tip</strong> (sæsonens bonusspørgsmål) i ${escapeHtml(gameName)} —
-          det er dér, de store bonuspoint ligger til sæsonafslutningen.</p>
-          ${deadlineTxt ? `<p>Deadline: <strong>${escapeHtml(deadlineTxt)}</strong>.</p>` : ''}
-          <p><a href="${APP_URL}">Sæt dit pulje-tip på tip.vejleaa.dk</a> — det tager to minutter.</p>
-          <p style="color:#888;font-size:12px">Du kan slå påmindelser fra på din profilside.</p>`;
+        const { subject, html } = puljeRykMail({
+          navn: m.name, gameName, deadlineTxt, game, konfig, appUrl: APP_URL, escapeHtml,
+        });
         try {
           await sendEmail(db, transporter, {
             to: email,
-            subject: `Husk pulje-tippet i ${gameName}${deadlineTxt ? ` — deadline ${deadlineTxt}` : ''}`,
+            subject,
             html,
             type: 'pulje-reminder',
           });

@@ -196,11 +196,23 @@ describe('liga-kortet', () => {
     mockLigaer = [{ id: 'kon', name: 'Kontoret', code: 'KODE12', ownerUid: 'A', memberUids: ['A', 'B'], startRound: 20 }];
   });
 
-  const tegn = () => render(
+  // Spillet HAR en pulje — ellers er der ingen puljebonus at miste, og
+  // badgen må ikke nævne den (se testen «uden pulje» nedenfor).
+  const tegn = (game = { id: 'sl', type: 'football', pulje: { poolSize: 6 } }) => render(
     <MemoryRouter initialEntries={['/spil/sl/ligaer?liga=kon']}>
-      <GameLeagues gameId="sl" game={{ id: 'sl', type: 'football' }} />
+      <GameLeagues gameId="sl" game={game} />
     </MemoryRouter>,
   );
+
+  // FASTFROSSET FØR: den første test herunder tegnede et spil UDEN pulje og
+  // krævede «puljen tæller ikke» — grøn, fordi den forsvarede fejlen. Et spil
+  // uden pulje har ingen puljebonus, så kortet må ikke advare om at miste den.
+  it('nævner IKKE puljen, når spillet slet ikke har en pulje', () => {
+    tegn({ id: 'sl', type: 'football' });
+    const badge = screen.getByTestId('liga-startrunde');
+    expect(badge.textContent).toContain('Tæller fra runde 20');
+    expect(badge.textContent).not.toContain('puljen');
+  });
 
   it('viser startrunden på kortet — og at puljen ikke tæller', () => {
     tegn();
@@ -222,6 +234,24 @@ describe('liga-kortet', () => {
     expect(badge.textContent).not.toContain('puljen tæller ikke');
   });
 
+  // SPILLETS GRÆNSE (game.pulje.maksStartRunde). En turnering med én runde
+  // pr. dag kan flytte grænsen; kortet og forklaringen skal følge med, og
+  // uden feltet er de præcis som ovenfor.
+  it('følger spillets puljegrænse — badge og forklaring', () => {
+    render(
+      <MemoryRouter initialEntries={['/spil/sl/ligaer?liga=kon']}>
+        <GameLeagues gameId="sl" game={{ id: 'sl', type: 'football', pulje: { poolSize: 6, maksStartRunde: 25 } }} />
+      </MemoryRouter>,
+    );
+    const badge = screen.getByTestId('liga-startrunde');
+    expect(badge.textContent).toContain('Tæller fra runde 20');
+    expect(badge.textContent).not.toContain('puljen tæller ikke');
+    fireEvent.click(screen.getByRole('button', { name: /Startrunde/ }));
+    const t = document.body.textContent.replace(/\s+/g, ' ');
+    expect(t).toContain('Starter ligaen efter runde 25, tæller puljebonussen ikke med');
+    expect(t).not.toContain('efter runde 3');
+  });
+
   it('ejeren kan sætte runden, og den gemmes som TAL', async () => {
     tegn();
     fireEvent.click(screen.getByRole('button', { name: /Startrunde/ }));
@@ -240,6 +270,7 @@ describe('liga-kortet', () => {
     const t = document.body.textContent.replace(/\s+/g, ' ');
     expect(t).toContain('Runder før den valgte tæller ikke i ligaens stilling');
     expect(t).toContain('tæller puljebonussen ikke med');
+    expect(t).toContain('tæller puljebonussen ikke med — den blev tippet før sæsonen.');
   });
 
   // LIGA-TABELLEN INDE PÅ KORTET skal også bruge ligaens tal — den har sin
@@ -283,8 +314,9 @@ describe('fasekalender: liga-kortet og stillingen siger «dag»', () => {
     expect(screen.getByLabelText(/Ligaen tæller fra dag/)).toBeInTheDocument();
     const t = document.body.textContent.replace(/\s+/g, ' ');
     expect(t).toContain('Dage før den valgte tæller ikke i ligaens stilling');
-    expect(t).toContain('Starter ligaen efter dag 3, tæller puljebonussen ikke med');
+    expect(t).toContain('Starter ligaen efter dag 3, tæller puljebonussen ikke med — den blev tippet før turneringen.');
     expect(t).not.toContain('Runder før den valgte');
+    expect(t).not.toContain('sæson');
   });
 
   it('liga-kortet UDEN kalender: «runde» som før', () => {
@@ -328,10 +360,93 @@ describe('fasekalender: liga-kortet og stillingen siger «dag»', () => {
     expect(screen.getByRole('button', { name: 'Dag 3' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Runde 3' })).toBeNull();
     expect(c.textContent).toContain('Tæller fra dag 2');
-    expect(c.textContent).toContain('Dag 3: tallet under totalen er rundens point.');
-    expect(c.textContent).not.toMatch(/Tæller fra runde|Runde 3/);
+    // VENDT I D12: «rundens point» om en spilledag var en rest fra D5, som
+    // denne test fastfrøs. Nu siger linjen dagens ord.
+    expect(c.textContent).toContain('Dag 3: tallet under totalen er dagens point.');
+    expect(c.textContent).not.toMatch(/Tæller fra runde|Runde 3|rundens point/);
     fireEvent.click(screen.getByRole('button', { name: 'Dag 3' }));
-    expect(c.textContent).toContain('Dag 3 alene — sorteret efter rundens point.');
+    expect(c.textContent).toContain('Dag 3 alene — sorteret efter dagens point.');
+    expect(c.textContent).not.toMatch(/rundens point|runden er ikke færdigspillet|i runden/);
+  });
+
+  // TITLER, ARIA-LABEL OG STREGEN (fix D, TM-D12 S1-S5/S8/S12-S14). Ordene
+  // står i title og aria-label, som textContent ikke ser — så «i runden»
+  // hardkodet dér, eller `o` slet ikke sendt ned til RundeCelle og
+  // IngenRundePoint, gav en grøn suite. Carla har intet afgjort tip på dag 3
+  // (ingen nøgle i perRound — og totalen passer, så hun er «klar»). Bo fører
+  // dagen med 11. Dan er nr. 4 og står i LISTEN under podiet (med tre ville
+  // alle stå på podiet, og listens RundeCelle var utestet).
+  const UDEN_DAG3 = [
+    ...RÆKKER.map((r) => (r.uid === 'C' ? { ...r, totalPoints: 7, perRound: { 1: 4, 2: 3 } } : r)),
+    { uid: 'D', name: 'Dan', totalPoints: 3, rank: 4, previousRank: 4, perRound: { 1: 3 }, bonusPoints: 0 },
+  ];
+  const stillingUdenDag3 = (game) => {
+    cleanup();
+    mockStandings.mockReturnValue({
+      standings: UDEN_DAG3,
+      leagues: [{ id: 'kon', name: 'Kontoret', memberUids: ['A', 'B', 'C', 'D'], startRound: 2 }],
+      leagueCount: 1,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <MemoryRouter>
+        <GameStandings gameId="sl" game={game} />
+      </MemoryRouter>,
+    );
+    return container;
+  };
+  const titler = (c) => [...c.querySelectorAll('[title]')].map((e) => e.getAttribute('title'));
+  const etiketter = (c) => [...c.querySelectorAll('[aria-label]')].map((e) => e.getAttribute('aria-label'));
+
+  it('titler, aria-label og stregen siger «på dagen» — aldrig «i runden»', () => {
+    const c = stillingUdenDag3(HB);
+    // Dan står i listen (ikke på podiet) — ellers måler testen kun podiet.
+    expect(c.querySelector('table')?.textContent).toContain('Dan');
+    // Samlet: dagens tal under totalen — 🔥 hos Bo, streg hos Carla og Dan.
+    expect(titler(c)).toContain('Flest point på dagen indtil videre');
+    expect(etiketter(c)).toContain('Flest point på dagen');
+    expect(titler(c)).toContain('Ingen afgjorte tips på dagen endnu');
+    // FRAVÆR i Samlet — podiet og listen hver for sig har en RundeCelle, og
+    // toContain ovenfor ville være opfyldt af podiet alene.
+    expect([...titler(c), ...etiketter(c)].join(' | ')).not.toMatch(/i runden/);
+    fireEvent.click(screen.getByRole('button', { name: 'Dag 3' }));
+    // Dagsvisningen: rangens streg og linjen, der forklarer stregen.
+    expect(titler(c)).toContain('Ingen afgjorte tips på dagen endnu');
+    expect(c.textContent).toContain('Stregen – betyder ingen afgjorte tips på dagen endnu.');
+    const alt = [c.textContent, ...titler(c), ...etiketter(c)].join(' | ');
+    expect(alt).not.toMatch(/i runden|rundens point/);
+  });
+
+  // Alle med et afgjort tip på dag 3 ramte forbi: tal, men ingen rang. Rangens
+  // streg siger «ingen fører dagen» — ikke «runden» (S10).
+  it('ingen fører dagen: rangens title siger «dagen»', () => {
+    cleanup();
+    mockStandings.mockReturnValue({
+      standings: [
+        { uid: 'A', name: 'Anna', totalPoints: 25, rank: 1, previousRank: 1, perRound: { 1: 20, 2: 5, 3: 0 }, bonusPoints: 0 },
+        { uid: 'B', name: 'Bo', totalPoints: 13, rank: 2, previousRank: 2, perRound: { 1: 2, 2: 11, 3: 0 }, bonusPoints: 0 },
+        ...UDEN_DAG3.slice(2),
+      ],
+      leagues: [{ id: 'kon', name: 'Kontoret', memberUids: ['A', 'B', 'C', 'D'], startRound: 2 }],
+      leagueCount: 1,
+      loading: false,
+      error: null,
+    });
+    const { container: c } = render(<MemoryRouter><GameStandings gameId="sl" game={HB} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Dag 3' }));
+    expect(titler(c)).toContain('Ingen rang — ingen fører dagen endnu');
+    expect(titler(c).join(' | ')).not.toMatch(/runden/);
+  });
+
+  it('titler, aria-label og stregen UDEN kalender: «i runden» som før', () => {
+    const c = stillingUdenDag3({ id: 'sl', type: 'football' });
+    expect(titler(c)).toContain('Flest point i runden indtil videre');
+    expect(etiketter(c)).toContain('Flest point i runden');
+    expect(titler(c)).toContain('Ingen afgjorte tips i runden endnu');
+    fireEvent.click(screen.getByRole('button', { name: 'Runde 3' }));
+    expect(c.textContent).toContain('Stregen – betyder ingen afgjorte tips i runden endnu.');
+    expect([c.textContent, ...titler(c), ...etiketter(c)].join(' | ')).not.toMatch(/på dagen/);
   });
 
   it('stillingen UDEN kalender: «Runde 3» og «Tæller fra runde 2» som før', () => {
@@ -339,6 +454,6 @@ describe('fasekalender: liga-kortet og stillingen siger «dag»', () => {
     expect(screen.getByRole('button', { name: 'Runde 3' })).toBeInTheDocument();
     expect(c.textContent).toContain('Tæller fra runde 2');
     expect(c.textContent).toContain('Runde 3: tallet under totalen er rundens point.');
-    expect(c.textContent).not.toMatch(/Tæller fra dag|Dag 3/);
+    expect(c.textContent).not.toMatch(/Tæller fra dag|Dag 3|dagens point|på dagen/);
   });
 });

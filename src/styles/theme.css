@@ -842,6 +842,23 @@ a:focus-visible,
   color: var(--c-muted);
   letter-spacing: 0.01em;
 }
+/* Slutresultatet efter forlængelse/straffekast («35-34 e.f.») — også en
+   KVALIFIKATOR: tallet over den er stillingen efter ordinær tid, og det er
+   den, 1X2 afgøres af. Samme form som halvlegen, men i tekstfarve: den
+   fortæller, hvem der gik videre. */
+.match-card__slut {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--c-text);
+  letter-spacing: 0.01em;
+}
+/* Knockout-reglen lige over 1X2-knapperne. */
+.match-card__ko-regel {
+  margin: 0.4rem 0 0.3rem;
+  font-size: 0.78rem;
+  color: var(--c-muted);
+}
 .match-card--chance {
   border-color: var(--c-accent) !important;
   box-shadow: 0 0 0 1px var(--c-accent), var(--shadow);
@@ -986,6 +1003,10 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
    med visningsnavnene ("Nordsjælland", "Sønderjyske") er de fleste kampe nede
    på én linje igen. */
 .mytips__match { font-weight: 600; overflow-wrap: anywhere; }
+/* Knockout-kampens stilling i historikken («30-30 · 35-34 e.f.») — kun på
+   en kamp, der gik ud over ordinær tid. */
+.mytips__slut { display: block; font-weight: 500; font-size: 0.78rem; color: var(--c-muted); }
+.mytips__ko-regel { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--c-muted); }
 .mytips__dash { color: var(--c-muted); margin: 0 0.25rem; }
 .mytips__pick { font-weight: 800; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 0.15rem; }
 .mytips__chance { font-size: 0.8rem; }

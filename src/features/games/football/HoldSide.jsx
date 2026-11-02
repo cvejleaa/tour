@@ -14,8 +14,9 @@
 import { useMemo } from 'react';
 import GameTabLink from '../GameTabLink';
 import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
-import { sportProfil } from '../../../lib/superligaScoring';
-import { rundeNavneord } from '../../../lib/faser';
+import { sportProfil, sportOrd, harHjemmebane } from '../../../lib/superligaScoring';
+import { rundeNavneord, rundeKolonne, rundeOrdene } from '../../../lib/faser';
+import { kampSlut, stillingTekst, AFGJORT_NAVN } from '../../../lib/facit';
 import { teamsOf, teamInfo, visOf, teamByShort } from './teamInfo';
 import {
   holdetsKampe, holdForm, hjemmeUde, maalforskelFordeling,
@@ -107,6 +108,19 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
   const spillede = kampe.filter((m) => m.result);
   const maalFor = hu.hjemme.maal + hu.ude.maal;
   const maalImod = hu.hjemme.imod + hu.ude.imod;
+  // NEUTRAL BANE: uden hjemmebane (evnen — sporten OG modellen) er "hjemme"
+  // bare det hold, der står først i programmet. Så er "Hjemme og ude" et
+  // tal uden betydning, og H/U i kamplisten en påstand. V-U-T står i stedet
+  // samlet. Med hjemmebane (SL, PL): præcis som før.
+  const hjemmebane = harHjemmebane(game);
+  const vut = { v: hu.hjemme.v + hu.ude.v, u: hu.hjemme.u + hu.ude.u, t: hu.hjemme.t + hu.ude.t };
+  // V-U-T og formen tæller STILLINGEN EFTER ORDINÆR TID — samme tal som 1X2.
+  // En knockout-kamp, der stod lige efter 60 min, er U, også når holdet vandt
+  // i forlængelsen. Det skal stå her, når holdet har sådan en kamp; ellers
+  // læses U'et som en fejl.
+  const harSlut = spillede.some((m) => kampSlut(m));
+  const ord = sportOrd(game);
+  const ordene = rundeOrdene(game);
 
   return (
     <div>
@@ -130,13 +144,13 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
           {spillede.length === 0
             ? 'Holdet har ingen spillede kampe i dette spil endnu.'
             : `${kampeOrd(spillede.length)} spillet i dette spil.`}
-          {info?.stadion ? ` Hjemmebane: ${info.stadion}.` : ''}
+          {hjemmebane && info?.stadion ? ` Hjemmebane: ${info.stadion}.` : ''}
         </p>
       </div>
 
       {spillede.length > 0 && (
         <>
-          <Kort titel="⚽ Form og mål">
+          <Kort titel={`${ord.emoji} Form og mål`}>
             <p style={{ margin: '0 0 0.5rem' }}>
               {form.raekke.map((r) => (
                 <span key={r.matchId} className={UDFALD_KLASSE[r.udfald]} style={{ marginRight: '0.3rem' }}>
@@ -151,6 +165,18 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
               Mål i alt: <strong>{maalFor}</strong> for, <strong>{maalImod}</strong> imod
               {' '}({maalFor - maalImod >= 0 ? '+' : ''}{maalFor - maalImod}).
             </p>
+            {!hjemmebane && (
+              <p style={{ margin: '0.35rem 0 0' }} data-testid="holdside-vut">
+                {kampeOrd(spillede.length)}: <strong>{vutLinje(vut)}</strong>
+                <span style={{ color: 'var(--c-muted)', fontSize: '0.8rem' }}> (sejre-uafgjorte-nederlag)</span>
+              </p>
+            )}
+            {harSlut && (
+              <p style={{ color: 'var(--c-muted)', fontSize: '0.8rem', margin: '0.5rem 0 0' }} data-testid="holdside-ordinaer">
+                Sejre, uafgjorte og nederlag tæller stillingen efter {ord.ordinaerTid} — det samme, der tippes på.
+                {' '}En knockout-kamp, der stod lige efter {ord.ordinaerTid}, er uafgjort (X), også når holdet vandt i forlængelsen.
+              </p>
+            )}
           </Kort>
 
           {/* MÅL MOD MÅLCHANCER.
@@ -221,6 +247,7 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
             </Kort>
           )}
 
+          {hjemmebane && (
           <Kort titel="🏟️ Hjemme og ude">
             {/* RÅ TAL, aldrig en rate: efter én hjemmekamp ville "100 %
                 hjemmesejre" ligne en statistik. "1 kamp: 1-0-0" er sandt. */}
@@ -236,6 +263,7 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
               Læses som sejre-uafgjorte-nederlag.
             </p>
           </Kort>
+          )}
 
           {fordeling.sejre > 0 && (
             <Kort titel="📊 Hvor stort vinder de?">
@@ -319,7 +347,7 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
             </p>
             <p style={{ color: 'var(--c-muted)', fontSize: '0.8rem', margin: '0.5rem 0 0' }}>
               Holdet har {forventning.faktiske} point; modellen ventede {fmtDec(forventning.ventede)}.
-              Forventningen er regnet af holdenes styrketal før hver runde — ikke
+              Forventningen er regnet af holdenes styrketal før hver {ordene.runde} — ikke
               af de odds, kampene blev prissat med.
             </p>
           </Kort>
@@ -356,13 +384,22 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
               const raekke = form.raekke.find((r) => r.matchId === m.id);
               const indhold = (
                 <>
-                  <span style={{ color: 'var(--c-muted)', minWidth: '3.2rem' }}>R{m.round}</span>
-                  <span style={{ minWidth: '1.6rem', color: 'var(--c-muted)' }}>{hjemme ? 'H' : 'U'}</span>
+                  {/* «R7» i en liga, «Dag 7» i en turnering. */}
+                  <span style={{ color: 'var(--c-muted)', minWidth: '3.2rem' }}>{rundeKolonne(game, m.round)}</span>
+                  {hjemmebane && (
+                    <span style={{ minWidth: '1.6rem', color: 'var(--c-muted)' }}>{hjemme ? 'H' : 'U'}</span>
+                  )}
                   <span style={{ flex: 1 }}>{modstander}</span>
-                  <span>
-                    {Number.isFinite(Number(m.homeGoals)) && Number.isFinite(Number(m.awayGoals))
-                      ? `${hjemme ? m.homeGoals : m.awayGoals}-${hjemme ? m.awayGoals : m.homeGoals}`
-                      : m.result ? '—' : ''}
+                  {/* title: forkortelsen med sit fulde navn («efter forlænget
+                      spilletid») — en seende bruger får ellers kun «e.f.». */}
+                  <span title={kampSlut(m) ? AFGJORT_NAVN[kampSlut(m).afgjort] : undefined}>
+                    {/* Egne mål først. En knockout-kamp ud over ordinær tid
+                        står med begge stillinger: «30-30 · 35-34 e.f.». */}
+                    {kampSlut(m)
+                      ? stillingTekst(m, { vend: !hjemme })
+                      : Number.isFinite(Number(m.homeGoals)) && Number.isFinite(Number(m.awayGoals))
+                        ? `${hjemme ? m.homeGoals : m.awayGoals}-${hjemme ? m.awayGoals : m.homeGoals}`
+                        : m.result ? '—' : ''}
                   </span>
                   {raekke && <span className={UDFALD_KLASSE[raekke.udfald]}>{raekke.udfald}</span>}
                 </>

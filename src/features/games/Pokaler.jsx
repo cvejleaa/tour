@@ -35,7 +35,7 @@ import { useMemo } from 'react';
 import { rundeSejre, faerdigeRunder } from './rundeSejre';
 import { fmtSignedPoints } from '../../lib/daNum';
 import { sportOrd } from '../../lib/superligaScoring';
-import { rundeOrd, rundeNavneord, rundeFlertal } from '../../lib/faser';
+import { rundeOrd, rundeNavneord, rundeFlertal, rundeOrdene } from '../../lib/faser';
 
 /**
  * Navnene på dem, der deler en pokal.
@@ -134,7 +134,10 @@ export default function Pokaler({ rows = [], matches = [], startRunde = null, ga
         )}
       </Kort>
 
-      <Kort ikon="⚡" titel="Chance-kongen" skala={anden ? 'hele sæsonen' : null}>
+      {/* «hele sæsonen» / «hele turneringen» — samme ord som guiden, der
+          citerer netop denne overskrift. En hardkodet «sæsonen» her fik
+          guiden og kortet til at sige hver sit i en turnering. */}
+      <Kort ikon="⚡" titel="Chance-kongen" skala={anden ? `hele ${rundeOrdene(game).saesonen}` : null}>
         {chance ? (
           <>
             <p style={VINDER}>

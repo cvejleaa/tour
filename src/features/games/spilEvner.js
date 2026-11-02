@@ -29,6 +29,13 @@ export const RESULTAT_PROVIDERE = new Set(['pulselive', 'superliga']);
 // tal, spillet aldrig får. Derfor denne evne ved siden af felt-tjekket.
 export const XG_PROVIDERE = new Set(['pulselive', 'superliga']);
 
+// Kilder med LEVENDE STILLING (provider har hentLive på serveren — minut-
+// synken skriver `live` på kampen, og kampkortet viser DIREKTE og halvlegen).
+// Gater guidens afsnit om, hvad man ser, MENS kampen spilles: en regelbog må
+// ikke love et rødt DIREKTE på et spil, hvis kilde aldrig leverer det (plan
+// §5 punkt 12: håndboldens live-stilling er valgfri og kommer senere).
+export const LIVE_PROVIDERE = new Set(['pulselive', 'superliga']);
+
 // Spil med KAMPDETALJER fra livescore (halvleg, målscorere, tilskuertal).
 //
 // NØGLET PÅ SPILLET, ikke på provideren — som den eneste af listerne her, og
@@ -78,6 +85,15 @@ export function harKampdetaljer(game) {
  */
 export function harXg(game) {
   return XG_PROVIDERE.has(game?.sync?.provider);
+}
+
+/**
+ * Har spillets kilde en levende stilling (DIREKTE på kampkortet)?
+ * @param {{sync?: {provider?: string}}} game
+ * @returns {boolean}
+ */
+export function harLiveStilling(game) {
+  return LIVE_PROVIDERE.has(game?.sync?.provider);
 }
 
 /**

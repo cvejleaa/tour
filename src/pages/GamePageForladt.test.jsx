@@ -26,12 +26,14 @@ vi.mock('../features/games/football/FootballHelp', () => ({ default: () => null 
 vi.mock('../components/ScrollRaekke', () => ({ default: ({ children }) => <div>{children}</div> }));
 
 let me = null;
+const SL = { id: 'sl', name: 'Superligaen', type: 'football', status: 'open' };
+let spil = SL;
 vi.mock('../features/games/useGame', async () => {
   const actual = await vi.importActual('../features/games/useGame');
   return {
     ...actual,
     useGame: () => ({
-      game: { id: 'sl', name: 'Superligaen', type: 'football', status: 'open' },
+      game: spil,
       me,
       // Samme regel som hooken: forladt er ikke medlem. Testen nedenfor
       // efterprøver KUN kortet — hookens egen regel har sin egen test.
@@ -43,6 +45,7 @@ vi.mock('../features/games/useGame', async () => {
 });
 
 import GamePage from './GamePage';
+import { HAANDBOLD_SPIL } from '../test/faseKalender';
 
 function UrlProbe() {
   const { search } = useLocation();
@@ -58,7 +61,7 @@ function renderSide(url = '/spil/sl') {
   );
 }
 
-beforeEach(() => { me = null; });
+beforeEach(() => { me = null; spil = SL; });
 
 describe('GamePage — kortet før fanerne', () => {
   it('uden deltagelse: "Deltag i …" og et løfte, der er sandt for arkiv-modellen', () => {
@@ -67,6 +70,14 @@ describe('GamePage — kortet før fanerne', () => {
     expect(screen.getByText(/kommer du tilbage i sæsonen, får du din stilling igen/)).toBeInTheDocument();
     expect(screen.queryByText(/så længe du ikke har point/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deltag' })).toBeInTheDocument();
+  });
+
+  // En turnering har ingen sæson (QC-klient 2, del 3).
+  it('uden deltagelse i en turnering med fasekalender: «kommer du tilbage i turneringen»', () => {
+    spil = { ...HAANDBOLD_SPIL, status: 'open' };
+    renderSide('/spil/hvm-test');
+    expect(screen.getByText(/kommer du tilbage i turneringen, får du din stilling igen\./)).toBeInTheDocument();
+    expect(screen.queryByText(/sæson/)).not.toBeInTheDocument();
   });
 
   it('forladt: "Vend tilbage til …", stillingen står klar, ligaerne skal meldes ind igen — ingen faner', () => {

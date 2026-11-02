@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import {
-  KICKOFF_PROVIDERE, RESULTAT_PROVIDERE, XG_PROVIDERE, KAMPDETALJE_SPIL,
-  harKickoffSynk, harXg, harResultatSynk, harKampdetaljer,
+  KICKOFF_PROVIDERE, RESULTAT_PROVIDERE, XG_PROVIDERE, KAMPDETALJE_SPIL, LIVE_PROVIDERE,
+  harKickoffSynk, harXg, harResultatSynk, harKampdetaljer, harLiveStilling,
 } from './spilEvner';
 import { GAMES } from '../../../scripts/games.mjs';
 
@@ -12,7 +12,29 @@ import { GAMES } from '../../../scripts/games.mjs';
 // sync (den seedes ikke ud på dokumentet), så games.mjs ved intet om den —
 // og en spejling mod en fil, der ikke kender evnen, ville være en tom vagt.
 const require = createRequire(import.meta.url);
-const { SYNCED_GAMES } = require('../../../functions-platform/syncProviders');
+const { SYNCED_GAMES, PROVIDERS } = require('../../../functions-platform/syncProviders');
+
+// LEVENDE STILLING: guidens løfte om et rødt DIREKTE. Spejles mod serverens
+// PROVIDERS: kun en kilde, der HAR hentLive, må stå i sættet — og hver kilde
+// med hentLive skal tages stilling til (en ny kilde, hvis hentLive bare
+// svarer null, skal ikke have guidens løfte; så skal testen ændres med vilje).
+describe('harLiveStilling', () => {
+  it('sættet er præcis de kilder, serveren har hentLive for', () => {
+    const server = Object.entries(PROVIDERS).filter(([, p]) => typeof p.hentLive === 'function').map(([k]) => k).sort();
+    expect([...LIVE_PROVIDERE].sort()).toEqual(server);
+    expect([...LIVE_PROVIDERE].sort()).toEqual(['pulselive', 'superliga']);
+  });
+  it('spil uden kilde eller med en ukendt kilde: nej', () => {
+    expect(harLiveStilling({ sync: { provider: 'superliga' } })).toBe(true);
+    expect(harLiveStilling({ sync: { provider: 'pulselive' } })).toBe(true);
+    expect(harLiveStilling({})).toBe(false);
+    expect(harLiveStilling({ sync: { provider: 'ihf' } })).toBe(false);
+    expect(harLiveStilling(null)).toBe(false);
+  });
+  it('præcis Superligaen og PL i games.mjs', () => {
+    expect(GAMES.filter((g) => harLiveStilling(g)).map((g) => g.id).sort()).toEqual(['pl2627-efteraar', 'superliga2627']);
+  });
+});
 
 describe('harKickoffSynk', () => {
   it('er sand for de kilder, der har en daglig kickoff-synk (pulselive, superliga)', () => {

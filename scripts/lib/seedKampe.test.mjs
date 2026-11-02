@@ -23,28 +23,43 @@ const FX = [
 // LEDNING bevogtes som tekst: kampene skal gå gennem seedKampe (der læser
 // spillets sport). Et direkte buildMatches(...) i scriptet gav fodboldens odds
 // til alle spil, med hele denne fil grøn.
-describe('seed-football.mjs bruger seedKampe', () => {
-  const kode = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../seed-football.mjs'), 'utf8')
-    .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+//
+// Forløbet bor nu i scripts/lib/fuldtSeed.mjs (og køres med en fake Firestore
+// i fuldtSeed.test.mjs). Tekstvagterne gælder derfor BEGGE filer: scriptet må
+// kun kalde forløbet, og forløbet skal kalde seedKampe.
+const laes = (fil) => readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), fil), 'utf8')
+  .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
 
-  it('kampene bygges af seedKampe på den fulde plan og spillets egen reference', () => {
-    expect(kode).toMatch(/await seedKampe\(\{ gameRef, fixtures: plan\.skriv, teams \}\)/);
+describe('seed-football.mjs bruger seedKampe — via fuldtSeed.mjs', () => {
+  const script = laes('../seed-football.mjs');
+  const forloeb = laes('./fuldtSeed.mjs');
+
+  it('scriptets fulde seed går gennem koerFuldtSeed', () => {
+    expect(script).toMatch(/await koerFuldtSeed\(\{/);
   });
 
-  it('scriptet kalder ikke buildMatches direkte og importerer det ikke', () => {
-    expect(kode).not.toMatch(/buildMatches/);
+  it('kampene bygges af seedKampe på den fulde plan og spillets egen reference', () => {
+    // `dok.prisHold`: den holdliste, spillet står med — filens ved første
+    // seed, spillets egen ved et gen-seed (spilDokPlan).
+    expect(forloeb).toMatch(/await seedKampe\(\{ gameRef, fixtures: plan\.skriv, teams: dok\.prisHold \}\)/);
+  });
+
+  it('hverken scriptet eller forløbet kalder buildMatches direkte', () => {
+    expect(script).not.toMatch(/buildMatches/);
+    expect(forloeb).not.toMatch(/buildMatches/);
   });
 
   it('sport-linjen bygges af det RÅ felt (sportLinje), ikke af den opløste profil alene', () => {
     // Linjen stod som `Sport: ${profil.sport}` og skrev "fodbold" for en
     // tastefejl. Nu kommer den fra sportLinje, der får sportRaa med.
-    expect(kode).toMatch(/const \{ sportRaa, profil, matches \} = await seedKampe\(/);
-    expect(kode).toMatch(/console\.log\(sportLinje\(\{ sportRaa, profil \}\)\)/);
-    expect(kode).not.toMatch(/Sport: \$\{profil\.sport\}/);
+    expect(forloeb).toMatch(/const \{ sportRaa, profil, matches \} = await seedKampe\(/);
+    expect(forloeb).toMatch(/log\(sportLinje\(\{ sportRaa, profil \}\)\)/);
+    expect(forloeb).not.toMatch(/Sport: \$\{profil\.sport\}/);
+    expect(script).not.toMatch(/Sport: \$\{profil\.sport\}/);
   });
 
   it('en fejl fra seedKampe ender i exit ≠ 0 — run() fanges og afsluttes med 1', () => {
-    expect(kode).toMatch(/\.catch\(\(err\) => \{ console\.error\('Seed-fejl:', err\.message\); process\.exit\(1\); \}\)/);
+    expect(script).toMatch(/\.catch\(\(err\) => \{ console\.error\('Seed-fejl:', err\.message\); process\.exit\(1\); \}\)/);
   });
 });
 

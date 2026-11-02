@@ -1784,6 +1784,31 @@
   og bliver synligt som `st.fejl`. Fejler lukket, admin/script-only.
   Platform-suiten i arbejdstræet efter rettelsen: **983/983 grønne**.
 
+- **Håndbold-VM del 3 (bb9758a/f78ebca, 2026-11-02) — RENT, gentag ikke:**
+  (a) `afregnPuljeNu` (functions-platform/index.js:324): anonym/pending/player/
+  leagueAdmin/uden users-dok afvist; `dryRun` = undefined/null/"false"/0/""/[]/{} →
+  tør og INTET skrevet (heller ingen driftAlarmer-dok); gameId ""/"   "/null →
+  invalid-argument, 42/{}/ukendt/`hvm/matches/s0` → `{settled:0}`, `__proto__` → 400.
+  Én vagt (gameScoring.js:537) foran alle skrivninger; planPuljeAfregning læser kun.
+  Dublet-gift `['DK','DK','DK','DK']` → 1 rigtig (puljeScore deduplikerer; reglen binder
+  `championship.size()==poolSize`). 26/26 emulator (sec-d3/afregn.mjs).
+  (b) deploy-platform.yml nye inputs: `seedSpil` (streng) går KUN via `env: SPIL` og
+  `"$SPIL"`; 13 fjendtlige værdier (newline/tab+flag, `$( )`, backticks, `*`, citater)
+  = altid argc 3. Det ægte script afviser ALLE med rc=1 før Firestore: `--skriv` →
+  "mangler en værdi", `__proto__`/`constructor`/`toString` → ingen post
+  (`Object.hasOwn` i seed-filer.mjs), `""` → "Mangler argumenter". `seedKampeSkriv` er
+  boolean → `&&`-formen sikker. Shim: sec-d3/bin/node + wf.sh.
+  (c) puljeRykMail.js + inviteTemplate.js: gift i name/shortName/sport/faser.bestemt/
+  pulje.labels → 0 rå tags; kontrol med identitets-escape → 3 rå (escaperen bærer
+  arbejdet). Tal går gennem puljeKonfig.tal(), ord gennem faste tabeller. SL/PL byte-
+  identiske før/efter (sec-d3/p1.mjs, p1b.mjs). AI-prompten får `afgjort` via
+  `AFGJORT_NAVN[...]` efter `AFGJORT.includes` (lukket liste).
+  (d) wikiHent.mjs: ≥1000 ms mellem kald (målt 1001-1002), 429 → kast, ingen retry,
+  UA uden e-mail, titel URL-kodet (URLSearchParams), cachenavn saniteret, faste
+  ud-stier, ingen workflow/server kalder den; holdkoder bindes til holdfilen (kast ved
+  ukendt). Data når kun prod via commit + SEED_FILER-post + workflow-flueben.
+  (e) firestore.rules uændret, ingen ny klientskrivning (kun et httpsCallable).
+
 ### E2E mod emulatorer (destilleret sep 2026 fra to sag-afsnit)
 - **Emulator-fixturen kan ikke nå produktion — målt, ikke læst.** `.env.e2e`
   gælder kun `--mode e2e`, og begge deploy-workflows kører `npm run build` uden
@@ -2671,3 +2696,7 @@ på 205fa54 (parser omskrevet, ukendt sport afvist). Status før provideren (syn
 PoC'er: scratchpad poc/*.cjs (3b7499e) og sec-r2/*.cjs (205fa54).
 Del 2 (D5+D7, 680755b, 2026-11-02): facit i hånden + fasekalender RENT (se RENT). Åbent
 for provideren: punkt 1d-4 ovenfor gælder stadig; synken respekterer `resultatKilde:'manuel'`.
+Del 3 (D3/D6/D10/D11-12, bb9758a, 2026-11-02): RENT (se RENT). Seed af hvm2027 og
+`puljeLockRound:1`/`maksStartRunde:1` kommer i en senere PR — angrib dér: SEED_FILER-
+posten, at runde-puljens `puljeLockAt` står FØR runde 1 kamp 1, og at facit-fasens
+kampe kun kan skrives af admin. Firebase-CLI fandtes ikke i dag: brug jar'en direkte.

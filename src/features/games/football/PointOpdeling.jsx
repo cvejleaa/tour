@@ -29,7 +29,7 @@ export const RUBRIKKER = [
   { key: 'combi', ikon: '🔗', navn: 'Combi', hjaelp: 'Kupon-bonus: de ramte odds ganget sammen.' },
   // Spilneutral: puljen er "mesterskabsspillet" i SL og "Juletabellen" i PL —
   // rubrikteksten deles af begge (og genbruges i FootballHelp).
-  { key: 'pulje', ikon: '🎖️', navn: 'Pulje', hjaelp: 'Point fra pulje-tippet — sæsonens bonusspørgsmål.' },
+  { key: 'pulje', ikon: '🎖️', navn: 'Pulje', hjaelp: 'Point fra pulje-tippet — bonusspørgsmålet ved siden af kampene.' },
 ];
 
 const round1 = (n) => Math.round((Number(n) || 0) * 10) / 10;

@@ -123,4 +123,13 @@ describe('MatchElo', () => {
     expect(screen.getByRole('link', { name: /Elo/ }))
       .toHaveAttribute('href', '/spil/sl?fane=elo');
   });
+
+  // Linkets title følger kalenderen (D12): en turnering har ingen sæson.
+  it('title: «hele sæsonens» i en liga — «hele turneringens» i en turnering', () => {
+    const { unmount } = renderIt();
+    expect(screen.getByRole('link', { name: /Elo/ })).toHaveAttribute('title', 'Se hele sæsonens Elo-udvikling');
+    unmount();
+    renderIt({ game: { id: 'sl', faser: [{ navn: 'Indledende runde', fra: 1, til: 6, start: '2027-01-13' }] } });
+    expect(screen.getByRole('link', { name: /Elo/ })).toHaveAttribute('title', 'Se hele turneringens Elo-udvikling');
+  });
 });

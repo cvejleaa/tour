@@ -44,6 +44,7 @@ function spil(extra = {}) {
 }
 
 import GameReminderTab from './GameReminderTab';
+import { HAANDBOLD_SPIL } from '../../test/faseKalender';
 
 const kampDocs = [
   { id: 'r3-a', round: 3, home: 'OB', away: 'AGF', kickoff: new Date(NU - 100 * H), result: '1' },
@@ -124,6 +125,30 @@ describe('GameReminderTab — Hvem mangler at tippe?', () => {
     await waitFor(() => expect(mockTipStatus).toHaveBeenCalledWith('sl', 3));
     expect(mockGetDocs).toHaveBeenCalledTimes(1); // stadig kun én kamplæsning
   });
+
+  it('Superligaen: «Runde», rundenumrene og «kampe i runden» som før', async () => {
+    render(<GameReminderTab />);
+    fireEvent.click(screen.getByTestId('tipstatus-tjek'));
+    const res = await screen.findByTestId('tipstatus-resultat');
+    expect([...screen.getByLabelText('Runde').options].map((o) => o.textContent)).toEqual(['3', '4']);
+    expect(res.textContent).toContain('2 kampe i runden');
+    expect(res.textContent).not.toMatch(/\bdag|på dagen/);
+  });
+
+  // I en turnering er «runde» et fase-ord: vælgeren hedder «Dag», og hver
+  // dag står med sit navn fra kalenderen.
+  it('turnering med fasekalender: «Dag», dagens navn og «kampe på dagen»', async () => {
+    mockSpil.mockReturnValue({ games: [{ ...HAANDBOLD_SPIL, id: 'sl', status: 'open' }], myGameIds: [], loading: false });
+    render(<GameReminderTab />);
+    fireEvent.click(screen.getByTestId('tipstatus-tjek'));
+    const res = await screen.findByTestId('tipstatus-resultat');
+    const vaelger = screen.getByLabelText('Dag');
+    expect([...vaelger.options].map((o) => o.textContent)).toEqual(['3 · Indledende runde · dag 3', '4 · Indledende runde · dag 4']);
+    expect(res.textContent).toContain('2 kampe på dagen');
+    expect(screen.getByTestId('tipstatus-knaptal').textContent).toContain('ikke for hele dagen');
+    expect(res.textContent).not.toMatch(/kampe i runden|hele runden/);
+    expect(screen.queryByLabelText('Runde')).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -196,6 +221,25 @@ describe('pause-nødstop', () => {
     mockSpil.mockReturnValue(spil({ paused: true }));
     render(<GameReminderTab />);
     expect(screen.getByRole('button', { name: /Send påmindelser nu/ })).toBeEnabled();
+  });
+});
+
+describe('pulje-status: ordet følger spillet', () => {
+  // Hjælpeteksten sagde «sæsonens bonusspørgsmål» om alle spil — også en
+  // turnering, hvor puljen afgøres midt i forløbet. Ordet kommer nu fra
+  // rundeOrdene, så ligaen er uændret og turneringen siger «turneringens».
+  const tekst = () => screen.getByRole('heading', { name: /Pulje-status/ }).parentElement.textContent.replace(/\s+/g, ' ');
+
+  it('liga: «sæsonens bonusspørgsmål», som før', () => {
+    render(<GameReminderTab />);
+    expect(tekst()).toContain('(sæsonens bonusspørgsmål)');
+  });
+
+  it('turnering: «turneringens bonusspørgsmål», og aldrig «sæson»', () => {
+    mockSpil.mockReturnValue({ games: [{ ...HAANDBOLD_SPIL, id: 'sl', status: 'open' }], myGameIds: [], loading: false });
+    render(<GameReminderTab />);
+    expect(tekst()).toContain('(turneringens bonusspørgsmål)');
+    expect(tekst()).not.toMatch(/sæson/i);
   });
 });
 

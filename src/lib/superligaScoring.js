@@ -480,18 +480,27 @@ export function ukendtSport(game) {
 // Flader spørger sportOrd(game).rundeKonge — aldrig `sport === 'haandbold'`.
 // Ukendt eller manglende sport giver fodboldens ord (som sportProfil).
 // Formen (samme nøgler i hver sport) er testet over hele registret.
+//
+// `ordinaerTid` er kampens ordinære spilletid, som den står i en sætning
+// ("stillingen efter 60 min"). Det er den, der tippes på — også i knockout
+// (ejerens beslutning §11.1) — og den afhænger ikke af et eneste Elo-tal.
+// `emoji` er sportens tegn i overskrifter ("⚽ Form og mål").
 export const SPORT_ORD = {
   fodbold: frys({
     sport: 'fodbold',
     rundeKonge: 'Rundekongen',
     rundeSejr: 'rundesejr',
     rundeSejre: 'rundesejre',
+    ordinaerTid: '90 min',
+    emoji: '⚽',
   }),
   haandbold: frys({
     sport: 'håndbold',
     rundeKonge: 'Dagens konge',
     rundeSejr: 'dagssejr',
     rundeSejre: 'dagssejre',
+    ordinaerTid: '60 min',
+    emoji: '🤾',
   }),
 };
 
@@ -501,6 +510,49 @@ export function sportOrd(game) {
   return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_ORD, sport)
     ? SPORT_ORD[sport]
     : SPORT_ORD[STANDARD_SPORT];
+}
+
+// --- Sportens EVNER: hvad fladen må påstå om sporten -----------------------
+//
+// Et TREDJE register, ved siden af profilen og ordene, af samme grund som
+// ordene: en evne som "spilles der på hjemmebane" er et faktum om sporten
+// (håndbold-VM spilles på neutral bane), ikke et målt tal — og den skal kunne
+// komme før håndboldprofilen (delopgave 4). Ordene er tekster, evnerne er
+// sandt/falsk; de blandes ikke, så formtesten for ordene stadig kan kræve
+// ikke-tomme tekster.
+//
+// Flader spørger harHjemmebane(game) — aldrig `sport === 'haandbold'`.
+export const SPORT_EVNER = {
+  fodbold: frys({ hjemmebane: true }),
+  haandbold: frys({ hjemmebane: false }),
+};
+
+/** Spillets evner. Samme prototype-vagt som sportProfil og sportOrd. */
+export function sportEvner(game) {
+  const sport = game?.sport;
+  return typeof sport === 'string' && Object.prototype.hasOwnProperty.call(SPORT_EVNER, sport)
+    ? SPORT_EVNER[sport]
+    : SPORT_EVNER[STANDARD_SPORT];
+}
+
+/**
+ * EVNEN: har spillets kampe en hjemmebane, fladen må tale om ("hjemmebane-
+ * fordel", "Hjemme og ude", "1 = hjemmesejr")?
+ *
+ * TO KILDER, OG BEGGE SKAL SIGE JA. Evnen er sportens (neutral bane), og
+ * modellen er profilens (hjemmebanefordelen HFA, som oddsene ER regnet med).
+ * Guiden må hverken sige "takket være hjemmebanen" om en model uden
+ * hjemmebanefordel (en profil med HFA 0) eller om en sport på neutral bane.
+ * Og at de to ikke modsiger hinanden for en sport med begge dele, vogtes af
+ * en test over begge registre (sportProfil.test.js) — måler delopgave 4 en
+ * hjemmebanefordel for håndbold, bliver den rød og kræver en beslutning.
+ *
+ * Indtil håndboldprofilen findes, prissættes et håndboldspil slet ikke:
+ * seed og Ompris afviser sporten (ukendtSport). Der kan altså ikke stå
+ * fodboldens hjemmebane-odds på et spil, hvis tekster siger neutral bane.
+ */
+export function harHjemmebane(game) {
+  return sportEvner(game).hjemmebane === true && sportProfil(game).elo.HFA > 0;
 }
 
 /**
@@ -694,25 +746,46 @@ export function puljeKonfig(game) {
   if (!p) return null;
   const tal = (v, fallback) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : fallback);
   const labels = (p.labels && typeof p.labels === 'object') ? p.labels : {};
+  // 'officiel': facit fra game.standings (Superligaen — grundspillet slutter
+  // med den officielle tabel). 'egneKampe': facit BEREGNES af spillets egne
+  // kampe og rører ALDRIG standings — et halvsæson-spil (PL-efterår) må
+  // ikke kunne genafregnes mod forårets officielle tabel (QC-fund).
+  // 'runde': facit er HOLDENE i en fase af turneringen (`facitFase`, slået op
+  // i game.faser) — "hvem når semifinalerne?". Hvornår den er afgjort, står i
+  // puljeFacit.js (ét prædikat for server og flade). Alt andet er 'officiel'.
+  const facitKilde = p.facitKilde === 'egneKampe' || p.facitKilde === 'runde' ? p.facitKilde : 'officiel';
+  const runde = facitKilde === 'runde';
+  // Fasens NAVN i kalenderen ('Semifinaler'). Kun en runde-pulje har en; for
+  // alle andre er den null, så SL og PL får præcis de tal, de altid har fået.
+  const facitFase = runde && typeof p.facitFase === 'string' && p.facitFase.trim() ? p.facitFase.trim() : null;
+  // ORDENE KOMMER FRA KALENDEREN, ikke fra en kopi i labels: fasens bestemte
+  // form ('Semifinalerne') er skrevet ét sted, og omdøbes fasen, følger
+  // teksterne med. Står fasen ikke i kalenderen, bruges navnet — og
+  // puljeKonfigFejl melder fejlen under Spil-tidsplan.
+  const fase = facitFase && Array.isArray(game.faser)
+    ? game.faser.find((f) => f && f.navn === facitFase) : null;
+  const bestemt = fase && typeof fase.bestemt === 'string' && fase.bestemt.trim() ? fase.bestemt.trim() : facitFase;
+  const faseOrd = bestemt ? bestemt.toLowerCase() : null;
   return {
     poolSize: tal(p.poolSize, PULJE.POOL_SIZE),
-    nedSize: tal(p.nedSize, 0), // 0 = intet bundspørgsmål (Superligaen)
+    // 0 = intet bundspørgsmål (Superligaen). En runde-pulje har aldrig et:
+    // der er ingen "bund" i en udslagsfase at afgøre det på.
+    nedSize: runde ? 0 : tal(p.nedSize, 0),
     perTeam: tal(p.perTeam, PULJE.PER_TEAM),
     perfectBonus: Number.isFinite(Number(p.perfectBonus)) && Number(p.perfectBonus) >= 0
       ? Number(p.perfectBonus) : PULJE.PERFECT_BONUS,
-    // 'officiel': facit fra game.standings (Superligaen — grundspillet slutter
-    // med den officielle tabel). 'egneKampe': facit BEREGNES af spillets egne
-    // kampe og rører ALDRIG standings — et halvsæson-spil (PL-efterår) må
-    // ikke kunne genafregnes mod forårets officielle tabel (QC-fund).
-    facitKilde: p.facitKilde === 'egneKampe' ? 'egneKampe' : 'officiel',
+    facitKilde,
+    facitFase,
     // Deler tabellen sig i mesterskabs-/nedrykningsspil (SL), eller er den
-    // flad (PL)? Puljen på PL må ikke flippe Tabel-fanen (QC-fund).
-    tabelDeling: p.tabelDeling === undefined ? true : !!p.tabelDeling,
+    // flad (PL)? Puljen på PL må ikke flippe Tabel-fanen (QC-fund). En
+    // turnering deler aldrig sin tabel efter puljen.
+    tabelDeling: p.tabelDeling === undefined ? !runde : !!p.tabelDeling,
     labels: {
       overskrift: typeof labels.overskrift === 'string' ? labels.overskrift : '🏆 Pulje-tip',
-      top: typeof labels.top === 'string' ? labels.top : 'mesterskabsspillet',
+      top: typeof labels.top === 'string' ? labels.top : (runde ? faseOrd || 'næste fase' : 'mesterskabsspillet'),
       ned: typeof labels.ned === 'string' ? labels.ned : 'nedrykningsspillet',
-      facit: typeof labels.facit === 'string' ? labels.facit : 'grundspillets slutstilling',
+      facit: typeof labels.facit === 'string' ? labels.facit
+        : (runde ? `holdene i ${faseOrd || 'fasen'}` : 'grundspillets slutstilling'),
     },
   };
 }

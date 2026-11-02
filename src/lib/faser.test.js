@@ -15,6 +15,7 @@ import {
   faseKalenderFejl, harFaseKalender, faseKalenderAdvarsel, sidsteKalenderRunde, faseFor, erKnockout,
   rundeNavneord, rundeFlertal, rundeKort, rundeOrd, kortDato, kbhDato, fmtFaseStart, rundeEtiket,
   dagTaeller, naesteKalenderRunde, ventendeRunde, ventetekst, naesteFase,
+  rundeKolonne, rundeOrdene, harKnockout,
 } from './faser';
 import { TEST_FASER, HAANDBOLD_SPIL as HB, kl18 } from '../test/faseKalender';
 
@@ -47,8 +48,38 @@ describe('uden fasekalender: præcis dagens tekster', () => {
       expect(ventendeRunde(game, 6)).toBeNull();
       expect(ventetekst(game, 6, kl18('2027-01-19'))).toBeNull();
       expect(naesteFase(game, kl18('2027-01-19'))).toBeNull();
+      expect(rundeKolonne(game, 7)).toBe('R7');
+      expect(harKnockout(game)).toBe(false);
+      expect(rundeOrdene(game)).toEqual({
+        runde: 'runde', runden: 'runden', rundens: 'rundens', runder: 'runder', runderne: 'runderne',
+        Runde: 'Runde', Runden: 'Runden', Rundens: 'Rundens', saesonen: 'sæsonen', saesonens: 'sæsonens',
+        i: 'i', iRunden: 'i runden', iDenneRunde: 'i denne runde',
+      });
     });
   }
+});
+
+describe('ordene i en sætning, kolonnen og knockout-evnen', () => {
+  it('med kalender: dagens ord — med «på» som forholdsord', () => {
+    expect(rundeOrdene(HB)).toEqual({
+      runde: 'dag', runden: 'dagen', rundens: 'dagens', runder: 'dage', runderne: 'dagene',
+      Runde: 'Dag', Runden: 'Dagen', Rundens: 'Dagens', saesonen: 'turneringen', saesonens: 'turneringens',
+      i: 'på', iRunden: 'på dagen', iDenneRunde: 'på denne dag',
+    });
+    expect(Object.isFrozen(rundeOrdene(HB))).toBe(true);
+    expect(Object.isFrozen(rundeOrdene(null))).toBe(true);
+  });
+  it('kolonnen: «Dag 7», aldrig «R7» eller «D7»', () => {
+    expect(rundeKolonne(HB, 7)).toBe('Dag 7');
+    expect(rundeKolonne(HB, 7)).not.toMatch(/^R|^D7/);
+  });
+  it('harKnockout: kun en GYLDIG kalender med en knockout-fase', () => {
+    expect(harKnockout(HB)).toBe(true);
+    expect(harKnockout({ ...HB, faser: TEST_FASER.slice(0, 2) })).toBe(false);
+    // En ugyldig kalender har ingen knockout, heller ikke selv om en fase siger det.
+    expect(harKnockout({ faser: [{ ...TEST_FASER[2], fra: 1, til: 1 }, { ...TEST_FASER[3], fra: 3, til: 3 }] })).toBe(false);
+    expect(harKnockout({ faser: [{ ...TEST_FASER[2], fra: 1, til: 2 }] })).toBe(true);
+  });
 });
 
 describe('med fasekalender: ejerens ord', () => {

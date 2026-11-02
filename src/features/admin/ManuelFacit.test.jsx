@@ -205,6 +205,8 @@ describe('✍️ felterne — ordinær tid og knockout', () => {
       result: 'X', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'straffe' }, resultatKilde: 'manuel',
     }]);
     vaelg(await aabn(HB), 'r7-dk-se');
+    // Kamplisten viser begge stillinger — som spillerne ser dem.
+    expect(screen.getByRole('option', { name: /facit 30-30 · 35-34 e\.str\./ })).toBeInTheDocument();
     expect(screen.getByLabelText('Mål Danmark')).toHaveValue(30);
     expect(screen.getByLabelText('Mål Sverige')).toHaveValue(30);
     expect(screen.getByLabelText('Slutresultat Danmark')).toHaveValue(35);
@@ -214,12 +216,23 @@ describe('✍️ felterne — ordinær tid og knockout', () => {
     expect(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' })).toBeEnabled();
   });
 
+  // SPORTENS spilletid: en fodbold-turnering (samme kalender, ingen sport)
+  // siger 90 min. Uden testen kunne «60 min» hardkodes (modstanderens C40).
+  it('knockout i en fodbold-turnering: feltet siger 90 min — ikke 60', async () => {
+    kampe([{ id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME }]);
+    vaelg(await aabn({ ...HB, sport: undefined }), 'r7-dk-se');
+    expect(screen.getByText(/^Mål efter ordinær tid \(90 min, uden forlængelse og straffekast — det, der tippes på\):$/)).toBeInTheDocument();
+    expect(screen.queryByText(/60 min/)).not.toBeInTheDocument();
+  });
+
   it('knockout + uafgjort: slutresultat og afgørelse kræves, før serveren spørges', async () => {
     kampe([{ id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME }]);
     vaelg(await aabn(HB), 'r7-dk-se');
     fireEvent.change(screen.getByLabelText('Mål Danmark'), { target: { value: '30' } });
     fireEvent.change(screen.getByLabelText('Mål Sverige'), { target: { value: '30' } });
-    expect(screen.getByText(/uden forlængelse og straffekast — det, der tippes på/)).toBeInTheDocument();
+    // Sportens ordinære spilletid (sportOrd — 60 min i håndbold), ikke fodboldens.
+    expect(screen.getByText(/^Mål efter ordinær tid \(60 min, uden forlængelse og straffekast — det, der tippes på\):$/)).toBeInTheDocument();
+    expect(screen.queryByText(/90 min/)).not.toBeInTheDocument();
     expect(screen.getByText(/Slutresultat efter forlængelse\/straffekast/)).toBeInTheDocument();
     const vis = screen.getByRole('button', { name: 'Vis hvad der ændrer sig' });
     expect(vis).toBeDisabled();

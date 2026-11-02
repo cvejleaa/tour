@@ -1,0 +1,455 @@
+{
+ "_note": "Håndbold-VM 2027 (herrer), den indledende runde: 48 kampe. Bygget af scripts/haandbold-program.mjs fra Wikipedia («2027 World Men's Handball Championship», revision ukendt, hentet 2026-11-02); indholdet er CC BY-SA 4.0. kickoff er UTC (siden angiver lokal tid UTC+1). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp. kickoffSenest står kun, hvor siden har et tidsvindue — deadline er da det tidligste. kickoffSenest og gruppe når IKKE databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her. faser er forslaget til game.faser (lægges i scripts/games.mjs i D6). RET ALDRIG I HÅNDEN: kør scriptet igen.",
+ "kilde": {
+  "side": "2027 World Men's Handball Championship",
+  "url": "https://en.wikipedia.org/wiki/2027_World_Men's_Handball_Championship",
+  "revid": null,
+  "hentet": "2026-11-02T13:33:03.303Z",
+  "licens": "CC BY-SA 4.0"
+ },
+ "faser": [
+  {
+   "navn": "Indledende runde",
+   "bestemt": "Den indledende runde",
+   "fra": 1,
+   "til": 7,
+   "start": "2027-01-13",
+   "antalKampe": 48
+  },
+  {
+   "navn": "Hovedrunde",
+   "bestemt": "Hovedrunden",
+   "fra": 8,
+   "til": 13,
+   "start": "2027-01-20",
+   "antalKampe": 36
+  },
+  {
+   "navn": "Kvartfinaler",
+   "bestemt": "Kvartfinalerne",
+   "fra": 14,
+   "til": 15,
+   "start": "2027-01-26",
+   "antalKampe": 4,
+   "knockout": true
+  },
+  {
+   "navn": "Semifinaler",
+   "bestemt": "Semifinalerne",
+   "fra": 16,
+   "til": 16,
+   "start": "2027-01-29",
+   "antalKampe": 2,
+   "knockout": true
+  },
+  {
+   "navn": "Finaledag",
+   "bestemt": "Finaledagen",
+   "fra": 17,
+   "til": 17,
+   "start": "2027-01-31",
+   "antalKampe": 2,
+   "knockout": true
+  }
+ ],
+ "usikreTider": [
+  "r2-arg-bra Argentina–Brasilien 2027-01-14: siden siger «18:00/18:30» — deadline sat til 18:00 (det tidligste)",
+  "r2-fra-kuw Frankrig–Kuwait 2027-01-14: siden siger «20:30/21:00» — deadline sat til 20:30 (det tidligste)",
+  "r4-fra-bra Frankrig–Brasilien 2027-01-16: siden siger «18:00/18:30» — deadline sat til 18:00 (det tidligste)",
+  "r4-kuw-arg Kuwait–Argentina 2027-01-16: siden siger «20:30/21:00» — deadline sat til 20:30 (det tidligste)",
+  "r6-bra-kuw Brasilien–Kuwait 2027-01-18: siden siger «18:00/18:30» — deadline sat til 18:00 (det tidligste)",
+  "r6-arg-fra Argentina–Frankrig 2027-01-18: siden siger «20:30/21:00» — deadline sat til 20:30 (det tidligste)"
+ ],
+ "fixtures": [
+  {
+   "id": "r1-srb-uru",
+   "round": 1,
+   "home": "Serbien",
+   "away": "Uruguay",
+   "kickoff": "2027-01-13T16:30:00Z",
+   "gruppe": "A"
+  },
+  {
+   "id": "r1-ita-ksa",
+   "round": 1,
+   "home": "Italien",
+   "away": "Saudi-Arabien",
+   "kickoff": "2027-01-13T17:00:00Z",
+   "gruppe": "B"
+  },
+  {
+   "id": "r1-egy-cpv",
+   "round": 1,
+   "home": "Egypten",
+   "away": "Kap Verde",
+   "kickoff": "2027-01-13T19:30:00Z",
+   "gruppe": "B"
+  },
+  {
+   "id": "r1-ger-tun",
+   "round": 1,
+   "home": "Tyskland",
+   "away": "Tunesien",
+   "kickoff": "2027-01-13T19:30:00Z",
+   "gruppe": "A"
+  },
+  {
+   "id": "r2-arg-bra",
+   "round": 2,
+   "home": "Argentina",
+   "away": "Brasilien",
+   "kickoff": "2027-01-14T17:00:00Z",
+   "gruppe": "D",
+   "kickoffSenest": "2027-01-14T17:30:00Z"
+  },
+  {
+   "id": "r2-esp-tur",
+   "round": 2,
+   "home": "Spanien",
+   "away": "Tyrkiet",
+   "kickoff": "2027-01-14T17:00:00Z",
+   "gruppe": "C"
+  },
+  {
+   "id": "r2-fro-alg",
+   "round": 2,
+   "home": "Færøerne",
+   "away": "Algeriet",
+   "kickoff": "2027-01-14T17:00:00Z",
+   "gruppe": "F"
+  },
+  {
+   "id": "r2-swe-gre",
+   "round": 2,
+   "home": "Sverige",
+   "away": "Grækenland",
+   "kickoff": "2027-01-14T17:00:00Z",
+   "gruppe": "E"
+  },
+  {
+   "id": "r2-cro-chi",
+   "round": 2,
+   "home": "Kroatien",
+   "away": "Chile",
+   "kickoff": "2027-01-14T19:30:00Z",
+   "gruppe": "C"
+  },
+  {
+   "id": "r2-fra-kuw",
+   "round": 2,
+   "home": "Frankrig",
+   "away": "Kuwait",
+   "kickoff": "2027-01-14T19:30:00Z",
+   "gruppe": "D",
+   "kickoffSenest": "2027-01-14T20:00:00Z"
+  },
+  {
+   "id": "r2-nor-qat",
+   "round": 2,
+   "home": "Norge",
+   "away": "Qatar",
+   "kickoff": "2027-01-14T19:30:00Z",
+   "gruppe": "E"
+  },
+  {
+   "id": "r2-por-pol",
+   "round": 2,
+   "home": "Portugal",
+   "away": "Polen",
+   "kickoff": "2027-01-14T19:30:00Z",
+   "gruppe": "F"
+  },
+  {
+   "id": "r3-ksa-egy",
+   "round": 3,
+   "home": "Saudi-Arabien",
+   "away": "Egypten",
+   "kickoff": "2027-01-15T17:00:00Z",
+   "gruppe": "B"
+  },
+  {
+   "id": "r3-mkd-jpn",
+   "round": 3,
+   "home": "Nordmakedonien",
+   "away": "Japan",
+   "kickoff": "2027-01-15T17:00:00Z",
+   "gruppe": "H"
+  },
+  {
+   "id": "r3-slo-ang",
+   "round": 3,
+   "home": "Slovenien",
+   "away": "Angola",
+   "kickoff": "2027-01-15T17:00:00Z",
+   "gruppe": "G"
+  },
+  {
+   "id": "r3-srb-tun",
+   "round": 3,
+   "home": "Serbien",
+   "away": "Tunesien",
+   "kickoff": "2027-01-15T17:00:00Z",
+   "gruppe": "A"
+  },
+  {
+   "id": "r3-den-usa",
+   "round": 3,
+   "home": "Danmark",
+   "away": "USA",
+   "kickoff": "2027-01-15T19:30:00Z",
+   "gruppe": "G"
+  },
+  {
+   "id": "r3-isl-bhr",
+   "round": 3,
+   "home": "Island",
+   "away": "Bahrain",
+   "kickoff": "2027-01-15T19:30:00Z",
+   "gruppe": "H"
+  },
+  {
+   "id": "r3-ita-cpv",
+   "round": 3,
+   "home": "Italien",
+   "away": "Kap Verde",
+   "kickoff": "2027-01-15T19:30:00Z",
+   "gruppe": "B"
+  },
+  {
+   "id": "r3-uru-ger",
+   "round": 3,
+   "home": "Uruguay",
+   "away": "Tyskland",
+   "kickoff": "2027-01-15T19:30:00Z",
+   "gruppe": "A"
+  },
+  {
+   "id": "r4-alg-por",
+   "round": 4,
+   "home": "Algeriet",
+   "away": "Portugal",
+   "kickoff": "2027-01-16T17:00:00Z",
+   "gruppe": "F"
+  },
+  {
+   "id": "r4-esp-chi",
+   "round": 4,
+   "home": "Spanien",
+   "away": "Chile",
+   "kickoff": "2027-01-16T17:00:00Z",
+   "gruppe": "C"
+  },
+  {
+   "id": "r4-fra-bra",
+   "round": 4,
+   "home": "Frankrig",
+   "away": "Brasilien",
+   "kickoff": "2027-01-16T17:00:00Z",
+   "gruppe": "D",
+   "kickoffSenest": "2027-01-16T17:30:00Z"
+  },
+  {
+   "id": "r4-qat-swe",
+   "round": 4,
+   "home": "Qatar",
+   "away": "Sverige",
+   "kickoff": "2027-01-16T17:00:00Z",
+   "gruppe": "E"
+  },
+  {
+   "id": "r4-fro-pol",
+   "round": 4,
+   "home": "Færøerne",
+   "away": "Polen",
+   "kickoff": "2027-01-16T19:30:00Z",
+   "gruppe": "F"
+  },
+  {
+   "id": "r4-kuw-arg",
+   "round": 4,
+   "home": "Kuwait",
+   "away": "Argentina",
+   "kickoff": "2027-01-16T19:30:00Z",
+   "gruppe": "D",
+   "kickoffSenest": "2027-01-16T20:00:00Z"
+  },
+  {
+   "id": "r4-nor-gre",
+   "round": 4,
+   "home": "Norge",
+   "away": "Grækenland",
+   "kickoff": "2027-01-16T19:30:00Z",
+   "gruppe": "E"
+  },
+  {
+   "id": "r4-tur-cro",
+   "round": 4,
+   "home": "Tyrkiet",
+   "away": "Kroatien",
+   "kickoff": "2027-01-16T19:30:00Z",
+   "gruppe": "C"
+  },
+  {
+   "id": "r5-cpv-ksa",
+   "round": 5,
+   "home": "Kap Verde",
+   "away": "Saudi-Arabien",
+   "kickoff": "2027-01-17T17:00:00Z",
+   "gruppe": "B"
+  },
+  {
+   "id": "r5-mkd-bhr",
+   "round": 5,
+   "home": "Nordmakedonien",
+   "away": "Bahrain",
+   "kickoff": "2027-01-17T17:00:00Z",
+   "gruppe": "H"
+  },
+  {
+   "id": "r5-slo-usa",
+   "round": 5,
+   "home": "Slovenien",
+   "away": "USA",
+   "kickoff": "2027-01-17T17:00:00Z",
+   "gruppe": "G"
+  },
+  {
+   "id": "r5-tun-uru",
+   "round": 5,
+   "home": "Tunesien",
+   "away": "Uruguay",
+   "kickoff": "2027-01-17T17:00:00Z",
+   "gruppe": "A"
+  },
+  {
+   "id": "r5-ang-den",
+   "round": 5,
+   "home": "Angola",
+   "away": "Danmark",
+   "kickoff": "2027-01-17T19:30:00Z",
+   "gruppe": "G"
+  },
+  {
+   "id": "r5-egy-ita",
+   "round": 5,
+   "home": "Egypten",
+   "away": "Italien",
+   "kickoff": "2027-01-17T19:30:00Z",
+   "gruppe": "B"
+  },
+  {
+   "id": "r5-ger-srb",
+   "round": 5,
+   "home": "Tyskland",
+   "away": "Serbien",
+   "kickoff": "2027-01-17T19:30:00Z",
+   "gruppe": "A"
+  },
+  {
+   "id": "r5-jpn-isl",
+   "round": 5,
+   "home": "Japan",
+   "away": "Island",
+   "kickoff": "2027-01-17T19:30:00Z",
+   "gruppe": "H"
+  },
+  {
+   "id": "r6-bra-kuw",
+   "round": 6,
+   "home": "Brasilien",
+   "away": "Kuwait",
+   "kickoff": "2027-01-18T17:00:00Z",
+   "gruppe": "D",
+   "kickoffSenest": "2027-01-18T17:30:00Z"
+  },
+  {
+   "id": "r6-chi-tur",
+   "round": 6,
+   "home": "Chile",
+   "away": "Tyrkiet",
+   "kickoff": "2027-01-18T17:00:00Z",
+   "gruppe": "C"
+  },
+  {
+   "id": "r6-gre-qat",
+   "round": 6,
+   "home": "Grækenland",
+   "away": "Qatar",
+   "kickoff": "2027-01-18T17:00:00Z",
+   "gruppe": "E"
+  },
+  {
+   "id": "r6-pol-alg",
+   "round": 6,
+   "home": "Polen",
+   "away": "Algeriet",
+   "kickoff": "2027-01-18T17:00:00Z",
+   "gruppe": "F"
+  },
+  {
+   "id": "r6-arg-fra",
+   "round": 6,
+   "home": "Argentina",
+   "away": "Frankrig",
+   "kickoff": "2027-01-18T19:30:00Z",
+   "gruppe": "D",
+   "kickoffSenest": "2027-01-18T20:00:00Z"
+  },
+  {
+   "id": "r6-cro-esp",
+   "round": 6,
+   "home": "Kroatien",
+   "away": "Spanien",
+   "kickoff": "2027-01-18T19:30:00Z",
+   "gruppe": "C"
+  },
+  {
+   "id": "r6-por-fro",
+   "round": 6,
+   "home": "Portugal",
+   "away": "Færøerne",
+   "kickoff": "2027-01-18T19:30:00Z",
+   "gruppe": "F"
+  },
+  {
+   "id": "r6-swe-nor",
+   "round": 6,
+   "home": "Sverige",
+   "away": "Norge",
+   "kickoff": "2027-01-18T19:30:00Z",
+   "gruppe": "E"
+  },
+  {
+   "id": "r7-bhr-jpn",
+   "round": 7,
+   "home": "Bahrain",
+   "away": "Japan",
+   "kickoff": "2027-01-19T17:00:00Z",
+   "gruppe": "H"
+  },
+  {
+   "id": "r7-usa-ang",
+   "round": 7,
+   "home": "USA",
+   "away": "Angola",
+   "kickoff": "2027-01-19T17:00:00Z",
+   "gruppe": "G"
+  },
+  {
+   "id": "r7-den-slo",
+   "round": 7,
+   "home": "Danmark",
+   "away": "Slovenien",
+   "kickoff": "2027-01-19T19:30:00Z",
+   "gruppe": "G"
+  },
+  {
+   "id": "r7-isl-mkd",
+   "round": 7,
+   "home": "Island",
+   "away": "Nordmakedonien",
+   "kickoff": "2027-01-19T19:30:00Z",
+   "gruppe": "H"
+  }
+ ]
+}

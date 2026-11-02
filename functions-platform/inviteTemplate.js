@@ -19,6 +19,65 @@
 
 const FONT = "Arial,Helvetica,'Segoe UI',sans-serif";
 
+const { sportOrd, harHjemmebane } = require('./superligaScoring');
+const { harFaseKalender, harKnockout, kbhDato, fmtFaseStart } = require('./faser');
+const { knockoutRegel } = require('./facit');
+
+// ---------------------------------------------------------------------------
+// TEKSTERNE, DER SKIFTER MED SPILLETS FORM. LIGA_TEKST er de sætninger, mailen
+// altid har haft — skåret ud af skabelonen byte for byte, så Superligaen og
+// Premier League får præcis den mail, de altid har fået. En turnering med
+// fasekalender (håndbold-VM) får turneringsTekst: «dag» for «runde»,
+// «turneringen» for «sæsonen», sportens eget ord og tegn, ingen påstand om
+// hjemmebane eller en officiel tabel, den ikke har — og knockout-reglen
+// (ejerens beslutning §11.1: den skal stå i invitationen).
+// Gaten er EVNERNE (harFaseKalender, harKnockout, harHjemmebane), aldrig
+// sporten.
+// ---------------------------------------------------------------------------
+const LIGA_TEKST = Object.freeze({
+  emoji: '&#9917;',
+  hero: 'Runde for runde tipper du 1, X eller 2. Point f&oslash;lger oddsene, bonusserne bel&oslash;nner de modige, og mini-ligaen med vennerne holder gryden i kog hele s&aelig;sonen. Alle starter p&aring; nul, og det kr&aelig;ver nul fodboldforstand.',
+  chip1: '&#9201; ~2 min pr. runde',
+  kort1Titel: 'Tip rundens kampe &mdash; 1, X eller 2',
+  kort1Tekst: 'Hver runde sætter du hjemmesejr, uafgjort eller udesejr p&aring; kampene. Du f&aring;r <b>point svarende til oddsene</b>: rammer du storfavoritten, giver det lidt &mdash; rammer du overraskelsen, giver det stort. Du kan rette frit, indtil den enkelte kamp starter, og du kan bladre frem og tilbage mellem alle sæsonens runder.',
+  kort1Alt: 'Tip-fladen: rundens kampe med 1X2-knapper',
+  bonus: 'Runde-bonus',
+  puljeTitel: 's&aelig;sonens pulje',
+  chanceTekst: 'Hvis du f&oslash;ler dig HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.',
+  puljeStart: 'S&aelig;sonens store bonuspot',
+  ligaIgennem: 'Intern stilling og en liga-v&aelig;g til drillerier &mdash; s&aelig;sonen igennem.',
+  botTekst: 'Efter rundens sidste kamp skriver botten et resum&eacute; p&aring; jeres v&aelig;g &mdash; med k&aelig;rlige stikpiller til rundens bedste og v&aelig;rste.',
+  facitTekst: 'Efter hver runde ser du dit facit, hvem du overhalede, din tr&aelig;fprocent under &quot;Mine tips&quot;, den officielle tabel og holdenes Elo-udvikling.',
+});
+
+/**
+ * Teksterne for en TURNERING med fasekalender. Kun de nøgler, der skifter;
+ * resten er ligaens. Ren funktion af spil-dokumentet.
+ */
+function turneringsTekst(game) {
+  const ord = sportOrd(game);
+  const hjemme = harHjemmebane(game);
+  const ko = harKnockout(game) ? ` <b>${esc(knockoutRegel(game))}</b>` : '';
+  const udfald = hjemme ? 'hjemmesejr, uafgjort eller udesejr' : '1, X eller 2';
+  return {
+    emoji: esc(ord.emoji),
+    hero: `Dag for dag tipper du 1, X eller 2. Point f&oslash;lger oddsene, bonusserne bel&oslash;nner de modige, og mini-ligaen med vennerne holder gryden i kog hele turneringen. Alle starter p&aring; nul, og det kr&aelig;ver nul ${esc(ord.sport)}forstand.`,
+    chip1: '&#9201; ~2 min pr. dag',
+    kort1Titel: 'Tip dagens kampe &mdash; 1, X eller 2',
+    kort1Tekst: `Hver dag sætter du ${udfald} p&aring; kampene. Du f&aring;r <b>point svarende til oddsene</b>: rammer du storfavoritten, giver det lidt &mdash; rammer du overraskelsen, giver det stort. Du kan rette frit, indtil den enkelte kamp starter, og du kan bladre frem og tilbage mellem alle turneringens dage.${ko}`,
+    kort1Alt: 'Tip-fladen: dagens kampe med 1X2-knapper',
+    bonus: 'Dagens bonus',
+    puljeTitel: 'turneringens pulje',
+    chanceTekst: 'Hvis du f&oslash;ler dig HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af dagens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.',
+    puljeStart: 'Turneringens store bonuspot',
+    ligaIgennem: 'Intern stilling og en liga-v&aelig;g til drillerier &mdash; turneringen igennem.',
+    botTekst: 'Efter dagens sidste kamp skriver botten et resum&eacute; p&aring; jeres v&aelig;g &mdash; med k&aelig;rlige stikpiller til dagens bedste og v&aelig;rste.',
+    // «den officielle tabel» kun, hvis spillet HAR en (game.standings) — samme
+    // gate som fanen selv.
+    facitTekst: `Efter hver dag ser du dit facit, hvem du overhalede, din tr&aelig;fprocent under &quot;Mine tips&quot;${game && game.standings ? ', den officielle tabel' : ''} og holdenes Elo-udvikling.`,
+  };
+}
+
 function esc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -86,6 +145,60 @@ function invitationsFejl({ template, joinLink, gameId, appUrl = 'https://tip.vej
 }
 
 /**
+ * "fredag 29. januar" for en runde-puljes facit-fase, ellers null. SAMME
+ * funktion som pulje-fanens tekst (puljeFacit.rundePuljeDato) — ikke en kopi.
+ */
+function puljeFaseDato(game, pulje) {
+  return require('./puljeFacit').rundePuljeDato(game, pulje);
+}
+
+const DAGE_ORD = ['', 'én', 'to', 'tre', 'fire', 'fem', 'seks', 'syv', 'otte', 'ni', 'ti'];
+
+/**
+ * Hvor længe FØR turneringens slutning en runde-pulje afgøres — afledt af
+ * KALENDEREN, aldrig skrevet ind: dagene fra facit-fasens start til den sidste
+ * fases start. "to dage før finalen" (sidste fase er knockout), "dagen før
+ * turneringens sidste dag" uden knockout. null, når fasen mangler, eller når
+ * puljen afgøres på sidste dag eller senere — så lover mailen intet forspring.
+ */
+function puljeFoerSlut(game, pulje) {
+  if (pulje?.facitKilde !== 'runde' || !harFaseKalender(game)) return null;
+  const fase = require('./puljeFacit').facitFase(game, pulje.facitFase);
+  const sidste = game.faser[game.faser.length - 1];
+  const dagMs = (s) => Date.UTC(...s.split('-').map((x, i) => Number(x) - (i === 1 ? 1 : 0)));
+  if (!fase || !sidste) return null;
+  const dage = Math.round((dagMs(sidste.start) - dagMs(fase.start)) / 86400000);
+  if (!(dage > 0)) return null;
+  const slut = sidste.knockout === true ? 'finalen' : 'turneringens sidste dag';
+  return dage === 1 ? `dagen f&oslash;r ${slut}` : `${DAGE_ORD[dage] || dage} dage f&oslash;r ${slut}`;
+}
+
+/** Firestore-Timestamp, Date, ms eller ISO-streng → ms; ellers NaN. */
+function tidMs(v) {
+  if (v == null) return NaN;
+  if (typeof v === 'number') return v;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (v instanceof Date) return v.getTime();
+  return typeof v === 'string' ? Date.parse(v) : NaN;
+}
+
+/**
+ * HVORNÅR PULJEN LUKKER, af game.puljeLockAt (Spilfører, del 3): med grænsen
+ * ved dag 1 er invitationen det eneste sted, folk når at reagere. "onsdag 13.
+ * januar kl. 18.00" i dansk tid. null uden deadline — eller når den er
+ * passeret: en mail må aldrig sende nogen efter et tip, der er lukket.
+ * Aldrig hardkodet, aldrig gættet ud fra en runde.
+ */
+function puljeLukker(game, nowMs) {
+  const ms = tidMs(game?.puljeLockAt);
+  if (!Number.isFinite(ms) || !(ms > nowMs)) return null;
+  const [t, m] = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Copenhagen', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(new Date(ms)).split(':');
+  return `${fmtFaseStart(kbhDato(ms))} kl. ${t}.${m}`;
+}
+
+/**
  * Afled invitations-profilen af et SPIL-dokument. null/udeladt → Superligaens
  * profil (bagudkompatibelt: gamle klienter sender intet gameId).
  *
@@ -94,7 +207,7 @@ function invitationsFejl({ template, joinLink, gameId, appUrl = 'https://tip.vej
  * ligaer med committede skærmbilleder i public/salgstale/ — en død <img> i en
  * mail er værre end et kort uden billede.
  */
-function ligaProfil(game) {
+function ligaProfil(game, nowMs = Date.now()) {
   // Hele den normaliserede konfiguration med — kortteksten skal kunne sige
   // top/bund/point rigtigt for BÅDE SL (6, mesterskabsspillet) og PL (4+3,
   // Juletabellen). Uden spil-dokument (bagudkompatibel superliga-gren)
@@ -131,19 +244,31 @@ function ligaProfil(game) {
   }
   if (game && game?.sync?.provider !== 'superliga') {
     // Ukendt/fremtidig liga: neutral profil uden SL-påstande og uden billeder.
+    // En turnering med fasekalender (fx håndbold-VM, der endnu ikke har en
+    // kilde) får turneringens tekster og periode.
+    const turnering = harFaseKalender(game);
     return {
       // RÅT navn — invitationsHtml escaper ved indsættelsen. Escapede vi
       // her, ville næste gren, nogen glemmer, være en injektion med grøn
       // suite (Security-designnote: escap dér hvor der flettes).
       navn: (typeof game.shortName === 'string' && game.shortName.slice(0, 60)) || spilNavn || 'ligaen',
       overskrift: 'Klar til kamp?',
-      periode: 'hele s&aelig;sonen',
+      periode: turnering ? 'hele turneringen' : 'hele s&aelig;sonen',
       chip3: '&#127942; Kun &aelig;re p&aring; spil',
       harPulje,
       poolSize,
       pulje,
+      // En runde-pulje ("hvem når semifinalerne?") afgøres af en fase — og
+      // HVORNÅR står i kalenderen, ikke i en kopi her (spejl af levende data).
+      puljeDato: puljeFaseDato(game, pulje),
+      // Hvor længe før slutningen den afgøres, og hvornår den lukker — begge
+      // af spil-dokumentet. KUN i denne gren: Superligaens og Premier
+      // Leagues mail er byte for byte den, de altid har fået (P1).
+      puljeFoerSlut: puljeFoerSlut(game, pulje),
+      puljeLukker: harPulje ? puljeLukker(game, nowMs) : null,
       rundeImg: null,
       puljeImg: null,
+      ...(turnering ? { tekst: turneringsTekst(game) } : {}),
     };
   }
   return {
@@ -171,9 +296,14 @@ function ligaProfil(game) {
  */
 function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://tip.vejleaa.dk' } = {}) {
   const l = liga || ligaProfil(null);
+  // Ligaens tekster, med turneringens oveni, hvor profilen har dem.
+  const t = { ...LIGA_TEKST, ...(l.tekst || {}) };
   const cta = joinLink || appUrl;
   const league = leagueName ? esc(leagueName) : 'vores liga';
   const introHtml = esc(intro || '').replace(/\r\n|\r|\n/g, '<br>');
+  // En RUNDE-pulje ("hvem når semifinalerne?"): et hold NÅR semifinalerne,
+  // det «står» ikke i dem — samme ord som pulje-fanen og guiden.
+  const runde = l.pulje?.facitKilde === 'runde';
 
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(l.navn)} skal tippes</title></head>
@@ -183,11 +313,11 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
 
   <tr><td bgcolor="#0b6e4f" style="background:#0b6e4f;padding:34px 30px 30px 30px;">
-    <div style="font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#f7d417;">&#9917; ${esc(l.navn)} skal tippes &middot; ${l.periode}</div>
+    <div style="font-family:${FONT};font-size:12px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;color:#f7d417;">${t.emoji} ${esc(l.navn)} skal tippes &middot; ${l.periode}</div>
     <div style="font-family:${FONT};font-size:30px;line-height:34px;font-weight:bold;color:#ffffff;padding:10px 0 8px 0;">${l.overskrift}</div>
-    <div style="font-family:${FONT};font-size:16px;line-height:23px;color:#eaf5ef;">Runde for runde tipper du 1, X eller 2. Point f&oslash;lger oddsene, bonusserne bel&oslash;nner de modige, og mini-ligaen med vennerne holder gryden i kog hele s&aelig;sonen. Alle starter p&aring; nul, og det kr&aelig;ver nul fodboldforstand.</div>
+    <div style="font-family:${FONT};font-size:16px;line-height:23px;color:#eaf5ef;">${t.hero}</div>
     <div style="font-family:${FONT};font-size:13px;font-weight:bold;color:#0b3f2c;padding:10px 0 0 0;">
-      <span style="display:inline-block;white-space:nowrap;background:#ffffff;padding:6px 12px;border-radius:20px;margin:6px 6px 0 0;">&#9201; ~2 min pr. runde</span>
+      <span style="display:inline-block;white-space:nowrap;background:#ffffff;padding:6px 12px;border-radius:20px;margin:6px 6px 0 0;">${t.chip1}</span>
       <span style="display:inline-block;white-space:nowrap;background:#ffffff;padding:6px 12px;border-radius:20px;margin:6px 6px 0 0;">&#129504; Ren mavefornemmelse</span>
       <span style="display:inline-block;white-space:nowrap;background:#f7d417;padding:6px 12px;border-radius:20px;margin:6px 0 0 0;">${l.chip3}</span>
     </div>
@@ -197,21 +327,21 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
   <tr><td style="height:16px;line-height:16px;font-size:0;">&nbsp;</td></tr>` : ''}
 
   ${card({
-    kicker: '&#9917; Spillets hjerte',
-    title: 'Tip rundens kampe &mdash; 1, X eller 2',
-    body: 'Hver runde sætter du hjemmesejr, uafgjort eller udesejr p&aring; kampene. Du f&aring;r <b>point svarende til oddsene</b>: rammer du storfavoritten, giver det lidt &mdash; rammer du overraskelsen, giver det stort. Du kan rette frit, indtil den enkelte kamp starter, og du kan bladre frem og tilbage mellem alle sæsonens runder.',
+    kicker: `${t.emoji} Spillets hjerte`,
+    title: t.kort1Titel,
+    body: t.kort1Tekst,
     img: l.rundeImg ? `${appUrl}/${l.rundeImg}` : null,
-    imgAlt: 'Tip-fladen: rundens kampe med 1X2-knapper',
+    imgAlt: t.kort1Alt,
   })}
 
   ${card({
     kicker: '&#127919; Flere veje til point',
-    title: l.harPulje ? 'Runde-bonus, Chancen og s&aelig;sonens pulje' : 'Runde-bonus, Chancen og liga-sp&oslash;rgsm&aring;l',
+    title: l.harPulje ? `${t.bonus}, Chancen og ${t.puljeTitel}` : `${t.bonus}, Chancen og liga-sp&oslash;rgsm&aring;l`,
     rows: [
-      featureRow({ n: 1, title: 'Runde-bonus &#127920;', text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
-      featureRow({ n: 2, title: 'Chancen &#9889;', text: 'Hvis du f&oslash;ler dig HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.' }),
+      featureRow({ n: 1, title: `${t.bonus} &#127920;`, text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
+      featureRow({ n: 2, title: 'Chancen &#9889;', text: t.chanceTekst }),
       l.harPulje
-        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `S&aelig;sonens store bonuspot: udpeg de <b>${l.pulje.poolSize} hold</b>, du tror st&aring;r i ${esc(l.pulje.labels.top)}${l.pulje.nedSize > 0 ? ` &mdash; og de <b>${l.pulje.nedSize}</b>, du tror h&aelig;nger i ${esc(l.pulje.labels.ned)}` : ''}. <b>+${l.pulje.perTeam} point</b> pr. hold, der st&aring;r rigtigt${l.pulje.perfectBonus > 0 ? `, og <b>+${l.pulje.perfectBonus} bonus</b> for en perfekt r&aelig;kke` : ''} &mdash; afgjort til allersidst, s&aring; det kan vende hele stillingen.`, last: true })
+        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `${t.puljeStart}: udpeg de <b>${l.pulje.poolSize} hold</b>, du tror ${runde ? 'n&aring;r' : 'st&aring;r i'} ${esc(l.pulje.labels.top)}${l.pulje.nedSize > 0 ? ` &mdash; og de <b>${l.pulje.nedSize}</b>, du tror h&aelig;nger i ${esc(l.pulje.labels.ned)}` : ''}. <b>+${l.pulje.perTeam} point</b> pr. hold, ${runde ? 'du rammer' : 'der st&aring;r rigtigt'}${l.pulje.perfectBonus > 0 ? `, og <b>+${l.pulje.perfectBonus} bonus</b> for en perfekt r&aelig;kke` : ''} &mdash; ${runde ? `afgjort, s&aring; snart ${esc(l.pulje.labels.top)} er lagt ind${l.puljeDato ? ` (de spilles ${esc(l.puljeDato)})` : ''}${l.puljeFoerSlut ? `, ${l.puljeFoerSlut} &mdash; s&aring; den kan stadig vende stillingen` : ' &mdash; s&aring; den kan vende stillingen'}` : 'afgjort til allersidst, s&aring; det kan vende hele stillingen'}.${l.puljeLukker ? ` <b>Puljen lukker ${esc(l.puljeLukker)}.</b>` : ''}`, last: true })
         : featureRow({ n: 3, title: 'Liga-sp&oslash;rgsm&aring;l &#127942;', text: 'Ligaens egen joker: liga-admin stiller sp&oslash;rgsm&aring;l (&quot;hvem bliver topscorer?&quot;), I svarer f&oslash;r deadline &mdash; og pointene falder, n&aring;r facit kendes, s&aring; de kan vende stillingen sent.', last: true }),
     ].join(''),
     img: l.harPulje && l.puljeImg ? `${appUrl}/${l.puljeImg}` : null,
@@ -225,14 +355,14 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
     rows: [
       featureRow({ n: 1, title: 'Jeres egen mini-liga', text: l.harPulje
         ? 'Intern stilling, en liga-v&aelig;g til drillerier &mdash; og liga-sp&oslash;rgsm&aring;l, som liga-admin selv finder p&aring; (&quot;hvem bliver topscorer?&quot;) og giver point for.'
-        : 'Intern stilling og en liga-v&aelig;g til drillerier &mdash; s&aelig;sonen igennem.' }),
-      featureRow({ n: 2, title: 'Runde-Botten &#129302;', text: 'Efter rundens sidste kamp skriver botten et resum&eacute; p&aring; jeres v&aelig;g &mdash; med k&aelig;rlige stikpiller til rundens bedste og v&aelig;rste.' }),
-      featureRow({ n: 3, title: 'Facit, rangliste og statistik', text: 'Efter hver runde ser du dit facit, hvem du overhalede, din tr&aelig;fprocent under &quot;Mine tips&quot;, den officielle tabel og holdenes Elo-udvikling.', last: true }),
+        : t.ligaIgennem }),
+      featureRow({ n: 2, title: 'Runde-Botten &#129302;', text: t.botTekst }),
+      featureRow({ n: 3, title: 'Facit, rangliste og statistik', text: t.facitTekst, last: true }),
     ].join(''),
   })}
 
   <tr><td bgcolor="#f7d417" style="background:#f7d417;padding:28px 26px;text-align:center;">
-    <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#12211b;">&Eacute;t klik &mdash; s&aring; er du med &#9917;</div>
+    <div style="font-family:${FONT};font-size:22px;font-weight:bold;color:#12211b;">&Eacute;t klik &mdash; s&aring; er du med ${t.emoji}</div>
     <div style="font-family:${FONT};font-size:15px;line-height:22px;color:#3a3200;font-weight:bold;padding:8px 0 18px 0;">Knappen opretter dig, godkender dig og melder dig ind i <b>${league}</b> automatisk. Intet at taste, ingen ventetid.</div>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
       <td bgcolor="#0b6e4f" style="background:#0b6e4f;border-radius:10px;">
@@ -243,7 +373,7 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
   </td></tr>
 
   <tr><td style="padding:22px 10px 30px 10px;text-align:center;font-family:${FONT};font-size:13px;color:#5b6b63;">
-    Vind eller tab &mdash; men <b style="color:#0b6e4f;">v&aelig;r med</b>. Vi ses p&aring; ranglisten. &#9917;<br>
+    Vind eller tab &mdash; men <b style="color:#0b6e4f;">v&aelig;r med</b>. Vi ses p&aring; ranglisten. ${t.emoji}<br>
     <span style="font-size:12px;color:#8a958f;">Sendt fra Vejleaa Tip &middot; <a href="${appUrl}" style="color:#0b6e4f;">${appUrl.replace('https://', '')}</a></span>
   </td></tr>
 
@@ -252,4 +382,4 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
 </body></html>`;
 }
 
-module.exports = { invitationsHtml, ligaProfil, invitationsFejl };
+module.exports = { invitationsHtml, ligaProfil, invitationsFejl, LIGA_TEKST, turneringsTekst };

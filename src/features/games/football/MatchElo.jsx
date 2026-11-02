@@ -16,7 +16,7 @@
  */
 import EloDelta from './EloDelta';
 import GameTabLink from '../GameTabLink';
-import { rundeEtiket, rundeNavneord, rundeFlertal } from '../../../lib/faser';
+import { rundeEtiket, rundeNavneord, rundeFlertal, rundeOrdene } from '../../../lib/faser';
 
 /** Én side af kampen: rating + de seneste udviklingspunkter. */
 function Side({ navn, elo, align, game }) {
@@ -76,7 +76,7 @@ export default function MatchElo({ home, away, eloByTeam, game = null }) {
         <span style={{ fontSize: '0.68rem', color: 'var(--c-muted)', textAlign: 'center', whiteSpace: 'nowrap' }}>
           {/* Her står man og undrer sig over tallet — så herfra skal man kunne
               komme videre til hele sæsonen. */}
-          <GameTabLink fane="elo" title="Se hele sæsonens Elo-udvikling">📈 Elo</GameTabLink>
+          <GameTabLink fane="elo" title={`Se hele ${rundeOrdene(game).saesonens} Elo-udvikling`}>📈 Elo</GameTabLink>
           {spilletRunder > 0 && (
             <>
               <br />

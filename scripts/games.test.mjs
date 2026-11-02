@@ -11,12 +11,15 @@
 // håndrettelse i konsollen. Testene her beskytter altså den ENESTE chance for
 // at få felterne rigtige: den første kørsel.
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { GAMES } from './games.mjs';
 import { SPORT_PROFILER, ukendtSport } from '../src/lib/superligaScoring.js';
 import { faseKalenderFejl } from '../src/lib/faser.js';
+import { puljeSeedFejl } from '../src/lib/puljeFacit.js';
+import { HAANDBOLD_SPIL } from '../src/test/faseKalender.js';
 import { ADMIN_OWNED } from './seed-payload.mjs';
+import { SEED_FILER } from './seed-filer.mjs';
 
 // Providerens navn → de nøgler, den præcist skal have. Ingen flere, ingen
 // færre. Et `SHAPES`-objekt frem for if-grene, så en NY provider ikke kan
@@ -235,5 +238,101 @@ describe('faser på spillene', () => {
   // kunne rette den. Stod den i ADMIN_OWNED, blev en rettelse tavst sprunget over.
   it('faser er ikke admin-ejet', () => {
     expect(ADMIN_OWNED).not.toContain('faser');
+  });
+});
+
+// Filerne, et spil seedes fra, står i scripts/seed-filer.mjs — IKKE på
+// GAMES-posterne, for seedPayload skriver hvert felt ud på spil-dokumentet.
+// To lister om samme spil skal bindes, ellers driver de: et nyt fodboldspil
+// uden post kan ikke seedes fra workflowet, og en post uden spil seeder et
+// spil, platformen ikke kender.
+describe('seed-filer pr. spil', () => {
+  it('hvert aktivt kampspil har en post i SEED_FILER', () => {
+    const aktive = GAMES.filter((g) => g.type === 'football' && g.status !== 'finished');
+    expect(aktive.length).toBeGreaterThan(0);
+    for (const g of aktive) expect(Object.hasOwn(SEED_FILER, g.id), `${g.id} mangler i scripts/seed-filer.mjs`).toBe(true);
+  });
+
+  it('hver post i SEED_FILER er et kampspil i GAMES', () => {
+    for (const id of Object.keys(SEED_FILER)) {
+      const g = GAMES.find((x) => x.id === id);
+      expect(g, `${id} findes ikke i GAMES`).toBeTruthy();
+      expect(g.type, id).toBe('football');
+    }
+  });
+
+  it('ingen GAMES-post bærer filstier (de ville blive seedet ud i produktionsdata)', () => {
+    for (const g of GAMES) {
+      for (const k of ['teams', 'fixtures', 'runder', 'seedFiler']) expect(g, `${g.id}.${k}`).not.toHaveProperty(k);
+    }
+  });
+});
+
+// En RUNDE-pulje ("hvem når semifinalerne?", facitKilde: 'runde') afgøres af
+// holdene i en fase af kalenderen. Står fasen ikke i kalenderen, har den intet
+// antalKampe, eller passer poolSize ikke til fasens hold, kan puljen ALDRIG
+// afgøres — og det ville først vise sig ved semifinalerne. Skrevet med merge,
+// så den første kørsel er den eneste gode chance (se toppen af filen).
+// Vagten (puljeSeedFejl) bor i src/lib/puljeFacit.js — ikke her — så den
+// også gælder kørslen, der skriver: scripts/seed-games.mjs afviser HELE
+// seedet, før noget skrives, hvis én post har en fejl (beviset nedenfor).
+describe('runde-puljer på spillene', () => {
+  it('hver pulje i listen kan afgøres', () => {
+    for (const g of GAMES.filter((x) => x.pulje)) {
+      expect(puljeSeedFejl(g), g.id).toEqual([]);
+    }
+  });
+
+  // I DAG HAR LISTEN INGEN RUNDE-PULJE (hvm2027 kommer med D6), så testen
+  // ovenfor kan ikke blive rød af en. Her bevises vagten på den form, D6
+  // skal skrive — og på de fejl, den skal fange (modstander-bemærkning).
+  it('vagten er rød på en forkert runde-pulje og grøn på den tilsigtede form', () => {
+    const TILSIGTET = {
+      ...HAANDBOLD_SPIL,
+      pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', maksStartRunde: 1, labels: { overskrift: '🏆 Semifinalisterne' } },
+      puljeLockRound: 1,
+    };
+    expect(puljeSeedFejl(TILSIGTET)).toEqual([]);
+    const uden = { ...TILSIGTET, pulje: { ...TILSIGTET.pulje, maksStartRunde: undefined } };
+    expect(puljeSeedFejl(uden)).toEqual(['maksStartRunde skal sættes eksplicit på en runde-pulje (ejerens valg — håndbold-VM: 1)']);
+    expect(puljeSeedFejl({ ...TILSIGTET, pulje: { ...TILSIGTET.pulje, maksStartRunde: 0 } })).toHaveLength(1);
+    expect(puljeSeedFejl({ ...TILSIGTET, pulje: { ...TILSIGTET.pulje, facitFase: 'Ottendedele' } }))
+      .toEqual(['fasen «Ottendedele» findes ikke i kalenderen']);
+    expect(puljeSeedFejl({ ...TILSIGTET, pulje: { ...TILSIGTET.pulje, poolSize: 8 } })).toHaveLength(1);
+    // SL/PL-formen kræver ingen grænse — standarden er deres.
+    expect(puljeSeedFejl({ pulje: { poolSize: 6 } })).toEqual([]);
+  });
+
+  // seed-games.mjs kan ikke importeres (firebase-admin initialiseres på
+  // øverste niveau), så LEDNINGEN bevogtes som tekst: vagten kaldes på hver
+  // post, og kørslen afvises FØR den første skrivning (batch, set, commit).
+  it('seed-games.mjs afviser hele seedet ved en pulje-fejl — før den første skrivning', () => {
+    const kilde = readFileSync(resolve(process.cwd(), 'scripts/seed-games.mjs'), 'utf8')
+      .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+    expect(kilde).toMatch(/const \{ puljeSeedFejl \} = createRequire\(import\.meta\.url\)\('\.\.\/functions-platform\/puljeFacit\.js'\);/);
+    const krop = kilde.split('async function seedGames()')[1];
+    expect(krop).toBeTruthy();
+    const vagt = krop.indexOf('puljeSeedFejl(');
+    const kast = krop.indexOf('throw new Error(');
+    expect(vagt).toBeGreaterThan(-1);
+    expect(kast).toBeGreaterThan(vagt);
+    for (const skriv of ['db.batch(', 'batch.set(', 'batch.commit(']) {
+      expect(krop.indexOf(skriv), skriv).toBeGreaterThan(kast);
+    }
+    // Vagten går over HELE listen og kaster ved MINDST én fejl.
+    expect(krop).toMatch(/const puljeFejl = GAMES\.flatMap\(\(g\) => puljeSeedFejl\(g\)/);
+    expect(krop).toMatch(/if \(puljeFejl\.length\) \{\s*throw new Error\(/);
+  });
+
+  // FRAVÆRS-ASSERTION MED VILJE: Superligaen og Premier League skal have
+  // præcis de puljer, de har i dag. maksStartRunde er en turnerings-knap
+  // (dage, ikke uger); facitFase findes kun på en runde-pulje.
+  it('Superligaen og Premier League har hverken maksStartRunde eller facitFase', () => {
+    for (const id of ['superliga2627', 'pl2627-efteraar']) {
+      const g = GAMES.find((x) => x.id === id);
+      expect(g.pulje, id).not.toHaveProperty('maksStartRunde');
+      expect(g.pulje, id).not.toHaveProperty('facitFase');
+      expect(g.pulje.facitKilde, id).not.toBe('runde');
+    }
   });
 });

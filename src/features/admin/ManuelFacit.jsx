@@ -27,13 +27,14 @@ import { useState } from 'react';
 import { useGameRounds } from './useGameRounds';
 import { callSaetFacitManuelt, callFrigivFacitTilSynk } from './adminActions';
 import {
-  AFGJORT, AFGJORT_NAVN, erManuelFacit, facitFejl,
+  AFGJORT, AFGJORT_NAVN, erManuelFacit, facitFejl, slutTekst,
 } from '../../lib/facit';
 import {
   erKnockout, harFaseKalender, rundeKort, rundeNavneord,
 } from '../../lib/faser';
 import { formatKickoff } from '../../lib/daDate';
 import { fmtSignedDec } from '../../lib/daNum';
+import { sportOrd } from '../../lib/superligaScoring';
 
 // "rundens" (liga) eller "dagens" (turnering med fasekalender) — samme ord
 // som resten af fladerne (faser.rundeNavneord). Runde-Botten poster, når
@@ -74,7 +75,8 @@ export function kampEtiket(m, game) {
     m.round != null ? rd : null,
     `${m.home ?? '?'} – ${m.away ?? '?'}`,
     ko != null ? formatKickoff(ko) : 'uden kickoff',
-    harFacit(m) ? `facit ${maal(m.homeGoals, m.awayGoals)}` : 'mangler facit',
+    // En knockout-kamp ud over ordinær tid: begge stillinger («facit 30-30 · 35-34 e.f.»).
+    harFacit(m) ? `facit ${maal(m.homeGoals, m.awayGoals)}${slutTekst(m) ? ` · ${slutTekst(m)}` : ''}` : 'mangler facit',
     erManuelFacit(m) ? '✍️ sat i hånden' : null,
   ];
   return dele.filter(Boolean).join(' · ');
@@ -261,11 +263,12 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
       {kamp && (
         <div style={{ marginTop: '0.5rem' }}>
           <div className="flex items-center" style={{ gap: '0.4rem', flexWrap: 'wrap' }}>
-            {/* TODO(D4/D12): «(60 min)» efter "ordinær tid" for håndbold —
-                ordet skal komme fra sportsprofilen (sportProfil(game).ord), ikke
-                fra en gate på sport. Udsat til D4/D12. */}
+            {/* Den ordinære spilletid er SPORTENS ord («60 min» i håndbold,
+                sportOrd) — ikke en gate på sporten. Den står kun ved en
+                knockout-kamp, hvor forskellen på ordinær tid og slutresultat
+                findes; Superligaen og Premier League ser feltet som før. */}
             <span style={{ fontSize: '0.85rem' }}>
-              Mål efter ordinær tid{knockout ? ' (uden forlængelse og straffekast — det, der tippes på)' : ''}:
+              Mål efter ordinær tid{knockout ? ` (${sportOrd(game).ordinaerTid}, uden forlængelse og straffekast — det, der tippes på)` : ''}:
             </span>
             <input type="number" min="0" inputMode="numeric" style={felt} aria-label={`Mål ${kamp.home}`}
               value={home} onChange={(e) => { setHome(e.target.value); nulstil(); }} />

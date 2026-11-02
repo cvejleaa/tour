@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   docId, kickoffMs, tjekDubletter, parseArgs,
   parseRunder, iInterval, kickoffPlan, seedPlan, ukendteHold, teamsPlan, teamsVagt,
-  overrideAfvig,
+  overrideAfvig, tjekFlagKombination, spilDokPlan, KENDTE_FLAG, OVERSKRIV_VEJ,
 } from './seedFootball';
 import { matchId, buildMatch } from './superligaSeed';
 
@@ -712,5 +712,106 @@ describe('overrideAfvig', () => {
   it('klarer manglende input uden at kaste', () => {
     expect(overrideAfvig(null, null)).toEqual({ afvig: [], ukendte: [] });
     expect(() => overrideAfvig()).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// teamsVagt sender operatøren til "et fuldt seed" for elo, antal og kortkode.
+// Efter at et gen-seed ikke længere skriver holdlisten, er det kun sandt MED
+// --overskriv-hold — ellers peger afvisningen på en vej, der intet gør.
+// ---------------------------------------------------------------------------
+describe('teamsVagt peger på den vej, der faktisk skriver holdlisten', () => {
+  const rfc = { name: 'Randers FC', elo: 1472, short: 'RFC' };
+  it('elo, nye hold og kortkode nævner --overskriv-hold', () => {
+    for (const [nye, gamle] of [
+      [[{ ...rfc, elo: 1500 }], [rfc]],
+      [[rfc, { name: 'Vejle Boldklub' }], [rfc]],
+      [[{ ...rfc, short: 'RAN' }], [rfc]],
+    ]) {
+      const v = teamsVagt(teamsPlan(nye, gamle));
+      expect(v.grunde).toHaveLength(1);
+      expect(v.grunde[0].endsWith(`hører det til ${OVERSKRIV_VEJ}.`)).toBe(true);
+    }
+  });
+
+  // Teksten læses i Actions-loggen for seedTeams, hvor --overskriv-hold med
+  // vilje intet flueben har. Et bart flagnavn sender operatøren på jagt efter
+  // et input, der ikke findes.
+  it('siger, at vejen er LOKAL med produktionsnøglen, og hvor den står — ikke at den findes i workflowet', () => {
+    expect(OVERSKRIV_VEJ).toMatch(/^et fuldt seed med --overskriv-hold, kørt LOKALT med produktionsnøglen /);
+    expect(OVERSKRIV_VEJ).toContain('docs/drift.md, «Seed et nyt fodbold-spil»');
+    expect(OVERSKRIV_VEJ).toMatch(/workflowet har med vilje intet flueben til det$/);
+    // Må ikke pege på et workflow-input — der er intet.
+    expect(OVERSKRIV_VEJ).not.toMatch(/seed(Kampe|Teams|Superliga|Spil)|overskrivHold/);
+    const v = teamsVagt(teamsPlan([{ ...rfc, elo: 1500 }], [rfc]));
+    expect(v.grunde[0]).toContain('kørt LOKALT med produktionsnøglen');
+  });
+});
+
+describe('tjekFlagKombination', () => {
+  const f = (...l) => new Set(l);
+  it('kender --overskriv-hold som flag', () => {
+    expect(KENDTE_FLAG).toContain('overskriv-hold');
+    expect(parseArgs(['--game', 'x', '--overskriv-hold']).flags.has('overskriv-hold')).toBe(true);
+  });
+
+  it('lader de lovlige kombinationer passere', () => {
+    for (const flags of [f(), f('skriv'), f('kickoffs-only', 'skriv'), f('teams-only', 'skriv'), f('overskriv-hold', 'skriv')]) {
+      expect(() => tjekFlagKombination(flags), [...flags].join(',')).not.toThrow();
+    }
+  });
+
+  it('afviser to tilstande på én gang', () => {
+    expect(() => tjekFlagKombination(f('kickoffs-only', 'teams-only'))).toThrow(/kan ikke kombineres/);
+  });
+
+  it('afviser --overskriv-hold uden for det fulde seed — operatøren ville tro, holdlisten blev skrevet', () => {
+    expect(() => tjekFlagKombination(f('kickoffs-only', 'overskriv-hold'))).toThrow(/--overskriv-hold hører til det fulde seed.*--kickoffs-only/);
+    expect(() => tjekFlagKombination(f('teams-only', 'overskriv-hold'))).toThrow(/--overskriv-hold hører til det fulde seed.*--teams-only/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// spilDokPlan — det gamle seed skrev teams og eloCurrent UBETINGET. Reglen er
+// nu: hvert felt kun, når spillet ikke har det, eller med --overskriv-hold.
+// ---------------------------------------------------------------------------
+describe('spilDokPlan', () => {
+  const fil = [{ name: 'A', elo: 1600 }];
+  const spil = [{ name: 'A', elo: 1550 }];
+  const levende = { A: 1580 };
+
+  it('første seed: spillet har ingen af dem → begge skrives, prisen fra filen', () => {
+    for (const game of [null, undefined, {}, { teams: [] }, { teams: [], eloCurrent: {} }]) {
+      expect(spilDokPlan(game, fil), JSON.stringify(game)).toEqual({
+        skrivTeams: true, skrivElo: true, prisHold: fil, grund: 'foerste',
+      });
+    }
+  });
+
+  it('gen-seed: spillet har begge → intet skrives, prisen fra SPILLETS holdliste', () => {
+    expect(spilDokPlan({ teams: spil, eloCurrent: levende }, fil)).toEqual({
+      skrivTeams: false, skrivElo: false, prisHold: spil, grund: 'bevar',
+    });
+  });
+
+  it('delvis: kun det manglende felt skrives', () => {
+    expect(spilDokPlan({ teams: spil }, fil)).toEqual({
+      skrivTeams: false, skrivElo: true, prisHold: spil, grund: 'delvis',
+    });
+    expect(spilDokPlan({ eloCurrent: levende }, fil)).toEqual({
+      skrivTeams: true, skrivElo: false, prisHold: fil, grund: 'delvis',
+    });
+  });
+
+  it('--overskriv-hold: begge skrives fra filen, også når spillet har dem', () => {
+    expect(spilDokPlan({ teams: spil, eloCurrent: levende }, fil, { overskrivHold: true })).toEqual({
+      skrivTeams: true, skrivElo: true, prisHold: fil, grund: 'overskriv',
+    });
+  });
+
+  it('en eloCurrent, der ikke er et opslag (array, tal, streng), tæller som manglende', () => {
+    for (const eloCurrent of [[1, 2], 5, 'x', null]) {
+      expect(spilDokPlan({ teams: spil, eloCurrent }, fil).skrivElo, JSON.stringify(eloCurrent)).toBe(true);
+    }
   });
 });
