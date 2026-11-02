@@ -915,7 +915,7 @@ describe('Runde-Botten med fasekalender', () => {
     const f = buildRoundRecapFacts({ round: 14, roundMatches: ko, players: [], betsByUid: new Map() });
     expect(f.matches[0]).toEqual({
       home: 'Danmark', away: 'Norge', score: '30-30', surprise: true,
-      slut: '35-34', afgjort: 'efter forlænget spilletid', vinder: 'Danmark',
+      slut: '35-34', afgjort: 'efter forlænget spilletid', vinder: 'Danmark', ramteX: [],
     });
     expect(f.matches[1]).toMatchObject({ score: '28-28', slut: '31-33', afgjort: 'efter straffekast', vinder: 'Spanien' });
     // Afgjort i ordinær tid: præcis de fire felter, som altid.
@@ -926,6 +926,12 @@ describe('Runde-Botten med fasekalender', () => {
     expect(sys).toContain('Har en kamp feltet "slut", var den uafgjort efter ordinær tid (60 min)');
     expect(sys).toContain('så X var det rigtige tip');
     expect(sys).toContain('Kald ALDRIG "score" en sejr');
+    // Hele forklaringen af "afgjort" og "vinder" (TM-D12 R2c/R2d): de to
+    // sætninger kunne slettes med grøn suite.
+    expect(sys).toContain('"afgjort" siger hvordan (fx efter forlænget spilletid)');
+    expect(sys).toContain('og "vinder" gik videre.');
+    // Spilfører (c): fremhæv dem, der ramte X — og kun når listen har navne.
+    expect(sys).toContain('"ramteX" er dem i ligaen, der tippede X i netop den kamp: de fik ret, mens alle så nogen vinde — fremhæv dem gerne, når listen ikke er tom.');
     expect(sys).not.toContain('(90 min)');
     // Ankeret står præcis én gang, så forklaringen ikke kan lande to steder.
     expect(sys.split(KNOCKOUT_ANKER).length).toBe(2);
@@ -943,6 +949,39 @@ describe('Runde-Botten med fasekalender', () => {
     const udenKo = { ...HAANDBOLD_SPIL, faser: TEST_FASER.slice(0, 2) };
     expect(recapSystem(udenKo)).not.toContain('"slut"');
     expect(RECAP_SYSTEM).not.toContain('"slut"');
+    // X-hintet hører til knockout — hverken ligaen eller en kalender uden.
+    expect(recapSystem(udenKo)).not.toContain('ramteX');
+    expect(RECAP_SYSTEM).not.toContain('ramteX');
+  });
+
+  // Spilfører (c): «han fik ret, mens vi jublede». Hvem der ramte X i en kamp,
+  // der gik i forlængelse, står i fakta — kun ligaens medlemmer, og kun på
+  // kampe med et gyldigt slut (en kamp afgjort i ordinær tid får ikke feltet).
+  it('knockout: "ramteX" er ligaens X-tippere på netop den kamp', () => {
+    const ko = [
+      { id: 'k1', round: 14, home: 'Danmark', away: 'Norge', homeGoals: 30, awayGoals: 30, result: 'X',
+        slut: { home: 35, away: 34, afgjort: 'forlaenget' }, odds: { 1: 1.8, X: 6, 2: 3 } },
+      { id: 'k3', round: 14, home: 'Sverige', away: 'Tyskland', homeGoals: 27, awayGoals: 25, result: '1', odds: { 1: 2, X: 6, 2: 2.5 } },
+    ];
+    const players = [
+      { uid: 'a', name: 'Anne', totalPoints: 10, rank: 1 },
+      { uid: 'b', name: 'Bo', totalPoints: 8, rank: 2 },
+      // Navnet går gennem sanitizeName som alle andre navne i fakta (prompt-injektion).
+      { uid: 'c', name: 'Carl<{`}>\nC', totalPoints: 5, rank: 3 },
+      { uid: 'd', name: 'Dorte', totalPoints: 4, rank: 4 },
+    ];
+    const betsByUid = new Map([
+      ['a', [{ matchId: 'k1', pick: 'X', points: 6 }, { matchId: 'k3', pick: 'X', points: 0 }]],
+      ['b', [{ matchId: 'k1', pick: '1', points: 0 }]],
+      ['c', [{ matchId: 'k3', pick: 'X', points: 0 }, { matchId: 'k1', pick: 'X', points: 6 }]],
+      // X på den ANDEN kamp tæller ikke for k1.
+      ['d', [{ matchId: 'k1', pick: '2', points: 0 }, { matchId: 'k3', pick: 'X', points: 0 }]],
+      // Ikke i ligaen — må aldrig stå på væggen.
+      ['fremmed', [{ matchId: 'k1', pick: 'X', points: 6 }]],
+    ]);
+    const f = buildRoundRecapFacts({ round: 14, roundMatches: ko, players, betsByUid });
+    expect(f.matches[0].ramteX).toEqual(['Anne', 'Carl C']);
+    expect(f.matches[1]).not.toHaveProperty('ramteX');
   });
 
   it('håndbold UDEN kalender: kun sportens ord skifter', () => {

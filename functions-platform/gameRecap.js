@@ -149,7 +149,7 @@ const KALENDER_UDSKIFTNING = [
 const KNOCKOUT_ANKER = '- "matches": dagens kampe PÅ KUPONEN — dem der blev spillet på spilledagen.';
 
 function knockoutForklaring(ord) {
-  return `${KNOCKOUT_ANKER} Har en kamp feltet "slut", var den uafgjort efter ordinær tid (${ord.ordinaerTid}) og blev afgjort bagefter: "score" er stillingen efter ${ord.ordinaerTid} — den, der tippes på, så X var det rigtige tip — og "slut" er slutresultatet, "afgjort" siger hvordan (fx efter forlænget spilletid), og "vinder" gik videre. Kald ALDRIG "score" en sejr, og skriv aldrig, at et X-tip tabte, fordi nogen vandt bagefter.`;
+  return `${KNOCKOUT_ANKER} Har en kamp feltet "slut", var den uafgjort efter ordinær tid (${ord.ordinaerTid}) og blev afgjort bagefter: "score" er stillingen efter ${ord.ordinaerTid} — den, der tippes på, så X var det rigtige tip — og "slut" er slutresultatet, "afgjort" siger hvordan (fx efter forlænget spilletid), og "vinder" gik videre. Kald ALDRIG "score" en sejr, og skriv aldrig, at et X-tip tabte, fordi nogen vandt bagefter. "ramteX" er dem i ligaen, der tippede X i netop den kamp: de fik ret, mens alle så nogen vinde — fremhæv dem gerne, når listen ikke er tom.`;
 }
 
 /**
@@ -310,6 +310,14 @@ function buildRoundRecapFacts({
       // KUN når kampen har et gyldigt slut — en Superliga-kamp får ikke én
       // ny nøgle.
       const slut = kampSlut(m);
+      // HVEM RAMTE X i en kamp, der gik i forlængelse (Spilfører c): dagens
+      // bedste historie, og den kan kun fortælles af fakta — prompten må ikke
+      // gætte. Kun ligaens medlemmer (`players`), i deres rækkefølge.
+      const ramteX = slut
+        ? players
+          .filter((p) => (betsByUid.get(p.uid) || []).some((b) => b.matchId === m.id && b.pick === 'X'))
+          .map((p) => sanitizeName(p.name))
+        : null;
       return {
         home: m.home, away: m.away,
         score: (m.homeGoals != null && m.awayGoals != null) ? `${m.homeGoals}-${m.awayGoals}` : null,
@@ -318,6 +326,7 @@ function buildRoundRecapFacts({
           slut: `${slut.home}-${slut.away}`,
           afgjort: AFGJORT_NAVN[slut.afgjort],
           vinder: slut.home > slut.away ? m.home : m.away,
+          ramteX,
         } : {}),
       };
     }),
