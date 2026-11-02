@@ -482,6 +482,47 @@ describe('⬇️ Synk resultater nu — manuel udløsning af resultat-synken', (
     bekraeft.mockRestore();
   });
 
+  // Ental: "1 kamp", aldrig "1 kampe" — samme bøjning som Drift-kortets
+  // linje om de samme kampe (facitVagt.meldManuelleUenige).
+  it('bøjer ental ved én kamp sat i hånden og ét nyt facit', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true,
+      data: {
+        gameId: 'superliga2627', checked: 12, updated: 1, rettede: ['sl-a'],
+        manuelle: ['r4-a'], manuelleUenige: [],
+        standings: { rows: 12, changed: false },
+      },
+    });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    const linje = await screen.findByText(/fik nyt facit/);
+    expect(linje.textContent).toMatch(/^1 kamp fik nyt facit: sl-a\./);
+    expect(linje.textContent).toContain(' 1 kamp er sat i hånden og røres ikke af synken.');
+    expect(linje.textContent).not.toMatch(/1 kampe/);
+    bekraeft.mockRestore();
+  });
+
+  it('bøjer flertal ved to', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    mockSyncResults.mockResolvedValue({
+      ok: true,
+      data: {
+        gameId: 'superliga2627', checked: 12, updated: 2, rettede: ['sl-a', 'sl-b'],
+        manuelle: ['r4-a', 'r5-b'], manuelleUenige: [],
+        standings: { rows: 12, changed: false },
+      },
+    });
+    mockGames.mockReturnValue({ games: [SL_SYNK], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(knap());
+    const linje = await screen.findByText(/fik nyt facit/);
+    expect(linje.textContent).toMatch(/^2 kampe fik nyt facit: sl-a, sl-b\./);
+    expect(linje.textContent).toContain(' 2 kampe er sat i hånden og røres ikke af synken.');
+    bekraeft.mockRestore();
+  });
+
   it('viser serverens fejl, når synken fejler', async () => {
     const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
     mockSyncResults.mockResolvedValue({ ok: false, error: 'Ingen synk-provider for "superliga2627".' });
@@ -1203,6 +1244,31 @@ describe('✍️ Sæt eller ret facit i hånden — hvilke spil har knappen', ()
     mockGames.mockReturnValue({ games: [TOUR], loading: false });
     render(<GameScheduleTab />);
     expect(knapper()).toHaveLength(0);
+  });
+
+  // harSynk afgøres i Spil-tidsplanen (harResultatSynk) og gives videre.
+  // ManuelFacit.test.jsx sætter harSynk direkte og kan ikke se, hvis
+  // ledningen her bliver hardkodet — denne render-test kan. Positiv kontrol
+  // med samme kamp i Superligaen, så fraværet ikke bare er et tomt panel.
+  const MANUEL_KAMP = { id: 'r1-dk-no', round: 1, home: 'Danmark', away: 'Norge', kickoff: Date.now() - 4 * 3600e3, result: '1', homeGoals: 30, awayGoals: 28, resultatKilde: 'manuel' };
+  async function vaelgManuelKamp(game) {
+    mockGetDocs.mockResolvedValue({ docs: [{ id: MANUEL_KAMP.id, data: () => MANUEL_KAMP }] });
+    mockGames.mockReturnValue({ games: [game], loading: false });
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: /Sæt eller ret facit i hånden/ }));
+    const select = await screen.findByLabelText(`Kamp at sætte facit på i ${game.name}`);
+    fireEvent.change(select, { target: { value: MANUEL_KAMP.id } });
+    await screen.findByLabelText('Mål Danmark');
+  }
+
+  it('spil UDEN synk: en kamp sat i hånden har ingen "Lad synken overtage igen"', async () => {
+    await vaelgManuelKamp(HB);
+    expect(screen.queryByRole('button', { name: /Lad synken overtage igen/ })).not.toBeInTheDocument();
+  });
+
+  it('spil MED synk: samme kamp har "Lad synken overtage igen"', async () => {
+    await vaelgManuelKamp(SL_SYNK);
+    expect(screen.getByRole('button', { name: /Lad synken overtage igen/ })).toBeInTheDocument();
   });
 
   it('henter ingen kampe, før knappen trykkes', () => {

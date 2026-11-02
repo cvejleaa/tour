@@ -6,7 +6,9 @@
 // en knockout-kamp, at skrive-knappen først findes efter tør-kørslen og
 // forsvinder, når felterne ændres, og at confirm navngiver konsekvenserne.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import {
+  render, screen, fireEvent, waitFor, within, cleanup,
+} from '@testing-library/react';
 
 vi.mock('../../firebase', () => ({ db: {} }));
 
@@ -23,7 +25,9 @@ vi.mock('./adminActions', () => ({
   callFrigivFacitTilSynk: (...a) => mockFrigiv(...a),
 }));
 
-import ManuelFacit, { ADVARSEL_SYNK, ADVARSEL_BOT, prognoseLinjer, facitKandidater } from './ManuelFacit';
+import ManuelFacit, {
+  ADVARSEL_SYNK, ADVARSEL_BOT, advarselBot, prognoseLinjer, facitKandidater,
+} from './ManuelFacit';
 
 const TIME = 3600 * 1000;
 const nu = Date.now();
@@ -110,6 +114,52 @@ describe('✍️ listen og advarslerne', () => {
     expect(note.textContent).not.toMatch(/admin-guiden|Firebase-konsollen/);
   });
 
+  // Med en fasekalender er runden en DAG — i listen, i advarslen og i
+  // prognosen. Uden kalender (og med en UGYLDIG, som ingen flade tæller)
+  // er alt som før. QC-fund: listen sagde "Rd 3" og advarslen "rundens
+  // sidste kamp" i en turnering, hvor alle andre flader siger "Dag 3".
+  it('med fasekalender: «Dag N» og «dagens sidste kamp» — aldrig «Rd» eller «rundens»', async () => {
+    kampe([{ id: 'r3-dk-no', round: 3, home: 'Danmark', away: 'Norge', kickoff: nu - 4 * TIME }]);
+    const select = await aabn(HB);
+    const tekster = within(select).getAllByRole('option').map((o) => o.textContent);
+    expect(tekster[1]).toMatch(/^Dag 3 · Danmark – Norge · .+ · mangler facit$/);
+    expect(tekster[1]).not.toMatch(/Rd /);
+    const note = screen.getByRole('note');
+    expect(advarselBot(HB)).toBe('Er det dagens sidste kamp, skriver Runde-Botten straks på alle ligavægge. Det kan ikke trækkes tilbage.');
+    expect(note.textContent).toBe(`${ADVARSEL_SYNK} ${advarselBot(HB)}`);
+    expect(note.textContent).not.toMatch(/rundens/);
+
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    vaelg(select, 'r3-dk-no');
+    fireEvent.change(screen.getByLabelText('Mål Danmark'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Mål Norge'), { target: { value: '28' } });
+    mockSaet.mockResolvedValue({ ok: true, data: { ...PLAN, kamp: { id: 'r3-dk-no', home: 'Danmark', away: 'Norge', round: 3, kickoff: nu - 4 * TIME } } });
+    fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
+    expect(await screen.findByText('Det er dagens sidste kamp: Runde-Botten skriver straks på alle ligavægge, når du skriver.')).toBeInTheDocument();
+    expect(screen.queryByText(/rundens sidste kamp/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Skriv facit' }));
+    const tekst = bekraeft.mock.calls[0][0];
+    expect(tekst).toContain(advarselBot(HB));
+    expect(tekst).toContain('Det er dagens sidste kamp');
+    expect(tekst).not.toMatch(/rundens/);
+    bekraeft.mockRestore();
+  });
+
+  it('uden fasekalender: «Rd N» og «rundens sidste kamp» som før — også med en UGYLDIG kalender', async () => {
+    for (const game of [SL, HB_UGYLDIG]) {
+      kampe([{ id: 'r3-x', round: 3, home: 'AGF', away: 'OB', kickoff: nu - 4 * TIME }]);
+      const select = await aabn(game);
+      const t = within(select).getAllByRole('option')[1].textContent;
+      expect(t).toMatch(/^Rd 3 · AGF – OB/);
+      expect(t).not.toMatch(/Dag 3/);
+      expect(advarselBot(game)).toBe(ADVARSEL_BOT);
+      expect(screen.getByRole('note').textContent).not.toMatch(/dagens/);
+      cleanup();
+    }
+    expect(prognoseLinjer({ ...PLAN }, SL).join(' ')).toContain('Det er rundens sidste kamp');
+    expect(prognoseLinjer({ ...PLAN }, HB).join(' ')).toContain('Det er dagens sidste kamp');
+  });
+
   it('melder det, når ingen kamp er begyndt', async () => {
     kampe([SL_KAMPE[2]]);
     render(<ManuelFacit game={SL} harSynk />);
@@ -144,6 +194,24 @@ describe('✍️ felterne — ordinær tid og knockout', () => {
     vaelg(await aabn(), 'r4-fck-bif');
     expect(screen.getByLabelText('Mål FC København')).toHaveValue(2);
     expect(screen.getByLabelText('Mål Brøndby IF')).toHaveValue(1);
+  });
+
+  // En rettelse af en KO-kamp starter fra HELE det facit, der står — også
+  // slutresultatet og afgørelsen. Ellers sendte "Vis hvad der ændrer sig"
+  // et facit uden slut, og en rettelse af ét mål slettede slutresultatet.
+  it('en rettelse af en knockout-kamp starter fra slutresultat og afgørelse', async () => {
+    kampe([{
+      id: 'r7-dk-se', round: 7, home: 'Danmark', away: 'Sverige', kickoff: nu - 4 * TIME,
+      result: 'X', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'straffe' }, resultatKilde: 'manuel',
+    }]);
+    vaelg(await aabn(HB), 'r7-dk-se');
+    expect(screen.getByLabelText('Mål Danmark')).toHaveValue(30);
+    expect(screen.getByLabelText('Mål Sverige')).toHaveValue(30);
+    expect(screen.getByLabelText('Slutresultat Danmark')).toHaveValue(35);
+    expect(screen.getByLabelText('Slutresultat Sverige')).toHaveValue(34);
+    expect(screen.getByLabelText('Hvordan blev kampen afgjort')).toHaveValue('straffe');
+    // Udfyldt og gyldig: tør-kørslen kan spørges med det samme.
+    expect(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' })).toBeEnabled();
   });
 
   it('knockout + uafgjort: slutresultat og afgørelse kræves, før serveren spørges', async () => {
@@ -363,6 +431,41 @@ describe('✍️ tør-kørsel → skriv', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Skriv facit' }));
     expect(await screen.findByText(/Serveren skrev INTET/)).toBeInTheDocument();
+    expect(screen.queryByText(/Facit skrevet/)).not.toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  // Svaret siger dryRun:false, men skrevet:false (fx facit stod der i
+  // forvejen). Det er IKKE en skrivning — fladen må ikke kvittere grønt.
+  it('svarer serveren dryRun:false men skrevet:false, siger fladen, at INTET er skrevet', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await tast();
+    mockSaet
+      .mockResolvedValueOnce({ ok: true, data: PLAN })
+      .mockResolvedValueOnce({ ok: true, data: { ...PLAN, dryRun: false, skrevet: false } });
+    fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Skriv facit' }));
+    const fejl = await screen.findByText('Serveren skrev INTET. Vis ændringen igen.');
+    expect(fejl).toHaveClass('badge--red');
+    expect(screen.queryByText(/Facit skrevet/)).not.toBeInTheDocument();
+    bekraeft.mockRestore();
+  });
+
+  // Kvitteringen står uden for panelet (den skal overleve genmonteringen),
+  // men en gammel grøn "Facit skrevet" må ikke blive stående, når panelet
+  // lukkes og åbnes igen — så lignede den svaret på den næste handling.
+  it('kvitteringen forsvinder, når panelet lukkes', async () => {
+    const bekraeft = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await tast();
+    mockSaet
+      .mockResolvedValueOnce({ ok: true, data: PLAN })
+      .mockResolvedValueOnce({ ok: true, data: { ...PLAN, dryRun: false, skrevet: true } });
+    fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der ændrer sig' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Skriv facit' }));
+    expect(await screen.findByText(/^Facit skrevet:/)).toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: /Sæt eller ret facit i hånden/ });
+    fireEvent.click(toggle); // luk
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByText(/Facit skrevet/)).not.toBeInTheDocument();
     bekraeft.mockRestore();
   });

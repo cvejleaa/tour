@@ -358,15 +358,17 @@ function GameRow({ game }) {
     // Kampe med facit sat i hånden rører synken ikke. Siger kilden noget
     // ANDET om dem, skal et menneske se på det — enten var tastningen forkert,
     // eller kilden er. Nævnes kun, når der er nogen.
+    // Bøjet som Drift-kortets linje (facitVagt.meldManuelleUenige): "1 kamp".
+    const kampe = (n) => `${n} ${n === 1 ? 'kamp' : 'kampe'}`;
     const manuelle = d.manuelle?.length
-      ? ` ${d.manuelle.length} kampe er sat i hånden og røres ikke af synken${d.manuelleUenige?.length ? ` — kilden siger noget andet om ${d.manuelleUenige.length}: ${d.manuelleUenige.map(uenigTekst).join('; ')}` : ''}.`
+      ? ` ${kampe(d.manuelle.length)} er sat i hånden og røres ikke af synken${d.manuelleUenige?.length ? ` — kilden siger noget andet om ${d.manuelleUenige.length}: ${d.manuelleUenige.map(uenigTekst).join('; ')}` : ''}.`
       : '';
     // "Intet manglede" er sandt og alligevel en halv besked i alarm-scenariet:
     // den strandede kamp er netop IKKE blandt kildens færdige kampe. Sig
     // næste skridt — og peg på KNAPPEN, ikke på en guide — ellers er alarm →
     // knap → "intet manglede" en blindgyde.
     setResMsg(d.updated > 0
-      ? { kind: 'ok', text: `${d.updated} kampe fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.${manuelle}` }
+      ? { kind: 'ok', text: `${kampe(d.updated)} fik nyt facit: ${(d.rettede || []).join(', ')}. ${tabel}. Fuldendte et facit en runde, poster Runde-Botten på liga-væggene nu.${manuelle}` }
       : { kind: 'ok', text: `Intet manglede — de ${d.checked} færdige kampe hos kilden står allerede rigtigt. ${tabel}. Står en kamp stadig uden facit, har kilden det ikke endnu — brug ✍️ Sæt eller ret facit i hånden nedenfor.${manuelle}` });
     setResBusy(false);
   }

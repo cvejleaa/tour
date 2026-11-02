@@ -29,14 +29,26 @@ import { callSaetFacitManuelt, callFrigivFacitTilSynk } from './adminActions';
 import {
   AFGJORT, AFGJORT_NAVN, erManuelFacit, facitFejl,
 } from '../../lib/facit';
-import { erKnockout } from '../../lib/faser';
+import {
+  erKnockout, harFaseKalender, rundeKort, rundeNavneord,
+} from '../../lib/faser';
 import { formatKickoff } from '../../lib/daDate';
 import { fmtSignedDec } from '../../lib/daNum';
+
+// "rundens" (liga) eller "dagens" (turnering med fasekalender) — samme ord
+// som resten af fladerne (faser.rundeNavneord). Runde-Botten poster, når
+// RUNDEN er afgjort, og i en turnering er runden en dag.
+const rundensOrd = (game) => (rundeNavneord(game) === 'dag' ? 'dagens' : 'rundens');
 
 // De to advarsler, ejeren skal have læst, før han skriver. Eksporteret, så
 // testen binder PRÆCIS denne tekst — og så dialogen og confirm siger det samme.
 export const ADVARSEL_SYNK = 'Synken overskriver ikke denne kamp herefter. En tastefejl rettes kun her.';
-export const ADVARSEL_BOT = 'Er det rundens sidste kamp, skriver Runde-Botten straks på alle ligavægge. Det kan ikke trækkes tilbage.';
+/** Bot-advarslen i spillets eget ord for en runde. */
+export function advarselBot(game) {
+  return `Er det ${rundensOrd(game)} sidste kamp, skriver Runde-Botten straks på alle ligavægge. Det kan ikke trækkes tilbage.`;
+}
+/** Liga-formen (spil uden fasekalender). */
+export const ADVARSEL_BOT = advarselBot(null);
 
 function toMs(v) {
   if (v == null) return null;
@@ -50,11 +62,16 @@ function toMs(v) {
 const harFacit = (m) => m.result != null && m.result !== '';
 const maal = (h, a) => (h == null || a == null ? '—' : `${h}-${a}`);
 
-/** Kampen, som den står i listen: holdnavne, runde, tid og facit. */
-export function kampEtiket(m) {
+/**
+ * Kampen, som den står i listen: holdnavne, runde, tid og facit. Med en
+ * fasekalender hedder runden "Dag N" (faser.rundeKort) — uden er den den
+ * korte "Rd N", listen altid har haft.
+ */
+export function kampEtiket(m, game) {
   const ko = toMs(m.kickoff);
+  const rd = harFaseKalender(game) ? rundeKort(game, m.round) : `Rd ${m.round}`;
   const dele = [
-    m.round != null ? `Rd ${m.round}` : null,
+    m.round != null ? rd : null,
     `${m.home ?? '?'} – ${m.away ?? '?'}`,
     ko != null ? formatKickoff(ko) : 'uden kickoff',
     harFacit(m) ? `facit ${maal(m.homeGoals, m.awayGoals)}` : 'mangler facit',
@@ -84,7 +101,7 @@ function tal(v) {
 
 
 /** Tør-kørslens svar som sætninger — hver for sig, så testen kan binde dem. */
-export function prognoseLinjer(d) {
+export function prognoseLinjer(d, game) {
   const linjer = [];
   const udfald = (r) => r ?? 'intet facit';
   linjer.push(`1/X/2: ${udfald(d.foer.result)} → ${d.efter.result}. Mål: ${maal(d.foer.homeGoals, d.foer.awayGoals)} → ${maal(d.efter.homeGoals, d.efter.awayGoals)}.`);
@@ -111,7 +128,7 @@ export function prognoseLinjer(d) {
     }
   }
   if (d.botPoster) {
-    linjer.push('Det er rundens sidste kamp: Runde-Botten skriver straks på alle ligavægge, når du skriver.');
+    linjer.push(`Det er ${rundensOrd(game)} sidste kamp: Runde-Botten skriver straks på alle ligavægge, når du skriver.`);
   }
   return linjer;
 }
@@ -175,10 +192,10 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
   // indhold. Felterne og planen holdes i takt af nulstil(), men skulle de en
   // dag drive fra hinanden, er det planen, admin har set og sagt ja til.
   async function skriv() {
-    const linjer = prognoseLinjer(plan);
+    const linjer = prognoseLinjer(plan, game);
     if (!window.confirm(
       `Skriv facit for ${plan.kamp.home} – ${plan.kamp.away} i "${game.name}"?\n\n`
-      + `${linjer.join('\n')}\n\n${ADVARSEL_SYNK}\n\n${ADVARSEL_BOT}`,
+      + `${linjer.join('\n')}\n\n${ADVARSEL_SYNK}\n\n${advarselBot(game)}`,
     )) return;
     setBusy(true); setMsg(null);
     const res = await callSaetFacitManuelt({
@@ -230,7 +247,7 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
   return (
     <div style={{ marginTop: '0.5rem', padding: '0.6rem', border: '1px solid var(--c-border, #ddd)', borderRadius: '0.5rem' }}>
       <p role="note" style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
-        <strong>{ADVARSEL_SYNK}</strong> {ADVARSEL_BOT}
+        <strong>{ADVARSEL_SYNK}</strong> {advarselBot(game)}
       </p>
       <select
         className="select" aria-label={`Kamp at sætte facit på i ${game.name}`}
@@ -238,7 +255,7 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
         onChange={(e) => vaelgKamp(e.target.value)}
       >
         <option value="">– Vælg kamp –</option>
-        {kandidater.map((m) => <option key={m.id} value={m.id}>{kampEtiket(m)}</option>)}
+        {kandidater.map((m) => <option key={m.id} value={m.id}>{kampEtiket(m, game)}</option>)}
       </select>
 
       {kamp && (
@@ -286,7 +303,7 @@ function FacitPanel({ game, harSynk, onSkrevet }) {
           </div>
           {plan && (
             <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.2rem', fontSize: '0.85rem' }}>
-              {prognoseLinjer(plan).map((l) => <li key={l}>{l}</li>)}
+              {prognoseLinjer(plan, game).map((l) => <li key={l}>{l}</li>)}
             </ul>
           )}
         </div>

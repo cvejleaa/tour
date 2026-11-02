@@ -13,7 +13,9 @@ import { functions } from '../../firebase';
 import { useGames } from '../games/useGames';
 import { useDriftStatus, ukvitterede } from './useDriftStatus';
 import { callSendDriftAlarmMailNu, callFyrTestAlarm } from './adminActions';
-import { harKickoffSynk, harKampdetaljer, forventerPaamindelser } from '../games/spilEvner';
+import {
+  harKickoffSynk, harKampdetaljer, harResultatSynk, forventerPaamindelser,
+} from '../games/spilEvner';
 import { forventerFacit } from '../../lib/facit';
 import { formatKickoff } from '../../lib/daDate';
 
@@ -173,7 +175,10 @@ export function globaleKoersler() {
  * fejlende synk uden "afventer"-kort). Ren funktion, så hver række i
  * matrixen kan testes med vilkårlige spil-id'er.
  *
- *   sweep      alle synkede spil (sync.provider)
+ *   sweep      spil med resultat-synk (harResultatSynk — allowlisten over
+ *              IMPLEMENTEREDE providere, aldrig !!sync.provider: et spil kan
+ *              seedes med en provider, serveren ikke har, og så kommer der
+ *              aldrig et sweep-kort — kun et gråt "afventer" for evigt)
  *   kickoff    kun kilder med en kickoff-provider (harKickoffSynk)
  *   livemaal   kun spil med livescore-kortlægning (harKampdetaljer) — jobbet
  *              har intet søskende-job, der opdager, at det er holdt op med
@@ -187,16 +192,20 @@ export function globaleKoersler() {
  *              sweep'et (facitVagt.js), men de har intet sweep-kort, og en
  *              vagt, der aldrig har kørt, må ikke være usynlig. Serveren
  *              udelukker spillene i SYNCED_GAMES; klienten udelukker spil med
- *              sync.provider — samme sæt, fordi tripwiren i
- *              syncProviders.test.js binder games.mjs' `sync` til
- *              SYNCED_GAMES begge veje.
+ *              harResultatSynk — SAMME helper som sweep-rækken og som
+ *              Spil-tidsplanens knapper, så de tre flader ikke kan være
+ *              uenige. Før stod her !g.sync?.provider: et spil med en endnu
+ *              ikke implementeret provider fik så hverken sweep (serveren
+ *              synker det ikke) eller facit-vagt-kort — vagten kørte tavst.
+ *              At helperen og SYNCED_GAMES er samme sæt, binder
+ *              syncProviders.test.js (paritet mod spilEvner.js).
  *
  * Holdes som ét sæt, så en tredje kilde er én rettelse — ikke endnu et
  * hardkodet provider-navn spredt i fladen.
  */
 export function forventedeKoersler(games) {
   return [
-    ...(games || []).filter((g) => g.sync?.provider).flatMap((g) => [
+    ...(games || []).filter(harResultatSynk).flatMap((g) => [
       { type: 'sweep', gameId: g.id, gameNavn: g.name },
       ...(harKickoffSynk(g) ? [{ type: 'kickoff', gameId: g.id, gameNavn: g.name }] : []),
       ...(harKampdetaljer(g) ? [{ type: 'livemaal', gameId: g.id, gameNavn: g.name }] : []),
@@ -204,7 +213,7 @@ export function forventedeKoersler(games) {
     // Et pauset spil beholder sit påmindelses-kort: pausen er kortets
     // indhold, ikke dets fravær.
     ...(games || []).filter(forventerPaamindelser).map((g) => ({ type: 'reminder', gameId: g.id, gameNavn: g.name })),
-    ...(games || []).filter((g) => forventerFacit(g) && !g.sync?.provider)
+    ...(games || []).filter((g) => forventerFacit(g) && !harResultatSynk(g))
       .map((g) => ({ type: 'facitvagt', gameId: g.id, gameNavn: g.name })),
   ];
 }

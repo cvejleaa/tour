@@ -75,6 +75,16 @@ describe('forventedeKoersler — matrixen maskineri × spil', () => {
     expect(typer(SL)).not.toContain('facitvagt');
   });
 
+  // Den VENDTE gate: før afgjorde !!sync.provider både sweep- og facit-vagt-
+  // rækken. Et kampspil med en provider, serveren ikke har implementeret,
+  // står ikke i SYNCED_GAMES — serveren skriver altså et facit-vagt-kort for
+  // det og ALDRIG et sweep-kort. Fladen ventede på det forkerte kort.
+  it('en endnu ikke implementeret provider: facit-vagt-kortet — intet sweep', () => {
+    const NYT = { id: 'hvm2027', name: 'Håndbold-VM 2027', type: 'football', status: 'open', sync: { provider: 'endnu-ikke-bygget' } };
+    expect(typer(NYT)).toEqual(['reminder', 'facitvagt']);
+    expect(typer(NYT)).not.toContain('sweep');
+  });
+
   it('tegner facit-vagt-kortet med det danske navn', () => {
     mockDrift.mockReturnValue({
       ...basis,
