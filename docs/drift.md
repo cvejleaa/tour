@@ -127,6 +127,89 @@ kampe i stedet for 10, og afregningen venter for evigt på et resultat, der aldr
 kommer. `firestore.rules` har `allow delete: if false` på kampe, og ingen
 admin-flade rører `matches`. Den slags kræver et skræddersyet script.
 
+## Håndbold-VM 2027: programmet og historikken (Wikipedia)
+
+To scripts henter fra Wikipedia (IHF afviser automatiske hentninger fra Googles
+net). De skriver **kun filer i repoet** og intet i databasen. Der kræves ingen
+nøgle.
+
+**Programmet** (den indledende runde + fasekalenderen):
+
+```bash
+NODE_USE_ENV_PROXY=1 node scripts/haandbold-program.mjs            # hent og vis — skriver intet
+node scripts/haandbold-program.mjs --fil side.wikitext             # læs en gemt kopi i stedet
+node scripts/haandbold-program.mjs --skriv                         # skriv filerne
+```
+
+`--skriv` skriver `scripts/haandbold-vm2027-program.json` (48 kampe med
+kickoff i UTC, dansk holdnavn, gruppe og id `r{dag}-{hjemmekode}-{udekode}`,
+plus forslaget til `game.faser`) og fixturen `scripts/testdata/wiki-vm2027.wikitext`.
+Testen bygger programmet af fixturen og kræver, at det er **identisk** med
+JSON-filen, så de to skal altid skrives sammen af scriptet. Ret aldrig i dem i
+hånden. Efter en kørsel: læs `git diff` på JSON-filen. Hver ændret tid er en
+ændret tip-deadline.
+
+`NODE_USE_ENV_PROXY=1` er kun nødvendig bag en proxy (Node 22's `fetch` bruger
+ellers ikke `HTTPS_PROXY`).
+
+Det, scriptet **melder**, og hvad du gør:
+
+- **«N kampe har et tidsVINDUE»**: siden skriver fx `18:00/30`, fordi TV ikke
+  har lagt sig fast (gruppe D, 2/11 2026). Deadline sættes til det
+  **tidligste** tidspunkt, så tippet aldrig lukker efter kampstart. Når tiden
+  ligger fast, så kør scriptet igen og derefter `seed-football --kickoffs-only`.
+- **En fejl, der stopper kørslen** (der skrives intet): en ny sektion på siden
+  («Ukendt sektion …»), en kamp uden tidspunkt, en ukendt holdkode, et andet
+  antal kampe end formatet (48/36/4/2/2), en dag med kampe fra to faser, eller
+  en side uden «All times are local (UTC+1)». Hver besked siger, hvilken kamp
+  og hvilken fil der skal rettes. Skraberen gætter aldrig.
+- **«fravalgte kampe kunne ikke læses»**: en Presidents Cup- eller
+  placeringskamp har en form, parseren ikke kender. Den er ikke med i
+  programmet og stopper intet, men formen på siden har ændret sig.
+
+Det, scriptet **ikke** gør: seede (det gør `seed-football.mjs` med filen som
+`--fixtures` i delopgave D6, med tør-kørsel og ejerens ja), oprette
+hovedrunde- eller knockoutkampe (de har pladsholdere som `A1` og `WQF1` indtil
+holdene kendes, og de oprettes af D9) eller synke facit (D8). Det kører heller
+aldrig af sig selv.
+
+**Flytter en kamp til en anden dag**, efter at den er seedet, får den et nyt id
+(dagen står i id'et). Et fuldt seed ville så oprette en kamp mere ved siden af
+den gamle, se «Et rettet holdnavn eller en rettet runde» ovenfor.
+`--kickoffs-only` melder den som **IKKE SEEDET**. Den situation skal afgøres
+bevidst og må ikke køres igennem.
+
+**Historikken** (færdige kampe til målingen af håndboldprofilen, D4):
+
+```bash
+NODE_USE_ENV_PROXY=1 node scripts/haandbold-historik.mjs           # alle 8 turneringer, vis
+node scripts/haandbold-historik.mjs --skriv                        # skriv scripts/haandbold-historik.json
+node scripts/haandbold-historik.mjs --turneringer vm2025,em2026    # kun nogle
+```
+
+Hver side hentes **én gang** og gemmes i en cache (`<tmp>/vejleaa-wiki`,
+eller `--cache <mappe>`). Senere kørsler sender intet kald. Skal en side hentes
+igen, så slet dens fil i cachen. Fejler én side, skrives der **intet**. En
+måling på 7 af 8 turneringer må ikke ligne en på 8. Kampe, der ikke kan læses,
+står med grund under `kilder[].afviste` og i udskriften. `efter60` er
+stillingen efter ordinær tid, og det er den, der tippes på, også i knockout.
+
+> **Status 2/11 2026:** `scripts/haandbold-historik.json` rummer kun **VM 2025**.
+> Fra byggemiljøet svarede Wikipedia HTTP 429 («for mange forespørgsler») på
+> scriptets kald, og scriptet stoppede, som det skal. De andre syv sider er
+> ikke hentet. Kør kommandoen ovenfor med
+> `--skriv` fra en almindelig maskine, før D4 måler. Filen siger selv i
+> `turneringer`, hvad den rummer.
+
+**Wikimedias regler.** Begge scripts bruger MediaWiki API'et med User-Agenten
+`VejleaaTip-program/1.0 (+https://github.com/cvejleaa/tour)` (ikke ejerens
+e-mail), mindst ét sekund mellem kald, og de følger ingen links. `robots.txt`'s
+`Disallow: /w/` gælder crawlere. Det her er et manuelt startet kald med lav
+volumen til det API, Wikimedia anviser. Svarer Wikipedia **429**, stopper
+scriptet og prøver **ikke** igen af sig selv. Vent, eller gem siden fra
+browseren («Rediger kilde» → kopiér til en fil) og brug `--fil`. Indholdet er
+CC BY-SA 4.0. Filerne bærer kilde, revision og licens.
+
 ## Kickoff-tider, der flytter sig (Premier League)
 
 Premier League udgiver programmet **før** TV-udvælgelsen. Kun runde 1–5 har

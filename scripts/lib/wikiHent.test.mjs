@@ -1,0 +1,145 @@
+// Tests for scripts/lib/wikiHent.mjs — hvordan vi spørger Wikipedia.
+// Intet netværk: fetch er falsk, uret og søvnen er styret.
+import { describe, it, expect } from 'vitest';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import {
+  lavWikiHenter, wikiUrl, cacheNavn, USER_AGENT, WIKI_API, MIN_PAUSE_MS, parseScriptArgs, laesGemtSide,
+} from './wikiHent.mjs';
+
+const svar = (wikitekst, extra = {}) => ({
+  ok: true, status: 200, headers: { get: () => null },
+  json: async () => ({ parse: { title: 'Side', revid: 42, wikitext: wikitekst, ...extra } }),
+});
+
+function falsk(svarListe) {
+  const kald = [];
+  const fetchFn = async (url, opt) => { kald.push({ url, opt }); return svarListe.shift(); };
+  return { kald, fetchFn };
+}
+
+describe('høflighed: User-Agent, adresse og pause', () => {
+  it('beskrivende User-Agent med kontaktvej — og INGEN e-mail', () => {
+    expect(USER_AGENT).toBe('VejleaaTip-program/1.0 (+https://github.com/cvejleaa/tour)');
+    expect(USER_AGENT).not.toMatch(/@/);
+  });
+
+  it('sender User-Agenten med hvert kald', async () => {
+    const { kald, fetchFn } = falsk([svar('{{handballbox}}')]);
+    await lavWikiHenter({ fetchFn, sov: async () => {} })('2025 World Men\'s Handball Championship');
+    expect(kald[0].opt.headers['User-Agent']).toBe(USER_AGENT);
+    expect(kald[0].opt.headers['Api-User-Agent']).toBe(USER_AGENT);
+  });
+
+  it('adressen er API\'et med titlen kodet — aldrig limet ind', () => {
+    const u = new URL(wikiUrl("2025 World Men's Handball Championship&action=edit"));
+    expect(`${u.origin}${u.pathname}`).toBe(WIKI_API);
+    expect(u.searchParams.get('action')).toBe('parse');
+    expect(u.searchParams.get('page')).toBe("2025 World Men's Handball Championship&action=edit");
+    expect(u.searchParams.get('prop')).toBe('wikitext|revid');
+    expect(u.searchParams.get('format')).toBe('json');
+    expect(u.searchParams.get('formatversion')).toBe('2');
+    expect(u.searchParams.getAll('action')).toEqual(['parse']);
+  });
+
+  it('venter mindst ét sekund mellem to kald — og ikke før det første', async () => {
+    let nu = 10_000;
+    const sovet = [];
+    const sov = async (ms) => { sovet.push(ms); nu += ms; };
+    const { fetchFn } = falsk([svar('a{{handballbox}}'), svar('b{{handballbox}}'), svar('c{{handballbox}}')]);
+    const hent = lavWikiHenter({ fetchFn, nu: () => nu, sov });
+    await hent('A');
+    expect(sovet).toEqual([]);
+    nu += 200;
+    await hent('B');
+    expect(MIN_PAUSE_MS).toBe(1000);
+    expect(sovet).toEqual([800]);
+    nu += 5000;
+    await hent('C');
+    expect(sovet).toEqual([800]);
+  });
+});
+
+describe('cachen: hver side hentes én gang', () => {
+  it('andet kald læser cachen og sender intet', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wikihent-'));
+    const { kald, fetchFn } = falsk([svar('x{{handballbox}}')]);
+    const hent = lavWikiHenter({ fetchFn, cacheDir: dir, sov: async () => {}, nu: () => Date.UTC(2026, 10, 2) });
+    const a = await hent("2025 World Men's Handball Championship");
+    const b = await hent("2025 World Men's Handball Championship");
+    expect(kald).toHaveLength(1);
+    expect(a.fraCache).toBe(false);
+    expect(b).toMatchObject({ fraCache: true, wikitekst: 'x{{handballbox}}', revid: 42, hentet: '2026-11-02T00:00:00.000Z' });
+    expect(existsSync(join(dir, '2025_World_Men_s_Handball_Championship.json'))).toBe(true);
+  });
+
+  it('cachenavnet kan ikke gå ud af mappen', () => {
+    expect(cacheNavn('../../etc/passwd')).toBe('etc_passwd.json');
+    expect(cacheNavn("2026 European Men's Handball Championship")).toBe('2026_European_Men_s_Handball_Championship.json');
+  });
+
+  it('en ødelagt cachefil kaster i stedet for at give en tom side', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wikihent-'));
+    writeFileSync(join(dir, cacheNavn('S')), JSON.stringify({ titel: 'S' }));
+    await expect(lavWikiHenter({ cacheDir: dir })('S')).rejects.toThrow(/har ingen wikitekst — slet filen/);
+  });
+});
+
+describe('fejl er høje og danske, og intet gemmes', () => {
+  it('429: siger at Wikimedia beder os vente — og prøver IKKE igen af sig selv', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wikihent-'));
+    const { kald, fetchFn } = falsk([{ ok: false, status: 429, headers: { get: (h) => (h === 'retry-after' ? '23' : null) } }]);
+    await expect(lavWikiHenter({ fetchFn, cacheDir: dir })('S')).rejects.toThrow('Wikipedia svarede HTTP 429 på «S». Intet er gemt. Wikimedia beder os vente (Retry-After: 23 s).');
+    expect(kald).toHaveLength(1);
+    expect(existsSync(join(dir, cacheNavn('S')))).toBe(false);
+  });
+
+  it('andre HTTP-fejl peger på --fil', async () => {
+    const { fetchFn } = falsk([{ ok: false, status: 503, headers: { get: () => null } }]);
+    await expect(lavWikiHenter({ fetchFn })('S')).rejects.toThrow(/HTTP 503.*--fil/);
+  });
+
+  it('API-fejl (fx siden findes ikke) videregives', async () => {
+    const { fetchFn } = falsk([{ ok: true, status: 200, json: async () => ({ error: { code: 'missingtitle', info: "The page you specified doesn't exist." } }) }]);
+    await expect(lavWikiHenter({ fetchFn })('S')).rejects.toThrow("Wikipedia afviste «S»: missingtitle — The page you specified doesn't exist.");
+  });
+
+  it('svar uden wikitekst er en formændring, ikke en tom side', async () => {
+    const { fetchFn } = falsk([{ ok: true, status: 200, json: async () => ({ parse: { title: 'S' } }) }]);
+    await expect(lavWikiHenter({ fetchFn })('S')).rejects.toThrow(/ingen wikitekst — API'ets form har ændret sig/);
+  });
+
+  it('tom titel afvises før noget sendes', async () => {
+    const { kald, fetchFn } = falsk([]);
+    await expect(lavWikiHenter({ fetchFn })('  ')).rejects.toThrow(/sidetitel mangler/);
+    expect(kald).toHaveLength(0);
+  });
+});
+
+describe('argumenter og gemte sider', () => {
+  const K = { vaerdier: ['fil'], flag: ['skriv'] };
+
+  it('hvidliste: kendte værdier og flag; alt andet kaster', () => {
+    const a = parseScriptArgs(['--fil', 'x.wikitext', '--skriv'], K);
+    expect(a.fil).toBe('x.wikitext');
+    expect([...a.flag]).toEqual(['skriv']);
+    expect(() => parseScriptArgs(['--skrive'], K)).toThrow(/ukendt argument --skrive\. Kendte: --fil, --skriv/);
+    expect(() => parseScriptArgs(['--fil'], K)).toThrow(/--fil mangler en værdi/);
+    expect(() => parseScriptArgs(['--skriv', 'ja'], K)).toThrow(/tager ingen værdi/);
+    expect(() => parseScriptArgs(['fil.txt'], K)).toThrow(/starter med --/);
+  });
+
+  it('læser både cache-svar og rå wikitekst', () => {
+    expect(laesGemtSide(JSON.stringify({ titel: 'T', revid: 7, hentet: 'h', wikitekst: 'w' }), 'a.json'))
+      .toEqual({ titel: 'T', revid: 7, hentet: 'h', wikitekst: 'w' });
+    expect(laesGemtSide('{{handballbox|date=1 January 2025}}', 'a.wikitext').wikitekst).toMatch(/handballbox/);
+    expect(() => laesGemtSide('<html>Captcha</html>', 'a.wikitext')).toThrow(/ingen \{\{handballbox\}\}/);
+    expect(() => laesGemtSide('{}', 'a.json')).toThrow(/ikke et gemt svar/);
+  });
+
+  it('fixturen fra repoet kan læses som gemt side', () => {
+    const t = readFileSync(join(process.cwd(), 'scripts/testdata/wiki-vm2027.wikitext'), 'utf8');
+    expect(laesGemtSide(t, 'wiki-vm2027.wikitext').wikitekst.length).toBeGreaterThan(1000);
+  });
+});

@@ -1,0 +1,573 @@
+<!-- Fixture til scripts/lib/haandboldHistorik.test.mjs og wikiHandball.test.mjs. Kilde: Wikipedia, «2025 World Men's Handball Championship» (https://en.wikipedia.org/wiki/2025_World_Men's_Handball_Championship), revision 1378613629, hentet 2026-11-02T13:38:00.000Z. Indholdet er CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/). BESKÅRET: kun overskrifter, tidszone-linjen og kampene den 15 January 2025, 22 January 2025, 28 January 2025, 29 January 2025, 2 February 2025 (gruppekamp med uafgjort, hovedrunde- og Presidents Cup-dag, kvartfinaler med forlængelse, placering med straffekast, bronze og finale). Kasserne står byte for byte som på siden. -->
+''All times are local ([[Central European Time|UTC+1]]).''
+
+== Preliminary round ==
+=== Group A ===
+{{handballbox
+|date=15 January 2025
+|time=18:00
+|team1={{hb-rt|CZE}}
+|score=17–17
+|team2={{hb|SUI}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/05OMR.PDF
+|goals1=[[Lukáš Mořkovský|Mořkovský]] 5
+|goals2=[[Lenny Rubin|Rubin]] 8
+|HT=7–8
+|twomin1=3
+|yellow1=
+|red1=
+|twomin2=2
+|yellow2=1
+|red2=
+|stadium=[[Jyske Bank Boxen]], [[Herning]]
+|attendance=2,091
+|referee=Grillo, Lenci
+|refnat=ARG
+}}
+{{handballbox
+|date=15 January 2025
+|time=20:30
+|team1={{hb-rt|GER}}
+|score=35–28
+|team2={{hb|POL}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/06OMR.PDF
+|goals1=[[Renārs Uščins|Uščins]] 10
+|goals2=[[Ariel Pietrasik|Pietrasik]] 7
+|HT=15–14
+|twomin1=4
+|yellow1=1
+|red1=
+|twomin2=5
+|yellow2=1
+|red2=
+|stadium=[[Jyske Bank Boxen]], [[Herning]]
+|attendance=3,552
+|referee=Nachevski, Nikolov
+|refnat=MKD
+}}
+=== Group D ===
+{{handballbox
+|date=15 January 2025
+|time=18:00
+|team1={{hb-rt|NED}}
+|score=40–23
+|team2={{hb|GUI}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/11OMR.PDF
+|goals1=[[Rutger ten Velde|Ten Velde]] 9
+|goals2=[[David Eponouh|Eponouh]] 5
+|HT=21–8
+|twomin1=4
+|yellow1=
+|red1=
+|twomin2=3
+|yellow2=
+|red2=
+|stadium=[[Varaždin Arena]], [[Varaždin]]
+|attendance=1,500
+|referee=Lemes, Sosa
+|refnat=URU
+}}
+{{handballbox
+|date=15 January 2025
+|time=20:30
+|team1={{hb-rt|HUN}}
+|score=27–27
+|team2={{hb|MKD}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/12OMR.PDF
+|goals1=[[Zoran Ilić|Ilić]] 6
+|goals2=[[Filip Kuzmanovski|Kuzmanovski]] 10
+|HT=14–14
+|twomin1=4
+|yellow1=
+|red1=1
+|twomin2=3
+|yellow2=1
+|red2=
+|stadium=[[Varaždin Arena]], [[Varaždin]]
+|attendance=4,000
+|referee=Kurtagic, Wetterwik
+|refnat=SWE
+}}
+=== Group E ===
+{{handballbox
+|date=15 January 2025
+|time=18:00
+|team1={{hb-rt|POR}}
+|score=30–21
+|team2={{hb|USA}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/07OMR.PDF
+|goals1=[[Martim Costa|M. Costa]], [[Pedro Portela|Portela]] 7
+|goals2=[[Samuel Hoddersen|Hoddersen]] 6
+|HT=15–10
+|twomin1=2
+|yellow1=1
+|red1=
+|twomin2=3
+|yellow2=
+|red2=
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=3,980
+|referee=Lovin, Stancu
+|refnat=ROU
+}}
+{{handballbox
+|date=15 January 2025
+|time=20:30
+|team1={{hb-rt|NOR}}
+|score=26–29
+|team2={{hb|BRA}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/08OMR.PDF
+|goals1=[[Tobias Grøndahl|Grøndahl]] 6
+|goals2=[[Haniel Langaro|Langaro]] 8
+|HT=14–12
+|twomin1=1
+|yellow1=1
+|red1=
+|twomin2=6
+|yellow2=
+|red2=1
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=7,917
+|referee=K. Gasmi, R. Gasmi
+|refnat=FRA
+}}
+=== Group H ===
+{{handballbox
+|date=15 January 2025
+|time=18:00
+|team1={{hb-rt|EGY}}
+|score=39–25
+|team2={{hb|ARG}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/09OMR.PDF
+|goals1=[[Mohammad Sanad|Sanad]] 6
+|goals2=[[Lucas Moscariello|Moscariello]] 7
+|HT=21–11
+|twomin1=2
+|yellow1=
+|red1=
+|twomin2=3
+|yellow2=
+|red2=3
+|stadium=[[Arena Zagreb]], [[Zagreb]]
+|attendance=2,100
+|referee=Jørum, Kleven
+|refnat=NOR
+}}
+{{handballbox
+|date=15 January 2025
+|time=20:30
+|team1={{hb-rt|CRO}}
+|score=36–22
+|team2={{hb|BHR}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/10OMR.PDF
+|goals1=[[Mario Šoštarić|Šoštarić]] 8
+|goals2=[[Ali Abdulla Eid|Eid]] 6
+|HT=17–9
+|twomin1=4
+|yellow1=
+|red1=
+|twomin2=2
+|yellow2=
+|red2=
+|stadium=[[Arena Zagreb]], [[Zagreb]]
+|attendance=10,500
+|referee=Schulze, Tönnies
+|refnat=GER
+}}
+== President's Cup ==
+=== Group II ===
+{{handballbox
+|date=22 January 2025
+|time=15:30
+|team1={{hb-rt|CUB}}
+|score=26–39
+|team2={{hb|BHR}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/64OMR.PDF
+|goals1=''three players'' 4
+|goals2=[[Mujtaba Al-Zaimoor|Al-Zaimoor]] 6
+|HT=12–17
+|twomin1=3
+|yellow1=
+|red1=
+|twomin2=2
+|yellow2=
+|red2=
+|stadium=[[Žatika Sport Centre]], [[Poreč]]
+|attendance=88
+|referee=Ah. Gheisarian, Am. Gheisarian
+|refnat=IRI
+}}
+{{handballbox
+|date=22 January 2025
+|time=18:00
+|team1={{hb-rt|USA}}
+|score=27–25
+|team2={{hb|JPN}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/63OMR.PDF
+|goals1=[[Sean Corning|Corning]], [[Samuel Hoddersen|Hoddersen]] 7
+|goals2=[[Tatsuki Yoshino|Yoshino]] 8
+|HT=15–13
+|twomin1=3
+|yellow1=
+|red1=
+|twomin2=3
+|yellow2=
+|red2=
+|stadium=[[Žatika Sport Centre]], [[Poreč]]
+|attendance=104
+|referee=Bolic, Hurich
+|refnat=AUT
+}}
+=== 31st place game ===
+{{handballbox
+|date=28 January 2025
+|time=13:00
+|team1={{hb-rt|GUI}}
+|score=33–31
+|team2={{hb|CUB}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/99OMR.PDF
+|goals1=[[Theo Lebon|Lebon]] 8
+|goals2=[[Hanser Rodríguez|Rodríguez]] 10
+|HT=16–16
+|FT=28–28
+|PEN=5–3{{efn-ua|Even though the outcome of the penalty shoot-out was decided after Guinea's fourth throw, bringing the score to 4–2 with one throw left for each team, the teams were required to finish five throws each. Both teams scored their final throw.}}
+|twomin1=2
+|yellow1=
+|red1=
+|twomin2=1
+|yellow2=
+|red2=
+|stadium=[[Žatika Sport Centre]], [[Poreč]]
+|attendance=91
+|referee=Bolic, Hurich
+|refnat=AUT
+}}
+=== 29th place game ===
+{{handballbox
+|date=28 January 2025
+|time=15:30
+|team1={{hb-rt|ALG}}
+|score=26–29
+|team2={{hb|BHR}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/100OMR.PDF
+|goals1=''four players'' 4
+|goals2=[[Mohamed Habib Naser|Mohamed]] 9
+|HT=18–17
+|twomin1=1
+|yellow1=
+|red1=
+|twomin2=1
+|yellow2=1
+|red2=
+|stadium=[[Žatika Sport Centre]], [[Poreč]]
+|attendance=110
+|referee=Lemes, Sosa
+|refnat=URU
+}}
+=== 27th place game ===
+{{handballbox
+|date=28 January 2025
+|time=18:00
+|team1={{hb-rt|KUW}}
+|score=37–32
+|team2={{hb|JPN}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/101OMR.PDF
+|goals1=[[Saif Al-Dawani|Al-Dawani]] 8
+|goals2=[[Naoki Fujisaka|Fujisaka]], [[Tatsuki Yoshino|Yoshino]] 6
+|HT=17–16
+|twomin1=2
+|yellow1=1
+|red1=
+|twomin2=1
+|yellow2=
+|red2=
+|stadium=[[Žatika Sport Centre]], [[Poreč]]
+|attendance=65
+|referee=García, Paolantoni
+|refnat=ARG
+}}
+=== 25th place game ===
+{{handballbox
+|date=28 January 2025
+|time=20:30
+|team1={{hb-rt|POL}}
+|score=24–22
+|team2={{hb|USA}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/102OMR.PDF
+|goals1=[[Piotr Jędraszczyk|Jędraszczyk]] 4
+|goals2=[[Aboubakar Fofana (handballer)|Fofana]] 5
+|HT=11–13
+|FT=21–21
+|PEN=3–1
+|twomin1=2
+|yellow1=1
+|red1=
+|twomin2=3
+|yellow2=
+|red2=
+|stadium=[[Žatika Sport Centre]], [[Poreč]]
+|attendance=120
+|referee=Belkhiri, Hamidi
+|refnat=ALG
+}}
+== Main round ==
+=== Group III ===
+{{handballbox
+|date=22 January 2025
+|time=15:30
+|team1={{hb-rt|BRA}}
+|score=28–24
+|team2={{hb|CHI}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/58OMR.PDF
+|goals1=[[Haniel Langaro|Langaro]] 8
+|goals2=[[Esteban Salinas|E. Salinas]] 7
+|HT=13–10
+|twomin1=2
+|yellow1=
+|red1=
+|twomin2=4
+|yellow2=1
+|red2=
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=857
+|referee=Pavićević, Ražnatović
+|refnat=MNE
+}}
+{{handballbox
+|date=22 January 2025
+|time=18:00
+|team1={{hb-rt|SWE}}
+|score=37–37
+|team2={{hb|POR}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/57OMR.PDF
+|goals1=[[Albin Lagergren|Lagergren]] 7
+|goals2=[[Luís Frade|Frade]] 7
+|HT=18–18
+|twomin1=2
+|yellow1=1
+|red1=1
+|twomin2=3
+|yellow2=1
+|red2=
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=3,813
+|referee=Lah, Sok
+|refnat=SLO
+}}
+{{handballbox
+|date=22 January 2025
+|time=20:30
+|team1={{hb-rt|NOR}}
+|score=25–24
+|team2={{hb|ESP}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/59OMR.PDF
+|goals1=[[Tobias Grøndahl|Grøndahl]] 7
+|goals2=[[Imanol Garciandia|Garciandia]] 6
+|HT=10–13
+|twomin1=2
+|yellow1=
+|red1=
+|twomin2=2
+|yellow2=
+|red2=
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=5,508
+|referee=A. Konjičanin, D. Konjičanin
+|refnat=BIH
+}}
+=== Group IV ===
+{{handballbox
+|date=22 January 2025
+|time=15:30
+|team1={{hb-rt|SLO}}
+|score=34–23
+|team2={{hb|ARG}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/61OMR.PDF
+|goals1=[[Tadej Kljun|Kljun]] 5
+|goals2=[[Juan Gull|Gull]], [[Ramiro Martínez (handballer)|Martínez]] 4
+|HT=15–8
+|twomin1=3
+|yellow1=
+|red1=
+|twomin2=5
+|yellow2=1
+|red2=
+|stadium=[[Arena Zagreb]], [[Zagreb]]
+|attendance=850
+|referee=Belkhiri, Hamidi
+|refnat=ALG
+}}
+{{handballbox
+|date=22 January 2025
+|time=18:00
+|team1={{hb-rt|CPV}}
+|score=24–44
+|team2={{hb|CRO}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/62OMR.PDF
+|goals1=[[Délcio Pina|Pina]] 9
+|goals2=[[Mario Šoštarić|Šoštarić]] 9
+|HT=11–24
+|twomin1=1
+|yellow1=
+|red1=
+|twomin2=3
+|yellow2=1
+|red2=
+|stadium=[[Arena Zagreb]], [[Zagreb]]
+|attendance=8,450
+|referee=Hansen, Madsen
+|refnat=DEN
+}}
+{{handballbox
+|date=22 January 2025
+|time=20:30
+|team1={{hb-rt|EGY}}
+|score=24–27
+|team2={{hb|ISL}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/60OMR.PDF
+|goals1=[[Ali Zein|Zein]] 8
+|goals2=[[Viggó Kristjánsson|Kristjánsson]] 9
+|HT=9–13
+|twomin1=2
+|yellow1=
+|red1=
+|twomin2=4
+|yellow2=2
+|red2=
+|stadium=[[Arena Zagreb]], [[Zagreb]]
+|attendance=4,350
+|referee=Schulze, Tönnies
+|refnat=GER
+}}
+== Final round ==
+=== Quarterfinals ===
+{{handballbox
+|date=28 January 2025
+|time=18:00
+|team1={{hb-rt|CRO}}
+|score=31–30
+|team2={{hb|HUN}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/98OMR.PDF
+|goals1=[[Filip Glavaš|Glavaš]] 6
+|goals2=[[Zoran Ilić|Ilić]] 8
+|HT=16–16
+|twomin1=5
+|yellow1=2
+|red1=
+|twomin2=2
+|yellow2=
+|red2=1
+|stadium=[[Arena Zagreb]], [[Zagreb]]
+|attendance=15,600
+|referee=García, Marín
+|refnat=ESP
+}}
+{{handballbox
+|date=28 January 2025
+|time=21:00
+|team1={{hb-rt|FRA}}
+|score=34–33
+|team2={{hb|EGY}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/97OMR.PDF
+|goals1=[[Dika Mem|Mem]], [[Nedim Remili|Remili]] 6
+|goals2=[[Ahmed Hesham|Hesham]] 8
+|HT=18–14
+|twomin1=3
+|yellow1=1
+|red1=1
+|twomin2=2
+|yellow2=
+|red2=
+|stadium=[[Arena Zagreb]], [[Zagreb]]
+|attendance=5,850
+|referee=Nachevski, Nikolov
+|refnat=MKD
+}}
+{{handballbox
+|date=29 January 2025
+|time=17:30
+|team1={{hb-rt|DEN}}
+|score=33–21
+|team2={{hb|BRA}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/103OMR.PDF
+|goals1=''three players'' 6
+|goals2=[[Vinícios Carvalho|Carvalho]] 7
+|HT=15–12
+|twomin1=3
+|yellow1=
+|red1=
+|twomin2=5
+|yellow2=1
+|red2=
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=5,922
+|referee=Bíró, Kiss
+|refnat=HUN
+}}
+{{handballbox
+|date=29 January 2025
+|time=20:30
+|team1={{hb-rt|POR}}
+|score=31–30
+|team2={{hb|GER}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/104OMR.PDF
+|goals1=[[Francisco Costa (handballer)|F. Costa]] 8
+|goals2=[[Lukas Zerbe|Zerbe]] 9
+|HT=13–9
+|FT=26–26
+|OT1=5–4
+|twomin1=4
+|yellow1=1
+|red1=1
+|twomin2=5
+|yellow2=1
+|red2=
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=7,475
+|referee=Jørum, Kleven
+|refnat=NOR
+}}
+=== Third place game ===
+{{handballbox|bg=#CC9966
+|date=2 February 2025
+|time=15:00
+|team1={{hb-rt|FRA}}
+|score=35–34
+|team2={{hb|POR}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/107OMR.PDF
+|goals1=[[Aymeric Minne|Minne]] 10
+|goals2=[[Francisco Costa (handballer)|F. Costa]] 8
+|HT=19–17
+|twomin1=2
+|yellow1=1
+|red1=
+|twomin2=2
+|yellow2=2
+|red2=
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=10,928
+|referee=Nachevski, Nikolov
+|refnat=MKD
+}}
+=== Final ===
+{{handballbox|bg=gold
+|date=2 February 2025
+|time=18:00
+|team1={{hb-rt|CRO}}
+|score=26–32
+|team2={{hb|DEN}}
+|report=https://www.ihf.info/sites/default/files/competitions/7c2253d6-1efd-4495-b237-6171c39fac97/pdf/108OMR.PDF
+|goals1=[[Ivan Martinović (handballer)|Martinović]] 6
+|goals2=[[Mathias Gidsel|Gidsel]] 10
+|HT=12–16
+|twomin1=7
+|yellow1=2
+|red1=2
+|twomin2=4
+|yellow2=1
+|red2=
+|stadium=[[Unity Arena]], [[Bærum]]
+|attendance=13,384
+|referee=García, Marín
+|refnat=ESP
+}}
