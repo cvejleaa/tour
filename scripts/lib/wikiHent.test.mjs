@@ -40,6 +40,9 @@ describe('høflighed: User-Agent, adresse og pause', () => {
     expect(u.searchParams.get('prop')).toBe('wikitext|revid');
     expect(u.searchParams.get('format')).toBe('json');
     expect(u.searchParams.get('formatversion')).toBe('2');
+    // Omdirigeringer følges: en omdøbt side giver den nye side, ikke en
+    // «#REDIRECT»-tekst uden kampe.
+    expect(u.searchParams.get('redirects')).toBe('1');
     expect(u.searchParams.getAll('action')).toEqual(['parse']);
   });
 

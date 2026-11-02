@@ -208,6 +208,11 @@ describe('strukturvagterne', () => {
     expect(() => byggProgram(t)).toThrow(/Kamp nr\. 1 \(Serbien–Uruguay, 2027-01-13\) har intet tidspunkt\. En kamp uden kickoff oprettes aldrig/);
   });
 
+  it('KASTER på en medtaget kamp uden dato — kalenderen bygges aldrig af et hul', () => {
+    const t = retKasse(SIDE, SRB_URU, (k) => k.replace('|date=13 January 2027', '|date='));
+    expect(() => byggProgram(t)).toThrow('Kamp nr. 1 (Preliminary round › Group A) har ingen dato — kalenderen kan ikke bygges.');
+  });
+
   it('KASTER på en ukendt holdkode og peger på holdfilen', () => {
     const t = retKasse(SIDE, SRB_URU, (k) => k.replace('{{hb-rt|SRB}}', '{{hb-rt|SCG}}'));
     expect(() => byggProgram(t)).toThrow(/holdkoden «SCG» findes ikke i src\/data\/haandboldVm2027Hold\.js/);

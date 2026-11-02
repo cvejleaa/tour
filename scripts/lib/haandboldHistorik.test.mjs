@@ -71,6 +71,14 @@ describe('udtræk af én side', () => {
     expect(x.afviste.map((a) => a.grund)).toEqual(['kampen har en score, men et af holdene er ikke et land ({{hb|KODE}})']);
   });
 
+  it('en spillet kamp uden dato afvises med grund', () => {
+    const t = VM2025.replace('|date=29 January 2025\n|time=20:30\n|team1={{hb-rt|POR}}', '|date=\n|time=20:30\n|team1={{hb-rt|POR}}');
+    expect(t).not.toBe(VM2025);
+    const x = udtraekKampe(t, 'vm2025', { minSpillede: 1 });
+    expect(x.kampe).toHaveLength(25);
+    expect(x.afviste.map((a) => a.grund)).toEqual(['kampen har ingen dato']);
+  });
+
   it('en kamp uden score er «ikke spillet» — talt, ikke med', () => {
     const t = VM2025.replace('|score=31–30\n|team2={{hb|GER}}', '|score=\n|team2={{hb|GER}}')
       .replace('|FT=26–26\n|OT1=5–4\n', '');

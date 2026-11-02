@@ -103,6 +103,9 @@ describe('felternes former', () => {
   // (time over 23, minut over 59, begge ender, og vinduets længde).
   it('tid: grænserne for timer, minutter og vinduets længde', () => {
     expect(parseTid('23:59')).toEqual({ tid: '23:59', senest: null });
+    // Punktum som skilletegn (britisk form) er samme tid som kolon.
+    expect(parseTid('17.30')).toEqual({ tid: '17:30', senest: null });
+    expect(parseTid('20.30/21.00')).toEqual({ tid: '20:30', senest: '21:00' });
     expect(parseTid('18:00/20:00')).toEqual({ tid: '18:00', senest: '20:00' });
     expect(parseTid('21:30/23:30')).toEqual({ tid: '21:30', senest: '23:30' });
     for (const v of ['24:00', '17:60', '23:30/24:00', '20:30/20:60', '18:00/20:01', '18:00/21:00']) {
