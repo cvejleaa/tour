@@ -369,6 +369,86 @@ describe('fasekalender: liga-kortet og stillingen siger «dag»', () => {
     expect(c.textContent).not.toMatch(/rundens point|runden er ikke færdigspillet|i runden/);
   });
 
+  // TITLER, ARIA-LABEL OG STREGEN (fix D, TM-D12 S1-S5/S8/S12-S14). Ordene
+  // står i title og aria-label, som textContent ikke ser — så «i runden»
+  // hardkodet dér, eller `o` slet ikke sendt ned til RundeCelle og
+  // IngenRundePoint, gav en grøn suite. Carla har intet afgjort tip på dag 3
+  // (ingen nøgle i perRound — og totalen passer, så hun er «klar»). Bo fører
+  // dagen med 11. Dan er nr. 4 og står i LISTEN under podiet (med tre ville
+  // alle stå på podiet, og listens RundeCelle var utestet).
+  const UDEN_DAG3 = [
+    ...RÆKKER.map((r) => (r.uid === 'C' ? { ...r, totalPoints: 7, perRound: { 1: 4, 2: 3 } } : r)),
+    { uid: 'D', name: 'Dan', totalPoints: 3, rank: 4, previousRank: 4, perRound: { 1: 3 }, bonusPoints: 0 },
+  ];
+  const stillingUdenDag3 = (game) => {
+    cleanup();
+    mockStandings.mockReturnValue({
+      standings: UDEN_DAG3,
+      leagues: [{ id: 'kon', name: 'Kontoret', memberUids: ['A', 'B', 'C', 'D'], startRound: 2 }],
+      leagueCount: 1,
+      loading: false,
+      error: null,
+    });
+    const { container } = render(
+      <MemoryRouter>
+        <GameStandings gameId="sl" game={game} />
+      </MemoryRouter>,
+    );
+    return container;
+  };
+  const titler = (c) => [...c.querySelectorAll('[title]')].map((e) => e.getAttribute('title'));
+  const etiketter = (c) => [...c.querySelectorAll('[aria-label]')].map((e) => e.getAttribute('aria-label'));
+
+  it('titler, aria-label og stregen siger «på dagen» — aldrig «i runden»', () => {
+    const c = stillingUdenDag3(HB);
+    // Dan står i listen (ikke på podiet) — ellers måler testen kun podiet.
+    expect(c.querySelector('table')?.textContent).toContain('Dan');
+    // Samlet: dagens tal under totalen — 🔥 hos Bo, streg hos Carla og Dan.
+    expect(titler(c)).toContain('Flest point på dagen indtil videre');
+    expect(etiketter(c)).toContain('Flest point på dagen');
+    expect(titler(c)).toContain('Ingen afgjorte tips på dagen endnu');
+    // FRAVÆR i Samlet — podiet og listen hver for sig har en RundeCelle, og
+    // toContain ovenfor ville være opfyldt af podiet alene.
+    expect([...titler(c), ...etiketter(c)].join(' | ')).not.toMatch(/i runden/);
+    fireEvent.click(screen.getByRole('button', { name: 'Dag 3' }));
+    // Dagsvisningen: rangens streg og linjen, der forklarer stregen.
+    expect(titler(c)).toContain('Ingen afgjorte tips på dagen endnu');
+    expect(c.textContent).toContain('Stregen – betyder ingen afgjorte tips på dagen endnu.');
+    const alt = [c.textContent, ...titler(c), ...etiketter(c)].join(' | ');
+    expect(alt).not.toMatch(/i runden|rundens point/);
+  });
+
+  // Alle med et afgjort tip på dag 3 ramte forbi: tal, men ingen rang. Rangens
+  // streg siger «ingen fører dagen» — ikke «runden» (S10).
+  it('ingen fører dagen: rangens title siger «dagen»', () => {
+    cleanup();
+    mockStandings.mockReturnValue({
+      standings: [
+        { uid: 'A', name: 'Anna', totalPoints: 25, rank: 1, previousRank: 1, perRound: { 1: 20, 2: 5, 3: 0 }, bonusPoints: 0 },
+        { uid: 'B', name: 'Bo', totalPoints: 13, rank: 2, previousRank: 2, perRound: { 1: 2, 2: 11, 3: 0 }, bonusPoints: 0 },
+        ...UDEN_DAG3.slice(2),
+      ],
+      leagues: [{ id: 'kon', name: 'Kontoret', memberUids: ['A', 'B', 'C', 'D'], startRound: 2 }],
+      leagueCount: 1,
+      loading: false,
+      error: null,
+    });
+    const { container: c } = render(<MemoryRouter><GameStandings gameId="sl" game={HB} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Dag 3' }));
+    expect(titler(c)).toContain('Ingen rang — ingen fører dagen endnu');
+    expect(titler(c).join(' | ')).not.toMatch(/runden/);
+  });
+
+  it('titler, aria-label og stregen UDEN kalender: «i runden» som før', () => {
+    const c = stillingUdenDag3({ id: 'sl', type: 'football' });
+    expect(titler(c)).toContain('Flest point i runden indtil videre');
+    expect(etiketter(c)).toContain('Flest point i runden');
+    expect(titler(c)).toContain('Ingen afgjorte tips i runden endnu');
+    fireEvent.click(screen.getByRole('button', { name: 'Runde 3' }));
+    expect(c.textContent).toContain('Stregen – betyder ingen afgjorte tips i runden endnu.');
+    expect([c.textContent, ...titler(c), ...etiketter(c)].join(' | ')).not.toMatch(/på dagen/);
+  });
+
   it('stillingen UDEN kalender: «Runde 3» og «Tæller fra runde 2» som før', () => {
     const c = stilling({ id: 'sl', type: 'football' });
     expect(screen.getByRole('button', { name: 'Runde 3' })).toBeInTheDocument();

@@ -138,6 +138,28 @@ describe('Holdsiden: neutral bane, «Dag N» og V-U-T efter 60 min', () => {
     expect(kampListe()[0]).not.toMatch(/R14|^.*U.*H/);
   });
 
+  // V-U-T SUMMERER HJEMME OG UDE (fix D, TM-D12 H3/H3b/H3c). Med én kamp
+  // havde intet led en værdi at miste, så hvert af de seks led kunne droppes
+  // med grøn suite. Her har hvert led sin egen værdi (hjemme 3-1-1, ude
+  // 1-2-1 set fra Danmark), og summen 4-3-2 er skæv, så også et byttet led
+  // (u ⇄ t) bliver rødt.
+  it('V-U-T summerer hjemme og ude — hvert led tæller', () => {
+    const k = (n, home, away, hg, ag) => ({
+      id: `v${n}`, round: n, home, away, kickoff: new Date(kl18('2027-01-13') + n * 3600000),
+      homeGoals: hg, awayGoals: ag, result: hg > ag ? '1' : hg < ag ? '2' : 'X', odds: { 1: 2, X: 6, 2: 2.5 },
+    });
+    const kampe = [
+      // Danmark først på kortet: V, V, V, U, T
+      k(1, 'Danmark', 'Norge', 30, 25), k(2, 'Danmark', 'Norge', 29, 28), k(3, 'Danmark', 'Norge', 31, 27),
+      k(4, 'Danmark', 'Norge', 27, 27), k(5, 'Danmark', 'Norge', 24, 26),
+      // Danmark sidst på kortet: V, U, U, T
+      k(6, 'Norge', 'Danmark', 25, 28), k(7, 'Norge', 'Danmark', 26, 26), k(8, 'Norge', 'Danmark', 30, 30),
+      k(9, 'Norge', 'Danmark', 33, 29),
+    ];
+    vis(HB, kampe, 'DEN');
+    expect(screen.getByTestId('holdside-vut').textContent).toBe('9 kampe: 4-3-2 (sejre-uafgjorte-nederlag)');
+  });
+
   it('knockout ud over ordinær tid: siden siger, at V-U-T tæller efter 60 min', () => {
     vis(HB, [KO], 'DEN');
     const note = screen.getByTestId('holdside-ordinaer').textContent;
@@ -231,6 +253,10 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
     expect(t).toContain('30-30 · 35-34 e.f. (e.f. = efter forlænget spilletid)');
     expect(t).toContain('28-28 · 33-31 e.str. (e.str. = efter straffekast)');
     expect(t).toContain('Den første stilling er den, der giver point.');
+    // HELE sætningen (fix D, TM-D12 F14/F14b): både spilletiden («90 min»
+    // hardkodet) og tippet («1» for X) kunne byttes med grøn suite.
+    expect(t).toContain('Står den lige efter 60 min, er X det rigtige tip');
+    expect(t).not.toContain('90 min');
   });
 
   it('dagens ord og neutral bane — og INTET af ligaens', () => {
@@ -248,6 +274,9 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
       'Superligaen op til', 'Premier League helt op til', 'storklub', 'oprykker', 'sidste 3 års resultater',
       'midt i sæsonen', 'Når en kamp bliver udsat', 'DIREKTE', 'Slut · afventer facit', 'ugentlige',
       'hele sæsonen', 'alle seks', 'efterår', 'hjemme og ude', 'startrunde', 'runde for runde',
+      // Loftets historie er ligaens (TM-D12 F18): en turnering har aldrig haft
+      // et loft at fjerne, så hverken ændringen eller PL-eksemplet må stå.
+      'Fordi oddsene ikke længere', 'Premier League kan en enkelt',
     ]) {
       expect(t, forbudt).not.toContain(forbudt);
     }

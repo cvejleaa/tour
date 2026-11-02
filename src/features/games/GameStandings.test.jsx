@@ -431,7 +431,8 @@ describe('GameStandings — liga-filter', () => {
       });
 
       it('siger, at regnskabet tæller som ligaen — og IKKE, at det viser spillets point', () => {
-        setup({ standings: MED_VEKTOR, leagues: LIGA12 });
+        // Med pulje (som Superligaen): først dér har ligaen en bonus at miste.
+        setup({ standings: MED_VEKTOR, leagues: LIGA12, game: { id: 'sl', type: 'football', pulje: { poolSize: 6 } } });
         aabn();
         expect(screen.getByText(
           'Regnskabet tæller som ligaen: kun point fra runde 12 og frem, uden puljen. '
@@ -498,17 +499,31 @@ describe('GameStandings — liga-filter', () => {
           ],
         };
 
-        it('regnskabet: «kun point fra dag 12 og frem»', () => {
+        it('regnskabet: «kun point fra dag 12 og frem» — og intet «uden puljen» uden pulje', () => {
           setup({ standings: MED_VEKTOR, leagues: LIGA12, game: HB });
           aabn();
+          // VENDT (fix D): testen krævede «…og frem, uden puljen.» for HB, der
+          // INGEN pulje har — grøn, fordi den forsvarede fejlen. Tæller fra-
+          // linjen og GameLeagues var gatet på game.pulje i bb9758a; regnskabet
+          // var glemt. Et spil uden pulje har ingen bonus at miste.
           expect(screen.getByText(
-            'Regnskabet tæller som ligaen: kun point fra dag 12 og frem, uden puljen. '
+            'Regnskabet tæller som ligaen: kun point fra dag 12 og frem. '
             + 'I alt er derfor det samme tal som i stillingen. Hele turneringen for en spiller: tryk på navnet.',
           )).toBeInTheDocument();
+          expect(screen.queryByText(/uden puljen/)).toBeNull();
           expect(container.textContent).not.toMatch(/fra runde 12/);
           // VENDT (D12): testen fastholdt «Hele sæsonen» om en turnering —
           // grøn, fordi den forsvarede fejlen.
           expect(container.textContent).not.toMatch(/sæson/);
+        });
+
+        it('regnskabet med runde-pulje: «uden puljen» står stadig, når ligaen starter for sent', () => {
+          setup({
+            standings: MED_VEKTOR, leagues: LIGA12,
+            game: { ...HB, pulje: { poolSize: 8, facitKilde: 'runde', maksStartRunde: 1 } },
+          });
+          aabn();
+          expect(screen.getByText(/^Regnskabet tæller som ligaen: kun point fra dag 12 og frem, uden puljen\. /)).toBeInTheDocument();
         });
 
         it('stregens forklaring: «ikke delt op fra dag 12»', () => {

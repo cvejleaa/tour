@@ -5,6 +5,8 @@ import FootballHelp from './FootballHelp';
 import { RUBRIKKER } from './PointOpdeling';
 import { COMBI, ODDS, TRAEF_BONUS } from '../../../lib/superligaScoring';
 import { medProeveSport } from '../../../test/proeveSport';
+import { createHash } from 'node:crypto';
+import { GAMES } from '../../../../scripts/games.mjs';
 
 // Guiden får SPILLET og må kun beskrive de faner, spillet har. Uden gaten
 // forklarede den pulje-tippet og Superligaens tabel-deling i Premier
@@ -560,5 +562,57 @@ describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
     const odds = afsnit(/Point følger oddsene/);
     expect(odds).toMatch(/mindst 1,01, og ellers uden loft/);
     expect(odds).not.toMatch(/mindst 1,1,|mindst 1,0,/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LIGAENS GUIDE, BYTE FOR BYTE (P1: «Superligaen og PL er uændrede»).
+//
+// Gaterne og ordnøglerne er testet hver for sig, men de bogstavelige
+// ligasætninger var det ikke (TM-D12: «daglige/ugentlige», «alle seks»,
+// «storklub», udsat-afsnittet, «midt i sæsonen» … overlevede alle som
+// mutanter). Her renderes guiden for de RIGTIGE spil-dokumenter fra
+// scripts/games.mjs, og hele den renderede HTML hashes.
+//
+// Hashen er taget af udgaven FØR håndbold-VM del 3 (f34c4a9, main før del 3),
+// renderet med samme harness. Testen ruller de to BEVIDSTE ændringer tilbage,
+// før den hasher — så hashen beviser, at ALT andet er byte-uændret, og at de
+// to ændringer er præcis dem, vi har valgt:
+//   1. Pulje-rubrikken (bb9758a): «sæsonens bonusspørgsmål» →
+//      «bonusspørgsmålet ved siden af kampene» — i både SL og PL.
+//   2. Holdsiden (D12): «i den officielle tabel» står kun med `standings`
+//      (samme gate som Tabel-fanen). PL har ingen standings og mister den.
+// Superligaens dokument får `standings`, fordi synken skriver feltet i
+// produktion (superligaSync.js) — games.mjs gør ikke. Uden ville guiden
+// rendere en SL, der ikke findes.
+//
+// Rødt her betyder: en ligatekst har flyttet sig. Er det bevidst, så føj det
+// til tilbagerulningen nedenfor med en linje om hvorfor — ret ikke hashen.
+// ---------------------------------------------------------------------------
+describe('ligaens guide er byte-uændret (Superligaen og Premier League)', () => {
+  const sha = (s) => createHash('sha256').update(s).digest('hex');
+  const html = (game) => render(
+    <MemoryRouter initialEntries={[`/spil/${game.id}?fane=hjaelp`]}>
+      <Routes><Route path="/spil/:gameId" element={<FootballHelp game={game} />} /></Routes>
+    </MemoryRouter>,
+  ).container.innerHTML;
+  const spil = (id) => GAMES.find((g) => g.id === id);
+  /** Ruller én bevidst ændring tilbage — og kræver, at den står præcis én gang. */
+  const tilbage = (h, ny, gammel) => {
+    expect(h.split(ny), ny).toHaveLength(2);
+    return h.replace(ny, gammel);
+  };
+  const RUBRIK_NY = '(point fra pulje-tippet — bonusspørgsmålet ved siden af kampene)';
+  const RUBRIK_GAMMEL = '(point fra pulje-tippet — sæsonens bonusspørgsmål)';
+
+  it('Superligaen: kun pulje-rubrikken er ændret', () => {
+    const h = tilbage(html({ ...spil('superliga2627'), standings: { rows: [] } }), RUBRIK_NY, RUBRIK_GAMMEL);
+    expect(sha(h)).toBe('627bbe82c683e729b99fd6b9d2eb73509cb153937e012f2ca02d8de531047c96');
+  });
+
+  it('Premier League: pulje-rubrikken og «i den officielle tabel» (ingen standings)', () => {
+    let h = tilbage(html(spil('pl2627-efteraar')), RUBRIK_NY, RUBRIK_GAMMEL);
+    h = tilbage(h, '— i Elo-tabellen, i trøjeoversigten under', '— i Elo-tabellen, i den officielle tabel, i trøjeoversigten under');
+    expect(sha(h)).toBe('d631d0f77d172840cd7e487a0d8357e84195cf2ca1ba5f135acc7c9f1d785585');
   });
 });

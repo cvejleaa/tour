@@ -4,7 +4,7 @@
 // af 1362 tests sagde fra. Denne fil dækker, at Elo faktisk NÅR ud på hvert
 // kampkort — selve visningen er dækket i MatchElo.test.jsx.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, act, cleanup, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -2234,6 +2234,25 @@ describe('FootballTip — knockout', () => {
     expect(screen.queryByText(/Runde-bonus/)).toBeNull();
     expect(screen.getByText(/Sæt point på spil på ét af dine tips på dagen\./)).toBeInTheDocument();
     expect(screen.queryByText(/tips i runden/)).toBeNull();
+  });
+
+  // Modstykket (fix D, TM-D12 blokerende 2): «altid Dagens bonus» gav en grøn
+  // suite, for kun turnerings-siden var testet. Superligaens overskrift er
+  // P1-fladen — den skal stå, og turneringens ord må ikke.
+  it('Superligaen: combi-kortet hedder «🎯 Runde-bonus» — aldrig «Dagens bonus»', () => {
+    setup({}, '/spil/sl?runde=1', MATCHES);
+    const kort = screen.getByTestId('combi-kort');
+    expect(within(kort).getByText('🎯 Runde-bonus')).toBeInTheDocument();
+    expect(screen.queryByText(/Dagens bonus/)).toBeNull();
+  });
+
+  // Chance-panelet uden et eneste tip: opfordringen bruger dagens ord. En
+  // hardkodet «i runden» ville stå grøn uden denne test (T9e).
+  it('Chancen uden tips i en turnering: «Tip mindst én kamp på dagen først»', () => {
+    vi.setSystemTime(new Date('2027-01-26T08:00:00Z'));
+    setup(hb, '/spil/hvm?runde=14', kvart());
+    expect(screen.getByText('Tip mindst én kamp på dagen først.')).toBeInTheDocument();
+    expect(screen.queryByText(/i runden først/)).toBeNull();
   });
 
   it('en låst dag: «Dagen er låst» — aldrig «Dagen en» eller «Rundeen»', () => {

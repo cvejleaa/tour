@@ -812,10 +812,12 @@ export default function GameStandings({ gameId, game = null, matches = [] }) {
                   (Spilfører): den, der kun er i én liga, har ingen vælger, så
                   panelet er hans eneste vej derhen. Uden startrunde er
                   regnskabet spillets, og i «Alle mine ligaer» står der tilmed,
-                  at skalaen ikke er en ligas. */}
+                  at skalaen ikke er en ligas. «Uden puljen» følger PULJEN
+                  (samme gate som Tæller fra-linjen og GameLeagues): et spil
+                  uden pulje har ingen bonus at miste. */}
               {ligaStart != null ? (
                 <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
-                  {`Regnskabet tæller som ligaen: kun point fra ${rundeOrd(game, ligaStart)} og frem${puljenTaeller(ligaStart, puljeMaksStartRunde(game)) ? '' : ', uden puljen'}. `
+                  {`Regnskabet tæller som ligaen: kun point fra ${rundeOrd(game, ligaStart)} og frem${!game?.pulje || puljenTaeller(ligaStart, puljeMaksStartRunde(game)) ? '' : ', uden puljen'}. `
                     + `I alt er derfor det samme tal som i stillingen. Hele ${o.saesonen} for en spiller: tryk på navnet.`}
                 </p>
               ) : ligaGate && (
