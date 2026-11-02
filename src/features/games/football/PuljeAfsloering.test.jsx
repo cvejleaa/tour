@@ -332,6 +332,39 @@ describe('PuljeAfsloering — runde-puljen', () => {
     expect(tekst).not.toContain('🏆');
   });
 
+  // ALENE I SIN LIGA (TM-D12 / fix D 10): en rangliste over én spiller er
+  // ingen rangliste, og «Ranglisten kommer, når semifinalerne er lagt ind»
+  // ville være et løfte, semifinalerne ikke kan indfri — det, der mangler, er
+  // liga-fæller. Dér står allerede «puljens rangliste kommer, når de er», og to
+  // forklaringer på samme manglende liste ville modsige hinanden. Uden ligaer
+  // er der heller ingen rangliste at love.
+  it('alene i sin liga: intet «Ranglisten kommer …» — kun forklaringen om liga-fæller', async () => {
+    mockSvar.current = TIP;
+    render(<PuljeAfsloering {...runde({ standings: [STAND[0]] })} />);
+    await screen.findByTestId('pulje-holdtabel');
+    expect(screen.queryByTestId('pulje-rangliste-venter')).toBeNull();
+    expect(screen.queryByText(/Ranglisten kommer, når/)).toBeNull();
+    expect(screen.getByTestId('pulje-ingen-faeller')).toHaveTextContent(
+      'Ingen af ligaens medlemmer er med i stillingen endnu — puljens rangliste kommer, når de er.',
+    );
+  });
+
+  it('præcis to i ligaen: «Ranglisten kommer …» står (grænsen er to, som ranglisten)', async () => {
+    mockSvar.current = TIP;
+    render(<PuljeAfsloering {...runde({ standings: [STAND[0], STAND[1]] })} />);
+    await screen.findByTestId('pulje-holdtabel');
+    expect(screen.getByTestId('pulje-rangliste-venter').textContent)
+      .toBe('Ranglisten kommer, når semifinalerne er lagt ind.');
+    expect(screen.queryByTestId('pulje-ingen-faeller')).toBeNull();
+  });
+
+  it('uden ligaer: heller intet «Ranglisten kommer …»', async () => {
+    mockSvar.current = TIP;
+    render(<PuljeAfsloering {...runde({ leagues: [] })} />);
+    await screen.findByTestId('pulje-holdtabel');
+    expect(screen.queryByTestId('pulje-rangliste-venter')).toBeNull();
+  });
+
   it('semifinalerne lagt ind, ikke afregnet: endelige tal og SAMME sætning som facit-kortet', async () => {
     mockSvar.current = TIP;
     render(<PuljeAfsloering {...runde({ facit: SEMI })} />);
