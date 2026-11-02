@@ -94,7 +94,9 @@ export function bygIndbyrdes({ rounds, mine, deres }) {
         deresPoint: Number(deres?.[m.id]?.points) || 0,
         // Knockout ud over ordinær tid: «30-30 · 35-34 e.f.» — ellers ser
         // et X ud til at have ramt i en kamp, nogen vandt. Data-gate.
-        ...(kampSlut(m) ? { stilling: stillingTekst(m) } : {}),
+        // `afgjort` følger med, så fladen kan give forkortelsen sit fulde navn
+        // (title: «efter forlænget spilletid»).
+        ...(kampSlut(m) ? { stilling: stillingTekst(m), afgjort: kampSlut(m).afgjort } : {}),
       });
     }
   }

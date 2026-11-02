@@ -64,6 +64,8 @@ describe('Mine tips / spillerdetaljen (TipsHistorik): begge stillinger og reglen
       <TipsHistorik history={hist([KO, KO2], { k1: { pick: '1', points: 0 }, k2: { pick: '1', points: 3 } })} total={3} game={HB} />,
     );
     expect(screen.getByTestId('slut-k1').textContent).toBe('30-30 · 35-34 e.f.');
+    // Forkortelsen har sit fulde navn som title (fix D, QC-klient 6).
+    expect(screen.getByTestId('slut-k1').getAttribute('title')).toBe('efter forlænget spilletid');
     // Kampen afgjort i ordinær tid får ingen stillingslinje.
     expect(screen.queryByTestId('slut-k2')).toBeNull();
     expect(screen.getByTestId('ko-regel-14').textContent).toBe(REGEL);
@@ -89,6 +91,7 @@ describe('Mine tips / spillerdetaljen (TipsHistorik): begge stillinger og reglen
     const sl = [{ id: 's1', round: 3, home: 'AGF', away: 'OB', kickoff: new Date('2026-09-01T18:00:00Z'), homeGoals: 1, awayGoals: 1, result: 'X', odds: { 1: 2, X: 3, 2: 3 } }];
     const h = hist(sl, { s1: { pick: 'X', points: 3 } });
     expect(Object.keys(h.rounds[0].rows[0])).not.toContain('stilling');
+    expect(Object.keys(h.rounds[0].rows[0])).not.toContain('afgjort');
     const { container } = render(<TipsHistorik history={h} total={3} game={SL} />);
     expect(container.textContent).not.toMatch(/Knockout|e\.f\.|e\.str\.|60 min|90 min/);
   });
@@ -99,6 +102,16 @@ describe('Jer to imellem (Indbyrdes): stillingen ved den uenige kamp', () => {
     render(<Indbyrdes game={{ ...HB, id: 'g1' }} rounds={[{ round: 14, matches: [KO] }]} minUid="mig" dueUid="dem" dueNavn="Morten" />);
     await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
     expect(screen.getByTestId('h2h-slut-k1').textContent).toBe('30-30 · 35-34 e.f.');
+    expect(screen.getByTestId('h2h-slut-k1').getAttribute('title')).toBe('efter forlænget spilletid');
+  });
+
+  it('straffekast: «e.str.» med «efter straffekast» som title', async () => {
+    const str = { ...KO, homeGoals: 28, awayGoals: 28, slut: { home: 31, away: 33, afgjort: 'straffe' } };
+    render(<Indbyrdes game={{ ...HB, id: 'g1' }} rounds={[{ round: 14, matches: [str] }]} minUid="mig" dueUid="dem" dueNavn="Morten" />);
+    await userEvent.click(screen.getByRole('button', { name: /Jer to imellem/ }));
+    const el = screen.getByTestId('h2h-slut-k1');
+    expect(el.textContent).toBe('28-28 · 31-33 e.str.');
+    expect(el.getAttribute('title')).toBe('efter straffekast');
   });
 
   // DATA-GATEN er kampSlut (et slut, der hænger sammen med stillingen), ikke
@@ -166,6 +179,9 @@ describe('Holdsiden: neutral bane, «Dag N» og V-U-T efter 60 min', () => {
     expect(note).toContain('tæller stillingen efter 60 min');
     expect(note).toContain('er uafgjort (X), også når holdet vandt i forlængelsen');
     expect(kampListe()[0]).toBe('Dag 14Norge30-30 · 35-34 e.f.U');
+    // Stillingen med forkortelsen har det fulde navn som title (QC-klient 6).
+    expect(within(screen.getAllByTestId('holdside-kamp')[0]).getByTitle('efter forlænget spilletid').textContent)
+      .toBe('30-30 · 35-34 e.f.');
   });
 
   it('uden en kamp ud over ordinær tid: ingen note', () => {
@@ -178,6 +194,8 @@ describe('Holdsiden: neutral bane, «Dag N» og V-U-T efter 60 min', () => {
   it('udeholdet, afgjort i ordinær tid: «30-31» fra Norges side', () => {
     vis(HB, [{ ...KO, slut: undefined, homeGoals: 31, awayGoals: 30, result: '1' }], 'NOR');
     expect(kampListe()[0]).toBe('Dag 14Danmark30-31T');
+    // Ingen forkortelse — ingen title.
+    expect(screen.getAllByTestId('holdside-kamp')[0].querySelector('[title]')).toBeNull();
   });
 
   it('Superligaen: «Hjemme og ude», H/U og «R14» som før — ingen V-U-T-linje og ingen note', () => {

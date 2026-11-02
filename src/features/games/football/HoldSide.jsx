@@ -16,7 +16,7 @@ import GameTabLink from '../GameTabLink';
 import { fraStartRunde, startRundeFor } from '../../../lib/startGate';
 import { sportProfil, sportOrd, harHjemmebane } from '../../../lib/superligaScoring';
 import { rundeNavneord, rundeKolonne, rundeOrdene } from '../../../lib/faser';
-import { kampSlut, stillingTekst } from '../../../lib/facit';
+import { kampSlut, stillingTekst, AFGJORT_NAVN } from '../../../lib/facit';
 import { teamsOf, teamInfo, visOf, teamByShort } from './teamInfo';
 import {
   holdetsKampe, holdForm, hjemmeUde, maalforskelFordeling,
@@ -390,7 +390,9 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
                     <span style={{ minWidth: '1.6rem', color: 'var(--c-muted)' }}>{hjemme ? 'H' : 'U'}</span>
                   )}
                   <span style={{ flex: 1 }}>{modstander}</span>
-                  <span>
+                  {/* title: forkortelsen med sit fulde navn («efter forlænget
+                      spilletid») — en seende bruger får ellers kun «e.f.». */}
+                  <span title={kampSlut(m) ? AFGJORT_NAVN[kampSlut(m).afgjort] : undefined}>
                     {/* Egne mål først. En knockout-kamp ud over ordinær tid
                         står med begge stillinger: «30-30 · 35-34 e.f.». */}
                     {kampSlut(m)

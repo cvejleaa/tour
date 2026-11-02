@@ -106,7 +106,9 @@ export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
         // ✗ på et 1-tip til det hold, der gik videre, uden et ord om hvorfor.
         // Kun når kampen HAR et gyldigt slut (data-gate): rækken for en
         // Superliga-kamp får ikke én ny nøgle.
-        ...(kampSlut(m) ? { stilling: stillingTekst(m) } : {}),
+        // `afgjort` følger med, så fladen kan give forkortelsen sit fulde navn
+        // (title: «efter forlænget spilletid»).
+        ...(kampSlut(m) ? { stilling: stillingTekst(m), afgjort: kampSlut(m).afgjort } : {}),
       };
     });
 

@@ -10,7 +10,7 @@ import { visOf } from './teamInfo';
 import { formatKickoff } from '../../../lib/daDate';
 import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
 import { rundeEtiket } from '../../../lib/faser';
-import { knockoutRegel } from '../../../lib/facit';
+import { knockoutRegel, AFGJORT_NAVN } from '../../../lib/facit';
 import PointOpdeling, { RUBRIKKER } from './PointOpdeling';
 
 const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
@@ -167,7 +167,7 @@ export default function TipsHistorik({
                   {/* Kun en knockout-kamp, der gik ud over ordinær tid. Den
                       første stilling er den, tippet er afgjort af. */}
                   {row.stilling && (
-                    <span className="mytips__slut" data-testid={`slut-${row.id}`}>{row.stilling}</span>
+                    <span className="mytips__slut" data-testid={`slut-${row.id}`} title={AFGJORT_NAVN[row.afgjort]}>{row.stilling}</span>
                   )}
                 </span>
                 <span className="mytips__pick">

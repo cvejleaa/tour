@@ -2159,6 +2159,9 @@ describe('FootballTip — knockout', () => {
       homeGoals: 30, awayGoals: 30, result: 'X', slut: { home: 35, away: 34, afgjort: 'forlaenget' },
     }));
     expect(screen.getByTestId('kamp-slut').textContent).toBe('35-34 e.f.');
+    // Det synlige span er aria-hidden (oplæsningen siger det fulde navn) —
+    // en seende bruger får det som title (fix D, QC-klient 6).
+    expect(screen.getByTestId('kamp-slut').getAttribute('title')).toBe('efter forlænget spilletid');
     const score = container.querySelector('.match-card__score');
     expect(score.getAttribute('aria-label')).toBe(
       'Stillingen efter 60 min: AGF 30, F.C. København 30. Slutresultat efter forlænget spilletid: AGF 35, F.C. København 34.',
@@ -2191,6 +2194,7 @@ describe('FootballTip — knockout', () => {
       homeGoals: 28, awayGoals: 28, result: 'X', slut: { home: 31, away: 33, afgjort: 'straffe' },
     }));
     expect(screen.getByTestId('kamp-slut').textContent).toBe('31-33 e.str.');
+    expect(screen.getByTestId('kamp-slut').getAttribute('title')).toBe('efter straffekast');
     expect(container.querySelector('.match-card__score').getAttribute('aria-label')).toContain('Slutresultat efter straffekast: AGF 31, F.C. København 33.');
   });
 

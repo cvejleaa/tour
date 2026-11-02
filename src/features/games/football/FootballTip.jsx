@@ -968,7 +968,7 @@ export default function FootballTip({ game, me, matches }) {
                       på — derfor står slutresultatet som en kvalifikator,
                       ikke i stedet for. */}
                   {slut && (
-                    <span className="match-card__slut" data-testid="kamp-slut" aria-hidden="true">
+                    <span className="match-card__slut" data-testid="kamp-slut" aria-hidden="true" title={AFGJORT_NAVN[slut.afgjort]}>
                       {slutTekst(m)}
                     </span>
                   )}
