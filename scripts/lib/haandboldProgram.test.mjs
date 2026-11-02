@@ -17,7 +17,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import {
-  byggProgram, byggFaser, klassificer, programFil, utcTekst, VM_FASER, VM2027_FORMAT,
+  byggProgram, byggFaser, klassificer, programFil, utcTekst, VM_FASER, VM2027_FORMAT, zoneForskydning, tjekTidszone,
 } from './haandboldProgram.mjs';
 import { faseKalenderFejl, dagTaeller, rundeEtiket, erKnockout, ventetekst } from '../../src/lib/faser.js';
 import { docId, tjekDubletter, kickoffMs } from '../../src/lib/seedFootball.js';
@@ -220,7 +220,8 @@ describe('den indledende runde', () => {
 // kode, der regnede med fast +1, ville bestå alt ovenfor. Samme side i UTC+2
 // skal give hver deadline én time tidligere — også vinduernes seneste ende.
 describe('tidszonen bestemmer deadline', () => {
-  const P2 = byggProgram(SIDE.replace('UTC+1', 'UTC+2'));
+  // Helsinki er UTC+2 i januar — så vagten mod værtens zone (tjekTidszone) godtager siden.
+  const P2 = byggProgram(SIDE.replace('UTC+1', 'UTC+2'), { format: { ...VM2027_FORMAT, tidszone: 'Europe/Helsinki' } });
 
   it('UTC+2: 17.30 lokal tid er 15:30 UTC — og vinduet følger med', () => {
     expect(SIDE.split('UTC+1')).toHaveLength(2);
@@ -247,7 +248,7 @@ describe('tidszonen bestemmer deadline', () => {
       id: 'r1-srb-uru', round: 1, home: 'Serbien', away: 'Uruguay', kickoff: '2027-01-12T23:30:00Z', gruppe: 'A',
     });
     expect(p.faser).toEqual(P.faser);
-    const p2 = byggProgram(t.replace('UTC+1', 'UTC+2'));
+    const p2 = byggProgram(t.replace('UTC+1', 'UTC+2'), { format: { ...VM2027_FORMAT, tidszone: 'Europe/Helsinki' } });
     expect(p2.fixtures[0]).toMatchObject({ id: 'r1-srb-uru', round: 1, kickoff: '2027-01-12T22:30:00Z' });
   });
 });
@@ -455,5 +456,51 @@ describe('krydstjek mod IHF\'s dagsider for VM 2027', () => {
     expect(f).toMatchObject({ start: '2027-01-29', fra: 16, til: 16, antalKampe: semi.length, knockout: true });
     // Ingen fase i kalenderen tæller placeringskampene med.
     expect(P.faser.reduce((n, x) => n + x.antalKampe, 0)).toBe(48 + 36 + 4 + 2 + 2);
+  });
+});
+
+// VÆRTENS ZONE. Tyskland og Danmark er CET = UTC+1 i januar. Siden siger selv,
+// hvilken zone tiderne står i — men står der UTC+2 (en tastefejl på Wikipedia),
+// ville hver deadline ligge en time for tidligt. Derfor efterprøves sidens
+// påstand mod værtens IANA-zone på hver kampdag.
+describe('tidszonen efterprøves mod værtens zone', () => {
+  it('Europe/Berlin og Europe/Copenhagen er UTC+1 på alle VM-dagene (CET, ingen sommertid)', () => {
+    expect(VM2027_FORMAT.tidszone).toBe('Europe/Berlin');
+    for (const dato of ['2027-01-13', '2027-01-20', '2027-01-29', '2027-01-31']) {
+      expect(zoneForskydning('Europe/Berlin', dato)).toBe(60);
+      expect(zoneForskydning('Europe/Copenhagen', dato)).toBe(60);
+    }
+    expect(zoneForskydning('Europe/Berlin', '2027-07-01')).toBe(120); // sommertid — beviser, at datoen tæller
+    expect(zoneForskydning('Europe/London', '2027-01-13')).toBe(0);
+    expect(zoneForskydning('America/Sao_Paulo', '2027-01-13')).toBe(-180);
+  });
+
+  it('den rigtige side (UTC+1) passerer, og første kamp er 17.30 dansk tid = 16:30Z', () => {
+    expect(P.forskydningMin).toBe(60);
+    expect(P.fixtures[0].kickoff).toBe('2027-01-13T16:30:00Z');
+  });
+
+  it('KASTER, når siden siger UTC+2 om en turnering i Tyskland', () => {
+    expect(() => byggProgram(SIDE.replace('UTC+1', 'UTC+2')))
+      .toThrow('Siden siger, at tiderne er UTC+2, men Europe/Berlin er UTC+1 den 2027-01-13.');
+  });
+
+  it('KASTER uden en zone i formatet — der gættes ikke', () => {
+    const { tidszone, ...udenZone } = VM2027_FORMAT;
+    expect(tidszone).toBeTruthy();
+    expect(() => byggProgram(SIDE, { format: udenZone })).toThrow(/Formatet har ingen tidszone/);
+  });
+
+  it('byggProgram tjekker HVER kampdag — en kamp i sommertid sidst på siden fanges', () => {
+    const i = SIDE.lastIndexOf('|date=31 January 2027');
+    const t = `${SIDE.slice(0, i)}|date=31 July 2027${SIDE.slice(i + '|date=31 January 2027'.length)}`;
+    expect(() => byggProgram(t)).toThrow('Europe/Berlin er UTC+2 den 2027-07-31');
+  });
+
+  it('tjekker HVER kampdag, ikke kun den første', () => {
+    // Berlin skifter til sommertid 28/3 2027: en dag efter skiftet skal fanges.
+    expect(() => tjekTidszone(60, ['2027-01-13', '2027-03-29'], 'Europe/Berlin'))
+      .toThrow('Europe/Berlin er UTC+2 den 2027-03-29');
+    expect(() => tjekTidszone(60, ['2027-01-13', '2027-01-31'], 'Europe/Berlin')).not.toThrow();
   });
 });

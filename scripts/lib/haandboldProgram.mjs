@@ -42,7 +42,40 @@ export const VM2027_FORMAT = {
   grupper: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
   holdPrGruppe: 4,
   kampe: { indledende: 48, hoved: 36, kvart: 4, semi: 2, finale: 2 },
+  // VÆRTENS TIDSZONE. Tyskland (og Danmark) er CET = UTC+1 i januar — ingen
+  // sommertid. Siden SIGER, hvilken zone tiderne står i, men det er en påstand
+  // om siden, og den efterprøves: står der noget andet end værtens zone på
+  // kampdagene, flytter hver tip-deadline sig en time, og så stopper vi.
+  tidszone: 'Europe/Berlin',
 };
+
+/**
+ * En IANA-zones forskydning fra UTC i minutter på en dato (kl. 12 UTC, så
+ * ingen skiftetime kan ramme). Fx ('Europe/Berlin', '2027-01-13') → 60.
+ */
+export function zoneForskydning(zone, dato) {
+  const del = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longOffset' })
+    .formatToParts(new Date(`${dato}T12:00:00Z`))
+    .find((d) => d.type === 'timeZoneName').value; // «GMT+01:00» / «GMT»
+  const m = /^GMT(?:([+-])(\d{2}):(\d{2}))?$/.exec(del);
+  if (!m) throw new Error(`zoneForskydning: kan ikke læse «${del}» for ${zone}`);
+  return m[1] ? (m[1] === '+' ? 1 : -1) * (Number(m[2]) * 60 + Number(m[3])) : 0;
+}
+
+/**
+ * Siger siden det samme som værtens zone på HVER kampdag? Ellers kast — der
+ * gættes ikke om en tip-deadline.
+ */
+export function tjekTidszone(forskydning, datoer, zone) {
+  if (!zone) throw new Error('Formatet har ingen tidszone (værtens IANA-zone) — siden kan ikke efterprøves, og der gættes ikke.');
+  for (const dato of datoer) {
+    const z = zoneForskydning(zone, dato);
+    if (z !== forskydning) {
+      throw new Error(`Siden siger, at tiderne er ${utcTekst(forskydning)}, men ${zone} er ${utcTekst(z)} den ${dato}. `
+        + 'Hver tip-deadline ville flytte sig — ret siden/formatet, intet er skrevet.');
+    }
+  }
+}
 
 const norm = (s) => String(s ?? '').toLowerCase().replace(/[’']/g, '').replace(/[–—-]/g, '-').replace(/\s+/g, ' ').trim();
 
@@ -160,6 +193,7 @@ function holdEllerKast(side, kamp, hold) {
 export function byggProgram(wikitekst, { hold = HAANDBOLD_VM2027_HOLD, format = VM2027_FORMAT } = {}) {
   const forskydning = sidensForskydning(wikitekst);
   const { kampe, advarsler } = klassificeredeKampe(wikitekst);
+  tjekTidszone(forskydning, [...new Set(kampe.map((k) => k.dato))].sort(), format.tidszone);
 
   // Antal pr. fase — formatet er en påstand om siden, og den efterprøves.
   for (const [fase, n] of Object.entries(format.kampe)) {

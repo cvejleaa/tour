@@ -171,7 +171,10 @@ Det, scriptet **melder**, og hvad du gør:
 - **En fejl, der stopper kørslen** (der skrives intet): en ny sektion på siden
   («Ukendt sektion …»), en kamp uden tidspunkt, en ukendt holdkode, et andet
   antal kampe end formatet (48/36/4/2/2), en dag med kampe fra to faser, en
-  side uden «All times are local (UTC+1)», eller **et felt, parseren ikke
+  side uden «All times are local (UTC+1)», **en side, hvis tidszone ikke er
+  værtens på hver kampdag** (Tyskland og Danmark er CET = UTC+1 i januar;
+  `VM2027_FORMAT.tidszone` er `Europe/Berlin`, og står der UTC+2 på siden,
+  ville hver deadline ligge en time for tidligt), eller **et felt, parseren ikke
   kender, i en medtaget kamp** (fx `timezone=` eller `status=postponed`: det
   kunne flytte en tip-deadline). Hver besked siger, hvilken kamp og hvilken
   fil der skal rettes. Skraberen gætter aldrig.
