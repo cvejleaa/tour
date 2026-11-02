@@ -1943,6 +1943,9 @@ describe('FootballTip — fasekalender', () => {
     expect(screen.getByTestId('round-nav-prev').textContent).toBe('← Dag 5');
     expect(screen.getByTestId('round-nav-prev')).toHaveAttribute('aria-label', 'Forrige dag (dag 5)');
     expect(screen.queryByText(/^Runde 6$/)).toBeNull();
+    // Elo-punkterne på kampkortet bærer også dagens navn (spillet sendes med).
+    expect(screen.getAllByTitle('Indledende runde · dag 2').length).toBeGreaterThan(0);
+    expect(screen.queryByTitle('Runde 2')).toBeNull();
   });
 
   it('← Dag 5 bladrer tilbage til dag 5 — og tælleren følger med', () => {

@@ -134,3 +134,17 @@ describe('SpillerDetalje', () => {
     expect(screen.queryByRole('button', { name: /Jer to imellem/ })).not.toBeInTheDocument();
   });
 });
+
+// Fasekalender (delopgave 5): panelet skal sende SPILLET videre til historikken.
+describe('SpillerDetalje — fasekalender', () => {
+  it('rundens overskrift er dagens navn i en turnering', () => {
+    mockOpdeling.mockReturnValue({
+      kampe: { m1: { pick: '1', points: 2.5, chanceStake: 0 } }, loading: false, error: null,
+    });
+    const faser = [{ navn: 'Indledende runde', fra: 1, til: 6, start: '2026-08-01' }];
+    const { container } = setup({ game: { ...GAME, faser } });
+    expect([...container.querySelectorAll('.mytips__round')].map((e) => e.textContent))
+      .toEqual(['Indledende runde · dag 1']);
+    expect(screen.queryByText(/Runde 1/)).toBeNull();
+  });
+});

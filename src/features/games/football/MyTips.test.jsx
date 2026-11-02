@@ -101,3 +101,21 @@ describe('MyTips', () => {
     expect(screen.queryByText(/Runde 1/)).toBeNull();
   });
 });
+
+// Fasekalender (delopgave 5): MyTips skal sende SPILLET videre, ellers står
+// "Runde 1" i en turnering, hvor dagen hedder "Indledende runde · dag 1".
+describe('MyTips — fasekalender', () => {
+  it('rundens overskrift er dagens navn i en turnering', () => {
+    mockBets.mockReturnValue({ betsByMatch: TIPPET, loading: false });
+    const faser = [{ navn: 'Indledende runde', fra: 1, til: 6, start: '2026-08-01' }];
+    const { container } = setup({ game: { id: 'sl', type: 'football', faser }, matches: AFGJORT });
+    const overskrifter = [...container.querySelectorAll('.mytips__round')].map((e) => e.textContent);
+    expect(overskrifter).toEqual(['Indledende runde · dag 1']);
+  });
+
+  it('uden kalender: "Runde 1" som før', () => {
+    mockBets.mockReturnValue({ betsByMatch: TIPPET, loading: false });
+    const { container } = setup({ matches: AFGJORT });
+    expect([...container.querySelectorAll('.mytips__round')].map((e) => e.textContent)).toEqual(['Runde 1']);
+  });
+});
