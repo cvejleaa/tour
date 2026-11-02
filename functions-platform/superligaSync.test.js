@@ -337,6 +337,16 @@ describe('syncResultsCore — kampe med facit sat i hånden', () => {
     expect((await syncResultsCore(db2, FieldValue, { fetchFn: fakeFetch([event(2, 1)]) })).manuelleUenige.map((u) => u.id)).toEqual(['r1-viborgff-ob']);
   });
 
+  // 1X2-leddet i uenigheds-tjekket bærer sig selv: et dokument rettet i
+  // konsollen kan have et `result`, der modsiger sine egne mål. Kilden siger
+  // 2-0 = 1; i hånden står 2-0 men X → uenig (mutation: leddet fjernet).
+  it('uenig, når kun 1X2 i hånden modsiger kilden (mål ens)', async () => {
+    const db = makeDb([
+      { id: 'r1-viborgff-ob', data: { round: 1, result: 'X', homeGoals: 2, awayGoals: 0, resultatKilde: 'manuel' } },
+    ]);
+    expect((await syncResultsCore(db, FieldValue, { fetchFn: fakeFetch([event(2, 0)]) })).manuelleUenige.map((u) => u.id)).toEqual(['r1-viborgff-ob']);
+  });
+
   // KAPLØBET (modstander-fund): synken læser kampene FØR API-kaldet. Sætter
   // en admin facit i hånden imens, må synken ikke skrive kildens tal oven i
   // — og den ENE kaprede kamp må ikke vælte facit for de andre.
