@@ -1800,3 +1800,49 @@ pr. mutation, gendanner i exit/SIGINT, vitest `--reporter=json`).
   `kampIdAf`, `\b` på `<script`/`</script`/`<div`/`datetime=`, `team-matches/` uden `/`.
   De gør parseren strengere eller giver en højlydt fejl, aldrig tavse data.
 - Værktøj: `scratchpad/tm-hb1-r2/mut.py <specs.json>` (cwd er vigtig, se ovenfor).
+
+## Håndbold-VM del 2: D5 fasekalender + D7 facit i hånden (680755b, nov. 2026)
+
+Harness: 5 mutationssæt (ca. 270 mutanter) kørt med et lille python-script, der
+erstatter en streng, kører vitest og gendanner med `git checkout -- fil`.
+Server-suiten (`npx vitest run --silent` i functions-platform) tager 7 s, så
+hundrede mutanter koster ca. 12 min; klient-suiten 135 s, så kør kun den berørte
+testfil pr. mutant og genkør overlevere bredt. Næsten alt blev dræbt (bindingen,
+faser, facit, synk, aftryk, flade); de overlevende er mønstre værd at kende:
+
+- **Duplikeret `toMillis`-fallback i en NY helper arver ikke naboens dækning.**
+  `driftlog.strandetBesked` kopierede `typeof k.toMillis === 'function' ? … : new Date(k)`
+  fra `superligaSync.strandedMatches` (dér testet). Fjern toMillis-grenen i
+  kopien: alt grønt, for alle tests bruger `new Date(...)`. En ægte Firestore
+  Timestamp giver `new Date(ts).getTime() === NaN` (verificeret med
+  firebase-admin) og alarmen ville påstå «intet læseligt kickoff» for HVER
+  strandet kamp. Tjek: bruger fixturet et objekt med `toMillis()`, ikke kun Date?
+- **`if (c1 === c0) continue;` i `pointPrognose` kan fjernes.** Intet fixture har
+  en spiller uden tip på kampen, hvis combi IKKE flytter sig; uden vagten tælles
+  han med i `senere.spillere`. Fixture med kun flyttende spillere måler ikke
+  «kun dem der flytter».
+- **`tilHttpsFejl`s KODER-sæt: `failed-precondition` kan fjernes.** Kun
+  invalid-argument er testet gennem oversætteren; mister man den, bliver «Kampen
+  er ændret siden tør-kørslen» til et blankt «internal» i fladen.
+- **Ledningen i index.js er kun halvt bevogtet.** Tekst-tests dækker requireAdmin,
+  dryRunFraKald, uid og placeringen af facit-vagten, men ikke `skriv:`-callbacken
+  (`skrivDriftStatus`) og ikke `naesteForventetFoerMs` til facitVagtUdenSynk.
+  Begge kan neutraliseres (`async () => {}` / `() => null`): vagten kører, men
+  kortet skrives aldrig eller bliver aldrig rødt af stilhed. Regel «kan ikke
+  fejle tavst» er dermed ubevist i selve rørføringen. Samme for `timeoutSeconds`
+  (120 → 10) og for `alle.filter(!netopRettet)` i strandede-stien.
+- **Klient: svar-grene med to betingelser testes kun med den ene.**
+  `res.data?.dryRun === false && res.data?.skrevet === true`: begge halvdele kan
+  droppes, for testen sender kun {dryRun:true, skrevet:false}. Mangler
+  {dryRun:false, skrevet:false} → «Serveren skrev INTET».
+- **Prop-ledning mellem forælder og barn testet kun i barnet.**
+  `GameScheduleTab` sender `harSynk={harResultatSynk(game)}`; hardkodes den til
+  true, er alt grønt, fordi ManuelFacit.test sætter propen selv. Resultat: spillet
+  UDEN synk (håndbold) ville få knappen «Lad synken overtage igen».
+- **Equivalente mutanter, ikke huller:** `snap.exists ? snap.data() : null`
+  (erManuelFacit er null-sikker), `IN_MAKS` (runde har aldrig >30 kampe),
+  `Math.min` vs `max` på rundens første kickoff (én runde = én dag), `aendredeTips`
+  (feltet læses af ingen).
+- **Binding D5×D7 holdt:** alle ca. 140 mutanter i erKnockout/faser/facit, server
+  og spejl, blev røde; paritetsløkken i facit.test.js/faser.test.js dræber
+  src-spejlmutanter alene.
