@@ -20,7 +20,7 @@
 const FONT = "Arial,Helvetica,'Segoe UI',sans-serif";
 
 const { sportOrd, harHjemmebane } = require('./superligaScoring');
-const { harFaseKalender, harKnockout } = require('./faser');
+const { harFaseKalender, harKnockout, kbhDato, fmtFaseStart } = require('./faser');
 const { knockoutRegel } = require('./facit');
 
 // ---------------------------------------------------------------------------
@@ -152,6 +152,52 @@ function puljeFaseDato(game, pulje) {
   return require('./puljeFacit').rundePuljeDato(game, pulje);
 }
 
+const DAGE_ORD = ['', 'én', 'to', 'tre', 'fire', 'fem', 'seks', 'syv', 'otte', 'ni', 'ti'];
+
+/**
+ * Hvor længe FØR turneringens slutning en runde-pulje afgøres — afledt af
+ * KALENDEREN, aldrig skrevet ind: dagene fra facit-fasens start til den sidste
+ * fases start. "to dage før finalen" (sidste fase er knockout), "dagen før
+ * turneringens sidste dag" uden knockout. null, når fasen mangler, eller når
+ * puljen afgøres på sidste dag eller senere — så lover mailen intet forspring.
+ */
+function puljeFoerSlut(game, pulje) {
+  if (pulje?.facitKilde !== 'runde' || !harFaseKalender(game)) return null;
+  const fase = require('./puljeFacit').facitFase(game, pulje.facitFase);
+  const sidste = game.faser[game.faser.length - 1];
+  const dagMs = (s) => Date.UTC(...s.split('-').map((x, i) => Number(x) - (i === 1 ? 1 : 0)));
+  if (!fase || !sidste) return null;
+  const dage = Math.round((dagMs(sidste.start) - dagMs(fase.start)) / 86400000);
+  if (!(dage > 0)) return null;
+  const slut = sidste.knockout === true ? 'finalen' : 'turneringens sidste dag';
+  return dage === 1 ? `dagen f&oslash;r ${slut}` : `${DAGE_ORD[dage] || dage} dage f&oslash;r ${slut}`;
+}
+
+/** Firestore-Timestamp, Date, ms eller ISO-streng → ms; ellers NaN. */
+function tidMs(v) {
+  if (v == null) return NaN;
+  if (typeof v === 'number') return v;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (v instanceof Date) return v.getTime();
+  return typeof v === 'string' ? Date.parse(v) : NaN;
+}
+
+/**
+ * HVORNÅR PULJEN LUKKER, af game.puljeLockAt (Spilfører, del 3): med grænsen
+ * ved dag 1 er invitationen det eneste sted, folk når at reagere. "onsdag 13.
+ * januar kl. 18.00" i dansk tid. null uden deadline — eller når den er
+ * passeret: en mail må aldrig sende nogen efter et tip, der er lukket.
+ * Aldrig hardkodet, aldrig gættet ud fra en runde.
+ */
+function puljeLukker(game, nowMs) {
+  const ms = tidMs(game?.puljeLockAt);
+  if (!Number.isFinite(ms) || !(ms > nowMs)) return null;
+  const [t, m] = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Copenhagen', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(new Date(ms)).split(':');
+  return `${fmtFaseStart(kbhDato(ms))} kl. ${t}.${m}`;
+}
+
 /**
  * Afled invitations-profilen af et SPIL-dokument. null/udeladt → Superligaens
  * profil (bagudkompatibelt: gamle klienter sender intet gameId).
@@ -161,7 +207,7 @@ function puljeFaseDato(game, pulje) {
  * ligaer med committede skærmbilleder i public/salgstale/ — en død <img> i en
  * mail er værre end et kort uden billede.
  */
-function ligaProfil(game) {
+function ligaProfil(game, nowMs = Date.now()) {
   // Hele den normaliserede konfiguration med — kortteksten skal kunne sige
   // top/bund/point rigtigt for BÅDE SL (6, mesterskabsspillet) og PL (4+3,
   // Juletabellen). Uden spil-dokument (bagudkompatibel superliga-gren)
@@ -215,6 +261,11 @@ function ligaProfil(game) {
       // En runde-pulje ("hvem når semifinalerne?") afgøres af en fase — og
       // HVORNÅR står i kalenderen, ikke i en kopi her (spejl af levende data).
       puljeDato: puljeFaseDato(game, pulje),
+      // Hvor længe før slutningen den afgøres, og hvornår den lukker — begge
+      // af spil-dokumentet. KUN i denne gren: Superligaens og Premier
+      // Leagues mail er byte for byte den, de altid har fået (P1).
+      puljeFoerSlut: puljeFoerSlut(game, pulje),
+      puljeLukker: harPulje ? puljeLukker(game, nowMs) : null,
       rundeImg: null,
       puljeImg: null,
       ...(turnering ? { tekst: turneringsTekst(game) } : {}),
@@ -290,7 +341,7 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
       featureRow({ n: 1, title: `${t.bonus} &#127920;`, text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
       featureRow({ n: 2, title: 'Chancen &#9889;', text: t.chanceTekst }),
       l.harPulje
-        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `${t.puljeStart}: udpeg de <b>${l.pulje.poolSize} hold</b>, du tror ${runde ? 'n&aring;r' : 'st&aring;r i'} ${esc(l.pulje.labels.top)}${l.pulje.nedSize > 0 ? ` &mdash; og de <b>${l.pulje.nedSize}</b>, du tror h&aelig;nger i ${esc(l.pulje.labels.ned)}` : ''}. <b>+${l.pulje.perTeam} point</b> pr. hold, ${runde ? 'du rammer' : 'der st&aring;r rigtigt'}${l.pulje.perfectBonus > 0 ? `, og <b>+${l.pulje.perfectBonus} bonus</b> for en perfekt r&aelig;kke` : ''} &mdash; ${runde ? `afgjort, s&aring; snart ${esc(l.pulje.labels.top)} er lagt ind${l.puljeDato ? ` (de spilles ${esc(l.puljeDato)})` : ''}` : 'afgjort til allersidst, s&aring; det kan vende hele stillingen'}.`, last: true })
+        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `${t.puljeStart}: udpeg de <b>${l.pulje.poolSize} hold</b>, du tror ${runde ? 'n&aring;r' : 'st&aring;r i'} ${esc(l.pulje.labels.top)}${l.pulje.nedSize > 0 ? ` &mdash; og de <b>${l.pulje.nedSize}</b>, du tror h&aelig;nger i ${esc(l.pulje.labels.ned)}` : ''}. <b>+${l.pulje.perTeam} point</b> pr. hold, ${runde ? 'du rammer' : 'der st&aring;r rigtigt'}${l.pulje.perfectBonus > 0 ? `, og <b>+${l.pulje.perfectBonus} bonus</b> for en perfekt r&aelig;kke` : ''} &mdash; ${runde ? `afgjort, s&aring; snart ${esc(l.pulje.labels.top)} er lagt ind${l.puljeDato ? ` (de spilles ${esc(l.puljeDato)})` : ''}${l.puljeFoerSlut ? `, ${l.puljeFoerSlut} &mdash; s&aring; den kan stadig vende stillingen` : ' &mdash; s&aring; den kan vende stillingen'}` : 'afgjort til allersidst, s&aring; det kan vende hele stillingen'}.${l.puljeLukker ? ` <b>Puljen lukker ${esc(l.puljeLukker)}.</b>` : ''}`, last: true })
         : featureRow({ n: 3, title: 'Liga-sp&oslash;rgsm&aring;l &#127942;', text: 'Ligaens egen joker: liga-admin stiller sp&oslash;rgsm&aring;l (&quot;hvem bliver topscorer?&quot;), I svarer f&oslash;r deadline &mdash; og pointene falder, n&aring;r facit kendes, s&aring; de kan vende stillingen sent.', last: true }),
     ].join(''),
     img: l.harPulje && l.puljeImg ? `${appUrl}/${l.puljeImg}` : null,

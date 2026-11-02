@@ -247,7 +247,11 @@ describe('invitationsHtml — en turnering med runde-pulje', () => {
 
   it('siger, hvornår puljen afgøres — med kalenderens dato', () => {
     expect(ligaProfil(spil).puljeDato).toBe('fredag 29. januar');
-    expect(html).toContain('afgjort, s&aring; snart semifinalerne er lagt ind (de spilles fredag 29. januar).');
+    // VENDT (fix D, Spilfører a): «så den kan vende stillingen» var faldet ud
+    // for runde-puljen. Her er semifinalerne kalenderens SIDSTE fase, så der
+    // er intet forspring at love — kun at den kan vende stillingen.
+    expect(html).toContain('afgjort, s&aring; snart semifinalerne er lagt ind (de spilles fredag 29. januar) &mdash; s&aring; den kan vende stillingen.');
+    expect(html).not.toContain('f&oslash;r finalen');
     // «når», ikke «står i» — samme ord som pulje-fanen og guiden.
     expect(html).toContain('du tror n&aring;r semifinalerne');
     expect(html).toContain('pr. hold, du rammer');
@@ -272,8 +276,15 @@ describe('invitationsHtml — en turnering med runde-pulje', () => {
     const udenSpil = { ...spil, faser: undefined };
     const uden = invitationsHtml({ liga: ligaProfil(udenSpil), intro: 'x', joinLink: 'https://tip.vejleaa.dk/x' });
     expect(ligaProfil(udenSpil).puljeDato).toBeNull();
-    expect(uden).toContain('afgjort, s&aring; snart semifinaler er lagt ind.');
+    expect(uden).toContain('afgjort, s&aring; snart semifinaler er lagt ind &mdash; s&aring; den kan vende stillingen.');
+    expect(uden).not.toContain('f&oslash;r finalen');
     expect(uden).not.toContain('afgjort til allersidst');
+  });
+
+  // UDEN deadline: ingen lukke-sætning — aldrig en hardkodet dato.
+  it('uden puljeLockAt: mailen siger intet om, hvornår puljen lukker', () => {
+    expect(ligaProfil(spil).puljeLukker).toBeNull();
+    expect(html).not.toContain('Puljen lukker');
   });
 
   it('liga-puljerne lover stadig "til allersidst"', () => {
@@ -339,5 +350,86 @@ describe('invitationsHtml — en turnering med fasekalender', () => {
     expect(h(pl)).toBe('95a7600473e121268d336a6de0cc4f052cdf2cd78f662b700f7e15e6e9f056f4');
     expect(h(ukendt)).toBe('0b66615ae9a80b845e645bf970bc4b19600208012b236505747bea773061eabd');
     expect(h(invitationsHtml())).toBe('84016c7b16ebbb4740e4544b233d5bc50296fcb525c3cd02f40d7dcec0f0d9cc');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// TURNERING + RUNDE-PULJE — den mail, hvm2027 faktisk skal have (TM-D12: med
+// HAANDBOLD_SPIL uden pulje kunne bonus, puljeTitel, puljeStart og facitTekst
+// alle sættes til ligaens ord med grøn suite). Og Spilfører (a): mailen siger,
+// hvornår puljen LUKKER (af puljeLockAt), og at den afgøres to dage før
+// finalen — så den stadig kan vende stillingen. Begge afledt af
+// spil-dokumentet; testkalenderen har semifinaler 29/1 og finaledag 31/1.
+// ---------------------------------------------------------------------------
+describe('invitationsHtml — turnering med runde-pulje og deadline', () => {
+  const opts = { joinLink: 'https://tip.vejleaa.dk/tilmeld/x', leagueName: 'Familien' };
+  const NU = Date.parse('2027-01-02T10:00:00Z');
+  // 13/1 kl. 18.00 dansk tid (17.00 UTC i januar).
+  const LOCK = Date.parse('2027-01-13T17:00:00Z');
+  const spil = {
+    ...HAANDBOLD_SPIL,
+    pulje: { poolSize: 4, perTeam: 4, perfectBonus: 10, facitKilde: 'runde', facitFase: 'Semifinaler', maksStartRunde: 1 },
+    puljeLockAt: LOCK,
+  };
+  const html = invitationsHtml({ ...opts, liga: ligaProfil(spil, NU) });
+
+  it('turneringens ord i bonus-kortet, puljen og facit-linjen', () => {
+    expect(html).toContain('Dagens bonus, Chancen og turneringens pulje');
+    expect(html).toContain('Turneringens store bonuspot: udpeg de <b>4 hold</b>, du tror n&aring;r semifinalerne.');
+    expect(html).toContain('Efter hver dag ser du dit facit');
+    // (kort1Alt er billedets alt-tekst — en turnering har intet billede, så
+    // den står slet ikke i mailen: ækvivalent mutant, ikke et hul.)
+    for (const t of ['Runde-bonus', 's&aelig;sonens pulje', 'S&aelig;sonens store bonuspot', 'Efter hver runde',
+      'afgjort til allersidst', 'mesterskabsspillet']) {
+      expect(html, t).not.toContain(t);
+    }
+  });
+
+  it('afgøres to dage før finalen — så den kan stadig vende stillingen', () => {
+    expect(ligaProfil(spil, NU).puljeFoerSlut).toBe('to dage f&oslash;r finalen');
+    expect(html).toContain('afgjort, s&aring; snart semifinalerne er lagt ind (de spilles fredag 29. januar), '
+      + 'to dage f&oslash;r finalen &mdash; s&aring; den kan stadig vende stillingen.');
+  });
+
+  it('dagen før — og uden knockout: «turneringens sidste dag»', () => {
+    const tæt = { ...spil, faser: spil.faser.map((f) => (f.navn === 'Finaledag' ? { ...f, start: '2027-01-30' } : f)) };
+    expect(ligaProfil(tæt, NU).puljeFoerSlut).toBe('dagen f&oslash;r finalen');
+    const udenKo = { ...spil, faser: spil.faser.map((f) => ({ ...f, knockout: false })) };
+    expect(ligaProfil(udenKo, NU).puljeFoerSlut).toBe('to dage f&oslash;r turneringens sidste dag');
+  });
+
+  it('siger, hvornår puljen LUKKER — af puljeLockAt, i dansk tid', () => {
+    expect(ligaProfil(spil, NU).puljeLukker).toBe('onsdag 13. januar kl. 18.00');
+    expect(html).toContain('<b>Puljen lukker onsdag 13. januar kl. 18.00.</b>');
+    // Samme deadline som Firestore-Timestamp og ISO-streng.
+    expect(ligaProfil({ ...spil, puljeLockAt: { toMillis: () => LOCK } }, NU).puljeLukker).toBe('onsdag 13. januar kl. 18.00');
+    expect(ligaProfil({ ...spil, puljeLockAt: new Date(LOCK).toISOString() }, NU).puljeLukker).toBe('onsdag 13. januar kl. 18.00');
+    expect(ligaProfil({ ...spil, puljeLockAt: new Date(LOCK) }, NU).puljeLukker).toBe('onsdag 13. januar kl. 18.00');
+  });
+
+  it('en passeret deadline nævnes ikke — mailen sender ingen efter et lukket tip', () => {
+    const efter = invitationsHtml({ ...opts, liga: ligaProfil(spil, LOCK + 1) });
+    expect(efter).not.toContain('Puljen lukker');
+    expect(ligaProfil(spil, LOCK).puljeLukker).toBeNull();
+    // Uden nowMs (sådan kalder index.js) er det URET, der afgør: en deadline
+    // i 2020 er passeret, også når ingen giver et tidspunkt med.
+    expect(ligaProfil({ ...spil, puljeLockAt: Date.parse('2020-01-01T12:00:00Z') }).puljeLukker).toBeNull();
+  });
+
+  it('uden pulje: ingen lukke-sætning, heller ikke med en løs puljeLockAt', () => {
+    const l = ligaProfil({ ...HAANDBOLD_SPIL, puljeLockAt: LOCK }, NU);
+    expect(l.puljeLukker).toBeNull();
+    expect(invitationsHtml({ ...opts, liga: l })).not.toContain('Puljen lukker');
+  });
+
+  it('Superligaen og Premier League med puljeLockAt: mailen er stadig byte for byte den gamle', () => {
+    // Hashen fra «byte for byte»-testen ovenfor — men nu MED en deadline i
+    // fremtiden. Lukke-sætningen hører kun til den neutrale gren (P1).
+    const h = (s) => createHash('sha256').update(s).digest('hex');
+    const o = { ...opts, intro: 'Hej\nmed' };
+    const sl = invitationsHtml({ ...o, liga: ligaProfil({ name: 'Superligaen 2026/27', sync: { provider: 'superliga' }, pulje: { poolSize: 6 }, puljeLockAt: LOCK }, NU) });
+    const pl = invitationsHtml({ ...o, liga: ligaProfil({ name: 'Premier League 2026/27 — efterår', sync: { provider: 'pulselive', competitionId: 8, season: 2026 }, puljeLockAt: LOCK }, NU) });
+    expect(h(sl)).toBe('2549416cf8688576940ba16e238bb04a78b44138c4ffc74c6bcbb609b4f1e876');
+    expect(h(pl)).toBe('95a7600473e121268d336a6de0cc4f052cdf2cd78f662b700f7e15e6e9f056f4');
   });
 });
