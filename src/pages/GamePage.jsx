@@ -26,6 +26,7 @@ import FootballTable from '../features/games/football/FootballTable';
 import FootballHelp from '../features/games/football/FootballHelp';
 import { GAME_TYPE } from '../lib/constants';
 import { withTab } from '../features/games/GameTabLink';
+import { rundeOrdene } from '../lib/faser';
 
 // Faner i spillet. football: true = kun for fodbold-spil. Rækkefølgen er
 // visnings-rækkefølgen; navnene er valgt så de ikke kolliderer med top-nav
@@ -134,7 +135,9 @@ export default function GamePage() {
             <>
               <h3 className="card__title">Deltag i {game.name}</h3>
               <p style={{ color: 'var(--c-muted)' }}>
-                Tilmeld dig for at tippe. Du kan forlade spillet igen fra spiloversigten — kommer du tilbage i sæsonen, får du din stilling igen.
+                {/* «i sæsonen» i en liga, «i turneringen» med fasekalender. */}
+                Tilmeld dig for at tippe. Du kan forlade spillet igen fra spiloversigten — kommer du tilbage
+                {' '}i {rundeOrdene(game).saesonen}, får du din stilling igen.
               </p>
             </>
           )}

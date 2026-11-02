@@ -6,10 +6,12 @@
 //
 // Modellen er ARKIV, ikke sletning (functions-platform/forladSpil.js): man
 // forsvinder fra stillingen og sine ligaer, tips på kommende kampe slettes,
-// men point og historik bliver stående — kommer man tilbage i sæsonen, får
-// man sin stilling igen. Teksterne må ikke love mere eller mindre end det.
+// men point og historik bliver stående — kommer man tilbage i sæsonen (i en
+// turnering: i turneringen), får man sin stilling igen. Teksterne må ikke
+// love mere eller mindre end det.
 // ---------------------------------------------------------------------------
 import { fmtPoints } from '../../lib/daNum';
+import { rundeOrdene } from '../../lib/faser';
 
 /** Første dialog — alle, der forlader. */
 export function forladBekraeftelse(game) {
@@ -22,6 +24,6 @@ export function forladBekraeftelse(game) {
 export function forladPointAdvarsel(game, point) {
   return `Du står med ${fmtPoints(point)} point i ${game.name}.\n\n`
     + 'Du får ingen nye point, mens du er ude. Pointene bliver stående i arkivet: '
-    + 'kommer du tilbage i sæsonen, får du din stilling igen — men ikke tips, du er gået glip af imens.\n\n'
+    + `kommer du tilbage i ${rundeOrdene(game).saesonen}, får du din stilling igen — men ikke tips, du er gået glip af imens.\n\n`
     + 'Vil du forlade spillet?';
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { forladBekraeftelse, forladPointAdvarsel } from './forladTekst';
+import { HAANDBOLD_SPIL } from '../../test/faseKalender';
 
 const spil = { id: 'sl', name: 'Superligaen 2026/27' };
 
@@ -24,6 +25,14 @@ describe('forladPointAdvarsel — anden dialog, kun med point', () => {
     expect(t).toContain('Vil du forlade spillet?');
     expect(t).not.toContain('12.5');
     expect(t).not.toMatch(/kan ikke tildeles igen/);
+  });
+
+  // En turnering har ingen sæson (QC-klient 2, del 3): løftet skal sige
+  // turneringens ord — og Superligaens tekst ovenfor er uændret.
+  it('i en turnering med fasekalender: «kommer du tilbage i turneringen»', () => {
+    const t = forladPointAdvarsel(HAANDBOLD_SPIL, 12.5);
+    expect(t).toContain('kommer du tilbage i turneringen, får du din stilling igen — men ikke tips, du er gået glip af imens.');
+    expect(t).not.toMatch(/sæson/);
   });
 
   it('hele point skrives uden decimal', () => {
