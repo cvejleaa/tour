@@ -423,7 +423,7 @@ describe('ALARM_TYPER — titel og hast ét sted', () => {
   it('DÆKKER hver alarm-type, serveren faktisk melder — og melder ikke typer, der ikke findes (tripwire begge veje)', () => {
     // index.js kan ikke importeres i en test — så læs kilden. Samme mønster som
     // strandetBesked-vagten: koden er sandheden, ikke en håndskrevet liste.
-    const kilder = ['./index.js', './superligaSync.js', './postbud.js', './facitVagt.js']
+    const kilder = ['./index.js', './superligaSync.js', './postbud.js', './facitVagt.js', './gameScoring.js']
       .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
     // `meld(` er den injicerede meldAlarm i superligaSync.tjekLivePuls.
     const alarmTyper = new Set([...kilder.matchAll(/\b(?:meldAlarm|meld)\([^)]*?type: '([A-Za-z0-9]+)'/gs)].map((m) => m[1]));

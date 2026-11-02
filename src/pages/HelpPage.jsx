@@ -88,7 +88,8 @@ function SpilleneLigeNu() {
           <GameBlurb key={g.id} emoji={g.emoji} name={g.name} status={GAME_STATUS_LABEL[g.status] ?? null}>
             {BLURBS[g.id]}
             {pulje && (
-              <> Dertil et pulje-tip om, hvem der står i <strong>{pulje.labels.top}</strong>
+              // En runde-pulje NÅR semifinalerne; «står i» er liga-sprog.
+              <> Dertil et pulje-tip om, hvem der {pulje.facitKilde === 'runde' ? 'når' : 'står i'} <strong>{pulje.labels.top}</strong>
               {pulje.nedSize > 0 ? <> — og hvem der hænger i <strong>{pulje.labels.ned}</strong></> : null}.</>
             )}
             {/* Halen lover kun det, spillet kan holde: Guide-fanen findes kun

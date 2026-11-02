@@ -168,6 +168,19 @@ describe('PuljeTip — PL-formen (top + bund)', () => {
     expect(screen.getByText(/1\/3 rigtige/)).toBeInTheDocument();
   });
 
+  // «PÅ VEJ» ER RUNDE-PULJENS. Uden gaten på facitKilde ville PL med et
+  // synligt facit og et tip, serveren ikke har afregnet endnu, vise "+8 på
+  // vej" og «Top 4 juleaften er lagt ind…» (modstander-fund R3: gaten kunne
+  // fjernes med hele suiten grøn). Liga-puljen viser præcis det, den gjorde.
+  it('PL: facit synligt, tip IKKE afregnet — ingen "på vej", serverens felter som før', () => {
+    mockBet.current = { championship: ['H1', 'H3', 'H5', 'H7'], relegation: ['H2', 'H4', 'H8'] };
+    render(<PuljeTip game={plGame()} matches={SPILLEDE} />);
+    expect(screen.getByText('Facit: top 4 juleaften')).toBeInTheDocument();
+    expect(screen.queryByTestId('pulje-afventer')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/på vej|er lagt ind|Pointene skrives/);
+    expect(screen.getByText(/0\/4 rigtige · \+0/)).toBeInTheDocument();
+  });
+
   it('"lige nu"-linjen viser pulsen midt i sæsonen — og siger, at intet er afgjort', () => {
     mockBet.current = { championship: ['H1', 'H3', 'H5', 'H7'], relegation: ['H2', 'H4', 'H8'] };
     const medUspillet = [...SPILLEDE, { home: 'H1', away: 'H3', homeGoals: null, awayGoals: null }];
@@ -259,6 +272,19 @@ describe('PuljeTip — den LÅSTE Superliga, som ejeren faktisk kigger på', () 
     // Tælleren var skjult, når der var låst. En spiller, der aldrig nåede at
     // tippe, fik dermed ingen besked om det.
     expect(screen.getByText(/0\/6 valgt · låst/)).toBeInTheDocument();
+  });
+
+  // R3: SL med det officielle facit synligt og et tip, serveren ikke har
+  // afregnet — samme kort som før D10: serverens felter (0/6 · +0), intet
+  // "på vej" og ingen runde-sætning.
+  it('facit synligt, tip IKKE afregnet: intet "på vej" — kortet er som før', () => {
+    mockBet.current = { championship: ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'] };
+    const standings = HOLD8.map((t, i) => ({ teamName: t.name, rank: i + 1, played: 0 }));
+    render(<PuljeTip game={{ ...laastSL, standings }} matches={[]} />);
+    expect(screen.getByText('Facit: mesterskabsspillet')).toBeInTheDocument();
+    expect(screen.getByText(/0\/6 rigtige · \+0/)).toBeInTheDocument();
+    expect(screen.queryByTestId('pulje-afventer')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/på vej|er lagt ind|Pointene skrives/);
   });
 
   it('ÅBEN: "vælg 6", og tælleren står uden låse-mærket', () => {
@@ -518,6 +544,30 @@ describe('PuljeTip — runde-puljen (semifinalisterne)', () => {
     expect(document.body.textContent).not.toContain('hvis tabellen sluttede i dag');
   });
 
+  // DEN FORRIGE TEST BEVISTE KUN PULJETIPS EGEN LINJE. Deadline var i
+  // fremtiden, så afsløringen — som er mocket her — blev aldrig monteret, og
+  // dens «Lige nu, hvis tabellen sluttede i dag» kunne stå på skærmen med
+  // testen grøn (modstander-fund B1). Her er tippet LÅST: afsløringen
+  // monteres og får hverken "lige nu" eller facit. Hvad den så viser, er
+  // bevist på den rigtige komponent i PuljeAfsloering.test.jsx.
+  it('låst efter kvartfinalerne: afsløringen monteres uden "lige nu" og uden facit', () => {
+    mockBet.current = { championship: ['DK', 'FR', 'SE', 'HR'] };
+    render(<PuljeTip game={hvm({ puljeLockAt: Date.now() - 1000 })} matches={KVART} />);
+    expect(screen.getByTestId('pulje-afsloering-mock')).toBeInTheDocument();
+    const p = mockAfsloering.mock.calls.at(-1)[0];
+    expect(p.konfig.facitKilde).toBe('runde');
+    expect(p.ligeNu).toBeNull();
+    expect(p.facit).toBeNull();
+  });
+
+  it('låst med semifinalerne lagt ind: afsløringen får semifinaleholdene som facit', () => {
+    mockBet.current = { championship: ['DK', 'FR', 'SE', 'HR'] };
+    render(<PuljeTip game={hvm({ puljeLockAt: Date.now() - 1000 })} matches={[...KVART, ...SEMI]} />);
+    const p = mockAfsloering.mock.calls.at(-1)[0];
+    expect(p.ligeNu).toBeNull();
+    expect(p.facit).toEqual({ top: ['DK', 'FR', 'SE', 'HR'], bund: null });
+  });
+
   it('semifinalerne lagt ind, endnu IKKE afregnet: facit med de point, der er på vej', () => {
     mockBet.current = { championship: ['DK', 'FR', 'SE', 'NO'] }; // 3 rigtige, ingen points endnu
     render(<PuljeTip game={hvm()} matches={[...KVART, ...SEMI]} />);
@@ -546,6 +596,25 @@ describe('PuljeTip — runde-puljen (semifinalisterne)', () => {
     mockBet.current = { championship: ['DK', 'FR', 'SE', 'HR'] };
     render(<PuljeTip game={hvm()} matches={[...KVART, SEMI[0]]} />);
     expect(screen.queryByText(/^Facit:/)).toBeNull();
+  });
+
+  // R4b: efter semifinalernes startdag uden facit lovede fladen stadig «de
+  // spilles fredag 29. januar» — også efter finalen.
+  it('startdagen passeret uden facit: ingen dato, der er gået', () => {
+    const nu = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2027-02-01T12:00:00Z'));
+    try {
+      const { unmount } = render(<PuljeTip game={hvm({ puljeLockAt: Date.parse('2027-01-13T16:00:00Z') })} matches={KVART} />);
+      expect(screen.getByTestId('pulje-afgoeres').textContent)
+        .toBe('Puljen afgøres, når semifinalerne er lagt ind — de skulle være begyndt fredag 29. januar.');
+      expect(screen.getByTestId('pulje-afgoeres').textContent).not.toContain('spilles');
+      unmount();
+      // MED facit er sætningen bare reglen igen.
+      render(<PuljeTip game={hvm({ puljeLockAt: Date.parse('2027-01-13T16:00:00Z') })} matches={[...KVART, ...SEMI]} />);
+      expect(screen.getByTestId('pulje-afgoeres').textContent)
+        .toBe('Puljen afgøres, når semifinalerne er lagt ind — de spilles fredag 29. januar.');
+    } finally {
+      nu.mockRestore();
+    }
   });
 
   it('uden fasen i kalenderen loves ingen dato', () => {

@@ -19,6 +19,7 @@ vi.mock('../features/games/useGames', async (orig) => ({
 }));
 
 import HelpPage from './HelpPage';
+import { HAANDBOLD_SPIL } from '../test/faseKalender';
 
 const VM = {
   id: 'vm2026', name: 'VM 2026', emoji: '⚽', type: 'football',
@@ -89,6 +90,22 @@ describe('HelpPage (platform) — Spillene lige nu afledes af games-collectionen
     expect(screen.getByText('mesterskabsspillet')).toBeInTheDocument();
     // Kun spil MED pulje får linjen (SL + PL = 2); Tour/VM har ingen.
     expect(screen.getAllByText(/Dertil et pulje-tip/).length).toBe(2);
+  });
+
+  // En turnering med runde-pulje: holdene NÅR semifinalerne. «står i» er
+  // liga-sprog — og de to liga-puljer siger det stadig.
+  it('runde-puljen: «hvem der når semifinalerne» — ligaerne siger stadig «står i»', () => {
+    const HVM = {
+      ...HAANDBOLD_SPIL, id: 'hvm2027', name: 'Håndbold-VM 2027', emoji: '🤾', type: 'football',
+      status: 'open', joinable: true, order: 5,
+      pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' },
+    };
+    const { container } = renderMed([SL, PL, HVM]);
+    const t = container.textContent;
+    expect(t).toContain('Dertil et pulje-tip om, hvem der når semifinalerne.');
+    expect(t).not.toContain('hvem der står i semifinalerne');
+    expect(t).toContain('Dertil et pulje-tip om, hvem der står i mesterskabsspillet.');
+    expect(t).toContain('Dertil et pulje-tip om, hvem der står i top 4 juleaften');
   });
 
   it('eksterne spil (VM + Tour) vises som link-ud med deres egen URL fra data', () => {

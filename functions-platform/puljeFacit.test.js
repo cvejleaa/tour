@@ -56,7 +56,7 @@ describe('puljeFacit: server-spejlet er src', () => {
   it('eksporterer de samme funktioner', async () => {
     const src = await import('../src/lib/puljeFacit.js');
     expect(Object.keys(server).sort()).toEqual(Object.keys(src).sort());
-    expect(Object.keys(server).length).toBeGreaterThanOrEqual(7);
+    expect(Object.keys(server).length).toBeGreaterThanOrEqual(9);
   });
 
   const SPIL = [
@@ -71,6 +71,8 @@ describe('puljeFacit: server-spejlet er src', () => {
     ['forkert poolSize', { ...HVM, pulje: { ...RUNDE_PULJE, poolSize: 6 } }],
     ['med bund', { ...HVM, pulje: { ...RUNDE_PULJE, nedSize: 2 } }],
   ];
+  // Før, på og efter semifinalernes startdag — og uden ur.
+  const UR = [Date.parse('2027-01-28T12:00:00Z'), Date.parse('2027-01-29T22:00:00Z'), Date.parse('2027-01-30T12:00:00Z'), undefined];
   const LISTER = [
     ['ingen', []],
     ['kvart spillet', KVART],
@@ -86,6 +88,10 @@ describe('puljeFacit: server-spejlet er src', () => {
       const srcKonfig = (await import('../src/lib/superligaScoring.js')).puljeKonfig;
       expect(server.puljeKonfigFejl(spil)).toEqual(src.puljeKonfigFejl(spil));
       expect(server.rundePuljeTekster(spil, puljeKonfig(spil))).toEqual(src.rundePuljeTekster(spil, srcKonfig(spil)));
+      expect(server.rundePuljeDato(spil, puljeKonfig(spil))).toEqual(src.rundePuljeDato(spil, srcKonfig(spil)));
+      for (const t of UR) {
+        expect(server.rundePuljeTekster(spil, puljeKonfig(spil), t)).toEqual(src.rundePuljeTekster(spil, srcKonfig(spil), t));
+      }
       for (const [listeNavn, liste] of LISTER) {
         const hvor = `${spilNavn} · ${listeNavn}`;
         expect(server.puljeKanAfregnes(puljeKonfig(spil), spil, liste), hvor)
@@ -94,6 +100,9 @@ describe('puljeFacit: server-spejlet er src', () => {
           .toEqual(src.rundeFacit(srcKonfig(spil), spil, liste));
         expect(server.faseHold(spil, liste, 'Semifinaler'), hvor).toEqual(src.faseHold(spil, liste, 'Semifinaler'));
         expect(server.alleKampeSpillet(liste), hvor).toBe(src.alleKampeSpillet(liste));
+        for (const t of UR) {
+          expect(server.puljeFaseFejl(spil, liste, t), `${hvor} · ${t}`).toEqual(src.puljeFaseFejl(spil, liste, t));
+        }
       }
     });
   }
@@ -104,5 +113,8 @@ describe('puljeFacit: server-spejlet er src', () => {
     expect(server.puljeKanAfregnes(puljeKonfig(HVM), HVM, KVART.concat(SEMI))).toBe(true);
     expect(server.rundeFacit(puljeKonfig(HVM), HVM, KVART.concat(SEMI))).toEqual(['DK', 'FR', 'SE', 'HR']);
     expect(server.puljeKanAfregnes(puljeKonfig(HVM), HVM, KVART)).toBe(false);
+    // …og fase-fejlen rammer både en fejl og intet.
+    expect(server.puljeFaseFejl(HVM, KVART, UR[2])).toMatch(/kun 0 af 2 kampe/);
+    expect(server.puljeFaseFejl(HVM, KVART, UR[0])).toBeNull();
   });
 });

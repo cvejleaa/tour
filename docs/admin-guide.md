@@ -77,9 +77,16 @@ Liga-admin følger med at have oprettet ligaen.
   `facitFase: 'Semifinaler'` spørger "hvilke hold når semifinalerne?". Den
   afgøres, så snart **alle** fasens kampe (fasens `antalKampe`) er lagt ind med
   begge hold — ikke når kampene er spillet. Pointene skrives på stillingen ved
-  den næste kamp, der får et facit. Kan puljen aldrig afgøres (fasen findes ikke
-  i kalenderen, forkert antal hold …), står det med rødt øverst på spillet
-  her under Spil-tidsplan.
+  den næste kamp, der får et facit — eller med vilje: **🎖️ Afregn puljen**
+  her under Spil-tidsplan (kun for en runde-pulje) viser først i en tør-kørsel
+  facit, antal tip og point, og først derefter kommer knappen, der afregner.
+  Brug den, hvis fasen er rettet efter sidste kamp — så starter intet resultat
+  afregningen. Kan puljen aldrig afgøres (fasen findes ikke i kalenderen,
+  forkert antal hold …), står det med rødt øverst på spillet her. Er fasens
+  kampe lagt forkert ind (for mange kampe, et hold i to kampe, eller — efter
+  fasens startdag — for få kampe eller et manglende hold), kommer drift-alarmen
+  **«Puljen kan ikke afgøres»** under 🩺 Driftstatus og i alarm-mailen; den
+  lukker selv, når puljen kan afgøres.
 - **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
   automatisk starttidspunktet eller sidste kamp:
 

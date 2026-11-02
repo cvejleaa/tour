@@ -558,10 +558,16 @@ export default function FootballHelp({ game }) {
           der forklarer en fane, spillet ikke har, er en forkert regelbog. */}
       {pulje && (
         <Section emoji="🎖️" title="Bonus: pulje-tip">
-          På <Tab fane="pulje">🎖️ Pulje</Tab> forudsiger du de <strong>{pulje.poolSize} hold</strong>, der står i
+          {/* MELLEMRUMMET FØR GRENEN ER EKSPLICIT. JSX fjerner et linjeskift
+              mellem tekst og {…}, så «.» + linjeskift + {grenen} gav
+              «mesterskabsspillet.Afgøres på» for Superligaen (modstander-fund
+              R1). En runde-pulje NÅR semifinalerne; den «står» ikke i dem. */}
+          På <Tab fane="pulje">🎖️ Pulje</Tab> forudsiger du de <strong>{pulje.poolSize} hold</strong>, der {rundePulje ? 'når' : 'står i'}
           <strong> {pulje.labels.top}</strong>
           {pulje.nedSize > 0 && <> — og de <strong>{pulje.nedSize}</strong>, der hænger i <strong>{pulje.labels.ned}</strong></>}.
-          {rundePulje ? <>{' '}{rundePulje.afgoeres} Hvert</> : <>Afgøres på {pulje.labels.facit}: hvert</>} hold, der står rigtigt, giver
+          {' '}{rundePulje
+            ? <>{rundePulje.afgoeres} Hvert hold, du rammer, giver</>
+            : <>Afgøres på {pulje.labels.facit}: hvert hold, der står rigtigt, giver</>}
           {' '}<strong>+{pulje.perTeam} point</strong>
           {pulje.perfectBonus > 0 && <>, og en perfekt række giver <strong>+{pulje.perfectBonus}</strong> i bonus</>}.
           Deadline sættes af arrangøren og vises på fanen.

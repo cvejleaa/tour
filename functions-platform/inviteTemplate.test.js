@@ -246,9 +246,24 @@ describe('invitationsHtml — en turnering med runde-pulje', () => {
   it('siger, hvornår puljen afgøres — med kalenderens dato', () => {
     expect(ligaProfil(spil).puljeDato).toBe('fredag 29. januar');
     expect(html).toContain('afgjort, s&aring; snart semifinalerne er lagt ind (de spilles fredag 29. januar).');
-    expect(html).toContain('st&aring;r i semifinalerne');
+    // «når», ikke «står i» — samme ord som pulje-fanen og guiden.
+    expect(html).toContain('du tror n&aring;r semifinalerne');
+    expect(html).toContain('pr. hold, du rammer');
+    expect(html).not.toContain('st&aring;r i semifinalerne');
+    expect(html).not.toContain('der st&aring;r rigtigt');
     expect(html).not.toContain('afgjort til allersidst');
     expect(html).not.toContain('mesterskabsspillet');
+  });
+
+  // M25: «fra» ved en fase over flere dage — og datoen er pulje-fanens egen
+  // funktion, ikke en kopi.
+  it('en fase over flere dage: «fra» og samme dato som pulje-fanen', () => {
+    const lang = { ...spil, faser: [FASER[0], { ...FASER[1], til: 4 }] };
+    expect(ligaProfil(lang).puljeDato).toBe('fra fredag 29. januar');
+    const { rundePuljeDato } = require('./puljeFacit');
+    const { puljeKonfig } = require('./superligaScoring');
+    expect(ligaProfil(lang).puljeDato).toBe(rundePuljeDato(lang, puljeKonfig(lang)));
+    expect(ligaProfil(spil).puljeDato).toBe(rundePuljeDato(spil, puljeKonfig(spil)));
   });
 
   it('uden fasen i kalenderen: ingen dato, men stadig ikke "til allersidst"', () => {
@@ -262,6 +277,9 @@ describe('invitationsHtml — en turnering med runde-pulje', () => {
   it('liga-puljerne lover stadig "til allersidst"', () => {
     const sl = invitationsHtml({ liga: ligaProfil(null), intro: 'x', joinLink: 'https://tip.vejleaa.dk/x' });
     expect(sl).toContain('afgjort til allersidst');
+    expect(sl).toContain('du tror st&aring;r i mesterskabsspillet');
+    expect(sl).toContain('pr. hold, der st&aring;r rigtigt');
+    expect(sl).not.toContain('pr. hold, du rammer');
     expect(ligaProfil(null).puljeDato).toBeUndefined();
   });
 });

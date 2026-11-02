@@ -25,7 +25,7 @@
 //   med `antalKampe`, og at netop så mange kampe ligger i fasens runder med
 //   begge hold kendt. En halvt lagt fase giver intet facit.
 
-const { harFaseKalender, faseFor, fmtFaseStart } = require('./faser');
+const { harFaseKalender, faseFor, fmtFaseStart, kbhDato } = require('./faser');
 const { puljeKonfig } = require('./superligaScoring');
 
 /** Har HVER kamp mål? Liga-puljens kriterium (og kun dens). */
@@ -132,6 +132,58 @@ function puljeKonfigFejl(game) {
   return fejl;
 }
 
+/** Er fasens startdag (dansk dato) PASSERET? På selve dagen er den ikke. */
+function faseBegyndt(fase, nowMs) {
+  return Boolean(fase) && Number.isFinite(nowMs) && fase.start < kbhDato(nowMs);
+}
+
+/**
+ * Hvad er der galt med facit-fasens KAMPE? null = intet (også for alle andre
+ * puljer, for en konfiguration med fejl — den meldes af puljeKonfigFejl — og
+ * for en fase, der bare ikke er lagt ind endnu).
+ *
+ * HVORFOR. `faseHold` svarer null både for "ikke lagt ind endnu" og for
+ * "lagt forkert ind" — tre kampe, et hold to gange, et tomt holdnavn. Den
+ * første er normal, de andre er en tavs fejl: puljen afgøres aldrig, og
+ * fladen bliver ved med at love en dato, der er gået (modstander-fund R4b).
+ * Her skilles de ad:
+ *   - for mange kampe eller et hold i to kampe er en fejl med det samme;
+ *   - et manglende hold eller for få kampe er først en fejl, når fasens
+ *     startdag er passeret — før dét er fasen bare ikke færdig.
+ * Hver gang faseHold er null EFTER startdagen, giver denne en grund
+ * (puljeFacit.test.js beviser det på en matrix).
+ * @returns {string|null}
+ */
+function puljeFaseFejl(game, matches, nowMs) {
+  const konfig = puljeKonfig(game);
+  if (konfig?.facitKilde !== 'runde' || puljeKonfigFejl(game).length) return null;
+  const fase = facitFase(game, konfig.facitFase);
+  const navn = `«${fase.navn}»`;
+  const kampe = (matches || []).filter((m) => {
+    const r = Number(m?.round);
+    return Number.isInteger(r) && r >= fase.fra && r <= fase.til;
+  });
+  if (kampe.length > fase.antalKampe) {
+    return `${navn} har ${kampe.length} kampe, men kalenderen siger ${fase.antalKampe}`;
+  }
+  const set = new Set();
+  let udenHold = 0;
+  for (const m of kampe) {
+    for (const h of [holdNavn(m.home), holdNavn(m.away)]) {
+      if (!h) { udenHold += 1; continue; }
+      if (set.has(h)) return `${h} står i to kampe i ${navn}`;
+      set.add(h);
+    }
+  }
+  if (!faseBegyndt(fase, nowMs)) return null;
+  const dato = fmtFaseStart(fase.start);
+  if (udenHold) return `${navn} skulle være begyndt ${dato}, men ${udenHold === 1 ? 'et hold mangler' : `${udenHold} hold mangler`} i fasens kampe`;
+  if (kampe.length < fase.antalKampe) {
+    return `${navn} skulle være begyndt ${dato}, men kun ${kampe.length} af ${fase.antalKampe} kampe er lagt ind`;
+  }
+  return null;
+}
+
 const ANTAL_ORD = ['nul', 'ét', 'to', 'tre', 'fire', 'fem', 'seks', 'syv', 'otte', 'ni', 'ti'];
 
 /** "fire" for 4 — tallet med bogstaver op til ti, ellers cifre. */
@@ -150,20 +202,45 @@ function antalOrd(n) {
  *
  * Er fasen ikke i kalenderen (en konfigurationsfejl, som Spil-tidsplan
  * melder), lover teksten ingen dato.
+ *
+ * DATOEN ER ÉN FUNKTION, rundePuljeDato: "fredag 29. januar", "fra mandag
+ * 20. januar" for en fase over flere dage, null uden fasen. Invitationen
+ * (inviteTemplate.js) bruger den samme — den havde før sin egen kopi af
+ * logikken, og intet bandt de to (modstander-bemærkning M25).
  */
-function rundePuljeTekster(game, konfig) {
+function rundePuljeDato(game, konfig) {
+  if (konfig?.facitKilde !== 'runde') return null;
+  const fase = facitFase(game, konfig.facitFase);
+  const dato = fase ? fmtFaseStart(fase.start) : '';
+  if (!dato) return null;
+  return `${fase.dage > 1 ? 'fra ' : ''}${dato}`;
+}
+
+/**
+ * Teksterne (se ovenfor) — og med `nowMs`, når fasens startdag er PASSERET uden et facit, siger
+ * teksten det i stedet for at love en dato, der er gået (modstander-fund R4b):
+ *   "Puljen afgøres, når semifinalerne er lagt ind — de skulle være begyndt fredag 29. januar."
+ * Kalderen giver kun `nowMs`, når facit IKKE findes (PuljeTip): med facit er
+ * fasen lagt ind, og sætningen er bare reglen.
+ */
+function rundePuljeTekster(game, konfig, nowMs) {
   if (konfig?.facitKilde !== 'runde') return null;
   const fase = facitFase(game, konfig.facitFase);
   const ord = konfig.labels.top;
-  const dato = fase ? fmtFaseStart(fase.start) : '';
+  const dato = rundePuljeDato(game, konfig);
+  let afgoeres = `Puljen afgøres, når ${ord} er lagt ind.`;
+  if (dato && faseBegyndt(fase, nowMs)) {
+    afgoeres = `Puljen afgøres, når ${ord} er lagt ind — de skulle være begyndt ${fmtFaseStart(fase.start)}.`;
+  } else if (dato) {
+    afgoeres = `Puljen afgøres, når ${ord} er lagt ind — de spilles ${dato}.`;
+  }
   return {
     spoergsmaal: `Hvilke ${antalOrd(konfig.poolSize)} hold når ${ord}?`,
-    afgoeres: dato
-      ? `Puljen afgøres, når ${ord} er lagt ind — de spilles ${fase.dage > 1 ? 'fra ' : ''}${dato}.`
-      : `Puljen afgøres, når ${ord} er lagt ind.`,
+    afgoeres,
   };
 }
 
 module.exports = {
-  alleKampeSpillet, facitFase, faseHold, rundeFacit, puljeKanAfregnes, puljeKonfigFejl, rundePuljeTekster,
+  alleKampeSpillet, facitFase, faseHold, rundeFacit, puljeKanAfregnes, puljeKonfigFejl, puljeFaseFejl,
+  rundePuljeDato, rundePuljeTekster,
 };

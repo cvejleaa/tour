@@ -19,6 +19,7 @@ import { puljenTaeller, puljeMaksStartRunde, PULJE_MAKS_STARTRUNDE } from '../..
 import { puljeKanAfregnes, rundeFacit, rundePuljeTekster } from '../../../lib/puljeFacit';
 import { useGameStandings } from '../useGameStandings';
 import PuljeAfsloering from './PuljeAfsloering';
+import { rundeAfventerTekst } from './puljeAfsloering';
 import { useAuth } from '../../../context/AuthContext';
 import { COL } from '../../../lib/constants';
 import { teamsOf } from './teamInfo';
@@ -208,7 +209,10 @@ export default function PuljeTip({ game, matches }) {
   }, [konfig, seasonDone, matches]);
 
   if (!konfig) return null; // fanen er data-gated, men bæltet OG selerne
-  const rundeTekst = rundePuljeTekster(game, konfig);
+  // Uret gives KUN uden facit: er semifinalernes startdag passeret, og der
+  // stadig intet facit er, lover teksten ikke en dato, der er gået. Med
+  // facit er fasen lagt ind, og sætningen er bare reglen.
+  const rundeTekst = rundePuljeTekster(game, konfig, seasonDone ? undefined : Date.now());
   if (bet === undefined) return <div className="spinner" role="status" aria-label="Indlæser" />;
 
   const valg = { antal: konfig.poolSize, perTeam: konfig.perTeam, perfectBonus: konfig.perfectBonus };
@@ -395,7 +399,7 @@ export default function PuljeTip({ game, matches }) {
           </div>
           {ventetPaaAfregning && (
             <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0.35rem 0 0' }}>
-              {`${konfig.labels.top.charAt(0).toUpperCase()}${konfig.labels.top.slice(1)} er lagt ind. Pointene skrives på stillingen senest ved næste afgjorte kamp.`}
+              {rundeAfventerTekst(konfig)}
             </p>
           )}
           {konfig.nedSize > 0 && (

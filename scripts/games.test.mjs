@@ -17,6 +17,7 @@ import { GAMES } from './games.mjs';
 import { SPORT_PROFILER, ukendtSport } from '../src/lib/superligaScoring.js';
 import { faseKalenderFejl } from '../src/lib/faser.js';
 import { puljeKonfigFejl } from '../src/lib/puljeFacit.js';
+import { HAANDBOLD_SPIL } from '../src/test/faseKalender.js';
 import { ADMIN_OWNED } from './seed-payload.mjs';
 import { SEED_FILER } from './seed-filer.mjs';
 
@@ -272,11 +273,45 @@ describe('seed-filer pr. spil', () => {
 // antalKampe, eller passer poolSize ikke til fasens hold, kan puljen ALDRIG
 // afgøres — og det ville først vise sig ved semifinalerne. Skrevet med merge,
 // så den første kørsel er den eneste gode chance (se toppen af filen).
+/**
+ * Hvad der forhindrer en post i at blive seedet med sin pulje. Ud over
+ * puljeKonfigFejl: en runde-pulje skal have en EKSPLICIT puljegrænse
+ * (ejeren 2/11: «ingen ny tavs default» — standarden 3 er SL/PL's).
+ */
+function puljeSeedFejl(g) {
+  const fejl = puljeKonfigFejl(g);
+  const v = g?.pulje?.maksStartRunde;
+  if (g?.pulje?.facitKilde === 'runde' && !(Number.isInteger(v) && v >= 1)) {
+    fejl.push('maksStartRunde skal sættes eksplicit på en runde-pulje (ejerens valg — håndbold-VM: 1)');
+  }
+  return fejl;
+}
+
 describe('runde-puljer på spillene', () => {
   it('hver pulje i listen kan afgøres', () => {
     for (const g of GAMES.filter((x) => x.pulje)) {
-      expect(puljeKonfigFejl(g), g.id).toEqual([]);
+      expect(puljeSeedFejl(g), g.id).toEqual([]);
     }
+  });
+
+  // I DAG HAR LISTEN INGEN RUNDE-PULJE (hvm2027 kommer med D6), så testen
+  // ovenfor kan ikke blive rød af en. Her bevises vagten på den form, D6
+  // skal skrive — og på de fejl, den skal fange (modstander-bemærkning).
+  it('vagten er rød på en forkert runde-pulje og grøn på den tilsigtede form', () => {
+    const TILSIGTET = {
+      ...HAANDBOLD_SPIL,
+      pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', maksStartRunde: 1, labels: { overskrift: '🏆 Semifinalisterne' } },
+      puljeLockRound: 1,
+    };
+    expect(puljeSeedFejl(TILSIGTET)).toEqual([]);
+    const uden = { ...TILSIGTET, pulje: { ...TILSIGTET.pulje, maksStartRunde: undefined } };
+    expect(puljeSeedFejl(uden)).toEqual(['maksStartRunde skal sættes eksplicit på en runde-pulje (ejerens valg — håndbold-VM: 1)']);
+    expect(puljeSeedFejl({ ...TILSIGTET, pulje: { ...TILSIGTET.pulje, maksStartRunde: 0 } })).toHaveLength(1);
+    expect(puljeSeedFejl({ ...TILSIGTET, pulje: { ...TILSIGTET.pulje, facitFase: 'Ottendedele' } }))
+      .toEqual(['fasen «Ottendedele» findes ikke i kalenderen']);
+    expect(puljeSeedFejl({ ...TILSIGTET, pulje: { ...TILSIGTET.pulje, poolSize: 8 } })).toHaveLength(1);
+    // SL/PL-formen kræver ingen grænse — standarden er deres.
+    expect(puljeSeedFejl({ pulje: { poolSize: 6 } })).toEqual([]);
   });
 
   // FRAVÆRS-ASSERTION MED VILJE: Superligaen og Premier League skal have

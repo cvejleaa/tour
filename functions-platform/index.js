@@ -25,7 +25,7 @@ const crypto = require('crypto');
 const {
   recomputeGameMatchCore, recomputeSeasonElo, recomputeAllPlayerTotals, rescoreAllBets,
   dryRunFraKald, omprisFraKnap,
-  puljeTipKomplet,
+  puljeTipKomplet, settlePuljeBets,
 } = require('./gameScoring');
 const {
   syncResultsCore, syncStandingsCore, runScheduledSyncAll, syncKickoffsCore, syncXgCore,
@@ -303,6 +303,35 @@ exports.recomputeGameScores = onCall({ region: REGION }, async (request) => {
   const gameId = String(request.data?.gameId || '').trim();
   if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
   return recomputeAllPlayerTotals(db, FieldValue, gameId);
+});
+
+// afregnPuljeNu — afregn spillets pulje-tip MED VILJE.
+//
+// HVORFOR DEN FINDES. Triggeren (recomputeGameMatch → settlePuljeBets) kører
+// kun, når en kamps facit ÆNDRER sig. En runde-pulje ("hvem når
+// semifinalerne?") afgøres af, at en fase LÆGGES IND — og rettes en fejl i
+// fasens kampe eller i puljens konfiguration efter finalen, ville intet
+// starte afregningen igen (modstander-fund R4a; CLAUDE.md: en funktion, der
+// kun kan startes af en tilfældig hændelse, er ikke færdig).
+//
+// HVAD DEN GØR: præcis det, triggeren gør — settlePuljeBets er self-guardet
+// og idempotent — og intet andet. Den rører ingen bets og ingen kampe.
+//
+// dryRun er DEFAULT SAND, som rescoreGameBets: kun et eksplicit dryRun: false
+// skriver. Tør-kørslen svarer med facit, antal tip og point i alt — eller
+// hvorfor puljen ikke kan afgøres.
+exports.afregnPuljeNu = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const gameId = String(request.data?.gameId || '').trim();
+  if (!gameId) throw new HttpsError('invalid-argument', 'Mangler spil-id.');
+  const dryRun = request.data?.dryRun !== false;
+  const snap = await db.collection('games').doc(gameId).collection('matches').get();
+  const matches = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+  const res = await settlePuljeBets(db, FieldValue, gameId, matches, { dryRun });
+  // dryRun bæres ALTID i svaret, så fladen kan skelne en tør fra en våd
+  // kørsel (samme fælde som Ompris: "afregnet" om en kørsel, der intet skrev).
+  return { ...res, dryRun };
 });
 
 // rescoreGameBets — genscor ALLE bets mod deres kamps facit.

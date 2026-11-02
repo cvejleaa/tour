@@ -376,38 +376,86 @@ describe('alle kaldere giver spillets puljegrænse med', () => {
     expect(alle.length).toBeGreaterThanOrEqual(8);
   });
 
-  it('puljenTaeller får altid en grænse', () => {
-    const mangler = [];
-    for (const f of filer.filter((x) => !DEFINITIONER.test(x))) {
-      for (const args of kald(readFileSync(f, 'utf8'), 'puljenTaeller')) {
-        if (args.length < 2) mangler.push(`${f}: puljenTaeller(${args.join(', ')})`);
-      }
+  // DET ER IKKE NOK AT TÆLLE ARGUMENTERNE (modstander-fund R2). `puljenTaeller(x,
+  // 3)` og `ligaPointFor(null)` har det rigtige antal, men regner med
+  // standarden — og otte sådanne mutanter overlevede hele suiten. Grænsen
+  // skal være SPILLETS: et kald af puljeMaksStartRunde(<spil>), en variabel i
+  // samme fil, der er sat til netop det, eller — i en videresendende funktion
+  // — dens egen `maks`-parameter med standardværdi (og så tjekkes DENS
+  // kaldere i stedet: ligaOpdeling og puljeLigaForbehold er med nedenfor).
+  const SPIL_ARG = /^[A-Za-z_$][\w$]*(\??\.[A-Za-z_$][\w$]*)*$/;
+  const erSpilArg = (a) => SPIL_ARG.test(a || '') && !['null', 'undefined', 'true', 'false'].includes(a);
+  /** Variabler i filen, der er sat til spillets grænse: `const x = puljeMaksStartRunde(game)`. */
+  function graenseVariabler(kilde) {
+    const ud = new Set();
+    for (const m of kilde.matchAll(/(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*puljeMaksStartRunde\(\s*([^()]*?)\s*\)/g)) {
+      if (erSpilArg(m[2])) ud.add(m[1]);
     }
-    expect(mangler).toEqual([]);
-  });
+    return ud;
+  }
+  /** Videresender filen en `maks`-parameter med standardværdi? */
+  const videresender = (kilde) => /[(,]\s*maks\s*=\s*PULJE_MAKS_STARTRUNDE\s*[,)]/.test(kilde);
+  function erSpilletsGraense(arg, kilde) {
+    const a = (arg || '').trim();
+    const m = a.match(/^puljeMaksStartRunde\(\s*(.*?)\s*\)$/);
+    if (m) return erSpilArg(m[1]);
+    if (graenseVariabler(kilde).has(a)) return true;
+    return a === 'maks' && videresender(kilde);
+  }
+  /** En definition (en parameter har en standardværdi) er ikke et kald. */
+  const erDefinition = (args) => args.some((x) => /^[A-Za-z_$][\w$]*\s*=[^=>]/.test(x));
+  // [funktion, grænsens plads, gælder kun når…]
+  const KRAV = [
+    ['puljenTaeller', 1],
+    ['ligaPoint', 3, (args) => args[1] !== 'null'],  // uden startrunde tæller puljen altid
+    ['ligaOpdeling', 4],
+    ['puljeLigaForbehold', 1],
+  ];
 
-  it('ligaPoint med en startrunde får altid en grænse — og sendes aldrig bar som regnefunktion', () => {
+  it('hver kalder giver SPILLETS grænse — ikke et tal, ikke null, ikke ingenting', () => {
     const mangler = [];
+    let set = 0;
     for (const f of filer.filter((x) => !DEFINITIONER.test(x))) {
       const kilde = readFileSync(f, 'utf8');
-      for (const args of kald(kilde, 'ligaPoint')) {
-        // Uden startrunde (null) tæller puljen altid — grænsen er ligegyldig.
-        if (args[1] !== 'null' && args.length < 4) mangler.push(`${f}: ligaPoint(${args.join(', ')})`);
+      for (const [navn, plads, gaelder] of KRAV) {
+        for (const args of kald(kilde, navn)) {
+          if (erDefinition(args) || (gaelder && !gaelder(args))) continue;
+          set += 1;
+          if (!erSpilletsGraense(args[plads], kilde)) mangler.push(`${f}: ${navn}(${args.join(', ')})`);
+        }
       }
       // ligaRanking(..., ligaPoint, ...) / rundePile(..., ligaPoint, ...)
       if (/[(,]\s*ligaPoint\s*[,)]/.test(kilde)) mangler.push(`${f}: bar ligaPoint som argument — brug ligaPointFor(game)`);
-    }
-    expect(mangler).toEqual([]);
-  });
-
-  it('ligaOpdeling får altid en grænse', () => {
-    const mangler = [];
-    for (const f of filer) {
-      for (const args of kald(readFileSync(f, 'utf8'), 'ligaOpdeling')) {
-        if (args[0]?.startsWith('perRound') && args.length >= 5) continue; // definitionen
-        if (args.length < 5) mangler.push(`${f}: ligaOpdeling(${args.join(', ')})`);
+      for (const navn of ['ligaPointFor', 'puljeMaksStartRunde']) {
+        for (const args of kald(kilde, navn)) {
+          if (erDefinition(args)) continue;
+          if (args.length !== 1 || !erSpilArg(args[0])) mangler.push(`${f}: ${navn}(${args.join(', ')})`);
+        }
       }
     }
     expect(mangler).toEqual([]);
+    // Ikke tom: en scanning, der intet fandt, ville også være grøn.
+    expect(set).toBeGreaterThanOrEqual(10);
+  });
+
+  // VAGTEN SKAL KUNNE BLIVE RØD — på præcis de former, der overlevede.
+  it('scanningen fanger de overlevende former', () => {
+    const kilde = 'const puljeMaks = puljeMaksStartRunde(game);\n';
+    expect(erSpilletsGraense('3', kilde)).toBe(false);
+    expect(erSpilletsGraense('PULJE_MAKS_STARTRUNDE', kilde)).toBe(false);
+    expect(erSpilletsGraense('puljeMaksStartRunde(null)', kilde)).toBe(false);
+    expect(erSpilletsGraense('puljeMaksStartRunde()', kilde)).toBe(false);
+    expect(erSpilletsGraense('maks', kilde)).toBe(false);          // ingen videresendende parameter her
+    expect(erSpilletsGraense('andenVariabel', kilde)).toBe(false);
+    expect(erSpilletsGraense('puljeMaks', kilde)).toBe(true);
+    expect(erSpilletsGraense('puljeMaksStartRunde(game)', kilde)).toBe(true);
+    expect(erSpilletsGraense('puljeMaksStartRunde(l.game)', kilde)).toBe(true);
+    expect(erSpilletsGraense('puljeMaks', 'const puljeMaks = puljeMaksStartRunde(null);')).toBe(false);
+    expect(erSpilletsGraense('maks', 'function f(a, maks = PULJE_MAKS_STARTRUNDE) {}')).toBe(true);
+    expect(erSpilArg('null')).toBe(false);
+    expect(erSpilArg('{}')).toBe(false);
+    expect(erSpilArg('game')).toBe(true);
+    expect(erDefinition(['perRound', 'maks = PULJE_MAKS_STARTRUNDE'])).toBe(true);
+    expect(erDefinition(['a', 'b === c'])).toBe(false);
   });
 });

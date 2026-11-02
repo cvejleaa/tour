@@ -17,6 +17,9 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('../../../components/ClubBadge', () => ({ default: () => null }));
 
 import PuljeAfsloering, { enegaengerTekst, ENEGAENGER_MINIMUM } from './PuljeAfsloering';
+import { rundeAfventerTekst } from './puljeAfsloering';
+import { puljeKonfig } from '../../../lib/superligaScoring';
+import { HAANDBOLD_SPIL } from '../../../test/faseKalender';
 
 // F er med, men INGEN vælger det — "ingen tror på F" skal stå i tabellen.
 const TEAMS = ['A', 'B', 'C', 'D', 'E', 'F'].map((n) => ({ name: n, short: n }));
@@ -274,6 +277,13 @@ describe('PuljeAfsloering — sæsonslut, én kilde til tallet', () => {
     expect(screen.getByText(/Intet er afgjort endnu/)).toBeInTheDocument();
     const raekker = raekkerI(screen.getByTestId('pulje-holdtabel'));
     expect(raekker.find((r) => r.startsWith('A'))).toContain('🏆');
+    // LIGA-PULJEN ER UÆNDRET af runde-grenen: fodnoten er stadig "lige nu",
+    // og pokalen siger stadig "står der lige nu" — ikke "Facit".
+    expect(screen.getByTestId('pulje-rangliste-fodnote').textContent)
+      .toBe('Lige nu, hvis tabellen sluttede i dag. Intet er afgjort endnu.');
+    expect(screen.getByTestId('pulje-holdtabel').querySelector('[title="Står der lige nu"]')).not.toBeNull();
+    expect(screen.getByTestId('pulje-holdtabel').querySelector('[title="Facit"]')).toBeNull();
+    expect(screen.queryByTestId('pulje-rangliste-venter')).toBeNull();
   });
 
   it('hverken "lige nu" eller facit (tidligt i sæsonen): tabellen står, ingen 🏆, alle 0', async () => {
@@ -281,6 +291,74 @@ describe('PuljeAfsloering — sæsonslut, én kilde til tallet', () => {
     const tabel = await screen.findByTestId('pulje-holdtabel');
     expect(tabel.textContent).not.toContain('🏆');
     expect(screen.getByTestId('pulje-rangliste').textContent).toMatch(/du — 0 af 3/);
+    // Liga-puljen beholder sin rangliste — venter-linjen er runde-puljens.
+    expect(screen.queryByTestId('pulje-rangliste-venter')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RUNDE-PULJEN ("semifinalisterne"). Den har intet "lige nu" — PuljeTip giver
+// `ligeNu: null` — og afsløringen viste derfor «0 af 4» for alle under «hvis
+// tabellen sluttede i dag», og efter semifinalerne «Intet er afgjort endnu»
+// lige under et facit-kort, der sagde det modsatte (modstander-fund B1).
+// Konfigurationen er den RIGTIGE puljeKonfig af et spil med fasekalender.
+// ---------------------------------------------------------------------------
+describe('PuljeAfsloering — runde-puljen', () => {
+  const VM = ['DK', 'NO', 'FR', 'ES', 'SE', 'HR'].map((n) => ({ name: n, short: n }));
+  const KONFIG_RUNDE = puljeKonfig({
+    ...HAANDBOLD_SPIL, pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' },
+  });
+  const TIP = [
+    { uid: 'me', championship: ['DK', 'FR', 'SE', 'HR'] },
+    { uid: 'u2', championship: ['DK', 'FR', 'SE', 'NO'] },
+  ];
+  const runde = (over = {}) => props({ teams: VM, konfig: KONFIG_RUNDE, ligeNu: null, facit: null, ...over });
+  const SEMI = { top: ['DK', 'FR', 'SE', 'HR'], bund: null };
+
+  it('konfigurationen ER en runde-pulje (ellers beviser resten intet)', () => {
+    expect(KONFIG_RUNDE.facitKilde).toBe('runde');
+    expect(KONFIG_RUNDE.labels.top).toBe('semifinalerne');
+  });
+
+  it('før semifinalerne: ingen rangliste, ingen "lige nu" — men hvornår den kommer', async () => {
+    mockSvar.current = TIP;
+    render(<PuljeAfsloering {...runde()} />);
+    await screen.findByTestId('pulje-holdtabel');
+    expect(screen.getByTestId('pulje-rangliste-venter').textContent)
+      .toBe('Ranglisten kommer, når semifinalerne er lagt ind.');
+    expect(screen.queryByTestId('pulje-rangliste')).toBeNull();
+    const tekst = screen.getByTestId('pulje-afsloering').textContent;
+    expect(tekst).not.toMatch(/Lige nu|hvis tabellen sluttede i dag|Intet er afgjort|0 af 4/);
+    expect(tekst).not.toContain('🏆');
+  });
+
+  it('semifinalerne lagt ind, ikke afregnet: endelige tal og SAMME sætning som facit-kortet', async () => {
+    mockSvar.current = TIP;
+    render(<PuljeAfsloering {...runde({ facit: SEMI })} />);
+    const liste = await screen.findByTestId('pulje-rangliste');
+    expect(liste.textContent).toMatch(/du — 4 af 4/);
+    expect(liste.textContent).toMatch(/Bo — 3 af 4/);
+    expect(screen.getByTestId('pulje-rangliste-fodnote').textContent)
+      .toBe('Semifinalerne er lagt ind. Pointene skrives på stillingen senest ved næste afgjorte kamp.');
+    expect(screen.getByTestId('pulje-rangliste-fodnote').textContent).toBe(rundeAfventerTekst(KONFIG_RUNDE));
+    const tekst = screen.getByTestId('pulje-afsloering').textContent;
+    expect(tekst).not.toMatch(/Lige nu|hvis tabellen sluttede i dag|Intet er afgjort/);
+    expect(screen.queryByTestId('pulje-rangliste-venter')).toBeNull();
+    // Pokalen er facit, ikke "står der lige nu".
+    const tabel = screen.getByTestId('pulje-holdtabel');
+    expect(tabel.querySelector('[title="Facit"]')).not.toBeNull();
+    expect(tabel.querySelector('[title="Står der lige nu"]')).toBeNull();
+    expect(screen.queryByTestId('pulje-vinder')).toBeNull();
+  });
+
+  it('afregnet: vinderen og ingen fodnote', async () => {
+    mockSvar.current = [
+      { ...TIP[0], correct: 4, points: 26 }, { ...TIP[1], correct: 3, points: 12 },
+    ];
+    render(<PuljeAfsloering {...runde({ facit: SEMI })} />);
+    expect((await screen.findByTestId('pulje-vinder')).textContent).toContain('vandt med 4 af 4');
+    expect(screen.queryByTestId('pulje-rangliste-fodnote')).toBeNull();
+    expect(screen.queryByTestId('pulje-rangliste-venter')).toBeNull();
   });
 });
 

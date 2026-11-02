@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   alleKampeSpillet, facitFase, faseHold, rundeFacit, puljeKanAfregnes, puljeKonfigFejl,
-  rundePuljeTekster,
+  puljeFaseFejl, rundePuljeDato, rundePuljeTekster,
 } from './puljeFacit';
 import { puljeKonfig } from './superligaScoring';
 import { TEST_FASER, HAANDBOLD_SPIL, kl18 } from '../test/faseKalender';
@@ -138,6 +138,10 @@ describe('puljeKonfigFejl — en pulje, der aldrig kan afgøres, siges højt', (
       .toEqual(['fasen «Ottendedele» findes ikke i kalenderen']);
     expect(puljeKonfigFejl({ ...HVM, pulje: { ...RUNDE_PULJE, poolSize: 6 } }))
       .toEqual(['puljen beder om 6 hold, men «Semifinaler» har 4 (2 kampe)']);
+    // …og FOR FÅ er også en fejl (M07b: «!==» → «>» overlevede, fordi kun
+    // «6 > 4» var testet).
+    expect(puljeKonfigFejl({ ...HVM, pulje: { ...RUNDE_PULJE, poolSize: 2 } }))
+      .toEqual(['puljen beder om 2 hold, men «Semifinaler» har 4 (2 kampe)']);
     // Manglende poolSize er 6 i normalizeren — og det er det, fladen beder om.
     expect(puljeKonfigFejl({ ...HVM, pulje: { facitKilde: 'runde', facitFase: 'Semifinaler' } }))
       .toEqual(['puljen beder om 6 hold, men «Semifinaler» har 4 (2 kampe)']);
@@ -194,5 +198,106 @@ describe('rundePuljeTekster — ordene og datoen kommer af kalenderen', () => {
   it('tal over ti skrives med cifre', () => {
     const g = { ...HVM, pulje: { ...RUNDE_PULJE, poolSize: 16 } };
     expect(rundePuljeTekster(g, puljeKonfig(g)).spoergsmaal).toBe('Hvilke 16 hold når semifinalerne?');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FASENS KAMPE LAGT FORKERT IND (modstander-fund R4b). faseHold svarer null
+// både for "ikke lagt ind endnu" og for "lagt forkert ind"; den første er
+// normal, den anden en tavs fejl. Semifinalerne starter fredag 29/1 2027.
+// ---------------------------------------------------------------------------
+describe('puljeFaseFejl — fasen lagt forkert ind siges højt', () => {
+  const FOER = Date.parse('2027-01-28T12:00:00Z');   // dagen før
+  const DAGEN = Date.parse('2027-01-29T22:00:00Z');  // fredag aften, dansk tid (23.00)
+  const EFTER = Date.parse('2027-01-30T12:00:00Z');  // dagen efter
+
+  it('rigtigt lagt ind: ingen fejl — før, på og efter startdagen', () => {
+    for (const t of [FOER, DAGEN, EFTER]) expect(puljeFaseFejl(HVM, [...KVART, ...SEMI], t)).toBeNull();
+  });
+
+  it('ikke lagt ind endnu er IKKE en fejl — før og på startdagen', () => {
+    for (const t of [FOER, DAGEN]) {
+      expect(puljeFaseFejl(HVM, KVART, t)).toBeNull();
+      expect(puljeFaseFejl(HVM, [...KVART, SEMI[0]], t)).toBeNull();
+      expect(puljeFaseFejl(HVM, [...KVART, SEMI[0], { ...SEMI[1], away: '' }], t)).toBeNull();
+    }
+  });
+
+  it('efter startdagen er en manglende kamp en fejl — med tal og dato', () => {
+    expect(puljeFaseFejl(HVM, KVART, EFTER))
+      .toBe('«Semifinaler» skulle være begyndt fredag 29. januar, men kun 0 af 2 kampe er lagt ind');
+    expect(puljeFaseFejl(HVM, [...KVART, SEMI[0]], EFTER))
+      .toBe('«Semifinaler» skulle være begyndt fredag 29. januar, men kun 1 af 2 kampe er lagt ind');
+  });
+
+  it('efter startdagen er et manglende hold en fejl', () => {
+    expect(puljeFaseFejl(HVM, [...KVART, SEMI[0], { ...SEMI[1], away: '' }], EFTER))
+      .toBe('«Semifinaler» skulle være begyndt fredag 29. januar, men et hold mangler i fasens kampe');
+    expect(puljeFaseFejl(HVM, [...KVART, SEMI[0], { ...SEMI[1], home: null, away: ' ' }], EFTER))
+      .toBe('«Semifinaler» skulle være begyndt fredag 29. januar, men 2 hold mangler i fasens kampe');
+  });
+
+  it('for mange kampe og et hold i to kampe er fejl MED DET SAMME', () => {
+    const tre = [...KVART, ...SEMI, { id: 'x', round: 16, home: 'NO', away: 'ES' }];
+    expect(puljeFaseFejl(HVM, tre, FOER)).toBe('«Semifinaler» har 3 kampe, men kalenderen siger 2');
+    const dublet = [...KVART, SEMI[0], { ...SEMI[1], home: 'DK' }];
+    expect(puljeFaseFejl(HVM, dublet, FOER)).toBe('DK står i to kampe i «Semifinaler»');
+  });
+
+  it('en konfigurationsfejl meldes af puljeKonfigFejl, ikke her — og liga-puljer har aldrig fejl her', () => {
+    expect(puljeFaseFejl({ ...HVM, pulje: { ...RUNDE_PULJE, facitFase: 'Ottendedele' } }, KVART, EFTER)).toBeNull();
+    for (const g of [{ pulje: { poolSize: 6 } }, { pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe' } }, HAANDBOLD_SPIL, null]) {
+      expect(puljeFaseFejl(g, KVART, EFTER)).toBeNull();
+    }
+  });
+
+  it('uden et ur er intet "begyndt" — kun de strukturelle fejl meldes', () => {
+    expect(puljeFaseFejl(HVM, KVART, undefined)).toBeNull();
+    expect(puljeFaseFejl(HVM, [...KVART, SEMI[0], { ...SEMI[1], home: 'DK' }], undefined)).toBe('DK står i to kampe i «Semifinaler»');
+  });
+
+  // DEN BINDENDE EGENSKAB: efter startdagen er "intet facit" ALDRIG tavst.
+  // Hver liste, hvor faseHold er null, har en grund — og hver grund betyder,
+  // at der intet facit er.
+  it('efter startdagen: faseHold null ⇔ en fejl (matrix)', () => {
+    const LISTER = [
+      KVART, [...KVART, ...SEMI], [...KVART, SEMI[0]], [...KVART, SEMI[0], { ...SEMI[1], away: '' }],
+      [...KVART, SEMI[0], { ...SEMI[1], home: 'DK' }], [...KVART, ...SEMI, { id: 'x', round: 16, home: 'NO', away: 'ES' }],
+      [...KVART, SEMI[0], { ...SEMI[1], home: '  ' }], [...SEMI],
+    ];
+    let nul = 0;
+    for (const liste of LISTER) {
+      const tomt = faseHold(HVM, liste, 'Semifinaler') == null;
+      if (tomt) nul += 1;
+      expect(puljeFaseFejl(HVM, liste, EFTER) != null, JSON.stringify(liste.slice(-2))).toBe(tomt);
+    }
+    expect(nul).toBeGreaterThanOrEqual(5); // matrixen rammer begge udfald
+  });
+});
+
+describe('rundePuljeDato og den forsinkede tekst', () => {
+  it('datoen er én funktion — med "fra" over flere dage, null uden fasen', () => {
+    expect(rundePuljeDato(HVM, K)).toBe('fredag 29. januar');
+    const kvart = { ...HVM, pulje: { ...RUNDE_PULJE, facitFase: 'Kvartfinaler', poolSize: 8 } };
+    expect(rundePuljeDato(kvart, puljeKonfig(kvart))).toBe('fra onsdag 27. januar');
+    expect(rundePuljeDato({ ...HVM, faser: undefined }, puljeKonfig({ ...HVM, faser: undefined }))).toBeNull();
+    expect(rundePuljeDato({ pulje: { poolSize: 6 } }, puljeKonfig({ pulje: { poolSize: 6 } }))).toBeNull();
+  });
+
+  it('er startdagen passeret, loves ingen dato, der er gået', () => {
+    const efter = Date.parse('2027-01-30T12:00:00Z');
+    expect(rundePuljeTekster(HVM, K, efter).afgoeres)
+      .toBe('Puljen afgøres, når semifinalerne er lagt ind — de skulle være begyndt fredag 29. januar.');
+    // Over flere dage: "skulle være begyndt" UDEN "fra".
+    const kvart = { ...HVM, pulje: { ...RUNDE_PULJE, facitFase: 'Kvartfinaler', poolSize: 8 } };
+    expect(rundePuljeTekster(kvart, puljeKonfig(kvart), efter).afgoeres)
+      .toBe('Puljen afgøres, når kvartfinalerne er lagt ind — de skulle være begyndt onsdag 27. januar.');
+  });
+
+  it('på startdagen og før: som før — og uden ur: som før', () => {
+    for (const t of [Date.parse('2027-01-29T22:00:00Z'), Date.parse('2027-01-01T12:00:00Z'), undefined]) {
+      expect(rundePuljeTekster(HVM, K, t).afgoeres)
+        .toBe('Puljen afgøres, når semifinalerne er lagt ind — de spilles fredag 29. januar.');
+    }
   });
 });

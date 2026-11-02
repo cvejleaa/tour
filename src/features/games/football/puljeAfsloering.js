@@ -152,3 +152,28 @@ export function puljeVindere(raekker) {
   if (bedst <= 0) return null;
   return med.filter((r) => (r.point ?? 0) === bedst);
 }
+
+/**
+ * Sætningen, når en RUNDE-puljes facit er kendt, men serveren endnu ikke har
+ * afregnet: "Semifinalerne er lagt ind. Pointene skrives på stillingen senest
+ * ved næste afgjorte kamp."
+ *
+ * ÉT STED, TO FLADER. Facit-kortet (PuljeTip) og afsløringens rangliste
+ * (PuljeAfsloering) står på samme skærm. Den ene sagde dette, den anden «Lige
+ * nu, hvis tabellen sluttede i dag. Intet er afgjort endnu» — to nabotekster,
+ * der modsagde hinanden om samme facit (modstander-fund B1).
+ * @param {{labels:{top:string}}} konfig  puljeKonfig(game)
+ */
+export function rundeAfventerTekst(konfig) {
+  const ord = konfig?.labels?.top || '';
+  return `${ord.charAt(0).toUpperCase()}${ord.slice(1)} er lagt ind. Pointene skrives på stillingen senest ved næste afgjorte kamp.`;
+}
+
+/**
+ * Sætningen, før en RUNDE-puljes facit findes: "Ranglisten kommer, når
+ * semifinalerne er lagt ind." Uden den viste afsløringen «0 af 4» for alle
+ * under «hvis tabellen sluttede i dag» — en rangliste over intet.
+ */
+export function rundeRanglisteVenter(konfig) {
+  return `Ranglisten kommer, når ${konfig?.labels?.top || ''} er lagt ind.`;
+}

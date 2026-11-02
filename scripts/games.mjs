@@ -38,15 +38,22 @@
 //          (2 × antalKampe); games.test.mjs afviser andet. Ordene (fx
 //          "semifinalerne") kommer af kalenderen, ikke af labels.
 //          `maksStartRunde` er den sidste startrunde, en liga må have og stadig
-//          få puljen med (standard 3 — se ligaPoint.js). I en turnering er en
-//          runde en DAG, så 3 betyder, at en liga oprettet på 4. spilledag
-//          mister puljebonussen. Feltet sættes kun efter ejerens valg.
-//          DEADLINEN: `puljeLockRound` udledes KUN af en kickoff-synk. Har
-//          spillet ingen (provideren er ikke i drift), sættes `puljeLockAt` i
-//          hånden under Spil-tidsplan — feltet bliver redigerbart af sig selv
-//          (GameScheduleTab: puljeRundeUdenSynk). Skriv `pulje` og deadlinen
-//          i SAMME seed: en pulje uden deadline står "Endnu ikke åbnet", og en
-//          deadline uden pulje er en deadline uden fane (GamePage: kraever).
+//          få puljen med (standard 3 i KODEN — se ligaPoint.js — men kun for
+//          Superligaen og Premier League). I en turnering er en runde en DAG,
+//          så 3 betyder, at en liga oprettet på 4. spilledag mister
+//          puljebonussen. Ejeren 2/11: et NYT spil sætter værdien eksplicit
+//          (håndbold-VM: 1 — kun ligaer fra første spilledag), og
+//          games.test.mjs afviser en runde-pulje uden den.
+//          DEADLINEN — ÉN af to former, og altid i SAMME post som `pulje` (en
+//          pulje uden deadline står "Endnu ikke åbnet", og en deadline uden
+//          pulje er en deadline uden fane — GamePage: kraever):
+//            · med kickoff-synk: `puljeLockRound` — synken udleder
+//              puljeLockAt af rundens tidligste kickoff;
+//            · uden (provideren er ikke i drift endnu): `puljeLockAt` som fast
+//              dato HER. Feltet under Spil-tidsplan er redigerbart netop i
+//              det tilfælde (GameScheduleTab: puljeRundeUdenSynk), men
+//              puljeLockAt er ikke admin-ejet (seed-payload.mjs), så næste
+//              seed skriver værdien herfra tilbage — ret den derfor her.
 //
 // ET SPIL UDEN IMPLEMENTERET PROVIDER SYNKES IKKE — OG INGEN OPDAGER DET.
 // Synk, sweep og strandede-alarm løber over SYNCED_GAMES i functions-

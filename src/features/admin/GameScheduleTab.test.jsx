@@ -31,13 +31,16 @@ const mockReprice = vi.fn();
 const mockSyncKickoffs = vi.fn();
 const mockSyncResults = vi.fn();
 const mockSyncDetaljer = vi.fn();
+const mockAfregn = vi.fn();
+const mockBackfill = vi.fn().mockResolvedValue({ ok: true, data: {} });
 vi.mock('./adminActions', () => ({
   callRecomputeGameScores: vi.fn().mockResolvedValue({ ok: true, data: {} }),
-  callBackfillPlayerLeagues: vi.fn().mockResolvedValue({ ok: true, data: {} }),
+  callBackfillPlayerLeagues: (...a) => mockBackfill(...a),
   callRepriceGameOdds: (...a) => mockReprice(...a),
   callSyncGameKickoffs: (...a) => mockSyncKickoffs(...a),
   callSyncGameResults: (...a) => mockSyncResults(...a),
   callSyncGameKampdetaljer: (...a) => mockSyncDetaljer(...a),
+  callAfregnPuljeNu: (...a) => mockAfregn(...a),
   callSaetFacitManuelt: vi.fn(),
   callFrigivFacitTilSynk: vi.fn(),
 }));
@@ -926,7 +929,8 @@ describe('rundebaseret pulje-deadline', () => {
 
   it('viser pulje-deadlinen som OPLYSNING, ikke som redigerbart input', () => {
     render(<GameScheduleTab />);
-    expect(screen.getByText(/udledt af runde 3/i)).toBeInTheDocument();
+    // Uden kalender PRÆCIS som før: «runde 3» med lille r.
+    expect(screen.getByText(/\(udledt af runde 3\)/)).toBeInTheDocument();
     expect(screen.getByText(/udledes automatisk til rundens tidligste/i)).toBeInTheDocument();
     // Ingen redigerbar deadline: det rene felt-navn hører kun til det manuelle input.
     expect(screen.queryByText('🎖️ Bonus-/pulje-deadline')).not.toBeInTheDocument();
@@ -1336,10 +1340,131 @@ describe('pulje i en turnering', () => {
     expect(patch).toHaveProperty('puljeLockAt', new Date('2027-01-13T17:00').getTime());
   });
 
+  // Knappen stod urørt i fladevagtens basislinje. Den nye pulje-knap foran
+  // den flyttede dens plads i rækkefølgen, så den blev rørt i stedet for at
+  // blive skubbet videre i basislinjen.
+  it('🔐 Genopbyg liga-adgang: kalder backfill for spillet og siger, hvad der blev rettet', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    mockBackfill.mockResolvedValueOnce({ ok: true, data: { players: 12, changed: 2, bets: 40, betsChanged: 3 } });
+    render(<GameScheduleTab />);
+    fireEvent.click(screen.getByRole('button', { name: '🔐 Genopbyg liga-adgang til stilling og tips' }));
+    expect(await screen.findByText('Gennemgik 12 spillere (rettede 2) og 40 tips (rettede 3).')).toBeInTheDocument();
+    expect(mockBackfill).toHaveBeenCalledWith('hvm');
+    mockBackfill.mockResolvedValueOnce({ ok: false, error: 'Kun admin.' });
+    fireEvent.click(screen.getByRole('button', { name: '🔐 Genopbyg liga-adgang til stilling og tips' }));
+    expect(await screen.findByText('Kun admin.')).toBeInTheDocument();
+  });
+
+  // --- 🎖️ Afregn puljen med vilje (modstander-fund R4a) ----------------------
+  // Triggeren afregner kun ved en facit-ÆNDRING. En runde-pulje afgøres af,
+  // at en fase lægges ind — rettes fasen efter finalen, ville intet starte
+  // afregningen. Knappen findes KUN for en runde-pulje.
+  const afregnKnap = () => screen.getByRole('button', { name: '🎖️ Afregn puljen — vis hvad der sker' });
+
+  it('knappen findes for en runde-pulje — og IKKE for Superligaen, Premier League eller et spil uden pulje', () => {
+    mockGames.mockReturnValue({
+      games: [
+        { id: 'sl', name: 'SL', type: 'football', pulje: { poolSize: 6 } },
+        { id: 'pl', name: 'PL', type: 'football', pulje: { poolSize: 4, nedSize: 3, facitKilde: 'egneKampe' } },
+        { id: 'x', name: 'X', type: 'football' },
+      ],
+      loading: false,
+    });
+    const { unmount } = render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Afregn puljen/ })).toBeNull();
+    unmount();
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    render(<GameScheduleTab />);
+    expect(afregnKnap()).toBeInTheDocument();
+  });
+
+  it('tør → skriv: tør-kørslen viser facit, tip og point; først DEREFTER kan der afregnes', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    mockAfregn.mockResolvedValueOnce({
+      ok: true,
+      data: { settled: 0, dryRun: true, kanAfregnes: true, aarsag: null, fejl: [], facit: ['DK', 'FR', 'SE', 'HR'], tip: 2, point: 30 },
+    });
+    render(<GameScheduleTab />);
+    expect(screen.queryByRole('button', { name: /Afregn de/ })).toBeNull();
+    fireEvent.click(afregnKnap());
+    await waitFor(() => expect(screen.getByTestId('pulje-afregn-besked')).toBeInTheDocument());
+    expect(mockAfregn).toHaveBeenLastCalledWith({ gameId: 'hvm', dryRun: true });
+    expect(screen.getByTestId('pulje-afregn-besked').textContent)
+      .toBe('Tør-kørsel: 2 pulje-tip ville blive afregnet mod DK, FR, SE, HR — 30 point i alt.');
+    mockAfregn.mockResolvedValueOnce({ ok: true, data: { settled: 2, dryRun: false } });
+    fireEvent.click(screen.getByRole('button', { name: 'Afregn de 2 pulje-tip' }));
+    await waitFor(() => expect(screen.getByTestId('pulje-afregn-besked').textContent)
+      .toBe('2 pulje-tip er afregnet, og stillingen er genberegnet.'));
+    expect(mockAfregn).toHaveBeenLastCalledWith({ gameId: 'hvm', dryRun: false });
+    // Skrive-knappen er væk: ingen anden afregning på et forældet grundlag.
+    expect(screen.queryByRole('button', { name: /Afregn de/ })).toBeNull();
+  });
+
+  it('kan puljen ikke afgøres, siges hvorfor — rødt ved en fejl — og der er intet at afregne', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    mockAfregn.mockResolvedValueOnce({
+      ok: true,
+      data: { settled: 0, dryRun: true, kanAfregnes: false, aarsag: 'DK står i to kampe i «Semifinaler»', fejl: ['DK står i to kampe i «Semifinaler»'], facit: null, tip: 0, point: 0 },
+    });
+    render(<GameScheduleTab />);
+    fireEvent.click(afregnKnap());
+    const besked = await screen.findByTestId('pulje-afregn-besked');
+    expect(besked.textContent).toBe('Puljen kan IKKE afgøres: DK står i to kampe i «Semifinaler».');
+    expect(besked.className).toContain('badge--red');
+    expect(screen.queryByRole('button', { name: /Afregn de/ })).toBeNull();
+  });
+
+  it('… og grønt, når fasen bare ikke er lagt ind endnu', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    mockAfregn.mockResolvedValueOnce({
+      ok: true,
+      data: { settled: 0, dryRun: true, kanAfregnes: false, aarsag: 'semifinalerne er ikke lagt ind endnu', fejl: [], facit: null, tip: 0, point: 0 },
+    });
+    render(<GameScheduleTab />);
+    fireEvent.click(afregnKnap());
+    const besked = await screen.findByTestId('pulje-afregn-besked');
+    expect(besked.textContent).toBe('Puljen kan ikke afgøres endnu: semifinalerne er ikke lagt ind endnu.');
+    expect(besked.className).toContain('badge--green');
+    expect(screen.queryByRole('button', { name: /Afregn de/ })).toBeNull();
+  });
+
+  it('ingen tip: intet at afregne — og ingen skrive-knap', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    mockAfregn.mockResolvedValueOnce({
+      ok: true,
+      data: { settled: 0, dryRun: true, kanAfregnes: true, aarsag: 'ingen har afgivet et pulje-tip', fejl: [], facit: null, tip: 0, point: 0 },
+    });
+    render(<GameScheduleTab />);
+    fireEvent.click(afregnKnap());
+    expect((await screen.findByTestId('pulje-afregn-besked')).textContent)
+      .toBe('Puljen kan afgøres, men ingen har afgivet et pulje-tip.');
+    expect(screen.queryByRole('button', { name: /Afregn de/ })).toBeNull();
+  });
+
+  it('svarer serveren med en tør kørsel på et skriv, siges det — ikke "afregnet"', async () => {
+    mockGames.mockReturnValue({ games: [HVM], loading: false });
+    mockAfregn.mockResolvedValueOnce({
+      ok: true, data: { settled: 0, dryRun: true, kanAfregnes: true, aarsag: null, fejl: [], facit: ['DK', 'FR', 'SE', 'HR'], tip: 1, point: 4 },
+    });
+    render(<GameScheduleTab />);
+    fireEvent.click(afregnKnap());
+    await screen.findByRole('button', { name: 'Afregn de 1 pulje-tip' });
+    mockAfregn.mockResolvedValueOnce({ ok: true, data: { settled: 0, dryRun: true } });
+    fireEvent.click(screen.getByRole('button', { name: 'Afregn de 1 pulje-tip' }));
+    await waitFor(() => expect(screen.getByTestId('pulje-afregn-besked').textContent)
+      .toBe('Serveren tørkørte og skrev INTET. Prøv igen.'));
+    // Et kald-fejl vises rødt.
+    mockAfregn.mockResolvedValueOnce({ ok: false, error: 'Kun admin.' });
+    fireEvent.click(afregnKnap());
+    await waitFor(() => expect(screen.getByTestId('pulje-afregn-besked').textContent).toBe('Kun admin.'));
+  });
+
   it('MED kickoff-synk er deadlinen stadig udledt og låst (Premier League-formen)', () => {
     mockGames.mockReturnValue({ games: [{ ...HVM, sync: { provider: 'pulselive' } }], loading: false });
     render(<GameScheduleTab />);
-    expect(screen.getByText(/udledt af runde 1/i)).toBeInTheDocument();
+    // Med fasekalender hedder runden «dag» — ikke «runde» (modstander-bemærkning).
+    expect(screen.getByText(/udledt af dag 1\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/udledt af runde/i)).toBeNull();
     expect(screen.queryByText('🎖️ Bonus-/pulje-deadline')).toBeNull();
     expect(screen.queryByTestId('pulje-runde-uden-synk')).toBeNull();
   });

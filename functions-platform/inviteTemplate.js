@@ -85,13 +85,12 @@ function invitationsFejl({ template, joinLink, gameId, appUrl = 'https://tip.vej
   return null;
 }
 
-/** "fredag 29. januar" for en runde-puljes facit-fase, ellers null. */
+/**
+ * "fredag 29. januar" for en runde-puljes facit-fase, ellers null. SAMME
+ * funktion som pulje-fanens tekst (puljeFacit.rundePuljeDato) — ikke en kopi.
+ */
 function puljeFaseDato(game, pulje) {
-  if (!pulje || pulje.facitKilde !== 'runde') return null;
-  const { facitFase } = require('./puljeFacit');
-  const { fmtFaseStart } = require('./faser');
-  const fase = facitFase(game, pulje.facitFase);
-  return fase ? `${fase.dage > 1 ? 'fra ' : ''}${fmtFaseStart(fase.start)}` : null;
+  return require('./puljeFacit').rundePuljeDato(game, pulje);
 }
 
 /**
@@ -186,6 +185,9 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
   const cta = joinLink || appUrl;
   const league = leagueName ? esc(leagueName) : 'vores liga';
   const introHtml = esc(intro || '').replace(/\r\n|\r|\n/g, '<br>');
+  // En RUNDE-pulje ("hvem når semifinalerne?"): et hold NÅR semifinalerne,
+  // det «står» ikke i dem — samme ord som pulje-fanen og guiden.
+  const runde = l.pulje?.facitKilde === 'runde';
 
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(l.navn)} skal tippes</title></head>
@@ -223,7 +225,7 @@ function invitationsHtml({ liga, intro, joinLink, leagueName, appUrl = 'https://
       featureRow({ n: 1, title: 'Runde-bonus &#127920;', text: 'Oddsene p&aring; de kampe, du rammer, ganges sammen, og du f&aring;r 2 &times; kvadratroden af produktet i bonus &mdash; h&oslash;jst 25 point. Det t&aelig;ller fra to rigtige og opefter, og en glemt kamp koster dig ikke bonussen.' }),
       featureRow({ n: 2, title: 'Chancen &#9889;', text: 'Hvis du f&oslash;ler dig HELT sikker: s&aelig;t point p&aring; spil p&aring; &eacute;t af rundens tips. Rammer du, ganges indsatsen med oddsene &mdash; ellers mister du kun indsatsen. Du kan aldrig g&aring; i minus.' }),
       l.harPulje
-        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `S&aelig;sonens store bonuspot: udpeg de <b>${l.pulje.poolSize} hold</b>, du tror st&aring;r i ${esc(l.pulje.labels.top)}${l.pulje.nedSize > 0 ? ` &mdash; og de <b>${l.pulje.nedSize}</b>, du tror h&aelig;nger i ${esc(l.pulje.labels.ned)}` : ''}. <b>+${l.pulje.perTeam} point</b> pr. hold, der st&aring;r rigtigt${l.pulje.perfectBonus > 0 ? `, og <b>+${l.pulje.perfectBonus} bonus</b> for en perfekt r&aelig;kke` : ''} &mdash; ${l.pulje.facitKilde === 'runde' ? `afgjort, s&aring; snart ${esc(l.pulje.labels.top)} er lagt ind${l.puljeDato ? ` (de spilles ${esc(l.puljeDato)})` : ''}` : 'afgjort til allersidst, s&aring; det kan vende hele stillingen'}.`, last: true })
+        ? featureRow({ n: 3, title: 'Pulje-tippet &#127942;', text: `S&aelig;sonens store bonuspot: udpeg de <b>${l.pulje.poolSize} hold</b>, du tror ${runde ? 'n&aring;r' : 'st&aring;r i'} ${esc(l.pulje.labels.top)}${l.pulje.nedSize > 0 ? ` &mdash; og de <b>${l.pulje.nedSize}</b>, du tror h&aelig;nger i ${esc(l.pulje.labels.ned)}` : ''}. <b>+${l.pulje.perTeam} point</b> pr. hold, ${runde ? 'du rammer' : 'der st&aring;r rigtigt'}${l.pulje.perfectBonus > 0 ? `, og <b>+${l.pulje.perfectBonus} bonus</b> for en perfekt r&aelig;kke` : ''} &mdash; ${runde ? `afgjort, s&aring; snart ${esc(l.pulje.labels.top)} er lagt ind${l.puljeDato ? ` (de spilles ${esc(l.puljeDato)})` : ''}` : 'afgjort til allersidst, s&aring; det kan vende hele stillingen'}.`, last: true })
         : featureRow({ n: 3, title: 'Liga-sp&oslash;rgsm&aring;l &#127942;', text: 'Ligaens egen joker: liga-admin stiller sp&oslash;rgsm&aring;l (&quot;hvem bliver topscorer?&quot;), I svarer f&oslash;r deadline &mdash; og pointene falder, n&aring;r facit kendes, s&aring; de kan vende stillingen sent.', last: true }),
     ].join(''),
     img: l.harPulje && l.puljeImg ? `${appUrl}/${l.puljeImg}` : null,
