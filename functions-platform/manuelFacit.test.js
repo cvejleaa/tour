@@ -577,6 +577,11 @@ describe('index.js: ledningen til kernerne', () => {
     });
   }
 
+  it('sweep-løkkens strandede-kort bøjer «1 kamp» (ikke «1 kampe»)', () => {
+    expect(kilde).toMatch(/st\.fejl\(`\$\{strandede\.length\} \$\{kampOrd\(strandede\.length\)\} uden facit længe efter kickoff/);
+    expect(kilde).not.toMatch(/\$\{strandede\.length\} kampe uden facit/);
+  });
+
   it('saetFacitManuelt sender tør-kørslens aftryk videre til kernen', () => {
     expect(krop('saetFacitManuelt')).toMatch(/aftryk: d\.aftryk \?\? null,/);
   });

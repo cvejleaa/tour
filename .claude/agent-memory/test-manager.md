@@ -1846,3 +1846,19 @@ faser, facit, synk, aftryk, flade); de overlevende er mønstre værd at kende:
 - **Binding D5×D7 holdt:** alle ca. 140 mutanter i erKnockout/faser/facit, server
   og spejl, blev røde; paritetsløkken i facit.test.js/faser.test.js dræber
   src-spejlmutanter alene.
+
+### Opfølgning på del 2 (31935e5): 59 mutanter, alle forrige overlevere lukket
+
+- Alle 12 overlevere fra 680755b er nu røde (toMillis i driftlog + strandedMatches,
+  `continue`-vagten, KODER, index.js `skriv`/frist/timeout/netopRettet,
+  `skrevet`-tjekket, `harSynk`-ledningen). Nye grene (harResultatSynk-gaten,
+  ental, «Dag»/«dagens») dræbt pr. gren, inkl. ugyldig kalender (`Array.isArray(faser)`
+  i stedet for `harFaseKalender`).
+- Tilbageværende overlevere (mindre): `res.data?.dryRun === false` kan droppes fra
+  skrevet-tjekket (ingen test sender {dryRun:true, skrevet:true}); `c1===c0 && c0===0`
+  (ingen spiller med uændret IKKE-NUL combi); `superligaSync.kickoffMs`s toMillis-gren
+  (linje 49, bruges af live-vindue/puljelås) er uden Timestamp-fixture.
+- index.js-ledningen bevogtes kun af REGEX over kildeteksten: den fanger fjernelse/
+  ændring af de nævnte tokens, ikke adfærd (sweep'ets netopRettet-fradrag køres aldrig).
+  Det er husets accepterede niveau for index.js, men husk det ved næste ledningsmutant.
+- Harness: `scratchpad/tm-del2/mut.py [id…]` (kører mod worktree, gendanner pr. mutant).

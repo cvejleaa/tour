@@ -11,7 +11,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige,
+  kampOrd, meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige,
 } = require('./facitVagt');
 const { statusSamler } = require('./driftlog');
 
@@ -175,7 +175,7 @@ describe('facitVagtUdenSynk', () => {
     expect(s.skrevet).toHaveLength(1);
     expect(s.skrevet[0].id).toBe('facitvagt-hvm2027');
     expect(s.skrevet[0].doc).toMatchObject({ type: 'facitvagt', gameId: 'hvm2027', gameNavn: 'Håndbold-VM 2027', niveau: 'fejl', naesteForventetFoer: NU + 3600e3 });
-    expect(s.skrevet[0].doc.besked).toMatch(/1 kampe uden facit.*sæt facit i hånden/);
+    expect(s.skrevet[0].doc.besked).toMatch(/^✖ 1 kamp uden facit.*sæt facit i hånden/);
     // M36: alarmen for et spil UDEN synk sendes med harSynk:false — den
     // nævner knappen i hånden og IKKE synk-knappen, der ikke findes for spillet.
     expect(s.meldt).toHaveLength(1);
@@ -191,7 +191,7 @@ describe('facitVagtUdenSynk', () => {
       synkedeIds: ['superliga2627'], nowMs: NU, naesteForventetFoerMs: 1, skriv: s.skriv, meld: s.meld, loes: s.loes,
     });
     expect(s.skrevet[0].doc.niveau).toBe('ok');
-    expect(s.skrevet[0].doc.besked).toMatch(/1 kampe gennemgået — ingen mangler facit/);
+    expect(s.skrevet[0].doc.besked).toMatch(/1 kamp gennemgået — ingen mangler facit/);
   });
 
   it('en fejl i ét spils opslag giver et rødt kort — ikke et tavst hul', async () => {
@@ -278,5 +278,13 @@ describe('meldManuelleUenige — advarsel på sweep\'ets kort', () => {
       expect(doc.niveau).toBe('ok');
       expect(doc.besked).not.toMatch(/uenig/);
     }
+  });
+});
+
+describe('kampOrd — Drift-kortenes tekster bøjes', () => {
+  it('1 kamp, 0 og 2 kampe', () => {
+    expect(kampOrd(1)).toBe('kamp');
+    expect(kampOrd(0)).toBe('kampe');
+    expect(kampOrd(2)).toBe('kampe');
   });
 });

@@ -39,7 +39,7 @@ const { forladSpilCore, FORLAD_ERR, aktiveSpillere } = require('./forladSpil');
 const {
   statusSamler, meldAlarm, loesDriftAlarmer, kvitteringFor, naesteKoerselFoerMs,
 } = require('./driftlog');
-const { meldStrandede, facitVagtUdenSynk, meldManuelleUenige } = require('./facitVagt');
+const { kampOrd, meldStrandede, facitVagtUdenSynk, meldManuelleUenige } = require('./facitVagt');
 const { saetFacitCore, frigivFacitCore, tilHttpsFejl: facitHttpsFejl } = require('./manuelFacit');
 const { koerPostbud, testAlarmBesked, testAlarmTilladt } = require('./postbud');
 const {
@@ -689,7 +689,7 @@ exports.syncSuperligaSweep = onSchedule(
           if (strandede.length > 0) {
             console.error(`${g.gameId}: kampe UDEN facit længe efter kickoff — point er ikke afregnet:`,
               strandede.map((m) => m.id).join(', '));
-            st.fejl(`${strandede.length} kampe uden facit længe efter kickoff — point er ikke afregnet.`);
+            st.fejl(`${strandede.length} ${kampOrd(strandede.length)} uden facit længe efter kickoff — point er ikke afregnet.`);
           }
         }
       } catch (err) {

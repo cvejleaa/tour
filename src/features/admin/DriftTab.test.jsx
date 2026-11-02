@@ -90,7 +90,7 @@ describe('forventedeKoersler — matrixen maskineri × spil', () => {
       ...basis,
       status: [{
         id: 'facitvagt-hvm2027', type: 'facitvagt', gameId: 'hvm2027', gameNavn: 'Håndbold-VM 2027',
-        niveau: 'fejl', besked: '✖ 1 kampe uden facit længe efter kickoff — point er ikke afregnet.', koertAt: Date.now(), naesteForventetFoer: null,
+        niveau: 'fejl', besked: '✖ 1 kamp uden facit længe efter kickoff — point er ikke afregnet.', koertAt: Date.now(), naesteForventetFoer: null,
       }],
     });
     render(<DriftTab />);

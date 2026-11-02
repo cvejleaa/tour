@@ -32,6 +32,11 @@ const {
 } = require('./driftlog');
 const { forventerFacit, erKampspil, uenigTekst } = require('./facit');
 
+/** «1 kamp» / «2 kampe» — Drift-kortenes tekster bøjes, så de ikke siger «1 kampe». */
+function kampOrd(n) {
+  return n === 1 ? 'kamp' : 'kampe';
+}
+
 /**
  * Meld hver strandet kamp i ét spil, og luk alarmer for kampe, der siden har
  * fået facit. Ren rørføring over strandedMatches — lister ind, liste ud.
@@ -75,7 +80,7 @@ function meldManuelleUenige(st, uenige) {
   const liste = Array.isArray(uenige) ? uenige : [];
   if (!liste.length) return 0;
   st.advarsel(
-    `Kilden er uenig med facit i hånden om ${liste.length} ${liste.length === 1 ? 'kamp' : 'kampe'}: `
+    `Kilden er uenig med facit i hånden om ${liste.length} ${kampOrd(liste.length)}: `
     + `${liste.map(uenigTekst).join('; ')}. Synken rører dem ikke. Var tastningen forkert, så ret den med `
     + '✍️ Sæt eller ret facit i hånden; har kilden ret, så tryk ↩️ Lad synken overtage igen samme sted '
     + '(Admin → 🗓️ Spil-tidsplan).',
@@ -163,10 +168,10 @@ async function facitVagtUdenSynk(db, FieldValue, {
       if (strandede > 0) {
         console.error(`${g.id}: kampe UDEN facit længe efter kickoff — point er ikke afregnet:`,
           liste.map((m) => m.id).join(', '));
-        st.fejl(`${strandede} kampe uden facit længe efter kickoff — point er ikke afregnet. Spillet har ingen synk: sæt facit i hånden.`,
+        st.fejl(`${strandede} ${kampOrd(strandede)} uden facit længe efter kickoff — point er ikke afregnet. Spillet har ingen synk: sæt facit i hånden.`,
           { strandede });
       } else {
-        st.ok(`${kampe.length} kampe gennemgået — ingen mangler facit efter kickoff.`, { strandede: 0 });
+        st.ok(`${kampe.length} ${kampOrd(kampe.length)} gennemgået — ingen mangler facit efter kickoff.`, { strandede: 0 });
       }
     } catch (err) {
       fejl = err?.message || String(err);
@@ -180,5 +185,6 @@ async function facitVagtUdenSynk(db, FieldValue, {
 }
 
 module.exports = {
+  kampOrd,
   meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige,
 };
