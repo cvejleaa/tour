@@ -10,7 +10,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   findHandballboxe, delFelter, overskrifter, parseHold, parseDato, parseTid, parseScore,
-  facitFraBox, sidensForskydning, utcIso, laesKampe, beskaarTilKampe, fjernKommentarer,
+  facitFraBox, sidensForskydning, utcIso, laesKampe, beskaarTilKampe, fjernKommentarer, laesBox,
 } from './wikiHandball.mjs';
 import { holdForIhfNavn } from '../../src/data/haandboldVm2027Hold.js';
 
@@ -41,6 +41,30 @@ describe('skabeloner og felter', () => {
     expect(overskrifter("=== '''Group A''' ===").map((o) => o.titel)).toEqual(['Group A']);
   });
 
+  // MediaWiki ignorerer store/små bogstaver i skabelonnavnets FØRSTE tegn:
+  // {{Handballbox}} er samme skabelon. En kasse, der droppes her, forsvinder
+  // fra historikken i stilhed (gulvet på 60 fanger ikke én kamp).
+  it('{{Handballbox med stort H er også en kamp', () => {
+    const t = `${box({ date: '1 January 2025' })}{{Handballbox\n|date=2 January 2025\n|score=30–29\n}}\n${box({ date: '3 January 2025' })}`;
+    const bs = findHandballboxe(t);
+    expect(bs.map((b) => b.felter.date)).toEqual(['1 January 2025', '2 January 2025', '3 January 2025']);
+    expect(bs[1].felter.score).toBe('30–29');
+    expect(beskaarTilKampe(`== Intro ==\n== Kampe ==\n{{Handballbox|date=2 January 2025}}\n== Efter ==`)).toBe('== Kampe ==\n{{Handballbox|date=2 January 2025}}\n');
+  });
+
+  // Mellemrum om navnet og «=» i værdien er almindelig wikitekst. Et utrimmet
+  // navn («score ») er et ukendt felt, og kampen tælles som ikke spillet; et
+  // navn skåret ved SIDSTE «=» gør report-adressen til et ukendt felt.
+  it('feltnavne trimmes, og værdien må selv indeholde «=»', () => {
+    const t = '{{handballbox\n| date = 28 January 2025 \n| score = 31–30\n|report=https://www.ihf.info/x?a=b&c=d\n| team1 = {{hb-rt|POR}}\n}}';
+    const [b] = findHandballboxe(t);
+    expect(b.felter).toEqual({
+      date: '28 January 2025', score: '31–30', report: 'https://www.ihf.info/x?a=b&c=d', team1: '{{hb-rt|POR}}',
+    });
+    expect(b.ukendte).toEqual([]);
+    expect(laesBox(b).facit.slut).toEqual({ h: 31, u: 30 });
+  });
+
   it('en kasse i en kommentar er ikke en kamp', () => {
     const t = `<!-- ${box({ date: '1 January 2025', score: '30–20' })} -->${box({ date: '2 January 2025' })}`;
     expect(findHandballboxe(t)).toHaveLength(1);
@@ -62,6 +86,18 @@ describe('skabeloner og felter', () => {
     expect(b.ukendte).toEqual(['other', 'bg']);
     // Et tomt resultat-lignende felt bærer intet facit.
     expect(() => findHandballboxe(box({ score: '', aet: '' }))).not.toThrow();
+  });
+
+  // HVERT ALTERNATIV i RESULTAT_LIGNENDE med et navn, som KUN det alternativ
+  // fanger — så fjernes ét, bliver netop dets linje rød. Store bogstaver
+  // (ET1, SO) beviser i-flaget.
+  it.each([
+    ['score1', 'score\\w*'], ['result', 'result\\w*'], ['ft1', 'ft\\d*'], ['ht', 'ht\\d*'],
+    ['ot', 'ot\\d*'], ['ET1', 'et\\d*'], ['aet', 'aet'], ['penalties', 'pen\\w*'], ['pso', 'pso'],
+    ['SO', 'so'], ['shootout', 'shootout\\w*'], ['7mThrows', '7m\\w*'], ['extratime', 'extra\\w*'],
+    ['overtime', 'overtime\\w*'], ['winner', 'winner\\w*'],
+  ])('KASTER på det ukendte resultatfelt %s= (alternativet %s)', (navn) => {
+    expect(() => findHandballboxe(box({ score: '30–29', [navn]: '1' }))).toThrow(`«${navn}=1», som ligner et resultat`);
   });
 });
 
@@ -268,6 +304,20 @@ describe('beskæring', () => {
     expect(b).not.toContain('Intro');
     expect(b).not.toContain('Final ranking');
     expect(findHandballboxe(b)).toHaveLength(2);
+  });
+
+  // En rigtig side har «=== Group A ===» mellem sektionen og første kasse.
+  // Beskæringen starter ved NIVEAU 2 — ellers falder overskriften og linjen
+  // med tidszonen af, og fixturen kan ikke længere bygges.
+  it('starter ved niveau-2-overskriften, også når en niveau 3 står før første kamp', () => {
+    const t = `== Intro ==\ntekst\n== Preliminary round ==\nAll times are local (UTC+1).\n=== Group A ===\n${box({ date: '1 January 2025' })}=== Group B ===\n${box({ date: '2 January 2025' })}=== Noter ===\nefter\n== Final ranking ==\nslut`;
+    const b = beskaarTilKampe(t);
+    expect(b.startsWith('== Preliminary round ==\nAll times are local (UTC+1).\n=== Group A ===')).toBe(true);
+    expect(sidensForskydning(b)).toBe(60);
+    // Slutningen følger samme regel: en niveau 3 efter sidste kamp er stadig sektionen.
+    expect(b.endsWith('=== Noter ===\nefter\n')).toBe(true);
+    expect(b).not.toContain('Final ranking');
+    expect(findHandballboxe(b).map((x) => x.sektion)).toEqual([['Preliminary round', 'Group A'], ['Preliminary round', 'Group B']]);
   });
 
   it('kaster på en side uden kampe', () => {

@@ -49,6 +49,22 @@ describe('udtræk af én side', () => {
     expect(r.kampe.filter((k) => k.slut.h === k.slut.u)).toHaveLength(3);
   });
 
+  // MÅLENE efter 60 min — D4 måler på dette tal. Tre kampe, den ene forlænget
+  // (26–26 → 31–30): efter 60 = 52 + 55 + 53 = 160 → 53,3 pr. kamp. På
+  // slutstillingen var det 169 → 56,3, og uden afrunding 53,333….
+  it('mål pr. kamp tæller efter 60 min, med én decimal', () => {
+    const k = (h, u, sh = h, su = u, afgjort = null) => ({ efter60: { h, u }, slut: { h: sh, u: su }, afgjort });
+    expect(resume([k(26, 26, 31, 30, 'forlaenget'), k(30, 25), k(28, 25)])).toStrictEqual({
+      kampe: 3, uafgjortEfter60: 1, forlaenget: 1, straffe: 0, maalPrKamp60: 53.3,
+    });
+    expect(resume([])).toStrictEqual({ kampe: 0, uafgjortEfter60: 0, forlaenget: 0, straffe: 0, maalPrKamp60: null });
+    // Fixturen: 1493 mål efter 60 min i 26 kampe = 57,42 → 57,4 (slutstillingen giver 1514 = 58,2).
+    const efter60 = r.kampe.reduce((s, x) => s + x.efter60.h + x.efter60.u, 0);
+    const slut = r.kampe.reduce((s, x) => s + x.slut.h + x.slut.u, 0);
+    expect([efter60, slut]).toEqual([1493, 1514]);
+    expect(resume(r.kampe).maalPrKamp60).toBe(57.4);
+  });
+
   it('en ulæselig kamp AFVISES med grund — den forsvinder ikke, og den vælter ikke siden', () => {
     const t = VM2025.replace('|score=31–30\n|team2={{hb|GER}}', '|score=31–30 (ET)\n|team2={{hb|GER}}');
     const x = udtraekKampe(t, 'vm2025', { minSpillede: 1 });

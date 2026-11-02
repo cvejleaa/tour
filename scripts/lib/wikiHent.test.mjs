@@ -32,9 +32,13 @@ describe('høflighed: User-Agent, adresse og pause', () => {
     expect(kald[0].opt.headers['Api-User-Agent']).toBe(USER_AGENT);
   });
 
+  // VÆRTEN SKREVET UD. At sammenligne adressen med WIKI_API binder ingenting,
+  // hvis WIKI_API selv er forkert (http://, da.wikipedia.org …) — så står
+  // både konstanten og adressen her som tekst.
   it('adressen er API\'et med titlen kodet — aldrig limet ind', () => {
+    expect(WIKI_API).toBe('https://en.wikipedia.org/w/api.php');
     const u = new URL(wikiUrl("2025 World Men's Handball Championship&action=edit"));
-    expect(`${u.origin}${u.pathname}`).toBe(WIKI_API);
+    expect(`${u.origin}${u.pathname}`).toBe('https://en.wikipedia.org/w/api.php');
     expect(u.searchParams.get('action')).toBe('parse');
     expect(u.searchParams.get('page')).toBe("2025 World Men's Handball Championship&action=edit");
     expect(u.searchParams.get('prop')).toBe('wikitext|revid');
@@ -75,6 +79,20 @@ describe('cachen: hver side hentes én gang', () => {
     expect(a.fraCache).toBe(false);
     expect(b).toMatchObject({ fraCache: true, wikitekst: 'x{{handballbox}}', revid: 42, hentet: '2026-11-02T00:00:00.000Z' });
     expect(existsSync(join(dir, '2025_World_Men_s_Handball_Championship.json'))).toBe(true);
+  });
+
+  // FØRSTE KØRSEL. Standardmappen (<tmp>/vejleaa-wiki) findes ikke, før
+  // noget er hentet. mkdtempSync i de andre tests opretter mappen på
+  // forhånd og ville skjule, at henteren ikke selv gør det.
+  it('opretter cache-mappen, også flere niveauer, når den ikke findes', async () => {
+    const dir = join(mkdtempSync(join(tmpdir(), 'wikihent-')), 'ny', 'under');
+    expect(existsSync(dir)).toBe(false);
+    const { fetchFn } = falsk([svar('x{{handballbox}}')]);
+    const a = await lavWikiHenter({ fetchFn, cacheDir: dir, sov: async () => {} })('S');
+    expect(a.fraCache).toBe(false);
+    const fil = join(dir, cacheNavn('S'));
+    expect(existsSync(fil)).toBe(true);
+    expect(JSON.parse(readFileSync(fil, 'utf8'))).toMatchObject({ titel: 'Side', revid: 42, wikitekst: 'x{{handballbox}}' });
   });
 
   it('cachenavnet kan ikke gå ud af mappen', () => {
@@ -126,10 +144,32 @@ describe('fejl er høje og danske, og intet gemmes', () => {
     await expect(lavWikiHenter({ fetchFn })('S')).rejects.toThrow(/ingen wikitekst — API'ets form har ændret sig/);
   });
 
+  // Kun blanktegn er heller ingen side — det er et tomt svar i en anden form.
+  it('wikitekst med kun blanktegn afvises og gemmes ikke', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wikihent-'));
+    const { fetchFn } = falsk([svar('  \n\t ')]);
+    await expect(lavWikiHenter({ fetchFn, cacheDir: dir })('S')).rejects.toThrow(/ingen wikitekst — API'ets form har ændret sig/);
+    expect(existsSync(join(dir, cacheNavn('S')))).toBe(false);
+  });
+
   it('tom titel afvises før noget sendes', async () => {
     const { kald, fetchFn } = falsk([]);
     await expect(lavWikiHenter({ fetchFn })('  ')).rejects.toThrow(/sidetitel mangler/);
     expect(kald).toHaveLength(0);
+  });
+});
+
+// OMDIRIGERING. redirects=1 er hele grunden til, at en omdøbt side stadig
+// virker — og så skal den NYE titel stå i kilden, ikke den, vi bad om.
+describe('titlen kommer fra svaret', () => {
+  it('en omdirigeret side giver svarets titel; uden titel i svaret den, vi bad om', async () => {
+    const { fetchFn } = falsk([
+      svar('a{{handballbox}}', { title: "2027 World Men's Handball Championship" }),
+      svar('b{{handballbox}}', { title: undefined }),
+    ]);
+    const hent = lavWikiHenter({ fetchFn, sov: async () => {} });
+    expect((await hent('2027 IHF World Championship')).titel).toBe("2027 World Men's Handball Championship");
+    expect((await hent('Uden titel')).titel).toBe('Uden titel');
   });
 });
 
@@ -142,6 +182,8 @@ describe('argumenter og gemte sider', () => {
     expect([...a.flag]).toEqual(['skriv']);
     expect(() => parseScriptArgs(['--skrive'], K)).toThrow(/ukendt argument --skrive\. Kendte: --fil, --skriv/);
     expect(() => parseScriptArgs(['--fil'], K)).toThrow(/--fil mangler en værdi/);
+    // Et flag er ikke en værdi: «--fil --skriv» må ikke læse filen «--skriv».
+    expect(() => parseScriptArgs(['--fil', '--skriv'], K)).toThrow('--fil mangler en værdi');
     expect(() => parseScriptArgs(['--skriv', 'ja'], K)).toThrow(/tager ingen værdi/);
     expect(() => parseScriptArgs(['fil.txt'], K)).toThrow(/starter med --/);
   });

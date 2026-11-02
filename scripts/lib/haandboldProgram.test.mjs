@@ -47,6 +47,20 @@ describe('paritet: den committede fil er det, modulet bygger', () => {
     expect(FIL.usikreTider).toEqual(P.usikreTider);
   });
 
+  // HELE FILEN, som scriptet skriver den. Paritetstesten ovenfor binder
+  // faser/fixtures/usikreTider til byggProgram — men scriptet skriver
+  // programFil(...). Taber programFil `faser` (som D6 læser), licensen eller
+  // revisions-id'et, er det her, det bliver rødt — ikke ved næste --skriv.
+  it('programFil(...) med filens egen kilde er den committede fil, felt for felt', () => {
+    const bygget = programFil(P, { titel: FIL.kilde.side, revid: FIL.kilde.revid, hentet: FIL.kilde.hentet });
+    expect(bygget).toStrictEqual(FIL);
+    expect(Object.keys(bygget)).toEqual(['_note', 'kilde', 'faser', 'usikreTider', 'fixtures']);
+    expect(Object.keys(bygget.kilde)).toEqual(['side', 'url', 'revid', 'hentet', 'licens']);
+    // Et revisions-id går igennem som tal — ikke kun null, som filen har i dag.
+    expect(programFil(P, { titel: 'X', revid: 1378613629, hentet: '2026-11-02T13:00:00Z' }).kilde)
+      .toStrictEqual({ side: 'X', url: 'https://en.wikipedia.org/wiki/X', revid: 1378613629, hentet: '2026-11-02T13:00:00Z', licens: 'CC BY-SA 4.0' });
+  });
+
   it('filen bærer kilde og licens', () => {
     expect(FIL.kilde).toMatchObject({ side: "2027 World Men's Handball Championship", licens: 'CC BY-SA 4.0' });
     expect(FIL.kilde.url).toBe("https://en.wikipedia.org/wiki/2027_World_Men's_Handball_Championship");
@@ -199,6 +213,42 @@ describe('den indledende runde', () => {
     // Kun vinduerne har feltet — en kamp med ét tidspunkt får intet.
     expect(P.fixtures.filter((f) => 'kickoffSenest' in f).map((f) => f.id).sort())
       .toEqual(['r2-arg-bra', 'r2-fra-kuw', 'r4-fra-bra', 'r4-kuw-arg', 'r6-arg-fra', 'r6-bra-kuw']);
+  });
+});
+
+// TIDSZONEN ER SIDENS, og kickoff er tip-deadline. Fixturen er UTC+1, så en
+// kode, der regnede med fast +1, ville bestå alt ovenfor. Samme side i UTC+2
+// skal give hver deadline én time tidligere — også vinduernes seneste ende.
+describe('tidszonen bestemmer deadline', () => {
+  const P2 = byggProgram(SIDE.replace('UTC+1', 'UTC+2'));
+
+  it('UTC+2: 17.30 lokal tid er 15:30 UTC — og vinduet følger med', () => {
+    expect(SIDE.split('UTC+1')).toHaveLength(2);
+    expect(P2.forskydningMin).toBe(120);
+    expect(P2.fixtures[0]).toEqual({
+      id: 'r1-srb-uru', round: 1, home: 'Serbien', away: 'Uruguay', kickoff: '2027-01-13T15:30:00Z', gruppe: 'A',
+    });
+    const arg = P2.fixtures.find((f) => f.id === 'r2-arg-bra');
+    expect(arg.kickoff).toBe('2027-01-14T16:00:00Z');
+    expect(arg.kickoffSenest).toBe('2027-01-14T16:30:00Z');
+    // Hver kamp præcis én time før UTC+1-programmet; ids og runder uændrede.
+    const time = 3600 * 1000;
+    expect(P2.fixtures.map((f) => [f.id, f.round, Date.parse(f.kickoff) + time, f.kickoffSenest && Date.parse(f.kickoffSenest) + time]))
+      .toEqual(P.fixtures.map((f) => [f.id, f.round, Date.parse(f.kickoff), f.kickoffSenest && Date.parse(f.kickoffSenest)]));
+  });
+
+  // EFTER MIDNAT. Runden er den LOKALE spilledag; kickoff er UTC og kan derfor
+  // ligge på dagen før. 00:30 lokal tid 13/1 (UTC+1) = 23:30Z 12/1 — og
+  // kampen hører stadig til dag 1, ikke til en dag, kalenderen ikke har.
+  it('en kamp efter midnat lokal tid: kickoff dagen før i UTC, runden er den lokale dag', () => {
+    const t = retKasse(SIDE, SRB_URU, (k) => k.replace('|time=17:30', '|time=00:30'));
+    const p = byggProgram(t);
+    expect(p.fixtures[0]).toEqual({
+      id: 'r1-srb-uru', round: 1, home: 'Serbien', away: 'Uruguay', kickoff: '2027-01-12T23:30:00Z', gruppe: 'A',
+    });
+    expect(p.faser).toEqual(P.faser);
+    const p2 = byggProgram(t.replace('UTC+1', 'UTC+2'));
+    expect(p2.fixtures[0]).toMatchObject({ id: 'r1-srb-uru', round: 1, kickoff: '2027-01-12T22:30:00Z' });
   });
 });
 
