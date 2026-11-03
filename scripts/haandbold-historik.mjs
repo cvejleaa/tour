@@ -26,6 +26,8 @@
 //   node scripts/haandbold-historik.mjs --turneringer vm2025,em2026
 //   node scripts/haandbold-historik.mjs --cache /sti/til/mappe   # standard: <tmp>/vejleaa-wiki
 //   node scripts/haandbold-historik.mjs --filer /sti/til/mappe   # NØDVEJ: gemte sider, intet kald
+//   node scripts/haandbold-historik.mjs --skriv --ud /tmp/x.json # skriv et andet sted (testene)
+//   node scripts/haandbold-historik.mjs --skriv --tillad-anden-side   # se ERKLÆREDE SIDER nedenfor
 //
 // NØDVEJEN (--filer). Svarer Wikipedia 429, så gem siderne selv og læs dem
 // herfra — der sendes da intet kald. Mappen har én fil pr. turnering:
@@ -40,6 +42,17 @@
 // Mangler filen, afvises kampen som 'andenSide' — og regnskabet går op med
 // den afviste, ikke i stilhed. API-vejen henter ingen anden side.
 //
+// ERKLÆREDE SIDER. En side i TURNERINGER[].transklusioner er KENDT: dens kamp
+// skal med. Ender den alligevel som 'andenSide' (API-vejen, eller filen
+// mangler i mappen), NÆGTER --skriv at skrive — ellers tabte hver opfriskning
+// finalen med rc 0. Tør-kørslen siger det. Er det meningen (fx en hurtig
+// opfriskning, hvor finalen bevidst står som afvist), så --tillad-anden-side.
+//
+// MAPPEN SKAL GÅ OP. Ligger der en fil i --filer-mappen, som ingen turnering
+// eller erklæret side hedder (en stavefejl som `em2026-final.wikitext`),
+// stopper scriptet, før noget læses. Filer for turneringer, der ikke er valgt
+// med --turneringer, springes over og nævnes. Skjulte filer tæller ikke.
+//
 // Bag en proxy: Node 22's fetch bruger først HTTPS_PROXY med NODE_USE_ENV_PROXY=1.
 // ---------------------------------------------------------------------------
 
@@ -49,7 +62,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { lavWikiHenter, parseScriptArgs, laesGemtSide } from './lib/wikiHent.mjs';
 import {
-  TURNERINGER, udtraekKampe, resume, gemteFiler, sidensTidszone,
+  TURNERINGER, udtraekKampe, resume, gemteFiler, sidensTidszone, ubrugteFiler, manglendeErklaerede,
 } from './lib/haandboldHistorik.mjs';
 import { wikiSideUrl } from './lib/haandboldProgram.mjs';
 
@@ -57,7 +70,8 @@ const ROD = join(dirname(fileURLToPath(import.meta.url)), '..');
 const UD = join(ROD, 'scripts', 'haandbold-historik.json');
 
 async function main() {
-  const args = parseScriptArgs(process.argv.slice(2), { vaerdier: ['turneringer', 'cache', 'filer'], flag: ['skriv'] });
+  const args = parseScriptArgs(process.argv.slice(2), { vaerdier: ['turneringer', 'cache', 'filer', 'ud'], flag: ['skriv', 'tillad-anden-side'] });
+  const ud = args.ud ? resolve(process.cwd(), args.ud) : UD;
   if (args.filer && args.cache) throw new Error('--filer og --cache udelukker hinanden: --filer læser kun mappen og henter intet.');
   let valgte = TURNERINGER;
   if (args.turneringer) {
@@ -74,8 +88,15 @@ async function main() {
   if (args.filer) {
     const mappe = resolve(process.cwd(), args.filer);
     const indhold = readdirSync(mappe);
+    const { ukendte, ikkeValgte } = ubrugteFiler(indhold, valgte);
+    if (ukendte.length) {
+      throw new Error(`mappen har ${ukendte.length === 1 ? 'en fil' : `${ukendte.length} filer`}, som ingen turnering eller erklæret side hedder: `
+        + `${ukendte.join(', ')}. Kendte navne: ${TURNERINGER.flatMap((t) => [t.noegle, ...Object.values(t.transklusioner ?? {})]).join(', ')} `
+        + '(.json/.wikitext/.txt). Er det en stavefejl, så ret navnet — ellers fjern filen. Intet er læst.');
+    }
     const filer = gemteFiler(indhold, valgte.map((t) => t.noegle));
     console.log(`Gemte sider: ${mappe} (der sendes intet kald)\n`);
+    if (ikkeValgte.length) console.log(`   (springes over — ikke valgt med --turneringer: ${ikkeValgte.join(', ')})\n`);
     const laes = (navn, titel) => {
       const sti = join(mappe, navn);
       const side = laesGemtSide(readFileSync(sti, 'utf8'), navn);
@@ -103,6 +124,7 @@ async function main() {
 
   const kilder = [];
   const kampe = [];
+  const mangler = [];
   for (const t of valgte) {
     const side = await hent(t.titel);
     const andre = andreSider(t);
@@ -120,6 +142,10 @@ async function main() {
     for (const x of r.transkluderet) console.log(`   ↳ afsnittet «${x.afsnit}» indsat fra «${x.side}» (${andre[x.side].fil})`);
     const ART = { walkover: 'WALKOVER', andenSide: 'AFVIST (anden side)', ulaeselig: 'AFVIST' };
     for (const a of r.afviste) console.log(`   ⚠️  ${ART[a.art]} ${a.sektion}${a.nr ? ` nr. ${a.nr}` : ''}: ${a.grund}`);
+    for (const m of manglendeErklaerede(t, r.afviste)) {
+      mangler.push({ turnering: t.noegle, ...m });
+      console.log(`   ⚠️  «${m.side}» er ERKLÆRET (TURNERINGER.transklusioner) — læg ${m.fil}.wikitext/.json i --filer-mappen; ellers nægter --skriv`);
+    }
     if (Object.keys(r.ukendteFelter).length) console.log(`   (ukendte felter, ikke resultat-lignende: ${Object.entries(r.ukendteFelter).map(([k, n]) => `${k}×${n}`).join(', ')})`);
     kilder.push({
       noegle: t.noegle,
@@ -161,6 +187,12 @@ async function main() {
     console.log('Tør-kørsel — intet skrevet. Kør med --skriv for at skrive scripts/haandbold-historik.json.\n');
     return;
   }
+  // ÉN vagt for «en erklæret side mangler»: her, lige før skrivningen.
+  if (mangler.length && !args.flag.has('tillad-anden-side')) {
+    throw new Error(`${mangler.map((m) => `${m.turnering}: «${m.side}» (${m.sektion})`).join('; ')} er erklæret, men ikke givet med `
+      + `— kampen derfra ville mangle i historikken. Kør med --filer og ${mangler.map((m) => `${m.fil}.wikitext`).join(', ')} i mappen, `
+      + 'eller med --tillad-anden-side, hvis kampen bevidst skal stå som afvist. Intet er skrevet.');
+  }
   const fil = {
     _note: `Færdige kampe fra ${kilder.map((k) => k.noegle).join(', ')} (herrer), bygget af scripts/haandbold-historik.mjs fra Wikipedia; `
       + 'indholdet er CC BY-SA 4.0 (kilder med revision nedenfor). efter60 = stillingen efter ordinær tid (det, der tippes på); '
@@ -179,8 +211,8 @@ async function main() {
     kilder,
     kampe,
   };
-  writeFileSync(UD, `${JSON.stringify(fil, null, 0).replace(/\},\{"turnering"/g, '},\n{"turnering"')}\n`);
-  console.log(`✅ skrev ${UD}\n`);
+  writeFileSync(ud, `${JSON.stringify(fil, null, 0).replace(/\},\{"turnering"/g, '},\n{"turnering"')}\n`);
+  console.log(`✅ skrev ${ud}\n`);
 }
 
 main().catch((e) => { console.error(`\n⚠️  ${e.message}\n   Intet er skrevet.\n`); process.exit(1); });

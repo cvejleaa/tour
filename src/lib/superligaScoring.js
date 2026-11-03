@@ -281,7 +281,10 @@ export function outcomeProbabilities({
 }
 
 /**
- * Grænser for odds. Der er ikke længere et LOFT — kun et gulv.
+ * Grænser for odds. I FODBOLD er der ikke længere et LOFT — kun et gulv.
+ * (Håndbold har et loft på 25 som profilværdi, `profil.odds.max` — et andet
+ * valg på et andet grundlag; se SPORT_PROFILER.haandbold og
+ * docs/spilbalance.md. Alt herunder handler om fodbold.)
  *
  * MAX var 6,0, blev foreslået hævet til 8,0, og er nu fjernet. Begrundelsen er
  * målt, og den er skarpere end de to tidligere forsøg:
@@ -361,36 +364,46 @@ export const ODDS = {
 };
 
 /**
- * Fair (EV-neutral) decimal-odds for en sandsynlighed. Kun et GULV — intet
- * loft. Afrundes til 2 decimaler. p ≤ 0 eller ugyldigt giver UGYLDIG.
+ * Fair (EV-neutral) decimal-odds for en sandsynlighed. Et GULV og — kun hvis
+ * sportsprofilen har et — et LOFT. Afrundes til 2 decimaler. p ≤ 0 eller
+ * ugyldigt giver UGYLDIG (højst loftet).
  *
  * Gulvet er ODDS.MIN, medmindre et andet gives. Det andet kommer fra
  * sportsprofilen (`profil.odds.min`), ikke fra en ny global konstant: et
  * gulv, der ikke binder i fodbold, kan binde i en sport med få uafgjorte —
  * og så giver det favorittippet positiv forventning. Se sportProfil.
+ *
+ * Loftet er `profil.odds.max` (null/udeladt = intet loft, som i fodbold).
+ * Det er ejerens valg for håndbold (25, se SPORT_PROFILER.haandbold): et
+ * klippet udfald betaler MINDRE end fair, og det er prisen for, at ét
+ * langskud ikke kan afgøre konkurrencen.
  */
-export function fairOdds(p, min = ODDS.MIN) {
+export function fairOdds(p, min = ODDS.MIN, max = null) {
   const prob = Number(p);
-  // Et umuligt eller ugyldigt udfald har ingen fair pris. Før faldt det
-  // tilbage på loftet; nu findes der ikke et. UGYLDIG er derfor et bevidst
-  // valgt tal, ikke en grænse for rigtige odds — modellen giver aldrig p ≤ 0.
-  if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
-  const raw = Math.max(min, 1 / prob);
+  const loft = (o) => (max === null || max === undefined ? o : Math.min(max, o));
+  // Et umuligt eller ugyldigt udfald har ingen fair pris. UGYLDIG er et
+  // bevidst valgt tal, ikke en grænse for rigtige odds — modellen giver
+  // aldrig p ≤ 0. Har sporten et loft, gælder det også her: ingen pris over
+  // loftet, heller ikke en ugyldig.
+  if (!Number.isFinite(prob) || prob <= 0) return loft(ODDS.UGYLDIG);
+  const raw = loft(Math.max(min, 1 / prob));
   return Math.round(raw * 100) / 100;
 }
 
 /**
  * Fair odds for hvert 1X2-udfald ud fra Elo-ratings. Tager de samme felter
- * som outcomeProbabilities plus `oddsMin` (gulvet) — dvs. præcis det,
- * `oddsParametre(profil)` giver. Mangler et felt, gælder fodbold-værdien.
+ * som outcomeProbabilities plus `oddsMin` (gulvet) og `oddsMax` (loftet,
+ * null = intet) — dvs. præcis det, `oddsParametre(profil)` giver. Mangler
+ * et felt, gælder fodbold-værdien (intet loft).
  */
 export function outcomeOdds(eloArgs) {
   const p = outcomeProbabilities(eloArgs);
   const min = eloArgs?.oddsMin;
+  const max = eloArgs?.oddsMax ?? null;
   return {
-    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min),
-    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min),
-    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min),
+    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min, max),
+    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min, max),
+    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min, max),
   };
 }
 
@@ -429,10 +442,12 @@ function frys(o) {
  * end fodboldens kan afsløre et kald, der har tabt profilen.
  */
 export const SPORT_PROFILER = {
+  // odds.max: null er et BEVIDST «intet loft» (loftet på 6 blev fjernet, se
+  // ODDS) — ikke en glemt nøgle. Formtesten kræver nøglen i hver profil.
   fodbold: frys({
     sport: 'fodbold',
     elo: { ...ELO },
-    odds: { min: ODDS.MIN },
+    odds: { min: ODDS.MIN, max: null },
   }),
 
   /**
@@ -505,11 +520,23 @@ export const SPORT_PROFILER = {
    * sandsynlighed modellen kan give er 1 − 0,157·e^(−1,1) ≈ 0,948 → laveste
    * odds 1,06. Fodboldens gulv 1,1 ville binde over p = 0,909 og give
    * favorittippet positiv forventning; 1,01 kan ikke nås.
+   *
+   * ODDS-LOFTET 25 er EJERENS VALG (§11-tillæg 4), ikke en måling. Uden loft
+   * gav et ramt tip på Uruguay–Tyskland «1» 461,77 point og en Chance på 8
+   * 3.686 — ét langskud ville afgøre konkurrencen. Fodboldens højeste odds
+   * nogensinde er 24,39; 25 klipper i den indledende runde 11 af 144 udfald
+   * i 11 kampe (alle under 4 % chance), aldrig et X (højst 19,04). PRISEN:
+   * et klippet udfald betaler under fair — et tip på Uruguay (fair 461,77) er
+   * 0,054 point værd mod ~1 for et fair udfald, og underhund-strategien
+   * forventer 42,96 point over de 48 kampe mod 48,00 uden loft (favorit
+   * 48,17 og X 48,00 urørt). Tallene: scripts/maal-haandbold.mjs afsnit 8c.
+   * Loftet ligger i PRISNINGEN (oddsParametre → outcomeOdds), så seed,
+   * levende odds og Ompris arver det, og de viste odds er de afregnede.
    */
   haandbold: frys({
     sport: 'haandbold',
     elo: { START: 1500, HFA: 0, K: 120, DRAW_BASE: 0.157, DRAW_DECAY: 0.55 },
-    odds: { min: 1.01 },
+    odds: { min: 1.01, max: 25 },
   }),
 };
 
@@ -650,18 +677,39 @@ export function visSport(vaerdi) {
  * `odds: {minimum: 1.01}`) gav fodboldens 1,1, et `null` gav slet intet gulv
  * (Math.max(null, x) = x), og NaN gav NaN-odds. Profilerne er kode, ikke data
  * — en forkert profil er en programfejl og skal være højlydt.
+ *
+ * Det samme for LOFTET: nøglen `odds.max` skal STÅ i profilen, og den er
+ * enten null (bevidst intet loft) eller et endeligt tal over gulvet. En
+ * manglende nøgle (fx `{maks: 25}`) ville ellers tavst give intet loft.
  */
 export function oddsParametre(profil = sportProfil()) {
   const min = profil.odds?.min;
   if (!(Number.isFinite(min) && min > 1)) {
     throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-gulv (odds.min = ${String(min)}).`);
   }
+  const harMax = Object.prototype.hasOwnProperty.call(profil.odds, 'max');
+  const max = harMax ? profil.odds.max : undefined;
+  if (!(max === null || (Number.isFinite(max) && max > min))) {
+    throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-loft (odds.max = ${harMax ? String(max) : 'mangler'}; null = intet loft).`);
+  }
   return {
     hfa: profil.elo.HFA,
     drawBase: profil.elo.DRAW_BASE,
     drawDecay: profil.elo.DRAW_DECAY,
     oddsMin: min,
+    oddsMax: max,
   };
+}
+
+/**
+ * Spillets odds-loft: et tal, eller null for intet loft. DEN delte helper for
+ * alt, der skal SIGE noget om loftet (hjælpesiden, invitationen) — gaten er
+ * profilværdien, ikke en nabo-egenskab som fasekalenderen. Går gennem
+ * oddsParametre, så en forkert profil kaster her som i prisningen.
+ * Spejlet i functions-platform/superligaScoring.js.
+ */
+export function oddsLoft(game) {
+  return oddsParametre(sportProfil(game)).oddsMax;
 }
 
 /** Profilens Elo-opdatering i den form, updateElo tager. */

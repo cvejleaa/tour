@@ -16,7 +16,7 @@ import { fmtDec } from '../../../lib/daNum';
 // denne fils formål er at undgå.
 import { harXg, harKampdetaljer, harLiveStilling } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
-import { sportOrd, harHjemmebane } from '../../../lib/superligaScoring';
+import { sportOrd, harHjemmebane, oddsLoft } from '../../../lib/superligaScoring';
 import {
   harFaseKalender, harKnockout, rundeKort, rundeOrd, rundeOrdene, sidsteKalenderRunde,
 } from '../../../lib/faser';
@@ -86,6 +86,14 @@ export default function FootballHelp({ game }) {
   // 1,01 ville ellers stå som "1,0", altså under indsatsen. Fodboldens 1,1
   // står som altid.
   const oddsGulv = String(profil.odds.min).replace('.', ',');
+  // LOFTET er profilens værdi gennem den delte helper (oddsLoft) — ikke en
+  // nabo-egenskab. `loftHistorie` (= ingen fasekalender) styrer KUN den
+  // historiske sætning om loftet, der blev fjernet; om der ER et loft, står
+  // her. null = intet loft (fodbold).
+  const loft = oddsLoft(game);
+  const loftTekst = loft === null ? null : String(loft).replace('.', ',');
+  // Under denne sandsynlighed står et udfald til loftet (1/loft, hele procent).
+  const loftPct = loft === null ? null : Math.round(100 / loft);
   // Sportens ord ("Dagens konge" i håndbold) — fra registret, ikke en if.
   const ord = sportOrd(game);
   // EVNERNE, guiden gater på. Uden fasekalender, med hjemmebane, med
@@ -237,6 +245,7 @@ export default function FootballHelp({ game }) {
         <strong>{(1.3 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>; rammer du en
         overraskelse til odds 4,5, giver det{' '}
         <strong>{(4.5 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>. Forkert tip giver 0.
+        {loft === null ? (
         <p style={{ margin: '0.5rem 0 0' }}>
           Oddsene er <strong>1 delt med sandsynligheden</strong> — mindst{' '}
           <strong>{oddsGulv}</strong>, og ellers uden loft. Det betyder, at ethvert
@@ -244,7 +253,23 @@ export default function FootballHelp({ game }) {
           overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre valg altså
           lige gode.
         </p>
-        {loftHistorie ? (
+        ) : (
+        <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-odds-fair-under-loft">
+          Oddsene er <strong>1 delt med sandsynligheden</strong> — mindst{' '}
+          <strong>{oddsGulv}</strong> og højst <strong>{loftTekst}</strong>. Under loftet betyder det,
+          at ethvert enkelt tip er lige meget værd i det lange løb: en sikker favorit giver få point
+          ofte, en overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre
+          valg altså lige gode — medmindre et af dem står til loftet.
+        </p>
+        )}
+        {loft !== null ? (
+        <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-odds-loft">
+          <strong>Oddsene har et loft på {loftTekst}.</strong> Et udfald, modellen giver under{' '}
+          {loftPct} % chance, står til {loftTekst} — mindre end det er værd. Det rammer kun de
+          skæveste kampe, og det er med vilje: uden loftet kunne ét ramt langskud afgøre hele
+          konkurrencen. Til gengæld er et tip til loftet et dårligere valg end favoritten i samme kamp.
+        </p>
+        ) : loftHistorie ? (
         <p style={{ margin: '0.5rem 0 0' }}>
           <strong>Der er ikke længere et loft over oddsene.</strong> Tidligere blev alt over 6,00
           skåret ned til 6,00, og det gjorde tre ting: de vildeste langskud var underbetalte, to
@@ -272,9 +297,12 @@ export default function FootballHelp({ game }) {
           giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>.
           {/* «nu … stadig» henviser til loftets historie — uden den
               (en turnering) er det bare et loft. */}
-          {loftHistorie
-            ? <> Den er nu det eneste sted i spillet, der stadig har et loft — på{' '}</>
-            : <> Den er det eneste sted i spillet, der har et loft — på{' '}</>}
+          {/* Med et odds-loft er combi IKKE det eneste loft — så siges det ikke. */}
+          {loft !== null
+            ? <> Den har sit eget loft — på{' '}</>
+            : loftHistorie
+              ? <> Den er nu det eneste sted i spillet, der stadig har et loft — på{' '}</>
+              : <> Den er det eneste sted i spillet, der har et loft — på{' '}</>}
           <strong>{COMBI.LOFT}</strong>.
         </p>
       </Section>
@@ -287,7 +315,13 @@ export default function FootballHelp({ game }) {
         {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus. Indsatsen
         tages fra dine <strong>optjente point</strong>, så du kan først bruge Chancen, når du har samlet
         nogle point.
-        {loftHistorie && (
+        {loft !== null && (
+        <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-chance-loft">
+          Chancen bruger de samme odds, så loftet gælder også her: fuld indsats kan højst give{' '}
+          <strong>{CHANCE.MAX_ABS} × ({loftTekst} − 1) = {String(Math.round(CHANCE.MAX_ABS * (loft - 1) * 100) / 100).replace('.', ',')} point</strong> oveni.
+        </p>
+        )}
+        {loftHistorie && loft === null && (
         <p style={{ margin: '0.5rem 0 0' }}>
           Fordi oddsene ikke længere har et loft, er det her, ændringen mærkes mest. Fuld indsats
           på et udfald til odds 8 giver <strong>56 point</strong>; i Premier League kan en enkelt

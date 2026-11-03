@@ -23,7 +23,9 @@ import {
   holdStartElo, valgteParametre, trin, GITTER, DECAY_LAAS, OPVARMNING, VAERTER, sandsynligheder,
   erfaringVedStart, flestKampePrTurnering, median, VAERT_2027,
 } from './lib/haandboldMaaling.mjs';
-import { ELO, ODDS, OUTCOME, SPORT_PROFILER, sportProfil } from '../src/lib/superligaScoring.js';
+import {
+  ELO, ODDS, OUTCOME, CHANCE, SPORT_PROFILER, sportProfil, outcomeProbabilities, oddsParametre, outcomePoints,
+} from '../src/lib/superligaScoring.js';
 import { buildMatches } from '../src/lib/superligaSeed.js';
 import { HAANDBOLD_VM2027_HOLD } from '../src/data/haandboldVm2027Hold.js';
 
@@ -320,11 +322,19 @@ if (!profil) {
   log('  Håndboldprofilen findes ikke i SPORT_PROFILER endnu — ingen odds.');
 } else {
   const holdMedElo = HAANDBOLD_VM2027_HOLD;
-  const kampe48 = buildMatches(PROGRAM.fixtures, holdMedElo, sportProfil({ sport: 'haandbold' }));
+  // To prisninger med SAMME kode: som seedet (profilens loft) og FAIR (samme
+  // profil, loftet sat til null). Langskuddene og følsomheden står på de
+  // fair priser — det er dem, loftet klipper; de seedede står ved siden af.
+  const hbProfil = sportProfil({ sport: 'haandbold' });
+  const medLoft = (max) => ({ ...hbProfil, odds: { ...hbProfil.odds, max } });
+  const kampe48 = buildMatches(PROGRAM.fixtures, holdMedElo, hbProfil);
+  const fair48 = buildMatches(PROGRAM.fixtures, holdMedElo, medLoft(null));
+  const seedetFor = (m) => kampe48.find((s) => s.id === m.id);
+  log(`  Profilens odds-loft: ${hbProfil.odds.max ?? 'intet'}. Priser herunder er FAIR (uden loft), «seedet» er med loftet.`);
   const skaev = (m) => Math.min(m.odds['1'], m.odds['2']);
-  const top5 = [...kampe48].sort((a, b) => skaev(a) - skaev(b)).slice(0, 5);
+  const top5 = [...fair48].sort((a, b) => skaev(a) - skaev(b)).slice(0, 5);
   log('  De fem skæveste (laveste favorit-odds):');
-  for (const m of top5) log(`    ${m.home.padEnd(15)} – ${m.away.padEnd(15)} ${String(m.eloHome).padStart(5)}-${String(m.eloAway).padEnd(5)}  1 ${tal(m.odds['1'], 2).padStart(6)}  X ${tal(m.odds.X, 2).padStart(6)}  2 ${tal(m.odds['2'], 2).padStart(6)}`);
+  for (const m of top5) log(`    ${m.home.padEnd(15)} – ${m.away.padEnd(15)} ${String(m.eloHome).padStart(5)}-${String(m.eloAway).padEnd(5)}  1 ${tal(m.odds['1'], 2).padStart(6)}  X ${tal(m.odds.X, 2).padStart(6)}  2 ${tal(m.odds['2'], 2).padStart(6)}   seedet ${['1', 'X', '2'].map((u) => tal(seedetFor(m).odds[u], 2)).join(' / ')}`);
   const xs = kampe48.map((m) => m.odds.X).sort((a, b) => a - b);
   const over10 = xs.filter((x) => x > 10).length;
   const xMedian = median(xs);
@@ -336,18 +346,18 @@ if (!profil) {
   const gulvBinder = kampe48.flatMap((m) => Object.values(m.odds)).filter((o) => o === profil.odds.min).length;
   log(`  Laveste odds af alle: ${tal(minFav, 2)} — gulvet ${profil.odds.min} binder i ${gulvBinder} udfald (fodboldens gulv ${ODDS.MIN} ville ${minFav < ODDS.MIN ? 'BINDE' : 'ikke binde'}).`);
 
-  // LANGSKUDDENE: odds har intet loft (ODDS i superligaScoring.js), og point
-  // følger odds. Fodboldens højeste odds er 24,39 (Premier League).
-  const udfald = kampe48.flatMap((m) => ['1', 'X', '2'].map((u) => ({ m, u, o: m.odds[u] })));
+  // LANGSKUDDENE på de FAIR priser (uden loft), og point følger odds.
+  // Fodboldens højeste odds er 24,39 (Premier League).
+  const udfald = fair48.flatMap((m) => ['1', 'X', '2'].map((u) => ({ m, u, o: m.odds[u] })));
   const lange = udfald.filter((x) => x.o > 24.39);
   const forventLange = lange.reduce((a, x) => a + 1 / x.o, 0);
   const hoejest = [...udfald].sort((a, b) => b.o - a.o)[0];
   log(`\n  Langskud: ${lange.length} udfald har odds over fodboldens højeste (24,39); ${udfald.filter((x) => x.o > 100).length} over 100.`);
-  log(`  Højeste: ${hoejest.m.home}–${hoejest.m.away} «${hoejest.u}» ${tal(hoejest.o, 2)} → et ramt tip giver ${tal(Math.round(hoejest.o * 10) / 10, 1)} point, en Chance på 8 giver ${Math.round(8 * (hoejest.o - 1))}.`);
+  log(`  Højeste (fair): ${hoejest.m.home}–${hoejest.m.away} «${hoejest.u}» ${tal(hoejest.o, 2)} → uden loft gav et ramt tip ${tal(Math.round(hoejest.o * 10) / 10, 1)} point og en Chance på 8 ${Math.round(8 * (hoejest.o - 1))}; seedet står den til ${tal(seedetFor(hoejest.m).odds[hoejest.u], 2)}.`);
   log(`  Forventet antal af de ${lange.length} langskud, der går ind i den indledende runde: ${tal(forventLange, 3)}.`);
-  // Et loft på Chancen ved 25 (fodboldens højeste nogensinde, afrundet): hvad udelukker det?
+  // Loftet ved 25 (fodboldens højeste nogensinde, afrundet): hvad klipper det?
   const over25 = udfald.filter((x) => x.o > 25);
-  log(`  Et loft ved 25 udelukker ${over25.length} udfald (${lange.length - over25.length} ligger mellem 24,39 og 25: ${lange.filter((x) => x.o <= 25).map((x) => `${x.m.home}–${x.m.away} «${x.u}» ${tal(x.o, 2)}`).join(', ') || '—'}); højeste X er ${tal(xs.at(-1), 2)}.`);
+  log(`  Et loft ved 25 klipper ${over25.length} udfald (${lange.length - over25.length} ligger mellem 24,39 og 25: ${lange.filter((x) => x.o <= 25).map((x) => `${x.m.home}–${x.m.away} «${x.u}» ${tal(x.o, 2)}`).join(', ') || '—'}); højeste X er ${tal(xs.at(-1), 2)}.`);
 
   // Tæt knockout: X for de hold, der realistisk mødes (top-8 indbyrdes).
   const top8 = hold.slice(0, 8);
@@ -371,8 +381,9 @@ if (!profil) {
   // 8b. FØLSOMHED: valget, ejeren skal se priserne for — værtsfordelen
   // (+vært i Tysklands start-Elo, afsnit 5). Samme buildMatches og profil;
   // kun holdenes elo byttes.
+  // FAIR priser (loftet sat til null): følsomheden er værtsfordelens, ikke loftets.
   const pris = (holdListe, home, away, u) => {
-    const m = buildMatches(PROGRAM.fixtures, holdListe, sportProfil({ sport: 'haandbold' })).find((x) => x.home === home && x.away === away);
+    const m = buildMatches(PROGRAM.fixtures, holdListe, medLoft(null)).find((x) => x.home === home && x.away === away);
     return m ? m.odds[u] : null;
   };
   const prisPar = (holdListe, a, b) => {
@@ -383,7 +394,7 @@ if (!profil) {
   const udenVaert = HAANDBOLD_VM2027_HOLD.map((t) => (VAERT_2027.includes(t.hbKode) ? { ...t, elo: t.elo - R.elo.vaert } : t));
   const tjek = [['Uruguay', 'Tyskland', '1'], ['Tyskland', 'Serbien', '2'], ['Angola', 'Danmark', '1'], ['Tyskland', 'Tunesien', '2']];
   log('');
-  log(`  8b. Følsomhed — samme kampe med ${vaertNavne.join('/')} UDEN +${R.elo.vaert} som vært:`);
+  log(`  8b. Følsomhed — samme kampe med ${vaertNavne.join('/')} UDEN +${R.elo.vaert} som vært (fair priser, før loftet):`);
   const kol = [['holdfilen', HAANDBOLD_VM2027_HOLD], [`uden +${R.elo.vaert}`, udenVaert]];
   log(`      ${'kamp'.padEnd(26)}${kol.map(([k]) => k.padStart(22)).join('')}`);
   const foelsomhed = [];
@@ -398,8 +409,47 @@ if (!profil) {
     log(`      ${`${a}–${b} «X» (KO)`.padEnd(26)}${v.map((x) => tal(x, 2).padStart(22)).join('')}`);
   }
 
+  // 8c. LOFT-FØLSOMHED (ejerens valg: 25, §11-tillæg 4). Samme 48 kampe,
+  // prissat med buildMatches og profilen — kun loftet byttes. Forventede
+  // point regnes med MODELLENS sandsynlighed og spillets egen pointfunktion
+  // (outcomePoints) på de klippede odds: et klippet udfald betaler under fair.
+  // Strategierne tipper samme udfald i hver kamp: favoritten (laveste fair
+  // odds af 1/2), underhunden (højeste af 1/2) eller X.
+  const sandsyn = (m) => outcomeProbabilities({ eloHome: m.eloHome, eloAway: m.eloAway, ...oddsParametre(hbProfil) });
+  const valg = {
+    favorit: (m) => (m.odds['1'] <= m.odds['2'] ? '1' : '2'),
+    underhund: (m) => (m.odds['1'] <= m.odds['2'] ? '2' : '1'),
+    X: () => 'X',
+  };
+  const uru = fair48.find((m) => m.home === 'Uruguay' && m.away === 'Tyskland');
+  const loftFoelsomhed = [];
+  log('');
+  log('  8c. Loft-følsomhed — de 48 kampe med loft 15 / 25 / 40 og uden (forventede point pr. strategi over 48 kampe):');
+  log(`      ${'loft'.padEnd(7)}${'klippet'.padStart(8)}${'kampe'.padStart(7)}${'X klip'.padStart(8)}${'maks tip'.padStart(10)}${'maks Ch8'.padStart(10)}${'favorit'.padStart(9)}${'underhund'.padStart(11)}${'X'.padStart(8)}${'Uruguay'.padStart(9)}${'≥1 klip ind'.padStart(13)}`);
+  for (const L of [null, 15, 25, 40]) {
+    const kampe = buildMatches(PROGRAM.fixtures, holdMedElo, medLoft(L));
+    const klip = fair48.flatMap((f, i) => ['1', 'X', '2'].filter((u) => L !== null && f.odds[u] > L).map((u) => ({ i, u, p: sandsyn(f)[u] })));
+    const ev = Object.fromEntries(Object.entries(valg).map(([navn, v]) => [navn,
+      kampe.reduce((a, m, i) => { const u = v(fair48[i]); return a + sandsyn(m)[u] * outcomePoints(u, u, m.odds); }, 0)]));
+    const maksOdds = Math.max(...kampe.flatMap((m) => Object.values(m.odds)));
+    const uruM = kampe.find((m) => m.id === uru.id);
+    const uruEv = sandsyn(uruM)['1'] * outcomePoints('1', '1', uruM.odds);
+    const pMindstEt = 1 - klip.reduce((a, x) => a * (1 - x.p), 1);
+    const r = {
+      loft: L, klippet: klip.length, kampe: new Set(klip.map((x) => x.i)).size, xKlippet: klip.filter((x) => x.u === 'X').length,
+      maksTip: Math.round(maksOdds * 10) / 10, maksChance8: Math.round(CHANCE.MAX_ABS * (maksOdds - 1)),
+      forventet: ev, uruguay: { odds: uruM.odds['1'], forventet: uruEv }, pMindstEtKlippetInd: pMindstEt,
+    };
+    loftFoelsomhed.push(r);
+    log(`      ${String(L ?? 'intet').padEnd(7)}${String(r.klippet).padStart(8)}${String(r.kampe).padStart(7)}${String(r.xKlippet).padStart(8)}${tal(r.maksTip, 1).padStart(10)}${String(r.maksChance8).padStart(10)}${tal(ev.favorit, 2).padStart(9)}${tal(ev.underhund, 2).padStart(11)}${tal(ev.X, 2).padStart(8)}${tal(uruEv, 3).padStart(9)}${(L === null ? '—' : pct(pMindstEt)).padStart(13)}`);
+  }
+  const l25 = loftFoelsomhed.find((r) => r.loft === 25);
+  log(`      Med loft 25: et tip på Uruguay (fair ${tal(uru.odds['1'], 2)}, p ${pct(1 / uru.odds['1'], 2)}) er ${tal(l25.uruguay.forventet, 3)} point værd mod ~1 for et fair udfald.`);
+  log(`      Forventet antal af de ${lange.length} langskud over 24,39, der går ind: ${tal(forventLange, 3)} → chance for mindst ét: ${pct(1 - lange.reduce((a, x) => a * (1 - sandsyn(x.m)[x.u]), 1))}.`);
+
   oddsUd = {
-    top5: top5.map((m) => ({ home: m.home, away: m.away, eloHome: m.eloHome, eloAway: m.eloAway, odds: m.odds })),
+    loftFoelsomhed,
+    top5: top5.map((m) => ({ home: m.home, away: m.away, eloHome: m.eloHome, eloAway: m.eloAway, odds: m.odds, seedet: seedetFor(m).odds })),
     xOdds: { min: xs[0], median: xMedian, max: xs.at(-1), over10 },
     knockoutTop8: { min: parX[0], median: median(parX), max: parX.at(-1), over10: parX.filter((x) => x > 10).length },
     historiskKnockout: { n: histKo.length, median: median(histKo), over10: histKo.filter((x) => x > 10).length },

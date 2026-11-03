@@ -255,10 +255,22 @@ mappe under filnøglen fra `TURNERINGER[].transklusioner` i
 Præcis det navngivne afsnit (`<section begin="Final" />` … `<section end="Final" />`)
 indsættes, hvor transklusionen stod, før kampene læses; kilden får
 `transkluderet` med den sides fil og tid, og udskriften siger «↳ afsnittet
-«Final» indsat fra …». Mangler filen, afvises kampen som `andenSide` (som før,
-synligt i udskriften). Mangler afsnittet på siden, står det to gange, eller
-ligger der en fil for en side, turneringen ikke transkluderer, stopper
-scriptet. API-vejen henter ingen anden side.
+«Final» indsat fra …». Mangler filen, afvises kampen som `andenSide` — og
+fordi siden er **erklæret** i `TURNERINGER[].transklusioner`, **nægter
+`--skriv` at skrive** (tør-kørslen siger det med ⚠️). Ellers ville hver
+opfriskning ad API-vejen, som aldrig henter en anden side, tabe finalen med
+rc 0. Skal kampen bevidst stå som afvist, så tilføj `--tillad-anden-side`.
+
+Scriptet stopper også, før noget skrives, når afsnittet mangler på siden eller
+står to gange, når afsnittet selv indeholder en overskrift (så ville kampene
+få en anden sektion end den, transklusionen står i), og når den konfigurerede
+fil (`em2026-finale.*`) ligger i mappen, men turneringen ikke transkluderer
+siden. **Mappen skal gå op:** ligger der en fil, som ingen turnering eller
+erklæret side hedder — en stavefejl som `em2026-final.wikitext` eller en
+`foo.wikitext` — stopper scriptet, før noget læses. Filer for turneringer, der
+ikke er valgt med `--turneringer`, springes over og nævnes i udskriften;
+skjulte filer (`.DS_Store`) tæller ikke. `--ud <fil>` skriver et andet sted
+end `scripts/haandbold-historik.json` (bruges af testene).
 
 > **Status 3/11 2026:** `scripts/haandbold-historik.json` rummer **alle otte**
 > turneringer: 678 kampe, **inkl. EM 2026-finalen**. Siderne — de otte

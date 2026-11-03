@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { seedKampe, sportLinje } from './seedKampe.mjs';
+import { seedKampe, sportLinje, loftLinje } from './seedKampe.mjs';
 import { buildMatches } from '../../src/lib/superligaSeed.js';
 import { SPORT_PROFILER } from '../../src/lib/superligaScoring.js';
 import { PROEVE, medProeveSport } from '../../src/test/proeveSport.js';
@@ -111,26 +111,48 @@ describe('seedKampe', () => {
   it('sportLinje viser det rå felt — og siger det, når feltet mangler', () => {
     const fodbold = SPORT_PROFILER.fodbold;
     expect(sportLinje({ sportRaa: undefined, profil: fodbold }))
-      .toBe('Sport: fodbold (intet sport-felt på spillet → fodbold; hjemmebane 60, odds-gulv 1.1).');
+      .toBe('Sport: fodbold (intet sport-felt på spillet → fodbold; hjemmebane 60, odds-gulv 1.1, odds-loft intet (null)).');
     expect(sportLinje({ sportRaa: null, profil: fodbold })).toMatch(/intet sport-felt/);
     // Grenen er PRÆCIST undefined/null. En tom streng, 0 og false er SATTE
     // værdier (seedKampe kaster for dem) — med `!sportRaa` stod de som
     // "intet sport-felt", altså som et spil, der bevidst er fodbold.
     expect(sportLinje({ sportRaa: '', profil: fodbold }))
-      .toBe('Sport: fodbold (game.sport = ""; hjemmebane 60, odds-gulv 1.1).');
+      .toBe('Sport: fodbold (game.sport = ""; hjemmebane 60, odds-gulv 1.1, odds-loft intet (null)).');
     for (const sportRaa of [0, false]) {
       expect(sportLinje({ sportRaa, profil: fodbold }), String(sportRaa)).not.toMatch(/intet sport-felt/);
       expect(sportLinje({ sportRaa, profil: fodbold })).toContain(`game.sport = ${sportRaa}`);
     }
     expect(sportLinje({ sportRaa: 'fodbold', profil: fodbold }))
-      .toBe('Sport: fodbold (game.sport = "fodbold"; hjemmebane 60, odds-gulv 1.1).');
+      .toBe('Sport: fodbold (game.sport = "fodbold"; hjemmebane 60, odds-gulv 1.1, odds-loft intet (null)).');
     expect(sportLinje({ sportRaa: 'proeve', profil: PROEVE }))
-      .toBe('Sport: proeve (game.sport = "proeve"; hjemmebane 0, odds-gulv 1.01).');
+      .toBe('Sport: proeve (game.sport = "proeve"; hjemmebane 0, odds-gulv 1.01, odds-loft 20).');
     // Linjen må ALDRIG skjule det rå felt bag profilens navn — heller ikke,
     // hvis den en dag kaldes uden om seedKampes vagt. Det var præcis fejlen:
     // "Sport: fodbold" for et spil med sport 'handbold'.
     expect(sportLinje({ sportRaa: 'handbold', profil: fodbold }))
-      .toBe('Sport: fodbold (game.sport = "handbold"; hjemmebane 60, odds-gulv 1.1).');
+      .toBe('Sport: fodbold (game.sport = "handbold"; hjemmebane 60, odds-gulv 1.1, odds-loft intet (null)).');
+    // Håndbold: loftet står som tallet — og en profil UDEN nøglen står ikke som «intet».
+    expect(sportLinje({ sportRaa: 'haandbold', profil: SPORT_PROFILER.haandbold }))
+      .toBe('Sport: haandbold (game.sport = "haandbold"; hjemmebane 0, odds-gulv 1.01, odds-loft 25).');
+    expect(sportLinje({ sportRaa: 'x', profil: { sport: 'x', elo: { HFA: 0 }, odds: { min: 1.01 } } }))
+      .toContain('odds-loft undefined).');
+  });
+
+  // Tør-kørslen siger, hvad loftet GØR ved de kampe, der skal skrives — og
+  // intet for en sport uden loft (SL/PL: ingen ny linje).
+  it('loftLinje tæller udfaldene til loftet — og er null uden loft', () => {
+    const hold = [{ name: 'Stærk', elo: 1900 }, { name: 'Svag', elo: 1300 }, { name: 'Lige', elo: 1500 }];
+    const fx = [{ round: 1, home: 'Stærk', away: 'Svag' }, { round: 1, home: 'Svag', away: 'Stærk' }, { round: 1, home: 'Lige', away: 'Lige' }];
+    const hb = SPORT_PROFILER.haandbold;
+    const matches = buildMatches(fx, hold, hb);
+    // Fair pris for Svag er over 25 (uden loft): det er det, der klippes.
+    const raa = buildMatches(fx, hold, { ...hb, odds: { min: 1.01, max: null } });
+    expect(raa[0].odds['2']).toBeGreaterThan(25);
+    expect(matches[0].odds['2']).toBe(25);
+    expect(loftLinje({ profil: hb, matches }))
+      .toBe('Odds-loft 25: 2 udfald i 2 af 3 kampe står til loftet (fair pris over 25).');
+    expect(loftLinje({ profil: SPORT_PROFILER.fodbold, matches: buildMatches(fx, hold) })).toBeNull();
+    expect(loftLinje({ profil: hb, matches: [] })).toBe('Odds-loft 25: 0 udfald i 0 af 0 kampe står til loftet (fair pris over 25).');
   });
 
   describe('med en prøvesport på spillet', () => {
@@ -142,9 +164,9 @@ describe('seedKampe', () => {
       });
       expect(sportRaa).toBe('proeve');
       expect(profil).toBe(PROEVE);
-      // Prøvesportens odds (neutral bane, få uafgjorte, gulv 1,01) — fodbold
-      // giver 1,15 / 9,21 / 51,23 for samme kamp.
-      expect(matches[0].odds).toEqual({ 1: 1.07, X: 29.11, 2: 33.78 });
+      // Prøvesportens odds (neutral bane, få uafgjorte, gulv 1,01, loft 20:
+      // fair X 29,11 og 2 33,78 klippes) — fodbold giver 1,15 / 9,21 / 51,23.
+      expect(matches[0].odds).toEqual({ 1: 1.07, X: 20, 2: 20 });
       // … og et ukendt hold får sportens neutrale rating, ikke fodboldens.
       expect(matches[1].eloHome).toBe(1000);
       expect(matches[2].eloAway).toBe(1000);

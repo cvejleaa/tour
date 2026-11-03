@@ -146,6 +146,9 @@ export function udtraekKampe(raaTekst, turnering, { minSpillede = MIN_SPILLEDE, 
       sektion: t.sektion.join(' › '),
       grund: `kampen står ikke på siden, men transkluderes fra «${t.side}» (${t.skabelon}) — den side er ikke givet med, så kampen er IKKE med`,
       art: 'andenSide',
+      // Sidens titel for sig: scriptet nægter --skriv, når siden er ERKLÆRET
+      // (TURNERINGER[].transklusioner) og alligevel endte her.
+      side: t.side,
     });
   }
   if (kampe.length < minSpillede) {
@@ -218,7 +221,55 @@ function afsnitFra(andenTekst, side, afsnit, turnering) {
   }
   const fra = begynd[0].index + begynd[0][0].length;
   if (slut[0].index < fra) throw new Error(`${hvor} slutter, før det begynder. Intet er skrevet.`);
-  return t.slice(fra, slut[0].index);
+  const afsnitTekst = t.slice(fra, slut[0].index);
+  // En OVERSKRIFT i afsnittet ville blive en overskrift på turneringssiden:
+  // kampene derfra — og kasserne efter transklusionen — fik så dens sektion
+  // («Match») i stedet for den, transklusionen står i («Knockout stage ›
+  // Final»), og erKnockout ville se finalen som en gruppekamp. Tavst, for
+  // kamptallet går stadig op. Derfor højt.
+  const overs = overskrifter(afsnitTekst);
+  if (overs.length) {
+    throw new Error(`${hvor} indeholder en overskrift («${overs[0].titel}») — indsat ville den flytte kampenes sektion `
+      + 'væk fra den, hvor transklusionen står. Intet er skrevet.');
+  }
+  return afsnitTekst;
+}
+
+/**
+ * Filerne i --filer-mappen, som INGEN turnering eller transkluderet side
+ * hedder (en stavefejl som `em2026-final.wikitext`, en `foo.wikitext`) — og
+ * dem, der hører til en turnering, der ikke er valgt med --turneringer.
+ * Scriptet STOPPER på de første: en fil, der ligger i mappen uden at blive
+ * brugt, ligner en side, der er med. De sidste springes over og nævnes.
+ * Skjulte filer (`.DS_Store`) tæller ikke.
+ * @param {string[]} filnavne  mappens indhold
+ * @param {Array<{noegle: string, transklusioner?: Record<string, string>}>} valgte
+ * @param {Array<{noegle: string, transklusioner?: Record<string, string>}>} [alle]
+ * @returns {{ukendte: string[], ikkeValgte: string[]}}
+ */
+export function ubrugteFiler(filnavne, valgte, alle = TURNERINGER) {
+  const noegler = (ts) => ts.flatMap((t) => [t.noegle, ...Object.values(t.transklusioner ?? {})]);
+  const passer = (f, ns) => ns.some((n) => new RegExp(`^${escRe(n)}\\.(json|wikitext|txt)$`, 'i').test(f));
+  const synlige = filnavne.filter((f) => !f.startsWith('.'));
+  return {
+    ukendte: synlige.filter((f) => !passer(f, noegler(alle))),
+    ikkeValgte: synlige.filter((f) => passer(f, noegler(alle)) && !passer(f, noegler(valgte))),
+  };
+}
+
+/**
+ * De ERKLÆREDE transklusioner (TURNERINGER[].transklusioner), der alligevel
+ * endte som 'andenSide' — siden blev ikke givet med (API-vejen henter den
+ * aldrig; --filer-mappen manglede den). --skriv nægter at skrive dem, for så
+ * taber historikken kampen ved hver opfriskning (modstanderen, finale-vejen).
+ * En transklusion, ingen har erklæret, er stadig kun en synlig afvisning.
+ * @returns {Array<{side: string, sektion: string, fil: string}>}
+ */
+export function manglendeErklaerede(turnering, afviste) {
+  const erklaeret = turnering.transklusioner ?? {};
+  return afviste
+    .filter((a) => a.art === 'andenSide' && Object.prototype.hasOwnProperty.call(erklaeret, a.side))
+    .map((a) => ({ side: a.side, sektion: a.sektion, fil: erklaeret[a.side] }));
 }
 
 /** Et resumé pr. turnering til udskriften og outputtet. */

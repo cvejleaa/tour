@@ -184,7 +184,8 @@ function scoreBet(bet, result, odds, bank) {
 // spillede kampe (13 Superliga-sæsoner + 10 Premier League-sæsoner). Fejlen sad
 // i niveauet, ikke i formen — DRAW_DECAY er efterprøvet og står stille.
 const ELO = { START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 };
-// INTET LOFT længere — kun et gulv. Loftet udlignede ikke, som den gamle
+// INTET LOFT længere i FODBOLD — kun et gulv (håndbold har loftet 25 som
+// profilværdi, se SPORT_PROFILER). Loftet udlignede ikke, som den gamle
 // kommentar påstod; det SKABTE en skævhed mod favorit-spilleren, fordi det kun
 // rammer høje odds. Et loft klipper desuden kun gevinsten, aldrig
 // indsatsen, så en Chance på høje odds fik negativ forventning: den modige
@@ -217,21 +218,25 @@ function outcomeProbabilities({
 }
 
 // Gulvet er ODDS.MIN, medmindre sportsprofilen giver et andet (profil.odds.min).
-function fairOdds(p, min = ODDS.MIN) {
+// Loftet er profil.odds.max (null/udeladt = intet loft, som i fodbold) — og
+// gælder også UGYLDIG. Begrundelsen står i src/lib/superligaScoring.js.
+function fairOdds(p, min = ODDS.MIN, max = null) {
   const prob = Number(p);
-  if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
-  const clamped = Math.max(min, 1 / prob);
+  const loft = (o) => (max === null || max === undefined ? o : Math.min(max, o));
+  if (!Number.isFinite(prob) || prob <= 0) return loft(ODDS.UGYLDIG);
+  const clamped = loft(Math.max(min, 1 / prob));
   return Math.round(clamped * 100) / 100;
 }
 
-// Samme felter som outcomeProbabilities + oddsMin — dvs. oddsParametre(profil).
+// Samme felter som outcomeProbabilities + oddsMin/oddsMax — dvs. oddsParametre(profil).
 function outcomeOdds(eloArgs) {
   const p = outcomeProbabilities(eloArgs);
   const min = eloArgs ? eloArgs.oddsMin : undefined;
+  const max = eloArgs && eloArgs.oddsMax !== undefined ? eloArgs.oddsMax : null;
   return {
-    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min),
-    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min),
-    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min),
+    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min, max),
+    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min, max),
+    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min, max),
   };
 }
 
@@ -249,19 +254,22 @@ function frys(o) {
 }
 
 const SPORT_PROFILER = {
+  // odds.max: null = BEVIDST intet loft (ikke en glemt nøgle).
   fodbold: frys({
     sport: 'fodbold',
     elo: { ...ELO },
-    odds: { min: ODDS.MIN },
+    odds: { min: ODDS.MIN, max: null },
   }),
   // K 120 (95 % 80-160), DRAW_BASE 0,157 (95 % 0,118-0,202), DRAW_DECAY 0,55
   // LÅST (umålelig: 95 % 0-0,88), HFA 0 (neutral bane; værtsfordelen ligger
   // i værtens start-Elo), START 1500 (skalaens nulpunkt), gulv 1,01 (binder
-  // aldrig: laveste odds er 1,06). Se src/lib/superligaScoring.js.
+  // aldrig: laveste odds er 1,06), loft 25 (EJERENS VALG, §11-tillæg 4; et
+  // klippet udfald betaler under fair — scripts/maal-haandbold.mjs afsnit 8c).
+  // Se src/lib/superligaScoring.js.
   haandbold: frys({
     sport: 'haandbold',
     elo: { START: 1500, HFA: 0, K: 120, DRAW_BASE: 0.157, DRAW_DECAY: 0.55 },
-    odds: { min: 1.01 },
+    odds: { min: 1.01, max: 25 },
   }),
 };
 
@@ -360,17 +368,31 @@ function visSport(vaerdi) {
 // Kaster for et gulv, der ikke er et endeligt tal over 1: outcomeOdds faldt
 // ellers tavst tilbage (manglende → 1,1, null → intet gulv, NaN → NaN-odds).
 // Profilerne er kode — en forkert profil er en programfejl.
+// Loftet ligeså: nøglen odds.max skal STÅ, og den er null (bevidst intet loft)
+// eller et endeligt tal over gulvet — en manglende nøgle gav ellers tavst intet loft.
 function oddsParametre(profil = sportProfil()) {
   const min = profil.odds ? profil.odds.min : undefined;
   if (!(Number.isFinite(min) && min > 1)) {
     throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-gulv (odds.min = ${String(min)}).`);
+  }
+  const harMax = Object.prototype.hasOwnProperty.call(profil.odds, 'max');
+  const max = harMax ? profil.odds.max : undefined;
+  if (!(max === null || (Number.isFinite(max) && max > min))) {
+    throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-loft (odds.max = ${harMax ? String(max) : 'mangler'}; null = intet loft).`);
   }
   return {
     hfa: profil.elo.HFA,
     drawBase: profil.elo.DRAW_BASE,
     drawDecay: profil.elo.DRAW_DECAY,
     oddsMin: min,
+    oddsMax: max,
   };
+}
+
+// Spillets odds-loft (tal eller null). Den delte helper for tekster om loftet
+// (invitationen); spejl af src/lib/superligaScoring.js.
+function oddsLoft(game) {
+  return oddsParametre(sportProfil(game)).oddsMax;
 }
 
 function eloParametre(profil = sportProfil()) {
@@ -504,6 +526,6 @@ module.exports = {
   settleChance, scoreBet, chanceMaxStake, clampStake,
   eloExpectedHome, outcomeProbabilities, fairOdds, outcomeOdds,
   updateElo, actualHomeFromOutcome,
-  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, eloParametre,
+  STANDARD_SPORT, SPORT_PROFILER, sportProfil, ukendtSport, visSport, oddsParametre, oddsLoft, eloParametre,
   SPORT_ORD, sportOrd, SPORT_EVNER, sportEvner, harHjemmebane,
 };

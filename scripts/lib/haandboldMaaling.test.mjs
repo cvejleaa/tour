@@ -186,7 +186,7 @@ describe('uafgjort-andelen efter 60 min', () => {
 describe('profilen ER målingen (SPORT_PROFILER.haandbold)', () => {
   it('literalerne', () => {
     expect(PROFIL.elo).toEqual({ START: 1500, HFA: 0, K: 120, DRAW_BASE: 0.157, DRAW_DECAY: 0.55 });
-    expect(PROFIL.odds).toEqual({ min: 1.01 });
+    expect(PROFIL.odds).toEqual({ min: 1.01, max: 25 }); // max: ejerens valg (§11-tillæg 4), ikke målt
     expect(STARTMETODE).toEqual({ kOpvarmning: 150, carry: 1, nyStart: 1150, vaert: 25 });
     expect(VAERT_2027).toEqual(['GER']);
   });

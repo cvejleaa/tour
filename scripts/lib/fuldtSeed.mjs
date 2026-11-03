@@ -15,7 +15,7 @@
 import {
   seedPlan, spilDokPlan, teamsPlan, ukendteHold, kickoffMs, OVERSKRIV_VEJ,
 } from '../../src/lib/seedFootball.js';
-import { seedKampe, sportLinje } from './seedKampe.mjs';
+import { seedKampe, sportLinje, loftLinje } from './seedKampe.mjs';
 
 /**
  * Kør et fuldt seed mod ét spil.
@@ -72,6 +72,8 @@ export async function koerFuldtSeed({
   // run().catch giver exit 1 med beskeden. Linjen viser det RÅ felt.
   const { sportRaa, profil, matches } = await seedKampe({ gameRef, fixtures: plan.skriv, teams: dok.prisHold });
   log(sportLinje({ sportRaa, profil }));
+  const loft = loftLinje({ profil, matches });
+  if (loft) log(loft);
 
   // Den TAVSE fælde: teamElo giver sportens neutrale rating for et navn, den
   // ikke kender. Tjekkes mod den liste, kampene FAKTISK prises af — bevares

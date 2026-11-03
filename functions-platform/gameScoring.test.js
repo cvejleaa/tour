@@ -2195,7 +2195,10 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
         const m = kampe.get(a.id);
         expect(m.odds, a.id).toEqual(a.efter);
         expect(a.efter, a.id).toEqual(scoring.outcomeOdds({ eloHome: m.eloHome, eloAway: m.eloAway, ...scoring.oddsParametre(hb) }));
+        // Odds-loftet 25 (håndboldens profilværdi) gælder også Ompris.
+        expect(Math.max(...Object.values(a.efter)), a.id).toBeLessThanOrEqual(25);
       }
+      expect(scoring.oddsParametre(hb).oddsMax).toBe(25);
       // Den levende Elo er regnet med K 120 og uden hjemmebane: samme facit,
       // andre ratings end fodboldens.
       expect(db._game.eloCurrent).not.toEqual(golden.sl.eloCurrent);
@@ -2325,11 +2328,13 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
     const PROEVE = {
       sport: 'proeve',
       elo: { START: 1000, HFA: 0, K: 40, DRAW_BASE: 0.05, DRAW_DECAY: 0.2 },
-      odds: { min: 1.01 },
+      // Loftet 20 (fodbold: null, håndbold: 25) — så de levende odds beviser,
+      // at recomputeSeasonElo sender SPILLETS loft videre.
+      odds: { min: 1.01, max: 20 },
     };
     // Skrevet HELT ud, ikke via oddsParametre — så en fejl i oversættelsen
     // også bliver rød her.
-    const ARGS = { hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01 };
+    const ARGS = { hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01, oddsMax: 20 };
     beforeAll(() => { scoring.SPORT_PROFILER.proeve = PROEVE; });
     afterAll(() => { delete scoring.SPORT_PROFILER.proeve; });
 
@@ -2357,13 +2362,16 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
       const db = makeGoldenDb({ teams: hold, sport: 'proeve' }, kampe());
       await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
       expect(kamp(db, 'm2').odds).toEqual(scoring.outcomeOdds({ eloHome: 1520, eloAway: 1480, ...ARGS }));
-      expect(kamp(db, 'm2').odds).toEqual({ 1: 1.88, X: 20.94, 2: 2.37 });
+      expect(kamp(db, 'm2').odds).toEqual({ 1: 1.88, X: 20, 2: 2.37 }); // X fair 20,94 — klippet til loftet
       // A (1520) mod et hold på 1000: p(1) = 0,919 → fair 1,088. Gulvet 1,01
       // lader det stå (1,09); fodboldens 1,1 ville have hævet det.
-      expect(kamp(db, 'm3').odds).toEqual({ 1: 1.09, X: 28.72, 2: 21.71 });
+      // LOFTET 20 klipper X (fair 28,72) og 2 (fair 21,71) — uden det stod de
+      // her; fodbold ville ikke klippe.
+      expect(kamp(db, 'm3').odds).toEqual({ 1: 1.09, X: 20, 2: 20 });
       // Spejlet på neutral bane: nu er A UDE-favorit, og '2' har sit eget
-      // fairOdds-kald, der også skal have profilens gulv (fodbold: 1,1).
-      expect(kamp(db, 'm5').odds).toEqual({ 1: 21.71, X: 28.72, 2: 1.09 });
+      // fairOdds-kald, der også skal have profilens gulv (fodbold: 1,1) — og
+      // '1' sit eget loft.
+      expect(kamp(db, 'm5').odds).toEqual({ 1: 20, X: 20, 2: 1.09 });
     });
 
     it('kun en STRENG finder prøvesporten', () => {

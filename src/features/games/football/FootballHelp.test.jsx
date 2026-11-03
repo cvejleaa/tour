@@ -563,8 +563,20 @@ describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
     // Gulvet med sine egne decimaler: 1,01 — ikke fmtDec's "1,0", som ville
     // sige, at et ramt tip kan betale mindre end indsatsen.
     const odds = afsnit(/Point følger oddsene/);
-    expect(odds).toMatch(/mindst 1,01, og ellers uden loft/);
+    // VENDT (odds-loftet): her stod «mindst 1,01, og ellers uden loft». Prøve-
+    // sporten har loftet 20 — et andet tal end håndboldens 25, så et loft, der
+    // er skrevet af i teksten, bliver rødt her. Gaten er profilværdien.
+    expect(odds).toMatch(/mindst 1,01 og højst 20\. Under loftet/);
+    expect(odds).toMatch(/Oddsene har et loft på 20\. Et udfald, modellen giver under 5 % chance, står til 20/);
+    expect(odds).not.toMatch(/ellers uden loft|intet loft|ikke længere et loft|højst 25|eneste sted i spillet/);
+    expect(odds).toMatch(/Den har sit eget loft — på/);
     expect(odds).not.toMatch(/mindst 1,1,|mindst 1,0,/);
+    // Prøvesporten har INGEN kalender (loftHistorie er sand) men ET loft: den
+    // historiske «loftet blev fjernet»-sætning må ikke stå (mutant: gaten
+    // `loftHistorie && loft === null` → `loftHistorie` overlevede).
+    const chancen = afsnit(/^⚡ ?Chancen/);
+    expect(chancen).toMatch(/8 × \(20 − 1\) = 152 point oveni/);
+    expect(chancen).not.toMatch(/ikke længere har et loft|Premier League kan en enkelt/);
   });
 });
 
