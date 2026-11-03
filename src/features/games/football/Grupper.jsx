@@ -66,8 +66,10 @@ export function stregEfter(raekker, videre, videreHold) {
   }
   const sidst = raekker[videre - 1];
   const naeste = raekker[videre];
+  // To regler, én vagt hver: ingen placeringer endnu (før første facit) …
   if (sidst.rank == null) return null;
-  if (naeste && naeste.rank === sidst.rank) return null;
+  // … og en delt plads hen over stregen.
+  if (naeste.rank != null && naeste.rank === sidst.rank) return null;
   return videre;
 }
 
