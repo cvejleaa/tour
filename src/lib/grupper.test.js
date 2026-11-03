@@ -272,6 +272,16 @@ describe('grupperOversigt', () => {
     expect(o[0].grupper[0].videreHold).toBeNull();
   });
 
+  it('alle tre A-hold har kamp, men kun to B-hold → I venter, og A\'s videreHold venter med (Q1: først når gruppen er klar)', () => {
+    const alle = hovedrundeKampe({ A: A_TOP3 });
+    const valgt = alle.filter((m) => ['r8-I-x1y3', 'r8-I-y1x2', 'r10-I-x3y1'].includes(m.id));
+    expect(valgt).toHaveLength(3);
+    const o = grupperOversigt(HVM27G, [...INDL_FACIT, ...valgt]);
+    expect(o[1].grupper[0]).toMatchObject({ status: 'venter', raekker: null });
+    expect(o[1].grupper[0].hold).toEqual(['Serbien', 'Tyskland', 'Tunesien', 'Saudi-Arabien', 'Egypten']);
+    expect(o[0].grupper[0].videreHold).toBeNull();
+  });
+
   it('dag 8 lagt ind → I og III klar, II og IV venter', () => {
     const o = grupperOversigt(HVM27G, [...INDL_FACIT, ...hovedrundeKampe({ A: A_TOP3 }, { runder: [8] })]);
     expect(o[1].grupper.map((g) => [g.navn, g.status])).toEqual([['I', 'klar'], ['II', 'venter'], ['III', 'klar'], ['IV', 'venter']]);
