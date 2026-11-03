@@ -59,20 +59,28 @@ Liga-admin følger med at have oprettet ligaen.
   turneringens 4. dag mister puljebonussen.
 
   Et spil kan i stedet få deadlinen **udledt af en runde** (`puljeLockRound` i
-  `scripts/games.mjs` — sådan er Premier League sat op): så sættes bonus-
-  deadlinen automatisk til det **tidligste kickoff i den runde**, og den følger
-  med, hvis kampen flyttes. Den udledes ved kickoff-synken, så efter en seed af
-  et sådant spil skal du køre **🗓️ Synk kamptider nu** (eller vente på det
-  daglige job), før deadlinen står — indtil da viser pulje-fanen "Endnu ikke
-  åbnet". En passeret deadline skubbes aldrig ud i fremtiden igen, selv om en
+  `scripts/games.mjs` — sådan er Premier League sat op): har spillet en
+  **kickoff-synk**, sættes bonus-deadlinen automatisk til det **tidligste
+  kickoff i den runde**, og den følger med, hvis kampen flyttes. Den udledes
+  ved kickoff-synken, så efter en seed af et sådant spil skal du køre
+  **🗓️ Synk kamptider nu** (eller vente på det daglige job), før deadlinen
+  står — indtil da viser pulje-fanen "Endnu ikke åbnet". Knappen findes kun på
+  et spil med kickoff-synk; uden den gælder afsnittet nedenfor. En passeret deadline skubbes aldrig ud i fremtiden igen, selv om en
   kamp flyttes frem — så puljen ikke kan genåbnes, efter alle har set
   hinandens tip.
 
   Har spillet `puljeLockRound`, men **ingen kickoff-synk** (en turnering, hvis
-  kilde ikke er i drift endnu), udleder intet deadlinen. Så er feltet
+  kilde ikke er i drift endnu — sådan er Håndbold-VM 2027), udleder intet
+  deadlinen, og der er ingen **🗓️ Synk kamptider nu**. Så er feltet
   redigerbart, og der står hvorfor: sæt det til rundens første kickoff — aldrig
-  en placeholder. Får spillet senere en kickoff-synk, flytter den deadlinen til
-  rundens tidligste kickoff, så længe den ikke er passeret.
+  en placeholder — og tryk **Gem**. Får spillet senere en kickoff-synk, flytter
+  den deadlinen til rundens tidligste kickoff, så længe den ikke er passeret;
+  er den passeret, før synken kommer, flyttes den ikke, så vent ikke på synken.
+
+  **Sæt deadlinen, FØR du viser spillet og sender invitationer.** Uden den er
+  pulje-tippet lukket, og invitationen nævner ingen deadline. Mangler den på et
+  spil, hvor den sættes i hånden, står der en rød advarsel over
+  **👁️ Vis spillet**.
 - **Runde-pulje (turnering):** en pulje med `facitKilde: 'runde'` og
   `facitFase: 'Semifinaler'` spørger "hvilke hold når semifinalerne?". Den
   afgøres, så snart **alle** fasens kampe (fasens `antalKampe`) er lagt ind med
@@ -146,7 +154,8 @@ Liga-admin følger med at have oprettet ligaen.
   Har spillet et `sport`-felt, platformen ikke kender (fx tastefejlen
   `handbold`), afviser knappen med en **rød besked** — også tør-kørslen, og
   før der er regnet noget. Står `sport` i `scripts/games.mjs`, så ret det
-  dér og kør `seedGames`; skal feltet væk (fodbold), så fjern det i
+  dér og kør `seedGames` — først som tør-kørsel, så med `seedGamesSkriv`;
+  skal feltet væk (fodbold), så fjern det i
   Firebase-konsollen — `seedGames` kan ikke fjerne et felt. Kør så igen.
 - **✍️ Sæt eller ret facit i hånden** — på hvert kampspil, lige under
   **⬇️ Synk resultater nu**. Nødbremsen til en kamp, kilden ikke leverer, eller

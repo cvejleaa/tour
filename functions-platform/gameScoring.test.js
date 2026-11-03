@@ -2135,7 +2135,10 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
     expect(e.message).not.toContain('sport "fodbold"');
     expect(e.message).toContain('(kendte: fodbold, haandbold)');
     expect(e.message).toMatch(/IKKE omprist noget — heller ikke i tør-kørslen/);
-    expect(e.message).toMatch(/ret det dér og kør seedGames; skal feltet væk \(fodbold\), så fjern det i Firebase-konsollen/);
+    // seedGames er tør-kørsel som default (D6): «kør seedGames» alene skriver
+    // intet, så beskeden skal nævne begge trin.
+    expect(e.message).toContain('ret det dér og kør seedGames — først som tør-kørsel, så med seedGamesSkriv; '
+      + 'skal feltet væk (fodbold), så fjern det i Firebase-konsollen — seedGames kan ikke fjerne et felt.');
     expect(ukendtSportFejl('g', 123).message).toContain('sport 123,');
     expect(ukendtSportFejl('g', '').message).toContain('sport "",');
     // JSON.stringify(NaN) og (Infinity) er "null" — et sat felt må ikke stå

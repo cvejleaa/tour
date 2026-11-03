@@ -110,6 +110,10 @@ describe('spil-listen', () => {
     expect(hvm).toMatchObject({
       name: 'Håndbold-VM 2027', type: 'football', sport: 'haandbold', status: 'open', joinable: false,
     });
+    // Navnet på kortet og i fanerne (shortName) og ikonet — ellers ubundne
+    // (mutant overlevede i D6-gennemgangen).
+    expect(hvm.shortName).toBe('Håndbold-VM');
+    expect(hvm.emoji).toBe('🤾');
   });
 
   it('peger kun på logoer, der findes', () => {
@@ -387,6 +391,9 @@ describe('runde-puljer på spillene', () => {
     expect(kilde).toMatch(/koerSeedGames\(\{\s*games: GAMES, db, skriv: SKRIV, now, puljeSeedFejl,/);
     for (const skriv of ['.batch(', '.set(', '.commit(', '.update(']) expect(kilde, skriv).not.toContain(skriv);
     expect(kilde.match(/koerSeedGames\(/g)).toHaveLength(1);
+    // Sidste linje i en Actions-log må ikke kunne læses som en skrivning:
+    // efter en tør-kørsel siger den det (modstander/Security D6).
+    expect(kilde).toContain("console.log(SKRIV ? '\\n✅ Færdig.' : '\\n✅ Færdig (tør-kørsel — intet skrevet).')");
   });
 
   // FRAVÆRS-ASSERTION MED VILJE: Superligaen og Premier League skal have

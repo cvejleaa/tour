@@ -49,9 +49,10 @@
 //          pulje er en deadline uden fane — GamePage: kraever):
 //            · med kickoff-synk: `puljeLockRound` — synken udleder
 //              puljeLockAt af rundens tidligste kickoff;
-//            · uden (provideren er ikke i drift endnu): `puljeLockAt` som fast
-//              dato HER. Feltet under Spil-tidsplan er redigerbart netop i
-//              det tilfælde (GameScheduleTab: puljeRundeUdenSynk), men
+//            · uden kickoff-synk og uden at én er på vej: `puljeLockAt` som
+//              fast dato HER. (Kommer synken senere — som for håndbold-VM —
+//              så brug mellemformen nedenfor, ikke denne.) Feltet under
+//              Spil-tidsplan er redigerbart (GameScheduleTab), men
 //              puljeLockAt er ikke admin-ejet (seed-payload.mjs), så næste
 //              seed skriver værdien herfra tilbage — ret den derfor her.
 //            Mellemformen: `puljeLockRound` på et spil, hvis kickoff-synk
@@ -120,7 +121,7 @@ export const GAMES = [
     // joinable: false ville spillet stå under "Åbne spil — deltag" i samme
     // sekund — før nogen havde set holdnavne, kickoff-tider og odds efter.
     // Synligheden slås til fra Spil-tidsplan, når gennemgangen er færdig;
-    // derefter ejer admin feltet (ADMIN_OWNED i seed-games.mjs), så en senere
+    // derefter ejer admin feltet (ADMIN_OWNED i seed-payload.mjs), så en senere
     // seed-kørsel ikke skjuler spillet igen.
     type: 'football', status: 'open', joinable: false,
     season: '2026-27', order: 4,

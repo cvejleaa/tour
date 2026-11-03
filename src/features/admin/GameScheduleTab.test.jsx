@@ -1626,3 +1626,74 @@ describe('Håndbold-VM 2027, som seedGames opretter det', async () => {
     expect(screen.queryByText(/Fasekalenderen er ugyldig/)).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// DEADLINE FØR SYNLIGHED (D6, alle fire roller). Uden puljeLockAt er pulje-
+// tippet lukket for evigt, og invitationen nævner ingen deadline. Rækkefølgen
+// «sæt deadline → Vis spillet → invitationer» stod kun i runbooken; her er
+// vagten ved knappen. Gaten er «deadlinen sættes i hånden og er ikke gemt» —
+// ikke håndbold: PL (udledt af synken) og spil uden pulje får den ikke.
+// ---------------------------------------------------------------------------
+describe('advarslen om manglende bonus-deadline ved Vis spillet', async () => {
+  const { GAMES } = await import('../../../scripts/games.mjs');
+  const { seedPayload } = await import('../../../scripts/seed-payload.mjs');
+  const { id, ...data } = GAMES.find((g) => g.id === 'hvm2027');
+  const dok = seedPayload(data, { exists: false, now: null });
+  delete dok.createdAt;
+  delete dok.updatedAt;
+  const HVM2027 = { id, ...dok };
+  const SKJULT_TEKST = '⚠️ Bonus-deadlinen er ikke sat. Uden den er pulje-tippet lukket («Endnu ikke åbnet»), '
+    + 'og en invitation nævner ingen deadline. Sæt deadlinen i feltet ovenfor og tryk Gem — FØR du viser spillet og sender invitationer.';
+  const SYNLIG_TEKST = '⚠️ Bonus-deadlinen er ikke sat. Spillet er synligt, men pulje-tippet er lukket («Endnu ikke åbnet»), '
+    + 'og en invitation nævner ingen deadline. Sæt deadlinen i feltet ovenfor og tryk Gem, før du sender invitationer.';
+  const vis = (game) => {
+    mockGames.mockReturnValue({ games: [game], loading: false });
+    return render(<GameScheduleTab />);
+  };
+
+  it('det seedede hvm2027 (skjult, ingen deadline) får advarslen — med ordlyden og rollen', () => {
+    vis(HVM2027);
+    const linje = screen.getByTestId('mangler-pulje-deadline');
+    expect(linje.textContent).toBe(SKJULT_TEKST);
+    expect(linje.getAttribute('role')).toBe('alert');
+    // Knappen står der stadig: det er en advarsel, ikke en spærring.
+    expect(screen.getByRole('button', { name: /Vis spillet/ })).toBeInTheDocument();
+  });
+
+  it('når spillet allerede er synligt, siger den IKKE «før du viser spillet»', () => {
+    vis({ ...HVM2027, joinable: true });
+    const tekst = screen.getByTestId('mangler-pulje-deadline').textContent;
+    expect(tekst).toBe(SYNLIG_TEKST);
+    expect(tekst).not.toMatch(/viser spillet/);
+  });
+
+  it('forsvinder, når deadlinen er GEMT på spillet', () => {
+    vis({ ...HVM2027, puljeLockAt: { toMillis: () => Date.parse('2027-01-13T16:30:00Z') } });
+    expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
+  });
+
+  it('et udfyldt, men ugemt felt fjerner den ikke', () => {
+    vis(HVM2027);
+    fireEvent.change(screen.getByLabelText(/Bonus-\/pulje-deadline/), { target: { value: '2027-01-13T17:30' } });
+    expect(screen.getByTestId('mangler-pulje-deadline')).toBeInTheDocument();
+  });
+
+  it('også et spil med fast deadline (ingen puljeLockRound), der mangler den', () => {
+    vis({ id: 'sl', name: 'SL', emoji: '⚽', type: 'football', status: 'open', sync: { provider: 'superliga' }, pulje: { poolSize: 6 } });
+    expect(screen.getByTestId('mangler-pulje-deadline').textContent).toBe(SKJULT_TEKST);
+  });
+
+  it('ikke for PL (deadlinen udledes af synken), et spil uden pulje eller et afsluttet spil', () => {
+    const { unmount } = vis({
+      id: 'pl', name: 'PL', emoji: '⚽', type: 'football', status: 'open',
+      sync: { provider: 'pulselive' }, pulje: { poolSize: 4, nedSize: 3 }, puljeLockRound: 3,
+    });
+    expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
+    unmount();
+    const { unmount: u2 } = vis({ id: 'x', name: 'X', emoji: '⚽', type: 'football', status: 'open' });
+    expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
+    u2();
+    vis({ ...HVM2027, status: 'finished' });
+    expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
+  });
+});

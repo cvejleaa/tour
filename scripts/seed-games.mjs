@@ -66,6 +66,6 @@ const { puljeSeedFejl } = createRequire(import.meta.url)('../functions-platform/
 koerSeedGames({
   games: GAMES, db, skriv: SKRIV, now, puljeSeedFejl, log: (s) => console.log(s),
 })
-  .then(() => { console.log('\n✅ Færdig.'); return app.delete(); })
+  .then(() => { console.log(SKRIV ? '\n✅ Færdig.' : '\n✅ Færdig (tør-kørsel — intet skrevet).'); return app.delete(); })
   .then(() => process.exit(0))
   .catch((err) => { console.error('Seed-fejl:', err); process.exit(1); });

@@ -36,7 +36,7 @@ export async function seedKampe({ gameRef, fixtures, teams }) {
     throw new Error(
       `Spillet har sport ${visSport(sportRaa)}, men den sport findes ikke i sportsprofilerne `
       + '(SPORT_PROFILER). Der er IKKE skrevet noget. '
-      + 'Står sport i scripts/games.mjs, så ret det dér og kør seedGames; skal feltet væk (fodbold), så fjern det i Firebase-konsollen — seedGames kan ikke fjerne et felt.',
+      + 'Står sport i scripts/games.mjs, så ret det dér og kør seedGames — først som tør-kørsel, så med seedGamesSkriv; skal feltet væk (fodbold), så fjern det i Firebase-konsollen — seedGames kan ikke fjerne et felt.',
     );
   }
   const profil = sportProfil(game);

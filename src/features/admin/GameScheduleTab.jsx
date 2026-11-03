@@ -238,6 +238,16 @@ function GameRow({ game }) {
   // to linjer længere oppe sagde "forsvinder fra Åbne spil — deltag". To
   // nabosætninger, der modsiger hinanden.
   const synlighedStyres = !game.externalUrl && game.status !== GAME_STATUS.FINISHED;
+  // EN PULJE, HVIS DEADLINE SÆTTES I HÅNDEN, OG SOM MANGLER DEN. Uden
+  // puljeLockAt er pulje-tippet lukket for evigt (fail-closed, PuljeTip og
+  // reglerne), og invitationen nævner ingen deadline (functions-platform/
+  // inviteTemplate.js: puljeLukker giver null). Rækkefølgen «deadline → Vis spillet →
+  // invitationer» var en runbook-linje uden vagt (D6, alle roller). Gaten er
+  // evnen — deadlinen udledes IKKE af en synk (harPuljeRunde) — ikke sporten
+  // eller spillet: samme hul ville ramme et ligaspil med fast deadline.
+  // Læser den GEMTE værdi (puljeMs), ikke feltet: et udfyldt, ugemt felt
+  // vogter ingenting.
+  const manglerHaandDeadline = harPulje && !harPuljeRunde && puljeMs == null;
 
   async function save() {
     setBusy(true); setSaveMsg(null);
@@ -665,6 +675,14 @@ function GameRow({ game }) {
       <div style={{ marginTop: '0.75rem' }}>
         {synlighedStyres ? (
           <>
+            {manglerHaandDeadline && (
+              <p className="badge badge--red" data-testid="mangler-pulje-deadline" role="alert"
+                style={{ display: 'block', whiteSpace: 'normal', marginBottom: '0.5rem' }}>
+                {synlig
+                  ? '⚠️ Bonus-deadlinen er ikke sat. Spillet er synligt, men pulje-tippet er lukket («Endnu ikke åbnet»), og en invitation nævner ingen deadline. Sæt deadlinen i feltet ovenfor og tryk Gem, før du sender invitationer.'
+                  : '⚠️ Bonus-deadlinen er ikke sat. Uden den er pulje-tippet lukket («Endnu ikke åbnet»), og en invitation nævner ingen deadline. Sæt deadlinen i feltet ovenfor og tryk Gem — FØR du viser spillet og sender invitationer.'}
+              </p>
+            )}
             <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap' }}>
               <button
                 className="btn btn--ghost btn--sm"

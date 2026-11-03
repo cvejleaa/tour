@@ -91,6 +91,11 @@ describe('seedKampe', () => {
     }
     await expect(seedKampe({ gameRef: ref({ sport: 'handbold' }), fixtures: FX, teams: TEAMS }))
       .rejects.toThrow(/sport "handbold"/);
+    // Vejen ud skal virke: seedGames er tør-kørsel som default (D6), så
+    // «kør seedGames» alene ville ikke rette noget.
+    await expect(seedKampe({ gameRef: ref({ sport: 'handbold' }), fixtures: FX, teams: TEAMS }))
+      .rejects.toThrow('Står sport i scripts/games.mjs, så ret det dér og kør seedGames — først som tør-kørsel, '
+        + 'så med seedGamesSkriv; skal feltet væk (fodbold), så fjern det i Firebase-konsollen — seedGames kan ikke fjerne et felt.');
     // Den RÅ værdi — ikke String(...). Et array ['fodbold'] stod før som
     // sport "fodbold" i fejlen, altså som netop den sport, det IKKE er; og en
     // tom streng skal stå som "", ikke forsvinde.
