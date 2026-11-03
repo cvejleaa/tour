@@ -276,7 +276,7 @@ describe('puljeVagt — runde-puljen i times-sweep\'et', () => {
       expect(s.meldt[0]).toMatchObject({ type: 'puljeFacit', gameId: 'hvm2027', nowMs: NATTEN_EFTER });
       expect(s.meldt[0].besked).toBe('Pulje-tippene i «Håndbold-VM 2027» kan ikke afregnes: '
         + '«Semifinaler» skulle være begyndt fredag 29. januar, men kun 0 af 2 kampe er lagt ind. '
-        + 'Ret fasens kampe (eller pulje/faser i scripts/games.mjs), og tryk så 🎖️ Afregn puljen under Spil-tidsplan.');
+        + 'Mangler fasens kampe, så læg dem ind med 📥 Læg næste fases kampe ind; er de lagt forkert ind (eller er pulje/faser i scripts/games.mjs forkerte), så ret dem. Tryk så 🎖️ Afregn puljen — begge under Admin → 🗓️ Spil-tidsplan.');
       expect(s.loest).toEqual([]);
       expect(fejl).toHaveBeenCalledWith(expect.stringContaining('puljeVagt(hvm2027): puljen kan ikke afgøres'));
     } finally { fejl.mockRestore(); }

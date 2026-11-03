@@ -645,7 +645,7 @@ async function meldPuljeAlarm(db, FieldValue, {
     await meld(db, FieldValue, {
       type: 'puljeFacit', gameId, nowMs,
       besked: `Pulje-tippene i «${spil?.name || gameId}» kan ikke afregnes: ${tilstand.fejl.join('; ')}. `
-        + 'Ret fasens kampe (eller pulje/faser i scripts/games.mjs), og tryk så 🎖️ Afregn puljen under Spil-tidsplan.',
+        + 'Mangler fasens kampe, så læg dem ind med 📥 Læg næste fases kampe ind; er de lagt forkert ind (eller er pulje/faser i scripts/games.mjs forkerte), så ret dem. Tryk så 🎖️ Afregn puljen — begge under Admin → 🗓️ Spil-tidsplan.',
     });
     return 'meldt';
   }

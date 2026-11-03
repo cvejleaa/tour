@@ -40,7 +40,8 @@ export const SEED_FILER = Object.freeze({
   // Kun DEN INDLEDENDE RUNDE (spilledag 1-7, 48 kampe) seedes herfra —
   // intervallet er kalenderens første fase (games.mjs: faser[0]), og
   // seed-filer.test.mjs binder de to. Senere faser oprettes på serveren, når
-  // holdene kendes (planens D9); et gen-seed herfra må aldrig blive vejen til
+  // holdene kendes (📥 Læg næste fases kampe ind — functions-platform/
+  // faseKampe.js); et gen-seed herfra må aldrig blive vejen til
   // dem, og et program, der bygges om med hovedrunden i, må ikke tavst få den
   // med.
   hvm2027: Object.freeze({

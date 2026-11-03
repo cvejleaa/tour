@@ -43,6 +43,8 @@ vi.mock('./adminActions', () => ({
   callAfregnPuljeNu: (...a) => mockAfregn(...a),
   callSaetFacitManuelt: vi.fn(),
   callFrigivFacitTilSynk: vi.fn(),
+  callOpretFaseKampe: vi.fn().mockResolvedValue({ ok: true, data: { status: { linjer: [], aabneDage: [], faser: [] }, nye: [], fejl: [], advarsler: [] } }),
+  callRetFaseKampKickoff: vi.fn(),
 }));
 
 // Kamplisten til rundevælgeren hentes med getDocs — den hentes FØRST når
@@ -1283,6 +1285,44 @@ describe('✍️ Sæt eller ret facit i hånden — hvilke spil har knappen', ()
   });
 });
 
+// 📥 Læg næste fases kampe ind (D9). Selve formularen er testet i
+// FaseKampe.test.jsx; her bevises render-betingelsen pr. spil: evnen
+// forventerFaseKampe (åbent/igangværende kampspil MED gyldig fasekalender) —
+// og at knappen sidder lige efter ✍️, hvor alarmen sender ejeren hen.
+describe('📥 Læg næste fases kampe ind — hvilke spil har knappen', () => {
+  const knapper = () => screen.queryAllByRole('button', { name: /Læg næste fases kampe ind/ });
+  const SL_SYNK = { id: 'superliga2627', name: 'Superligaen 2026/27', type: 'football', status: 'live', sync: { provider: 'superliga' } };
+  const PL_SYNK = { ...PL, sync: { provider: 'pulselive' } };
+  const HB = { ...HAANDBOLD_SPIL, status: 'open' };
+
+  it('håndboldspillet med kalender har den — lige efter ✍️', () => {
+    mockGames.mockReturnValue({ games: [HB], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(1);
+    const alle = screen.getAllByRole('button').map((b) => b.textContent);
+    const facit = alle.findIndex((t) => /Sæt eller ret facit i hånden/.test(t));
+    expect(alle[facit + 1]).toBe('📥 Læg næste fases kampe ind');
+    // Ordlyden lover ikke mere end handlingen: knappen henter intet.
+    expect(screen.queryByRole('button', { name: /Hent .*kampe/ })).toBeNull();
+  });
+
+  // FRAVÆR (ny): ligaerne har ingen kalender — og et afsluttet spil
+  // forventer ingen kampe. En proxy-gate (sporten, !sync) ville ramme forkert.
+  it('Superligaen, Premier League, et afsluttet håndboldspil og Touren har den IKKE', () => {
+    mockGames.mockReturnValue({ games: [SL_SYNK, PL_SYNK, { ...HB, id: 'hb-slut', status: 'finished' }, TOUR], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(0);
+    // Positiv kontrol: ✍️ står stadig for de tre kampspil.
+    expect(screen.getAllByRole('button', { name: /Sæt eller ret facit i hånden/ })).toHaveLength(3);
+  });
+
+  it('et håndboldspil UDEN gyldig kalender har den ikke (sporten er ikke evnen)', () => {
+    mockGames.mockReturnValue({ games: [{ ...HB, faser: [{ ...HB.faser[0], fra: 2 }] }], loading: false });
+    render(<GameScheduleTab />);
+    expect(knapper()).toHaveLength(0);
+  });
+});
+
 // --- Runde-puljen (semifinalisterne) og deadlinen uden kickoff-synk ----------
 describe('pulje i en turnering', () => {
   const FASER = [
@@ -1608,6 +1648,10 @@ describe('Håndbold-VM 2027, som seedGames opretter det', async () => {
   it('har facit i hånden, men ingen synk-knapper — spillet har ingen kilde endnu (D8)', () => {
     render(<GameScheduleTab />);
     expect(screen.getByRole('button', { name: /Sæt eller ret facit i hånden/ })).toBeInTheDocument();
+    // D9: og knappen, der lægger næste fases kampe ind — for PRÆCIS dette
+    // spil, som seedGames skriver det (CLAUDE.md: en flade er først færdig,
+    // når den vises for det konkrete spil).
+    expect(screen.getByRole('button', { name: '📥 Læg næste fases kampe ind' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Synk resultater nu/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Synk kamptider nu/ })).toBeNull();
     expect(screen.queryByRole('button', { name: /Synk kampdetaljer nu/ })).toBeNull();

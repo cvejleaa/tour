@@ -111,10 +111,35 @@ kampe af spillets EGEN holdliste, og tør-kørslen siger «teams BEVARES» og
 drevet fra spillets.
 
 **Nye kampe prises af start-Elo, ikke af den levende Elo.** Seedet bruger
-`teams[].elo` (startværdierne), aldrig `eloCurrent`. Seedes en ny fase midt i
-sæsonen (fx næste fase seedet i hånden), står de nye kampe derfor med
-start-odds. De får levende odds ved næste facit — eller tryk **💰 Ompris**
-(Admin → 🗓️ Spil-tidsplan) og skriv ændringerne.
+`teams[].elo` (startværdierne), aldrig `eloCurrent`. Seedes kampe midt i
+sæsonen, står de derfor med start-odds. De får levende odds ved næste facit —
+eller tryk **💰 Ompris** (Admin → 🗓️ Spil-tidsplan) og skriv ændringerne.
+
+**En turnerings næste fase seedes IKKE.** Hovedrunden og knockout-faserne
+lægges ind med **📥 Læg næste fases kampe ind** (Admin → 🗓️ Spil-tidsplan,
+lige efter ✍️ — se docs/admin-guide.md, *Næste fases kampe*). Den opretter
+kun nye kampe (create-only — en eksisterende kamp overskrives aldrig), priser
+dem af den levende Elo med sportens loft, kræver at holdene var med i fasen
+før (og ved knockout: at de vandt), og afregner puljen med det samme, når
+semifinalerne bliver hele. Glemmes en dag, melder Drift-alarmen
+**«Kampe mangler i næste fase»** sig kl. 12 dagen før (se nedenfor).
+
+**Nødvejen, hvis knappen ikke kan bruges** (fx functions er nede): skriv
+kampene i en JSON-fil i programmets form (`{ "fixtures": [{ "id", "round",
+"home", "away", "kickoff" }] }`, kickoff med tidszone, id
+`r{dag}-{hbkode}-{hbkode}`) og kør lokalt med produktionsnøglen:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
+  --game hvm2027 --teams src/data/haandboldVm2027Hold.js --fixtures /sti/hovedrunde.json --runder 8-13
+```
+
+Egne argumenter slår opslaget i `scripts/seed-filer.mjs` fra (dér er
+hvm2027 med vilje låst til den indledende runde, `1-7`). Tør-kørsel først og
+ejerens ja, før `--skriv` (det skriver i produktionsdata). Vejen har ikke
+knappens vagter: den skriver med merge (ikke create-only), priser af
+start-Elo (tryk **💰 Ompris** bagefter), tjekker ingen knockout-vindere og
+afregner ikke puljen (tryk **🎖️ Afregn puljen**).
 
 Skal holdlisten med elo eller antal hold virkelig overskrives, så kør med
 `--overskriv-hold` **lokalt**, med produktionsnøglen i
@@ -216,7 +241,8 @@ vindue, ved kun filen og scriptets udskrift.
 Det, scriptet **ikke** gør: seede (det gør `seed-football.mjs` med filen som
 `--fixtures` i delopgave D6, med tør-kørsel og ejerens ja), oprette
 hovedrunde- eller knockoutkampe (de har pladsholdere som `A1` og `WQF1` indtil
-holdene kendes, og de oprettes af D9) eller synke facit (D8). Det kører heller
+holdene kendes, og de lægges ind med **📥 Læg næste fases kampe ind** under
+Admin → 🗓️ Spil-tidsplan) eller synke facit (D8). Det kører heller
 aldrig af sig selv.
 
 **Flytter en kamp til en anden dag**, efter at den er seedet, får den et nyt id

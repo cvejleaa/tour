@@ -85,7 +85,8 @@ Liga-admin følger med at have oprettet ligaen.
   `facitFase: 'Semifinaler'` spørger "hvilke hold når semifinalerne?". Den
   afgøres, så snart **alle** fasens kampe (fasens `antalKampe`) er lagt ind med
   begge hold — ikke når kampene er spillet. Pointene skrives på stillingen ved
-  den næste kamp, der får et facit — eller med vilje: **🎖️ Afregn puljen**
+  den næste kamp, der får et facit, eller i samme øjeblik facit-fasen bliver
+  hel med **📥 Læg næste fases kampe ind** — eller med vilje: **🎖️ Afregn puljen**
   her under Spil-tidsplan (kun for en runde-pulje) viser først i en tør-kørsel
   facit, antal tip og point, og først derefter kommer knappen, der afregner.
   Brug den, hvis fasen er rettet efter sidste kamp — så starter intet resultat
@@ -100,6 +101,9 @@ Liga-admin følger med at have oprettet ligaen.
   - for få kampe eller et manglende hold melder den først fra dagen **efter**
     fasens startdag (dansk dato) — i praksis ved sweep'et kl. 02:25 natten
     efter. Det gælder også, når semifinalerne slet ikke er lagt ind.
+    Læg dem ind med **📥 Læg næste fases kampe ind** (eller ret dem, der er
+    lagt forkert ind, med en udvikler i konsollen), og tryk så
+    **🎖️ Afregn puljen**, hvis den ikke allerede er afregnet.
 
   Alarmen lukker selv, når puljen kan afgøres — også selv om ingen har tippet.
   Den lukker **ikke**, blot fordi den forkerte kamp er slettet: står fasen
@@ -160,6 +164,11 @@ Liga-admin følger med at have oprettet ligaen.
 - **✍️ Sæt eller ret facit i hånden** — på hvert kampspil, lige under
   **⬇️ Synk resultater nu**. Nødbremsen til en kamp, kilden ikke leverer, eller
   et forkert facit; tør-kørsel først. Se *Facit i hånden* under Resultater.
+- **📥 Læg næste fases kampe ind** — på en turnering med fasekalender (i dag
+  Håndbold-VM 2027), så længe den er Åben eller I gang, lige efter ✍️.
+  Hovedrundens og knockout-fasernes kampe findes først, når holdene kendes, og
+  der er ingen kilde, der henter dem — de lægges ind her. Se *Næste fases
+  kampe* under Resultater.
 - **🔐 Genopbyg liga-adgang til stillingen** — kun nødvendig, hvis stillingen
   står tom. Se [drift.md](drift.md).
 
@@ -362,6 +371,61 @@ hjælpe. En kamp uden facit længe efter kickoff melder sig som strandet igen.
 
 En kamp **uden kickoff** kan hverken tippes eller få facit; strandet-alarmen
 siger da "ret kickoff" i stedet.
+
+### Næste fases kampe — 📥 Læg næste fases kampe ind
+
+En turnering kender kun sin første fase, når den oprettes. Hovedrundens og
+knockout-fasernes kampe lægges ind her, når holdene kendes — knappen henter
+intet; du taster det, IHF og TV viser. Den står under **Admin → 🗓️
+Spil-tidsplan**, lige efter ✍️, på en turnering med fasekalender, så længe den
+er **Åben** eller **I gang**. Superligaen og Premier League har den ikke.
+
+1. Åbn panelet. Øverst står serverens status: hvor mange af fasens kampe der
+   er lagt ind, og hvilke dage der mangler kampe og stadig kan få dem.
+2. Tast hver kamp: **dato**, **tid i dansk tid** og de to hold fra spillets
+   holdliste. **＋ Tilføj kamp** giver en række til (med samme dato).
+3. **Vis hvad der oprettes** er en tør-kørsel. Tabellen viser dag, kamp,
+   ugedag, dato og klokkeslæt i dansk tid — tjek dem; det er den eneste
+   kontrol af det, du har tastet — og de odds, kampen får (den levende Elo
+   med sportens loft). Fejl står pr. kamp, og så kommer der ingen
+   opret-knap. Serveren afviser bl.a.:
+   - en dato, der ikke er en spilledag i kalenderen;
+   - et hold, der ikke står i holdlisten, eller som allerede spiller den dag;
+   - en tid, der er passeret;
+   - en dag, hvis første kamp er gået i gang (så kan Runde-Botten aldrig gøre
+     en halv dag op);
+   - flere kampe end fasen skal have;
+   - et hold uden en kamp i fasen før — og i knockout: et hold, der tabte
+     (semifinalerne kan kun bestå af kvartfinalernes vindere; kun
+     finaledagen har plads til taberne, til bronzekampen). En knockout-fase
+     kan først lægges ind, når hele fasen før har facit — står en kamp lige
+     efter 60 min., skal slutresultatet efter forlængelse sættes under ✍️.
+   Advarslerne siger, hvis kampene ikke når **påmindelsen kl. 9** (send den så
+   fra 🔔 Påmindelser), hvis en dag kun er halvt lagt ind, og hvis de nye
+   kampe afgør puljen — så skrives bonussen på stillingen med det samme.
+4. **Opret de N kampe** opretter præcis det, tør-kørslen viste. Er noget
+   ændret imens (et facit sat, så Elo og odds er andre; en kamp lagt ind af en
+   anden), afviser serveren: «Noget er ændret siden tør-kørslen — vis igen.»
+
+**Det kan ikke fortrydes i appen.** En oprettet kamp kan hverken slettes eller
+flyttes til en anden dag (dagen står i kampens id). Kun kickoff kan rettes:
+**🕒 Ret kickoff på en kamp** i samme panel, så længe kampen ikke har facit og
+ikke er gået i gang, og på samme dato. Et senere kickoff kræver en tid, der
+kan tippes; et tidligere er altid tilladt (det kan kun lukke for tips) — er
+det passeret, lukker tippet med det samme, og tips afgivet efter den rigtige
+kampstart står stadig. Alt andet er konsollen med en udvikler.
+
+**Læg en hel dag ind ad gangen — og hele hovedrunden, så snart den kendes.**
+Tip-siden ser færdig ud med en halv dag, og «stadig med»-linjen i puljen og
+Runde-Bottens fortælling om udskilte pulje-hold tænder først, når hele fasen
+(alle 36 i hovedrunden) er lagt ind.
+
+**Glemmer du en dag**, melder Drift-alarmen **«Kampe mangler i næste fase»**
+(hast: haster) sig fra kl. 12 dagen før — i praksis ved Times-sweep'et kl.
+13:25 — én alarm pr. dag, med næste skridt. Den står kun, mens dagen stadig
+kan få kampe; er dagen gået i gang med for få kampe, bliver den en advarsel
+på Drift-kortet **«Fasekampe-vagt»** (en aflyst kamp er i orden). Kortet
+viser også, hvornår næste alarm går.
 
 ### Halvleg, målscorere og tilskuertal
 

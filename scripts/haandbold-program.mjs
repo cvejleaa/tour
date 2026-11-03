@@ -12,7 +12,8 @@
 // HVAD DEN IKKE GØR: skriver intet i databasen. Ingen Firebase, ingen nøgle.
 // Seedet er seed-football.mjs med denne fil som --fixtures (D6, med
 // tør-kørsel og ejerens ja). Hovedrunde og knockout har pladsholdere (A1,
-// WQF1 …) og oprettes ikke herfra, men af D9, når holdene kendes.
+// WQF1 …) og oprettes ikke herfra, men med 📥 Læg næste fases kampe ind
+// (Admin → 🗓️ Spil-tidsplan; functions-platform/faseKampe.js), når holdene kendes.
 //
 // ROBOTS.TXT. en.wikipedia.org har `Disallow: /w/`. Den regel gælder crawlere;
 // dette er ét manuelt startet kald til API'et under /w/, som Wikimedia selv
