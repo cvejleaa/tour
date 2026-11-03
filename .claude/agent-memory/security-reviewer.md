@@ -1182,6 +1182,15 @@
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
 
+- **📊 Grupper (hvm2027, 5247f15, 2026-11-03): ingen ny læsevej, ingen regel-/functions-ændring.**
+  `useEgetPuljeBet` (src/features/games/football/useEgetPuljeBet.js) er PuljeTip's gamle lytter flyttet
+  ordret: `doc(games/{g}/puljeBets/{user.uid})`, uid fra useAuth. Emulator (REST, 9 checks): eget før
+  deadline 200, andens før deadline 403, LIST før 403, pending eget 200 (egen-grenen er kun isSignedIn —
+  uændret), pending andens 403, anonym 403, kontrol efter deadline deltager 200, spiller-PATCH af
+  `games/{g}.grupper` 403 (kun isGlobalAdmin skriver spil-dok). Fladen: ingen href/innerHTML af
+  grupper-data; holdlink bygges af `teamInfo(...).short` fra game.teams, ikke fra grupper. puljeFacit.js
+  begge sider: kun kommentarlinjer (diff filtreret for ikke-kommentar = tom, spejl identisk).
+
 - **Fasekampe-callables (D9, haandbold-d9puls a273a56, 2026-11-03): RENT bortset fra aftryk-fundet — 84
   emulator-checks.** `opretFaseKampe`/`retFaseKampKickoff` (index.js ~L1214/L1241): `requireAdmin` første linje
   → anonym/pending/spiller/uden users-dok/`role:'Owner'` afvist, også TØR (ingen plan-læk). dryRun `'false'`,0,
@@ -2260,6 +2269,11 @@
   injicere et forbudt felt i `skriv` (spy/stub), ikke i kilde-JSON'en.
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
+
+- **En validator, der TRIMMER, mens læseren sammenligner RÅT, er en evne-gate, der lyver.**
+  grupperFejl trimmede `navn` (' A' godkendt), grupperOversigt slog op med `x.navn === b` → TypeError i
+  render; harGrupper sagde ja. Ingen ErrorBoundary i src/ → hel hvid side. Fuzz evne-gates med
+  `npx vite-node` (mutér én nøgle ad gangen, kør gate + alle læsere, fang kast) — 40 mutationer på <5 s.
 
 - **En svg i bundtet er et same-origin-dokument.** `<img>` stopper script på SIDEN, men
   `/assets/x.svg` åbnet direkte kører sit eget script på vores origin (ingen CSP). Udvides

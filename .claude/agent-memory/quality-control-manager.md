@@ -512,6 +512,15 @@ PR-teksten, ikke her.
   (tom prefix = alle vars) og efterprøves for kollision med eksisterende
   build/deploy-trin — en dummy-outDir må aldrig kunne forveksles med den
   rigtige (`firebase.json` peger fortsat på den ægte `dist`).
+- **En ny modifier-klasse på en række i en EKSISTERENDE tabel taber mod tabellens
+  egne selektorer** (`.grupper__streg td` (0,1,1) mod `.sltab tbody td` (0,1,2)):
+  stregen var i DOM og klassen var asserteret i jsdom, men computed border-bottom
+  var 1px grå. jsdom har intet layout/cascade — mål `getComputedStyle` med
+  Playwright på den ægte CSS, eller skriv selektoren med tabellens klasse foran.
+- **Et script, der både henter tider (tip-deadlines) og præsentations-fakta
+  (grupper), må ikke lade det sidste blokere det første** — spørg ved en ny
+  `throw` i en bygger: kan en redaktørs ændring af et visuelt felt (Q-markør)
+  forhindre en kickoff-opdatering midt i turneringen?
 - **En bar `<table>` uden wrapper arver mobil-bredde-risiko**, fordi jsdom
   ikke ser ombrydning — og to identiske emoji med forskellig betydning på
   samme skærm løses ikke af en hjælpetekst; svaret er et andet symbol.
