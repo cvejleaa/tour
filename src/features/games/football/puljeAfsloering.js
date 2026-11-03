@@ -10,6 +10,7 @@
 // ---------------------------------------------------------------------------
 
 import { puljeScore } from '../../../lib/superligaScoring';
+import { antalOrd } from '../../../lib/puljeFacit';
 
 /**
  * Er puljen AFGJORT, eller viser vi stadig "lige nu"?
@@ -176,4 +177,44 @@ export function rundeAfventerTekst(konfig) {
  */
 export function rundeRanglisteVenter(konfig) {
   return `Ranglisten kommer, når ${konfig?.labels?.top || ''} er lagt ind.`;
+}
+
+/**
+ * Fasens ord inde i en sætning: «hovedrunden», «kvartfinalerne». Afledt af
+ * kalenderens `bestemt` (QC på pulsen, Bør 3) — aldrig hardkodet.
+ */
+export function faseOrd(fase) {
+  const b = typeof fase?.bestemt === 'string' ? fase.bestemt : (fase?.navn || '');
+  return b ? `${b.charAt(0).toLowerCase()}${b.slice(1)}` : '';
+}
+
+/** «Norge», «Norge og Sverige», «Norge, Sverige og Island». */
+function opremsning(navne) {
+  if (navne.length <= 1) return navne.join('');
+  return `${navne.slice(0, -1).join(', ')} og ${navne[navne.length - 1]}`;
+}
+
+/**
+ * «STADIG MED»-LINJEN for ét pulje-tip (planens P2, Spilførerens ordlyd):
+ *   «Tre af dine fire er med i hovedrunden — Norge er ude.»
+ *   «Alle dine fire er med i kvartfinalerne.»
+ *   «Ingen af dine fire er med i kvartfinalerne.»
+ * Fasen står i teksten, fordi pulsen kun følger HELE faser og derfor kan halte
+ * 0-3 dage efter virkeligheden — «stadig med» alene ville være forkert imens.
+ *
+ * Den gentager IKKE kortets «Puljen afgøres, når …» (QC Bør 2), og den siger
+ * aldrig «point», «Lige nu» eller «hvis tabellen sluttede»: intet er afgjort,
+ * og ved 0 tilbage ville «det giver ikke point endnu» lyde som hån
+ * (Spilfører). null uden puls eller fase.
+ * @param {{med:number, af:number, ude:string[]}|null} puls  puljeFacit.pulsFor
+ * @param {{bestemt:string}|null} fase  stadigMed().fase
+ */
+export function stadigMedTekst(puls, fase) {
+  if (!puls || !fase || !puls.af) return null;
+  const hvor = `i ${faseOrd(fase)}`;
+  const af = antalOrd(puls.af);
+  if (!puls.ude.length) return `Alle dine ${af} er med ${hvor}.`;
+  if (puls.med === 0) return `Ingen af dine ${af} er med ${hvor}.`;
+  const med = antalOrd(puls.med);
+  return `${med.charAt(0).toUpperCase()}${med.slice(1)} af dine ${af} er med ${hvor} — ${opremsning(puls.ude)} er ude.`;
 }

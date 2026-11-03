@@ -108,6 +108,16 @@ Liga-admin følger med at have oprettet ligaen.
   Alarmen lukker selv, når puljen kan afgøres — også selv om ingen har tippet.
   Den lukker **ikke**, blot fordi den forkerte kamp er slettet: står fasen
   derefter halvt lagt ind, er puljen stadig ikke afgjort.
+
+  **«Stadig med».** Efter deadline står der på spillerens Pulje-fane, hvor
+  mange af hans fire hold der stadig er med («Tre af dine fire er med i
+  hovedrunden — Norge er ude»), og i afsløringens holdtabel er de udskilte
+  hold streget over. Det følger kun HELE faser: et hold er ude, når næste
+  fase er lagt helt ind uden det (alle 36 i hovedrunden, alle 4
+  kvartfinaler). Det er ikke point. Runde-Botten fortæller det i det første
+  dagsopslag, efter fasen er blevet hel. Står der et hold i en fase, som ikke
+  var med i fasen før, eller står holdene ikke lige mange gange (en
+  forbytning), slukker linjen, og facit-vagtens Drift-kort siger hvorfor.
 - **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
   automatisk starttidspunktet eller sidste kamp:
 

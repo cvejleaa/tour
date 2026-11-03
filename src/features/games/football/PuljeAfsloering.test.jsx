@@ -395,6 +395,51 @@ describe('PuljeAfsloering — runde-puljen', () => {
   });
 });
 
+// «STADIG MED» i holdtabellen (planens P2): et hold uden for pulsen streges
+// over — på sin plads — med en skjult «(ude)». Uden prop (liga-puljen) intet.
+describe('PuljeAfsloering — «stadig med» i holdtabellen', () => {
+  const VM = ['DK', 'NO', 'FR', 'ES', 'SE', 'HR'].map((n) => ({ name: n, short: n }));
+  const KONFIG_RUNDE = puljeKonfig({
+    ...HAANDBOLD_SPIL, pulje: { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' },
+  });
+  const TIP = [
+    { uid: 'me', championship: ['DK', 'FR', 'SE', 'HR'] },
+    { uid: 'u2', championship: ['DK', 'FR', 'SE', 'NO'] },
+  ];
+  const PULS = { hold: new Set(['DK', 'FR', 'SE', 'HR']), fase: { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14 }, fejl: null };
+
+  it('de udskilte hold er streget over med «(ude)» — de andre ikke, og rækkefølgen er uændret', async () => {
+    mockSvar.current = TIP;
+    const { unmount } = render(<PuljeAfsloering {...props({ teams: VM, konfig: KONFIG_RUNDE, ligeNu: null })} />);
+    const foer = raekkerI(await screen.findByTestId('pulje-holdtabel')).map((r) => r.slice(0, 2));
+    unmount();
+    render(<PuljeAfsloering {...props({ teams: VM, konfig: KONFIG_RUNDE, ligeNu: null, stadigMed: PULS })} />);
+    const tabel = await screen.findByTestId('pulje-holdtabel');
+    const raekker = [...tabel.querySelectorAll('tr')];
+    const raekke = (navn) => raekker.find((r) => r.textContent.trim().startsWith(navn));
+    for (const ude of ['NO', 'ES']) {
+      expect(raekke(ude).querySelector('s')?.textContent).toBe(ude);
+      expect(raekke(ude).textContent).toContain('(ude)');
+    }
+    for (const med of ['DK', 'FR', 'SE', 'HR']) {
+      expect(raekke(med).querySelector('s')).toBeNull();
+      expect(raekke(med).textContent).not.toContain('(ude)');
+    }
+    // Faldet ses, hvor favoritten stod: ingen ny sortering.
+    expect(raekkerI(tabel).map((r) => r.slice(0, 2))).toEqual(foer);
+    // Pokalen «Står der lige nu» tændes IKKE af pulsen (runde-puljen har intet ligeNu).
+    expect(tabel.querySelector('[title="Står der lige nu"]')).toBeNull();
+    expect(tabel.textContent).not.toContain('🏆');
+  });
+
+  it('uden puls (liga-puljen): intet er streget over', async () => {
+    render(<PuljeAfsloering {...props()} />);
+    const tabel = await screen.findByTestId('pulje-holdtabel');
+    expect(tabel.querySelector('s')).toBeNull();
+    expect(tabel.textContent).not.toContain('(ude)');
+  });
+});
+
 describe('PuljeAfsloering — fejler stille', () => {
   it('permission-denied (fx et ur foran serverens) viser INGENTING — ingen rød alarm', async () => {
     mockSvar.current = Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' });

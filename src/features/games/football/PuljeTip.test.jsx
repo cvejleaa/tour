@@ -59,6 +59,9 @@ import PuljeTip, { topTitel, sektionsNavn, puljeLigaForbehold } from './PuljeTip
 import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 import { HAANDBOLD_SPIL } from '../../../test/faseKalender';
+import {
+  HVM27, INDLEDENDE, HOVED, KVART as KVART27, SEMI as SEMI27,
+} from '../../../test/hvm2027Faser';
 
 beforeEach(() => {
   vi.clearAllMocks(); mockBet.current = null; mockLeagues.current = []; mockStand.current = [];
@@ -631,6 +634,90 @@ describe('PuljeTip — runde-puljen (semifinalisterne)', () => {
     unmount();
     render(<PuljeTip game={hvm({ pulje: { ...hvm().pulje, maksStartRunde: 8 } })} matches={[]} />);
     expect(screen.queryByTestId('pulje-liga-forbehold')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// «STADIG MED»-PULSEN (planens P2) — på det RIGTIGE spil: 36 hovedrundekampe
+// fra dag 8. Linjen udledes af de HELE faser (puljeFacit.stadigMed), aldrig af
+// `ligeNu` — de eksisterende fraværs-assertions ovenfor (pulje-ligenu,
+// «Lige nu», «hvis tabellen sluttede i dag», p.ligeNu null) bliver stående
+// som vagten mod netop det.
+// ---------------------------------------------------------------------------
+describe('PuljeTip — «stadig med» (runde-puljen)', () => {
+  // Deadline passeret (testens ur er i dag, ikke januar 2027).
+  const spil = (over = {}) => ({ ...HVM27, puljeLockAt: Date.now() - 1000, ...over });
+  const linje = () => screen.queryByTestId('pulje-stadig-med');
+  const tip = (championship) => { mockBet.current = { championship }; };
+
+  it('hel hovedrunde + låst + ét udskilt hold: hele teksten — og det, der IKKE må stå', () => {
+    tip(['Danmark', 'Norge', 'Uruguay', 'Tyskland']);
+    render(<PuljeTip game={spil()} matches={[...INDLEDENDE, ...HOVED]} />);
+    expect(linje().textContent).toBe('Tre af dine fire er med i hovedrunden — Uruguay er ude.');
+    for (const t of ['Lige nu', 'lige nu', 'hvis tabellen sluttede', 'point', '+']) {
+      expect(linje().textContent).not.toContain(t);
+    }
+    // Den gentager ikke kortets «afgøres» (QC Bør 2).
+    expect(linje().textContent).not.toMatch(/afgøres/);
+  });
+
+  it('kvartfinalerne hele: fasens ord skifter, og to udskilte nævnes', () => {
+    tip(['Danmark', 'Norge', 'Sverige', 'Egypten']);
+    render(<PuljeTip game={spil()} matches={[...INDLEDENDE, ...HOVED, ...KVART27]} />);
+    expect(linje().textContent).toBe('To af dine fire er med i kvartfinalerne — Sverige og Egypten er ude.');
+  });
+
+  it('alle med og ingen med — uden «point endnu» (Spilfører)', () => {
+    tip(['Danmark', 'Norge', 'Sverige', 'Island']);
+    const { unmount } = render(<PuljeTip game={spil()} matches={[...INDLEDENDE, ...HOVED]} />);
+    expect(linje().textContent).toBe('Alle dine fire er med i hovedrunden.');
+    unmount();
+    tip(['Uruguay', 'Angola', 'Kuwait', 'Grækenland']);
+    render(<PuljeTip game={spil()} matches={[...INDLEDENDE, ...HOVED]} />);
+    expect(linje().textContent).toBe('Ingen af dine fire er med i hovedrunden.');
+  });
+
+  // FRAVÆR (nye): hver af de fire betingelser alene slukker linjen.
+  it('kun den indledende runde: ingen linje (alle er med — «4 af 4» er støj)', () => {
+    tip(['Danmark', 'Norge', 'Uruguay', 'Tyskland']);
+    render(<PuljeTip game={spil()} matches={INDLEDENDE} />);
+    expect(linje()).toBeNull();
+  });
+  it('ikke låst: ingen linje', () => {
+    tip(['Danmark', 'Norge', 'Uruguay', 'Tyskland']);
+    render(<PuljeTip game={spil({ puljeLockAt: Date.now() + 86400000 })} matches={[...INDLEDENDE, ...HOVED]} />);
+    expect(linje()).toBeNull();
+  });
+  it('uden tip: ingen linje', () => {
+    render(<PuljeTip game={spil()} matches={[...INDLEDENDE, ...HOVED]} />);
+    expect(linje()).toBeNull();
+  });
+  it('med facit (semifinalerne lagt ind): ingen linje — facit-kortet tager over', () => {
+    tip(['Danmark', 'Norge', 'Uruguay', 'Tyskland']);
+    render(<PuljeTip game={spil()} matches={[...INDLEDENDE, ...HOVED, ...KVART27, ...SEMI27]} />);
+    expect(linje()).toBeNull();
+    expect(screen.getByText('Facit: semifinalerne')).toBeInTheDocument();
+  });
+
+  it('afsløringen får pulsen — og den er IKKE ligeNu', () => {
+    tip(['Danmark', 'Norge', 'Uruguay', 'Tyskland']);
+    render(<PuljeTip game={spil()} matches={[...INDLEDENDE, ...HOVED]} />);
+    const p = mockAfsloering.mock.calls.at(-1)[0];
+    expect(p.stadigMed.hold.size).toBe(24);
+    expect(p.stadigMed.fase.navn).toBe('Hovedrunde');
+    expect(p.ligeNu).toBeNull();
+    // Kun den indledende runde: ingen puls til afsløringen.
+    mockAfsloering.mockClear();
+    render(<PuljeTip game={spil()} matches={INDLEDENDE} />);
+    expect(mockAfsloering.mock.calls.at(-1)[0].stadigMed).toBeNull();
+  });
+
+  // Gaten er facit-kilden — en liga-pulje får aldrig linjen, heller ikke låst.
+  it('liga-puljen (Superligaen, låst) har aldrig linjen', () => {
+    mockBet.current = { championship: SUPERLIGA_TEAMS_2026.slice(0, 6).map((t) => t.name) };
+    render(<PuljeTip game={{ id: 'sl', teams: SUPERLIGA_TEAMS_2026, pulje: { poolSize: 6 }, puljeLockAt: Date.now() - 1000 }} matches={[]} />);
+    expect(linje()).toBeNull();
+    expect(mockAfsloering.mock.calls.at(-1)[0].stadigMed).toBeNull();
   });
 });
 

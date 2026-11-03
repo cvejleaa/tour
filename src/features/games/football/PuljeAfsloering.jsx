@@ -74,9 +74,15 @@ export function enegaengerTekst(enesteUid, uid, navnAf) {
  * @param {boolean} p.loading   stillingens lyttere har ikke svaret endnu
  * @param {{top:Set|null, bund:Set|null}|null} p.facit     endeligt (klientens)
  * @param {{top:Set|null, bund:Set|null}|null} p.ligeNu    "hvis tabellen sluttede i dag"
+ * @param {{hold:Set<string>}|null} [p.stadigMed]  runde-puljens puls
+ *   (puljeFacit.stadigMed), kun når en fase efter den første er HEL. Et hold
+ *   uden for den streges over i holdtabellen — på sin plads, ikke sorteret
+ *   ned (Spilfører: faldet skal ses, hvor favoritten stod). Overstregningen
+ *   bliver stående efter facit: dér er pulsen lig facit (QC Bør 6). Uden
+ *   prop (liga-puljerne) streges intet over.
  */
 export default function PuljeAfsloering({
-  gameId, uid, teams, konfig, standings, leagues, loading, facit, ligeNu,
+  gameId, uid, teams, konfig, standings, leagues, loading, facit, ligeNu, stadigMed = null,
 }) {
   // undefined = henter · [] = ingen tip ELLER må ikke læse. De to sidste er
   // med vilje SAMME tilstand: begge skal tie, og ingen læser forskellen.
@@ -182,8 +188,10 @@ export default function PuljeAfsloering({
           {hold.map((h) => {
             const t = teams.find((x) => x.name === h.navn);
             const ene = antalTip >= ENEGAENGER_MINIMUM ? enegaengerTekst(h.enesteUid, uid, navnAf) : null;
+            const ude = Boolean(stadigMed?.hold) && !stadigMed.hold.has(h.navn);
+            const navn = t?.vis || h.navn;
             return (
-              <tr key={h.navn}>
+              <tr key={h.navn} className={ude ? 'pulje-hold--ude' : undefined}>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   {t && (
                     <ClubBadge
@@ -192,7 +200,7 @@ export default function PuljeAfsloering({
                       aerme={t.troejer?.hjemme?.aerme} title={t.name}
                     />
                   )}
-                  {' '}{t?.vis || h.navn}
+                  {' '}{ude ? <><s>{navn}</s><span className="sr-only"> (ude)</span></> : navn}
                 </td>
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                   <strong>{h.antal} af {antalTip}</strong>
