@@ -112,8 +112,9 @@ drevet fra spillets.
 
 **Nye kampe prises af start-Elo, ikke af den levende Elo.** Seedet bruger
 `teams[].elo` (startværdierne), aldrig `eloCurrent`. Seedes kampe midt i
-sæsonen, står de derfor med start-odds. De får levende odds ved næste facit —
-eller tryk **💰 Ompris** (Admin → 🗓️ Spil-tidsplan) og skriv ændringerne.
+sæsonen, står de derfor med start-odds.
+De får levende odds ved næste facit — eller tryk **💰 Ompris**
+(Admin → 🗓️ Spil-tidsplan) og skriv ændringerne.
 
 **En turnerings næste fase seedes IKKE.** Hovedrunden og knockout-faserne
 lægges ind med **📥 Læg næste fases kampe ind** (Admin → 🗓️ Spil-tidsplan,
