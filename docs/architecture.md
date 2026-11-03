@@ -133,7 +133,23 @@ med en, der ikke består `faseKalenderFejl` — er hver tekst den gamle ("Runde 
 af M"). Tilbagefaldet er ikke tavst: `faseKalenderAdvarsel` melder fejlene i
 Runde-Bottens log og som rød linje under Admin → Spil-tidsplan (et spil uden
 `faser`-felt advarer ikke). Formkontrollen forudsætter én runde pr. dag: næste
-fase kan tidligst starte forrige fases `start` + dens antal dage. Sportens ord ("Dagens konge" i håndbold) står i `SPORT_ORD` ved siden
+fase kan tidligst starte forrige fases `start` + dens antal dage.
+
+**En turnering kan have grupper.** `games/{id}.grupper` (`{point, faser:
+[{fase, videre, grupper: [{navn, hold} | {navn, fra}]}]}`, seedet fra
+`scripts/games.mjs`, bygget af kampprogrammet) er et EGET felt — ikke en del
+af `faser`, for `faseKalenderFejl` afviser ukendte nøgler, og en fejl i
+grupperne må ikke vælte kalenderen eller D9. Kun de indledende gruppers hold
+gemmes; hovedrundens hold udledes af de hovedrundekampe, ejeren lægger ind
+(IHF afgør, hvem der gik videre — vi genudleder det ikke). Logikken bor i
+`src/lib/grupper.js` (kun klienten; spejlet til functions-platform fødes den
+dag, serveren skal bruge den). Stillingen regnes af kampenes facit efter IHF's
+reglement (point → indbyrdes → målforskel → mål → delt plads). Fanen 📊 Grupper,
+kampkortets «Gruppe A», guidens sætninger og ⚠️ i Spil-tidsplan gater alle på
+evnen `harGrupper(game)`; `grupperAdvarsel` melder ugyldige grupper og
+uenighed mellem stillingen og de indlagte hovedrundekampe.
+
+Sportens ord ("Dagens konge" i håndbold) står i `SPORT_ORD` ved siden
 af sportsprofilen, ikke i den — også den ordinære spilletid ("60 min") og
 sportens tegn. Sportens evner står i `SPORT_EVNER` (fx neutral bane), og
 `harHjemmebane(game)` kræver ja fra BÅDE evnen og profilens HFA > 0; en test

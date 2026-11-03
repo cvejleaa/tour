@@ -181,6 +181,11 @@ describe('grupperFejl og harGrupper (evnen)', () => {
     ['to grupper med samme navn', (g) => { g.faser[1].grupper[1].navn = 'I'; }, /gruppe I står to gange/],
     ['hovedrunden før den indledende i kalenderen', (g) => { g.faser.reverse(); }, /kommer ikke efter forrige gruppefase/],
     ['en tredje gruppefase', (g) => { g.faser.push({ fase: 'Hovedrunde', videre: 1, grupper: [{ navn: 'V', fra: ['I'] }] }); }, /højst to gruppefaser/],
+    // Security: ' A' bestod valideringen (navnet blev trimmet), men
+    // grupperOversigt slår op på det rå navn og kastede — Spil-tidsplan og
+    // fanen døde. Mellemrum er nu en fejl, i begge faser.
+    ['et indledende gruppenavn med mellemrum foran', (g) => { g.faser[0].grupper[0].navn = ' A'; }, /navnet « A» har mellemrum/],
+    ['et hovedrundenavn med mellemrum bagved', (g) => { g.faser[1].grupper[0].navn = 'I '; }, /navnet «I » har mellemrum/],
   ];
   for (const [navn, fn, besked] of UGYLDIGE) {
     it(`ugyldig: ${navn} — evnen falder, kalenderen står`, () => {
@@ -190,6 +195,9 @@ describe('grupperFejl og harGrupper (evnen)', () => {
       expect(harFaseKalender(game)).toBe(true); // isolationsbeviset (D1)
       expect(kampGruppe(game, INDLEDENDE[0])).toBeNull();
       expect(grupperOversigt(game, INDLEDENDE)).toEqual([]);
+      // Spil-tidsplan kalder advarslen ved hver render: den må aldrig kaste.
+      expect(() => grupperAdvarsel(game, [])).not.toThrow();
+      expect(() => grupperAdvarsel(game, INDLEDENDE)).not.toThrow();
     });
   }
 });

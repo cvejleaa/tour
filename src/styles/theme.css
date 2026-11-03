@@ -1104,7 +1104,9 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
    hold, der FAKTISK er lagt ind i næste fase, og 🎖️ ved spillerens egne
    semifinaletip. Ingen farve på holdene under stregen — nr. 4 er ikke «ude». */
 .grupper__kort { margin-bottom: 0; }
-.grupper__streg td { border-bottom: 2px solid var(--c-pitch); }
+/* .sltab-præfikset er nødvendigt: `.sltab tbody td` (0,1,2) vinder ellers over
+   en bar `.grupper__streg td` (0,1,1), og stregen blev aldrig tegnet. */
+.sltab .grupper__streg td { border-bottom: 2px solid var(--c-pitch); }
 .grupper__videre { color: var(--c-pitch); font-weight: 800; font-size: 0.85rem; }
 .grupper__egen { font-size: 0.85rem; }
 

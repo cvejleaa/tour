@@ -39,7 +39,7 @@
 // TIEBREAK — IHF's reglement, ikke Wikipedia. Kilde: «Regulations for IHF
 // Competitions (Indoor Handball)», udgaven 21. august 2024, kapitel II «Men's
 // and Women's World Championships», afsnittet om gruppekampenes evaluering
-// (PDF-side 31-32):
+// (PDF-side 31-32; sidetal 30-31 i dokumentet):
 //   https://www.ihf.info/sites/default/files/2024-12/Regulations%20for%20IHF%20Competitions_Indoor%20Handball_E.pdf
 //   «If two (2) or more teams have gained the same number of points after the
 //   group matches have been completed, their ranking is decided based on the
@@ -254,8 +254,12 @@ export function grupperFejl(grupper, game) {
     f.grupper.forEach((g, j) => {
       const gHvor = `${hvor}, gruppe ${j + 1}`;
       if (!erObjekt(g)) { fejl.push(`${gHvor}: ikke et objekt`); return; }
+      // Navnet trimmes IKKE til opslag andre steder (grupperOversigt slår op
+      // på det rå navn), så et navn med mellemrum skal være en FEJL her —
+      // ellers består ' A' valideringen og kaster senere i fladen.
       const navn = typeof g.navn === 'string' ? g.navn.trim() : '';
       if (!navn) fejl.push(`${gHvor}: navn mangler`);
+      else if (navn !== g.navn) fejl.push(`${gHvor}: navnet «${g.navn}» har mellemrum før eller efter`);
       else if (navne.has(navn)) fejl.push(`gruppe ${navn} står to gange`);
       else navne.add(navn);
       const vis = navn ? `gruppe ${navn}` : gHvor;
