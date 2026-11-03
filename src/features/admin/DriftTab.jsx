@@ -16,7 +16,7 @@ import { callSendDriftAlarmMailNu, callFyrTestAlarm } from './adminActions';
 import {
   harKickoffSynk, harKampdetaljer, harResultatSynk, forventerPaamindelser,
 } from '../games/spilEvner';
-import { forventerFacit } from '../../lib/facit';
+import { forventerFacit, forventerFaseKampe } from '../../lib/facit';
 import { formatKickoff } from '../../lib/daDate';
 
 const TYPE_NAVN = {
@@ -26,6 +26,7 @@ const TYPE_NAVN = {
   kickoff: 'Daglig kickoff-synk',
   reminder: 'Daglig tip-påmindelse',
   facitvagt: 'Facit-vagt (spil uden synk)',
+  fasekampe: 'Fasekampe-vagt (næste fases kampe)',
   postbud: 'Alarm-mail (hvert 15. min)',
 };
 
@@ -187,6 +188,11 @@ export function globaleKoersler() {
  *              naesteForventetFoer er null, og kortet bliver aldrig rødt af
  *              stilhed — kun af en fejlet kørsel.
  *   reminder   egen gate (samme prædikat som 09-jobbet, IKKE sync.provider)
+ *   fasekampe  spil, der forventer næste fases kampe (forventerFaseKampe,
+ *              src/lib/facit.js — åbent/igangværende kampspil MED gyldig
+ *              fasekalender), med eller uden synk: samme helper som
+ *              📥-knappen, callablen og sweep'et (facitVagt.faseKampeVagt).
+ *              Superligaen og Premier League har ingen kalender og intet kort.
  *   facitvagt  aktive kampspil UDEN synk (forventerFacit, src/lib/facit.js —
  *              spejl af serverens). Strandede-alarmen for dem kører i
  *              sweep'et (facitVagt.js), men de har intet sweep-kort, og en
@@ -215,6 +221,10 @@ export function forventedeKoersler(games) {
     ...(games || []).filter(forventerPaamindelser).map((g) => ({ type: 'reminder', gameId: g.id, gameNavn: g.name })),
     ...(games || []).filter((g) => forventerFacit(g) && !harResultatSynk(g))
       .map((g) => ({ type: 'facitvagt', gameId: g.id, gameNavn: g.name })),
+    // Næste fases kampe (D9.4): samme helper som knappen, callablen og
+    // sweep'et — med eller uden synk.
+    ...(games || []).filter(forventerFaseKampe)
+      .map((g) => ({ type: 'fasekampe', gameId: g.id, gameNavn: g.name })),
   ];
 }
 

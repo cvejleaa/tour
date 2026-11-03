@@ -1658,7 +1658,8 @@ describe('settlePuljeBets', () => {
     const alarm = db._alarmer.g1_puljeFacit;
     expect(alarm).toMatchObject({ type: 'puljeFacit', gameId: 'g1', titel: 'Puljen kan ikke afgøres', loestAt: null });
     expect(alarm.besked).toContain('«Håndbold-VM 2027» kan ikke afregnes: DK står i to kampe i «Semifinaler»');
-    expect(alarm.besked).toContain('🎖️ Afregn puljen under Spil-tidsplan');
+    expect(alarm.besked).toContain('📥 Læg næste fases kampe ind');
+    expect(alarm.besked).toContain('Tryk så 🎖️ Afregn puljen — begge under Admin → 🗓️ Spil-tidsplan.');
     expect(db._pulje.P1.points).toBeUndefined();
 
     // Rettet: samme db, nu med de rigtige kampe → afregnet, og alarmen lukket.

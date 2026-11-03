@@ -418,6 +418,9 @@ describe('ALARM_TYPER — titel og hast ét sted', () => {
     expect(alarmTitel('nytMaskineri')).toBe('nytMaskineri');
     expect(alarmHast('nytMaskineri')).toBe('andet');
     expect(alarmHast('test')).toBe('test');
+    // D9.4 (ejerens valg 3/11): en dag uden kampe kan ikke tippes — det haster.
+    expect(alarmTitel('faseKampe')).toBe('Kampe mangler i næste fase');
+    expect(alarmHast('faseKampe')).toBe('haster');
   });
 
   it('DÆKKER hver alarm-type, serveren faktisk melder — og melder ikke typer, der ikke findes (tripwire begge veje)', () => {
