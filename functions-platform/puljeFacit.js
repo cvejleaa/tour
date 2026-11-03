@@ -55,6 +55,63 @@ function holdNavn(v) {
 }
 
 /**
+ * ER EN FASE HELT LAGT IND — og hvilke hold står i den? Kernen bag både
+ * puljens facit (faseHold) og «stadig med»-pulsen (stadigMed), så de to aldrig
+ * kan være uenige om, hvornår en fase er hel.
+ *
+ * Hel betyder: fasen har `antalKampe`, netop så mange kampe ligger i dens
+ * runder, begge hold er navngivet i hver kamp — og FORDELINGEN passer:
+ *   hverHoldEnGang  hvert hold præcis én gang (puljens facit-fase — reglen,
+ *                   faseHold altid har haft), ellers
+ *   knockout        hvert hold præcis én gang,
+ *   gruppefase      hvert hold LIGE MANGE gange (32 × 3 i den indledende
+ *                   runde, 24 × 3 i hovedrunden).
+ * Fordelingen er QC-fundet på pulsen (B1): et delmængde-tjek fanger kun et
+ * hold, der ikke var med før. Står levende Y som X (der også er med), er
+ * mængden stadig rigtig — men X står 4 gange og Y 2, og så er fasen IKKE hel.
+ * Restrisikoen (alle tre af Y's kampe byttet med samme Z) kan ikke ses uden
+ * grupper; den er accepteret i planen.
+ *
+ * @returns {{hold:string[]|null, fejl:string|null}}
+ *   hold: holdene i kampenes rækkefølge, når fasen er hel; ellers null.
+ *   fejl: kun når ANTALLET passer, men et navn eller fordelingen ikke gør —
+ *   det er en tastefejl, ikke «ikke lagt ind endnu».
+ */
+function faseKampeKomplette(matches, fase, { hverHoldEnGang = false } = {}) {
+  const ud = { hold: null, fejl: null };
+  if (!fase || !fase.antalKampe) return ud;
+  const kampe = (matches || []).filter((m) => {
+    const r = Number(m?.round);
+    return Number.isInteger(r) && r >= fase.fra && r <= fase.til;
+  });
+  if (kampe.length !== fase.antalKampe) return ud;
+  const antal = new Map();
+  for (const m of kampe) {
+    const hjemme = holdNavn(m.home);
+    const ude = holdNavn(m.away);
+    if (!hjemme || !ude) {
+      ud.fejl = `«${fase.navn}» har ${kampe.length} kampe, men et hold mangler i en af dem`;
+      return ud;
+    }
+    for (const h of [hjemme, ude]) antal.set(h, (antal.get(h) || 0) + 1);
+  }
+  const gange = [...antal.values()];
+  // I en gruppefase er kravet det antal, FLEST hold har — så en forbytning
+  // nævner de to skæve hold, ikke alle de andre.
+  const hyppighed = new Map();
+  for (const n of gange) hyppighed.set(n, (hyppighed.get(n) || 0) + 1);
+  const typisk = [...hyppighed].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
+  const krav = hverHoldEnGang || fase.knockout ? 1 : typisk;
+  if (gange.some((n) => n !== krav)) {
+    const skaev = [...antal].filter(([, n]) => n !== krav).map(([h, n]) => `${h} ${n}`);
+    ud.fejl = `«${fase.navn}» har ${kampe.length} kampe, men holdene står ikke lige mange gange (${skaev.join(', ')} — forventet ${krav})`;
+    return ud;
+  }
+  ud.hold = [...antal.keys()];
+  return ud;
+}
+
+/**
  * Holdene i fasens kampe, eller null, når fasen ikke er HELT lagt ind:
  * kalenderen kender ikke fasen, fasen har intet `antalKampe`, der ligger et
  * andet antal kampe i dens runder, et hold mangler, eller et hold står to
@@ -62,22 +119,67 @@ function holdNavn(v) {
  * @returns {string[]|null}
  */
 function faseHold(game, matches, navn) {
-  const fase = facitFase(game, navn);
-  if (!fase || !fase.antalKampe) return null;
-  const kampe = (matches || []).filter((m) => {
-    const r = Number(m?.round);
-    return Number.isInteger(r) && r >= fase.fra && r <= fase.til;
-  });
-  if (kampe.length !== fase.antalKampe) return null;
-  const hold = [];
-  for (const m of kampe) {
-    const hjemme = holdNavn(m.home);
-    const ude = holdNavn(m.away);
-    if (!hjemme || !ude) return null;
-    hold.push(hjemme, ude);
+  return faseKampeKomplette(matches, facitFase(game, navn), { hverHoldEnGang: true }).hold;
+}
+
+/**
+ * «STADIG MED»-PULSEN: hvilke hold er stadig med i turneringen ifølge de
+ * faser, der er HELT lagt ind? Kun for en runde-pulje uden konfigurationsfejl
+ * (ellers null). Ikke point — den afgør intet.
+ *
+ * Reglen: et hold er med, så længe det står i den seneste HELE fase til og
+ * med facit-fasen (semifinalerne). Finaledagen tæller ALDRIG — ellers blev
+ * semifinaletaberne streget over, når bronzen og finalen lægges ind. Vi regner
+ * ingen matematik inden i en fase (grupperne gemmes ikke, og det ville være at
+ * genudlede IHF's afgørelse af vores egen håndtastede facit): pulsen halter
+ * 0-3 dage efter virkeligheden, og teksten nævner derfor fasen.
+ *
+ * KUN FALDENDE — OG FEJLER LUKKET. Hver hel fase skal være en delmængde af
+ * den forrige; står der et hold, der ikke var med, stopper den og svarer med
+ * fejlen — holdene er så den sidste gode fases. Det samme ved en fase, hvis
+ * antal passer, men hvis fordeling ikke gør (faseKampeKomplette). Intet
+ * streges over på et forkert grundlag.
+ *
+ * @param {{tilRunde?:number}} [opts] kun faser, der begynder senest i den runde
+ * @returns {{hold:Set<string>, fase:{navn:string, bestemt:string, fra:number}|null,
+ *   fejl:string|null}|null}
+ */
+function stadigMed(game, matches, { tilRunde } = {}) {
+  const konfig = puljeKonfig(game);
+  if (konfig?.facitKilde !== 'runde' || puljeKonfigFejl(game).length) return null;
+  const slut = facitFase(game, konfig.facitFase);
+  let hold = new Set((Array.isArray(game.teams) ? game.teams : []).map((t) => holdNavn(t?.name)).filter(Boolean));
+  let fase = null;
+  for (const f of game.faser) {
+    if (f.fra > slut.fra) break;
+    if (Number.isInteger(tilRunde) && f.fra > tilRunde) break;
+    const p = faseFor(game, f.fra);
+    const { hold: s, fejl } = faseKampeKomplette(matches, p);
+    if (fejl) return { hold, fase, fejl };
+    if (!s) continue;
+    const fremmede = s.filter((h) => !hold.has(h));
+    if (fremmede.length) {
+      return {
+        hold,
+        fase,
+        fejl: `${fremmede.join(', ')} står i «${p.navn}», men ${fremmede.length === 1 ? 'var' : 'var de'} ikke med ${fase ? `i «${fase.navn}»` : 'i spillets holdliste'}`,
+      };
+    }
+    hold = new Set(s);
+    fase = { navn: p.navn, bestemt: p.bestemt, fra: p.fra };
   }
-  if (new Set(hold).size !== hold.length) return null;
-  return hold;
+  return { hold, fase, fejl: null };
+}
+
+/**
+ * Ét tips puls: hvor mange af de valgte hold er stadig med, og hvilke er ude
+ * (i tippets rækkefølge). null uden puls.
+ * @returns {{med:number, af:number, ude:string[]}|null}
+ */
+function pulsFor(picks, puls) {
+  if (!puls || !Array.isArray(picks)) return null;
+  const ude = picks.filter((h) => !puls.hold.has(h));
+  return { med: picks.length - ude.length, af: picks.length, ude };
 }
 
 /**
@@ -269,6 +371,6 @@ function rundePuljeTekster(game, konfig, nowMs) {
 
 module.exports = {
   alleKampeSpillet, facitFase, faseHold, rundeFacit, puljeKanAfregnes, puljeKonfigFejl, puljeSeedFejl,
-  puljeFaseFejl,
+  puljeFaseFejl, stadigMed, pulsFor, antalOrd,
   rundePuljeDato, rundePuljeTekster,
 };

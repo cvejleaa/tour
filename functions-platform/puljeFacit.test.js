@@ -103,6 +103,13 @@ describe('puljeFacit: server-spejlet er src', () => {
           .toEqual(src.rundeFacit(srcKonfig(spil), spil, liste));
         expect(server.faseHold(spil, liste, 'Semifinaler'), hvor).toEqual(src.faseHold(spil, liste, 'Semifinaler'));
         expect(server.alleKampeSpillet(liste), hvor).toBe(src.alleKampeSpillet(liste));
+        // «Stadig med»-pulsen (P1): samme hold, samme fase, samme fejl.
+        expect(server.stadigMed(spil, liste), hvor).toEqual(src.stadigMed(spil, liste));
+        for (const tilRunde of [undefined, 13, 15, 16]) {
+          expect(server.stadigMed(spil, liste, { tilRunde }), `${hvor} · ${tilRunde}`).toEqual(src.stadigMed(spil, liste, { tilRunde }));
+        }
+        const puls = server.stadigMed(spil, liste);
+        expect(server.pulsFor(['DK', 'NO', 'SE', 'IS'], puls), hvor).toEqual(src.pulsFor(['DK', 'NO', 'SE', 'IS'], src.stadigMed(spil, liste)));
         for (const t of UR) {
           expect(server.puljeFaseFejl(spil, liste, t), `${hvor} · ${t}`).toEqual(src.puljeFaseFejl(spil, liste, t));
         }
@@ -112,6 +119,15 @@ describe('puljeFacit: server-spejlet er src', () => {
 
   // Matrixen ovenfor er kun en vagt, hvis den rammer BEGGE svar. Ellers
   // kunne begge ender sige false overalt og være "enige".
+  it('pulsen i matrixen rammer både en fase og ingen — og null for liga-puljerne', () => {
+    const medHold = { ...HVM, teams: ['DK', 'NO', 'FR', 'ES', 'SE', 'DE', 'HR', 'IS'].map((name) => ({ name })) };
+    // TEST_FASER: dag 1-13 uden kampe; kvartfinalerne hele → 8 hold.
+    expect(server.stadigMed(medHold, KVART).fase).toEqual({ navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14 });
+    expect(server.stadigMed(medHold, KVART.concat(SEMI)).hold).toEqual(new Set(['DK', 'FR', 'SE', 'HR']));
+    expect(server.stadigMed(HVM, []).fase).toBeNull();
+    expect(server.stadigMed({ id: 'superliga2627', pulje: { poolSize: 6 } }, KVART)).toBeNull();
+  });
+
   it('matrixen rammer både et afgjort og et uafgjort udfald', () => {
     expect(server.puljeKanAfregnes(puljeKonfig(HVM), HVM, KVART.concat(SEMI))).toBe(true);
     expect(server.rundeFacit(puljeKonfig(HVM), HVM, KVART.concat(SEMI))).toEqual(['DK', 'FR', 'SE', 'HR']);

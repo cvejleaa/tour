@@ -52,6 +52,7 @@ const {
 const { faseVagtTilstand } = require('./faseKampe');
 const { rundePuljeTilstand, meldPuljeAlarm } = require('./gameScoring');
 const { puljeKonfig } = require('./superligaScoring');
+const { stadigMed } = require('./puljeFacit');
 
 /** «1 kamp» / «2 kampe» — Drift-kortenes tekster bøjes, så de ikke siger «1 kampe». */
 function kampOrd(n) {
@@ -162,6 +163,21 @@ async function faseKampeVagt(db, FieldValue, {
   }
   await skriv(st, { naesteForventetFoerMs: tilstand?.udtoemt ? null : naesteForventetFoerMs });
   return tilstand;
+}
+
+/**
+ * «STADIG MED»-PULSENS DATAFEJL på kortet (QC på pulsen, Bør 1). Pulsen
+ * fejler lukket — et hold i en fase, der ikke var med før, eller en skæv
+ * fordeling (en forbytning), og så streges intet over. Men lukket må ikke
+ * være tavst: så var linjen bare mørk, og ingen vidste hvorfor. Egen tekst,
+ * ikke puljeFacit-alarmens «kan ikke afregnes» — afregningen er ikke blokeret.
+ * @returns {string|null} fejlen, eller null
+ */
+function meldPulsFejl(st, game, kampe) {
+  const puls = stadigMed(game, (kampe || []).map((k) => ({ ...k.data, id: k.id })));
+  if (!puls?.fejl) return null;
+  st.advarsel(`«Stadig med»-linjen i puljen er slukket: ${puls.fejl}. Afregningen er ikke berørt. Er kampene lagt forkert ind, så ret dem (konsollen med en udvikler) — linjen tænder af sig selv igen.`);
+  return puls.fejl;
 }
 
 /**
@@ -295,6 +311,7 @@ async function facitVagtUdenSynk(db, FieldValue, {
       strandede = liste.length;
       try {
         await puljeVagt(db, FieldValue, { game: g, kampe, nowMs, meld, loes });
+        meldPulsFejl(st, g, kampe);
       } catch (err) {
         console.error(`puljeVagt(${g.id}) fejlede (ignoreret):`, err?.message || err);
         st.fejl(`Pulje-tjekket fejlede: ${err?.message || err}`);
@@ -354,5 +371,5 @@ async function facitVagtUdenSynk(db, FieldValue, {
 
 module.exports = {
   kampOrd,
-  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige, puljeVagt, faseKampeVagt,
+  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige, puljeVagt, faseKampeVagt, meldPulsFejl,
 };

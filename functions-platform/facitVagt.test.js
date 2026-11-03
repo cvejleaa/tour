@@ -14,7 +14,7 @@ import program from '../scripts/haandbold-vm2027-program.json';
 
 const require = createRequire(import.meta.url);
 const {
-  kampOrd, meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige, puljeVagt, faseKampeVagt,
+  kampOrd, meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige, puljeVagt, faseKampeVagt, meldPulsFejl,
 } = require('./facitVagt');
 const { statusSamler } = require('./driftlog');
 
@@ -246,7 +246,12 @@ describe('facitVagtUdenSynk', () => {
 // ---------------------------------------------------------------------------
 describe('puljeVagt — runde-puljen i times-sweep\'et', () => {
   const PULJE = { poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', maksStartRunde: 1 };
-  const HVM = { ...HAANDBOLD_SPIL, id: 'hvm2027', status: 'open', pulje: PULJE };
+  // Med holdliste: pulsen (meldPulsFejl) kræver, at fasens hold står i den —
+  // uden den ville kortet bære pulsens advarsel om et spil uden hold.
+  const HVM = {
+    ...HAANDBOLD_SPIL, id: 'hvm2027', status: 'open', pulje: PULJE,
+    teams: ['DK', 'NO', 'FR', 'ES', 'SE', 'DE', 'HR', 'IS'].map((name) => ({ name })),
+  };
   const k = (id, round, home, away, extra = {}) => ({ id, data: { round, home, away, kickoff: LAENGE_SIDEN, ...extra } });
   const KVART = [
     k('r14-1', 14, 'DK', 'NO', { result: '1', homeGoals: 30, awayGoals: 28 }),
@@ -471,6 +476,29 @@ describe('faseKampeVagt — alarm pr. dag, kort pr. spil', () => {
       } finally { fejl.mockRestore(); }
     });
 
+    // QC på pulsen, Bør 1: pulsens datafejl når facit-vagtens kort.
+    it('pulsens datafejl står som advarsel på facit-vagt-kortet', async () => {
+      const fejl = tavs();
+      try {
+        const s = spioner();
+        await facitVagtUdenSynk(makeDb({ games: { hvm2027: { ...HVM27, teams: [] } }, matches: { hvm2027: kampeMap(INDLEDENDE) } }), FieldValue, {
+          // Før turneringen: ingen strandede kampe, der kunne gøre kortet rødt.
+          synkedeIds: [], nowMs: dk('2027-01-10', '12:00'), naesteForventetFoerMs: 1, skriv: s.skriv, meld: s.meld, loes: s.loes,
+        });
+        const kort = s.skrevet.find((w) => w.id === 'facitvagt-hvm2027');
+        expect(kort.doc.niveau).toBe('advarsel');
+        expect(kort.doc.besked).toMatch(/«Stadig med»-linjen i puljen er slukket/);
+        // Med holdlisten: intet.
+        const s2 = spioner();
+        await facitVagtUdenSynk(makeDb({ games: { hvm2027: { ...HVM27, teams: [...new Set(program.fixtures.flatMap((f) => [f.home, f.away]))].map((name) => ({ name })) } }, matches: { hvm2027: kampeMap(INDLEDENDE) } }), FieldValue, {
+          synkedeIds: [], nowMs: dk('2027-01-10', '12:00'), naesteForventetFoerMs: 1, skriv: s2.skriv, meld: s2.meld, loes: s2.loes,
+        });
+        const kort2 = s2.skrevet.find((w) => w.id === 'facitvagt-hvm2027');
+        expect(kort2.doc.niveau).toBe('ok');
+        expect(kort2.doc.besked).not.toMatch(/Stadig med/);
+      } finally { fejl.mockRestore(); }
+    });
+
     it('kan kampene ikke hentes, skrives intet fasekampe-kort (det lyver ikke grønt)', async () => {
       const fejl = tavs();
       try {
@@ -519,6 +547,30 @@ describe('faseKampeVagt — alarm pr. dag, kort pr. spil', () => {
         expect(s.skrevet.map((w) => w.id)).toEqual(['fasekampe-hvm2027']);
       } finally { fejl.mockRestore(); }
     });
+  });
+});
+
+// «Stadig med»-pulsen fejler lukket — men ikke tavst (QC på pulsen, Bør 1).
+describe('meldPulsFejl — pulsens datafejl står på facit-vagtens kort', () => {
+  const HVM27 = { ...GAMES.find((g) => g.id === 'hvm2027'), id: 'hvm2027', teams: [] };
+  const INDLEDENDE = program.fixtures.map((f) => ({ id: f.id, data: { round: f.round, home: f.home, away: f.away, kickoff: Date.parse(f.kickoff) } }));
+  it('et hold, der ikke står i holdlisten: en ADVARSEL med pulsens egen tekst — ikke «kan ikke afregnes»', () => {
+    const st = statusSamler({ type: 'facitvagt', gameId: 'hvm2027' });
+    // Uden holdliste er HVERT hold i den indledende runde «ikke med».
+    expect(meldPulsFejl(st, HVM27, INDLEDENDE)).toMatch(/står i «Indledende runde», men var de ikke med i spillets holdliste/);
+    const fang = [];
+    return st.skriv({ collection: () => ({ doc: () => ({ set: async (d) => fang.push(d) }) }) }, FieldValue, { nowMs: 1 }).then(() => {
+      expect(fang[0].niveau).toBe('advarsel');
+      expect(fang[0].besked).toMatch(/^⚠ «Stadig med»-linjen i puljen er slukket: /);
+      expect(fang[0].besked).toMatch(/Afregningen er ikke berørt/);
+      expect(fang[0].besked).not.toMatch(/kan ikke afregnes/);
+    });
+  });
+  it('intet at melde for et rigtigt lagt spil og for et spil uden runde-pulje', () => {
+    const st = statusSamler({ type: 'facitvagt', gameId: 'x' });
+    const medHold = { ...HVM27, teams: [...new Set(program.fixtures.flatMap((f) => [f.home, f.away]))].map((name) => ({ name })) };
+    expect(meldPulsFejl(st, medHold, INDLEDENDE)).toBeNull();
+    expect(meldPulsFejl(st, { id: 'sl', type: 'football', pulje: { poolSize: 6 } }, INDLEDENDE)).toBeNull();
   });
 });
 

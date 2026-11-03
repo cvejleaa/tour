@@ -352,6 +352,23 @@ describe('runde-puljer på spillene', () => {
     }
   });
 
+  // «STADIG MED»-PULSEN (QC på pulsen, Bør 4): pulsen tæller kun HELE faser,
+  // og «hel» kræver fasens antalKampe. Feltet er valgfrit i kalenderen, og
+  // puljeKonfigFejl tjekker kun facit-fasen — en hovedrunde uden antal ville
+  // gøre pulsen tavst mørk. Bundet her (ikke i afregningens gate, som det ikke
+  // må blokere): hver fase til og med facit-fasen har et antal.
+  it('hver fase til og med facit-fasen har antalKampe — ellers kan pulsen aldrig tænde', () => {
+    const rundePuljer = GAMES.filter((x) => x.pulje?.facitKilde === 'runde');
+    expect(rundePuljer.map((g) => g.id)).toEqual(['hvm2027']);
+    for (const g of rundePuljer) {
+      const slut = g.faser.findIndex((f) => f.navn === g.pulje.facitFase);
+      expect(slut, g.id).toBeGreaterThan(0);
+      for (const f of g.faser.slice(0, slut + 1)) {
+        expect(Number.isInteger(f.antalKampe) && f.antalKampe > 0, `${g.id} · ${f.navn}`).toBe(true);
+      }
+    }
+  });
+
   // Listen HAR en runde-pulje (hvm2027), så testen ovenfor dækker den. Her
   // bevises vagten på samme form — og på de fejl, den skal fange
   // (modstander-bemærkning). Formen er bundet til hvm2027's nedenfor.
