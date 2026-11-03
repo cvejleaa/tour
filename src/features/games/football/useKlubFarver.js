@@ -34,7 +34,9 @@ const INTET = () => null;
  *     GLOBALE yndlingshold (`p.favoriteTeam ?? u.favoriteTeam`), og for en
  *     migreret Tour-bruger står der et CYKELHOLD dér. `klubFarverAf` slår op i
  *     holdlisten og giver null for et navn, den ikke kender — i stedet for
- *     `badgeFor`s grå, som ville se ud som en rigtig klubfarve.
+ *     `badgeFor`s grå, som ville se ud som en rigtig klubfarve. Den giver
+ *     OGSÅ null for et kendt hold uden egen farve (`egenFarve` i badges.js):
+ *     dér ville grå ligeledes ligne en rigtig farve.
  *
  * Resultatet caches pr. navn: stillingen kalder den én gang pr. række, og
  * `teamInfo` går listen igennem hver gang.

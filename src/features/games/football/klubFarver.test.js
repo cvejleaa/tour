@@ -18,6 +18,10 @@ import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { klubFarverAf } from './badges';
 import { useKlubFarver } from './useKlubFarver';
+import { teamsOf } from './teamInfo';
+import { HAANDBOLD_VM2027_HOLD } from '../../../data/haandboldVm2027Hold';
+import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
+import { PREMIER_LEAGUE_TEAMS_2026 } from '../../../data/premierLeagueTeams2026';
 
 const HOLD = [
   { name: 'Brøndby IF', short: 'BIF', color: '#E5B905' },
@@ -29,7 +33,7 @@ const SPIL = { id: 'sl', type: 'football', teams: HOLD };
 describe('klubFarverAf', () => {
   it('giver hjemmetrøjens primær- og sekundærfarve', () => {
     expect(klubFarverAf(HOLD, {}, 'Randers FC'))
-      .toEqual({ primaer: '#78C5ED', sekundaer: '#30374F', navn: 'Randers FC' });
+      .toEqual({ primaer: '#78C5ED', sekundaer: '#30374F', navn: 'Randers FC', landeflag: false });
   });
 
   it('giver null for sekundær, når holdet er ensfarvet', () => {
@@ -54,6 +58,22 @@ describe('klubFarverAf', () => {
     expect(klubFarverAf(HOLD, styles, 'Brøndby IF').primaer).toBe('#123456');
     // …og uden override står standarden.
     expect(klubFarverAf(HOLD, {}, 'Brøndby IF').primaer).toBe('#E5B905');
+  });
+
+  // INGEN EGEN FARVE → INGEN RING (QC på flagplanen, fund 1). `badgeFor`
+  // giver GREY for et kendt hold uden farve, og en grå ring ligner en rigtig
+  // farve — lige ved siden af et landeflag. Før landefarverne gjaldt det alle
+  // 32 hold i håndbold-VM'et.
+  it('giver null for et kendt hold uden farve — ingen grå ring', () => {
+    const uden = [{ name: 'Danmark', short: 'DEN', iso2: 'dk' }];
+    expect(klubFarverAf(uden, {}, 'Danmark')).toBeNull();
+    expect(klubFarverAf(uden, undefined, 'Danmark')).toBeNull();
+  });
+
+  it('giver en ring, når farven er sat i admin eller i holdlisten', () => {
+    const uden = [{ name: 'Danmark', short: 'DEN' }];
+    expect(klubFarverAf(uden, { Danmark: { color: '#C8102E' } }, 'Danmark').primaer).toBe('#C8102E');
+    expect(klubFarverAf([{ name: 'Danmark', color: '#C8102E' }], {}, 'Danmark').primaer).toBe('#C8102E');
   });
 
   it('bruger visningsnavnet, hvis holdet har et', () => {
@@ -106,5 +126,79 @@ describe('useKlubFarver — de to gates', () => {
     const andet = { id: 'pl', type: 'football', teams: [{ name: 'Brøndby IF', short: 'X', color: '#000001' }] };
     expect(kald(SPIL, 'Brøndby IF').primaer).toBe('#E5B905');
     expect(kald(andet, 'Brøndby IF').primaer).toBe('#000001');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FLAG-SPIL: RINGEN SKAL VISE, HVEM MAN HOLDER MED (Spilfører på flag-koden).
+// Omkring halvdelen af de 32 landehold har en rød primærfarve, og med en
+// ensfarvet ring stod Danmark, Norge og Tyskland ens i stillingen — netop de
+// valg, en dansk vennekreds driller hinanden med. Landets ANDEN flagfarve
+// (`awayColor`) bliver derfor ringens sekundærfarve, når spillet har flag.
+// ---------------------------------------------------------------------------
+describe('klubFarverAf — flag-spil får landets anden farve i ringen', () => {
+  const HVM = { id: 'hvm2027', type: 'football', sport: 'haandbold', teams: HAANDBOLD_VM2027_HOLD };
+  const kald = (game, navn) => renderHook(() => useKlubFarver(game)).result.current(navn);
+
+  it('Danmark, Norge, Tyskland og Sverige — gennem hook\'en, som stillingen bruger', () => {
+    expect(kald(HVM, 'Danmark')).toEqual({ primaer: '#C8102E', sekundaer: '#FFFFFF', navn: 'Danmark', landeflag: true });
+    expect(kald(HVM, 'Norge')).toEqual({ primaer: '#ED2939', sekundaer: '#002664', navn: 'Norge', landeflag: true });
+    expect(kald(HVM, 'Tyskland')).toEqual({ primaer: '#FF0000', sekundaer: '#FFCC00', navn: 'Tyskland', landeflag: true });
+    expect(kald(HVM, 'Sverige')).toEqual({ primaer: '#FECB00', sekundaer: '#005293', navn: 'Sverige', landeflag: true });
+  });
+
+  // De to røde, der skulle kunne skelnes: forskellig sekundærfarve.
+  it('Danmark og Norge har ikke samme ring', () => {
+    expect(kald(HVM, 'Danmark').sekundaer).not.toBe(kald(HVM, 'Norge').sekundaer);
+  });
+
+  it('alle 32: sekundærfarven er holdets awayColor', () => {
+    const teams = teamsOf(HVM);
+    for (const t of HAANDBOLD_VM2027_HOLD) {
+      expect(klubFarverAf(teams, {}, t.name).sekundaer, t.name).toBe(t.awayColor);
+    }
+  });
+
+  // Admin-rettelsen slår igennem på udefarven som på primærfarven.
+  it('følger en udefarve, ejeren har rettet i admin', () => {
+    const teams = teamsOf(HVM);
+    expect(klubFarverAf(teams, { Norge: { awayColor: '#123456' } }, 'Norge').sekundaer).toBe('#123456');
+  });
+
+  // Er den anden farve den samme som den første, er der ingen anden farve —
+  // en «stribe» i samme farve som ringen er ingen stribe.
+  it('giver null, når udefarven er den samme som primærfarven', () => {
+    const teams = teamsOf(HVM);
+    expect(klubFarverAf(teams, { Norge: { awayColor: '#ed2939' } }, 'Norge').sekundaer).toBeNull();
+  });
+
+  // ET HÅNDBOLDSPIL UDEN FLAG tegner trøjer — gaten er evnen, ikke `sport`.
+  // Mangler ét hold flag, er der ingen flag nogen steder, og så heller ingen
+  // landefarve-stribe.
+  it('håndboldspil, hvor ét hold mangler flag: ensfarvet ring som før', () => {
+    const mangler = HAANDBOLD_VM2027_HOLD.map((t) => (t.name === 'Japan' ? { ...t, iso2: undefined } : t));
+    expect(kald({ ...HVM, teams: mangler }, 'Danmark')).toEqual({ primaer: '#C8102E', sekundaer: null, navn: 'Danmark', landeflag: false });
+  });
+});
+
+// SUPERLIGAEN OG PREMIER LEAGUE ER UÆNDREDE. Klubberne HAR awayColor (deres
+// udetrøje), så en gate, der lækkede, ville give dem en stribe i udetrøjens
+// farve. Sekundærfarven skal være trøjeformens — og forudsætningen, at der
+// overhovedet er klubber, hvor de to er forskellige, står med, så testen ikke
+// kan blive grøn af tomme lister.
+describe('klubFarverAf — klubspil uden flag er uændrede', () => {
+  it.each([
+    ['Superligaen', SUPERLIGA_TEAMS_2026],
+    ['Premier League', PREMIER_LEAGUE_TEAMS_2026],
+  ])('%s: sekundærfarven er trøjeformens, aldrig udefarven', (_navn, liste) => {
+    const teams = teamsOf({ type: 'football', teams: liste });
+    const ville = liste.filter((t) => t.awayColor && t.awayColor !== (t.troejer?.hjemme?.sekundaer ?? null));
+    expect(ville.length).toBeGreaterThan(5);
+    for (const t of liste) {
+      expect(klubFarverAf(teams, {}, t.name).sekundaer, t.name).toBe(t.troejer?.hjemme?.sekundaer ?? null);
+      // …og ringen tegnes som før: `landeflag` er det, Avatar giver
+      // sekundærfarven en bredere stribe på (Avatar.jsx `sekundaerBredde`).
+      expect(klubFarverAf(teams, {}, t.name).landeflag, t.name).toBe(false);
+    }
   });
 });

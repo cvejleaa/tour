@@ -79,6 +79,24 @@ export default function Avatar({
   // mørk ring en lys. Samme problem, ClubBadge løser med sin kontur.
   const ringBredde = klubFarver ? Math.max(2, Math.round(size * 0.08)) : 0;
   const harSekundaer = Boolean(klubFarver?.sekundaer);
+  // SEKUNDÆRFARVENS BREDDE — 1 px i et klubspil, mindst 2 px i et flag-spil.
+  //
+  // I et klubspil er sekundærfarven en DETALJE i trøjen (Randers' skråbånd),
+  // og 1 px er det, Superligaens og Premier Leagues ringe er tegnet og set med.
+  // Den må ikke ændres her: dét er en designbeslutning for de spil, ikke en
+  // følgevirkning af flagene.
+  //
+  // I et flag-spil er sekundærfarven landets ANDEN flagfarve, og det er den,
+  // der skiller Danmark (rød/hvid) fra Norge (rød/blå) og Tyskland (rød/guld)
+  // i stillingen — se `sekundaerAf` i football/badges.js. Men stillingen
+  // tegner avatarerne ved 22 og 26 px, og dér er 1 px netop den bredde, der
+  // forsvinder (se ringbredden ovenfor). Så får den halv ringbredde, dog
+  // mindst 2 px. Ringens inderkant ved 22 px rykker fra 7 til 6 px fra midten;
+  // initialerne når ~4,6 px ud og rører den stadig ikke.
+  //
+  // Gaten er evnen (`landeflag`, sat af `klubFarverAf` med `listeHarLandeflag`)
+  // — aldrig `sport` eller «har en sekundærfarve».
+  const sekundaerBredde = klubFarver?.landeflag ? Math.max(2, Math.round(ringBredde / 2)) : 1;
   // KUN HÅRLINJEN ligger uden på cirklen, så ringen koster netop 1 px i radius.
   // Uden klubfarver koster den ingenting, og den gren skal stå eksplicit —
   // ellers ville hver avatar i hele appen blive mindre.
@@ -91,10 +109,10 @@ export default function Avatar({
     : 'rgba(0,0,0,.3)';
   // Rækkefølgen er MALERÆKKEFØLGEN: den første skygge ligger øverst.
   // Primærringen står derfor før sekundærringen, så sekundærfarven kun ses i
-  // det 1 px brede bånd, primærringen ikke dækker.
+  // det bånd (`sekundaerBredde`), primærringen ikke dækker.
   const ringe = klubFarver ? [
     `inset 0 0 0 ${ringBredde}px ${klubFarver.primaer}`,
-    harSekundaer ? `inset 0 0 0 ${ringBredde + 1}px ${klubFarver.sekundaer}` : null,
+    harSekundaer ? `inset 0 0 0 ${ringBredde + sekundaerBredde}px ${klubFarver.sekundaer}` : null,
     `0 0 0 1px ${haarlinje}`,
   ].filter(Boolean).join(', ') : undefined;
 

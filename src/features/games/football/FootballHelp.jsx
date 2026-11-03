@@ -16,6 +16,8 @@ import { fmtDec } from '../../../lib/daNum';
 // denne fils formål er at undgå.
 import { harXg, harKampdetaljer, harLiveStilling } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
+import { harLandeflag } from './teamInfo';
+import { ringOgTemaTekst } from './yndlingsholdTekst';
 import { sportOrd, harHjemmebane, oddsLoft } from '../../../lib/superligaScoring';
 import {
   harFaseKalender, harKnockout, rundeKort, rundeOrd, rundeOrdene, sidsteKalenderRunde,
@@ -128,6 +130,9 @@ export default function FootballHelp({ game }) {
   const kal = harFaseKalender(game);
   const o = rundeOrdene(game);
   const hjemme = harHjemmebane(game);
+  // Landeflag i stedet for trøjer: trøjeoversigten under Mit hold findes ikke
+  // (TroejeOversigt gater på samme evne), og ringen er landets farve.
+  const flag = harLandeflag(game);
   const live = harLiveStilling(game);
   const ko = harKnockout(game);
   const startOrd = kal ? 'startdag' : 'startrunde';
@@ -696,8 +701,14 @@ export default function FootballHelp({ game }) {
       <Section emoji="🏟️" title="Holdsiden">
         {/* «den officielle tabel» kun, hvor fanen findes (samme gate som
             Tabel-fanen og guidens øvrige henvisninger til den). */}
-        <strong>Klik på et holdnavn</strong> — i Elo-tabellen,{game?.standings ? ' i den officielle tabel,' : ''} i
-        trøjeoversigten under <Tab fane="profil">🙂 Mit hold</Tab> eller på et kampkort — så får du
+        {/* Trøjeoversigten nævnes kun, hvor den findes: et flag-spil har den
+            ikke (samme evne som TroejeOversigt). */}
+        <strong>Klik på et holdnavn</strong> — {flag ? (
+          <>i Elo-tabellen{game?.standings ? ', i den officielle tabel' : ''} eller på et kampkort</>
+        ) : (
+          <>i Elo-tabellen,{game?.standings ? ' i den officielle tabel,' : ''} i
+            trøjeoversigten under <Tab fane="profil">🙂 Mit hold</Tab> eller på et kampkort</>
+        )} — så får du
         holdets egne tal i dette spil: form, {hjemme ? 'hjemme og ude, ' : ''}mål, og hvor stort holdet vinder,
         når det vinder. Nederst står holdets kampe i dette spil — klik på en række, og du lander
         på kampens kort på Tip-fanen.
@@ -797,16 +808,18 @@ export default function FootballHelp({ game }) {
             funktion, og stod der forskelligt, ville den ene være forkert —
             præcis den fælde, CLAUDE.md navngiver. Begge sagde "holdets farve",
             mens yndlingsholdet slet ikke rørte avataren; da GameProfile blev
-            rettet, blev den her stående og sagde så noget andet. */}
-        Under <Tab fane="profil">🙂 Mit hold</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>. Din
-        avatar får trøjens farve som ring om sig i stillingen og i dine ligaer, og hele spillet toner
-        over i klubbens farve. Holdet gælder kun her — andre spil har deres egne hold, og resten af
+            rettet, blev den her stående og sagde så noget andet. Sætningen
+            om ring og tema kommer derfor nu fra ÉN funktion til begge
+            (yndlingsholdTekst.js), med en ordlyd for flag-spil. */}
+        Under <Tab fane="profil">🙂 Mit hold</Tab> vælger du dit <strong>yndlingshold i dette spil</strong>.
+        {' '}{ringOgTemaTekst(flag)} Holdet gælder kun her — andre spil har deres egne hold, og resten af
         appen bliver grøn.
         {/* EN HENVISNING, IKKE EN KOPI. Reglen for tredjetrøjen er formuleret ÉT sted
             (trøjeoversigten nederst på fanen). Skrev vi den af her, ville de to kunne
             drive fra hinanden — nøjagtig det, kommentaren ovenfor handler om. */}
-        {' '}Nederst på fanen står alle holdenes tre trøjer, og hvordan kampkortet vælger
-        {' '}mellem dem.
+        {/* …og kun hvor oversigten findes — et flag-spil tegner ingen trøjer. */}
+        {!flag && <>{' '}Nederst på fanen står alle holdenes tre trøjer, og hvordan kampkortet vælger
+        {' '}mellem dem.</>}
       </Section>
 
       <p style={{ color: 'var(--c-muted)', fontSize: '0.88rem', marginTop: '1rem' }}>

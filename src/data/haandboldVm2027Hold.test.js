@@ -14,6 +14,11 @@ import { HAANDBOLD_VM2027_HOLD, holdForKode, holdForIhfNavn } from './haandboldV
 import { SPORT_PROFILER } from '../lib/superligaScoring';
 import { teamElo } from '../lib/superligaSeed';
 import { holdStartElo, valgteParametre, STARTMETODE } from '../../scripts/lib/haandboldMaaling.mjs';
+import { LANDEFLAG_KODER, alleHarLandeflag } from '../features/games/football/landeflagKoder';
+import { teamsOf } from '../features/games/football/teamInfo';
+import { klubAccentAf, klubFarverAf } from '../features/games/football/badges';
+import { kuloer } from '../lib/contrastText';
+import { KULOER_GULV } from '../lib/accentTema';
 
 const PROGRAM = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/haandbold-vm2027-program.json'), 'utf8'));
 const HISTORIK = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/haandbold-historik.json'), 'utf8'));
@@ -170,6 +175,110 @@ describe('mod kampprogrammet', () => {
       const kampe = PROGRAM.fixtures.filter((f) => f.home === t.name || f.away === t.name);
       expect(kampe, t.name).toHaveLength(3);
       expect(new Set(kampe.map((f) => f.gruppe)).size, t.name).toBe(1);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LANDEFLAG OG LANDEFARVER (flag-sporet). `iso2` vælger flaget, `color` og
+// `awayColor` giver ring og tema. Begge kom ind i hånden, og begge kan være
+// forkerte på en måde, der ser rigtig ud: dk↔de er to gyldige flag, og en
+// farve skrevet fra hukommelsen ligner en målt. Derfor står parrene skrevet
+// ud, og farverne krydstjekkes mod flagfilerne selv.
+// ---------------------------------------------------------------------------
+const FLAG_DIR = resolve(process.cwd(), 'node_modules/flag-icons/flags/4x3');
+const COUNTRY = JSON.parse(readFileSync(resolve(process.cwd(), 'node_modules/flag-icons/country.json'), 'utf8'));
+
+/** Alle fill-farver i et flag, normaliseret til #RRGGBB. */
+function flagFarver(iso2) {
+  const svg = readFileSync(resolve(FLAG_DIR, `${iso2}.svg`), 'utf8');
+  const NAVNE = { red: '#FF0000', white: '#FFFFFF', black: '#000000' };
+  const ud = new Set();
+  for (const [, v] of svg.matchAll(/fill="([^"]+)"/g)) {
+    if (NAVNE[v]) { ud.add(NAVNE[v]); continue; }
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v);
+    if (!m) continue;
+    const h = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1];
+    ud.add(`#${h.toUpperCase()}`);
+  }
+  return ud;
+}
+
+describe('iso2: visningens nøgle til landeflaget', () => {
+  it('alle 32 har en entydig kode med to små bogstaver', () => {
+    for (const t of HAANDBOLD_VM2027_HOLD) expect(t.iso2, t.name).toMatch(/^[a-z]{2}$/);
+    expect(new Set(HAANDBOLD_VM2027_HOLD.map((t) => t.iso2)).size).toBe(32);
+  });
+
+  it('IOC-kode → iso2 for alle 32 (skrevet ud, så et ombytte dk↔de er rødt)', () => {
+    const par = Object.fromEntries(HAANDBOLD_VM2027_HOLD.map((t) => [t.short, t.iso2]));
+    expect(par).toEqual({
+      GER: 'de', SRB: 'rs', TUN: 'tn', URU: 'uy', EGY: 'eg', ITA: 'it', CPV: 'cv', KSA: 'sa',
+      CRO: 'hr', ESP: 'es', CHI: 'cl', TUR: 'tr', ARG: 'ar', FRA: 'fr', BRA: 'br', KUW: 'kw',
+      SWE: 'se', NOR: 'no', GRE: 'gr', QAT: 'qa', POR: 'pt', FRO: 'fo', POL: 'pl', ALG: 'dz',
+      DEN: 'dk', SLO: 'si', USA: 'us', ANG: 'ao', ISL: 'is', MKD: 'mk', BHR: 'bh', JPN: 'jp',
+    });
+  });
+
+  // EN UAFHÆNGIG KILDE. flag-icons' country.json navngiver landet bag hver kode,
+  // og IHF's navn står i holdfilen — to kilder, der ikke kender hinanden. Én
+  // undtagelse, skrevet ind: Kap Verde hedder «Cabo Verde» hos flag-icons.
+  it('flag-icons\' navn for koden er IHF\'s navn — undtagen præcis Kap Verde', () => {
+    const navn = Object.fromEntries(COUNTRY.map((c) => [c.code, c.name]));
+    const afvig = HAANDBOLD_VM2027_HOLD
+      .filter((t) => navn[t.iso2] !== t.ihfNavn)
+      .map((t) => `${t.name}: ${navn[t.iso2]} ≠ ${t.ihfNavn}`);
+    expect(afvig).toEqual(['Kap Verde: Cabo Verde ≠ Cape Verde']);
+  });
+
+  it('bundtet rummer præcis holdfilens koder — hverken flere eller færre', () => {
+    expect([...LANDEFLAG_KODER].sort()).toEqual(HAANDBOLD_VM2027_HOLD.map((t) => t.iso2).sort());
+  });
+
+  it('hele holdlisten har landeflag (evnen bliver sand i produktion)', () => {
+    expect(alleHarLandeflag(HAANDBOLD_VM2027_HOLD)).toBe(true);
+  });
+});
+
+describe('landefarverne: ring og tema, ingen grå', () => {
+  it('alle 32 har color og awayColor som #RRGGBB, og de to er forskellige', () => {
+    for (const t of HAANDBOLD_VM2027_HOLD) {
+      expect(t.color, t.name).toMatch(/^#[0-9A-F]{6}$/);
+      expect(t.awayColor, t.name).toMatch(/^#[0-9A-F]{6}$/);
+      expect(t.color, t.name).not.toBe(t.awayColor);
+    }
+  });
+
+  // MÅLT, IKKE HUSKET. Hver farve står i holdets eget flag (flag-icons' svg).
+  // En farve skrevet fra hukommelsen — fx Italiens azzurro, som er trøjen og
+  // ikke flaget — er rød her.
+  it('begge farver står i holdets eget flag', () => {
+    const forkerte = HAANDBOLD_VM2027_HOLD.flatMap((t) => {
+      const i = flagFarver(t.iso2);
+      return [['color', t.color], ['awayColor', t.awayColor]]
+        .filter(([, v]) => !i.has(v))
+        .map(([f, v]) => `${t.name} ${f} ${v}`);
+    });
+    expect(forkerte).toEqual([]);
+  });
+
+  // RING OG TEMA ER SAMME FARVE for alle 32 — det er det, Mit hold siger
+  // («Ringen om din avatar har samme farve»). Kræver, at `color` har kulør
+  // over gulvet; ellers ville temaet springe til udefarven.
+  it('color har kulør nok til at tone en side, så ring = tema = color', () => {
+    const teams = teamsOf({ type: 'football', teams: HAANDBOLD_VM2027_HOLD });
+    for (const t of HAANDBOLD_VM2027_HOLD) {
+      expect(kuloer(t.color), t.name).toBeGreaterThanOrEqual(KULOER_GULV);
+      expect(klubAccentAf(teams, {}, t.name), t.name).toBe(t.color);
+      expect(klubFarverAf(teams, {}, t.name).primaer, t.name).toBe(t.color);
+    }
+  });
+
+  // Et flag-spil vælger aldrig mellem trøjer, så felterne findes ikke.
+  it('har INGEN thirdColor og INGEN troejer', () => {
+    for (const t of HAANDBOLD_VM2027_HOLD) {
+      expect(t, t.name).not.toHaveProperty('thirdColor');
+      expect(t, t.name).not.toHaveProperty('troejer');
     }
   });
 });

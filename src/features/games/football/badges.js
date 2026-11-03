@@ -12,12 +12,32 @@
 // De bor derfor her, hvor både kampkortet, stillingen og ligaerne kan nå dem.
 // ---------------------------------------------------------------------------
 
-import { teamInfo } from './teamInfo';
+import { teamInfo, listeHarLandeflag } from './teamInfo';
 import { colorsClash, colorDistance, kuloer } from '../../../lib/contrastText';
 import { KULOER_GULV } from '../../../lib/accentTema';
 
 /** Farven for et hold, vi intet ved om. Ikke sort: sort er en ægte trøjefarve. */
 export const GREY = '#5b6b7a';
+
+/** Kæden for én variant — override først, så holdlisten, aldrig grå. */
+function farveKaede(info, ov, variant) {
+  if (variant === 'away') return ov.awayColor || info?.awayColor || info?.color || null;
+  if (variant === 'third') return ov.thirdColor || info?.thirdColor || info?.awayColor || info?.color || null;
+  return ov.color || info?.color || null;
+}
+
+/**
+ * Holdets EGEN farve for en variant (admin-override eller holdlisten) —
+ * null, når holdet ingen har. Forskellen til `badgeFor(...).color` er netop
+ * grå: en badge SKAL have en farve og får GREY, men en ring eller et tema
+ * må ikke opfinde én. `#5b6b7a` har i øvrigt kulør 0,12 — over
+ * `KULOER_GULV` — så et hold uden farver fik før et gråblåt TEMA, ikke
+ * «ingen tone». Kæden står ét sted, så badgen og ringen ikke kan følge
+ * hver sin.
+ */
+export function egenFarve(teams, name, styles, variant = 'home') {
+  return farveKaede(teamInfo(teams, name), styles?.[name] || {}, variant);
+}
 
 /**
  * Badge-info for et hold: klub-kortkode + farve + stadion.
@@ -26,19 +46,7 @@ export const GREY = '#5b6b7a';
  */
 export function badgeFor(teams, name, styles = {}, variant = 'home') {
   const info = teamInfo(teams, name);
-  const ov = styles?.[name] || {};
-  let override;
-  let fallback;
-  if (variant === 'away') {
-    override = ov.awayColor;
-    fallback = info?.awayColor || info?.color || GREY;
-  } else if (variant === 'third') {
-    override = ov.thirdColor;
-    fallback = info?.thirdColor || info?.awayColor || info?.color || GREY;
-  } else {
-    override = ov.color;
-    fallback = info?.color || GREY;
-  }
+  const farve = farveKaede(info, styles?.[name] || {}, variant) || GREY;
   const code = info?.short
     || String(name || '').replace(/[^A-Za-zÆØÅæøå]/g, '').slice(0, 3).toUpperCase() || '?';
   // Trøjens FORM — sekundærfarve, mønster og ærme. Ligger som ét nested felt
@@ -52,11 +60,16 @@ export function badgeFor(teams, name, styles = {}, variant = 'home') {
     code,
     // Visningsnavnet — "Brighton" frem for "Brighton and Hove Albion".
     navn: info?.vis || name,
-    color: override || fallback,
+    color: farve,
     venue: info?.venue ?? null,
     color2: form.sekundaer ?? null,
     moenster: form.moenster ?? null,
     aerme: form.aerme ?? null,
+    // LANDEFLAGET, når spillet har flag (lagt på af `teamsOf`, alt eller
+    // intet). Et navn uden for holdlisten får null og tegnes som den grå
+    // trøje — det kan i dag ikke ske (kampe oprettes kun med kendte hold),
+    // men en pladsholder som «Vinder gruppe A» ville stå sådan.
+    flag: info?.flag ?? null,
   };
 }
 
@@ -104,13 +117,49 @@ export function matchBadges(teams, home, away, styles) {
  * @param {Array} teams   spillets holdliste (fra `teamsOf`)
  * @param {object} styles games/{id}.teamStyles
  * @param {string|null} holdnavn
- * @returns {{primaer: string, sekundaer: string|null, navn: string}|null}
+ * I et flag-spil er sekundærfarven landets anden farve — se `sekundaerAf`.
+ * `landeflag` fortæller Avatar det, så den kan give den farve en bredde, der
+ * kan ses ved 22 px (Avatar.jsx `sekundaerBredde`). Samme evne som her.
+ *
+ * @returns {{primaer: string, sekundaer: string|null, navn: string, landeflag: boolean}|null}
  */
 export function klubFarverAf(teams, styles, holdnavn) {
   if (!holdnavn) return null;
   if (!teamInfo(teams, holdnavn)) return null;
+  // INGEN EGEN FARVE → INGEN RING. Samme regel som `klubAccentAf` nedenfor
+  // («hellere ingen tone end en grå»): `badgeFor` giver GREY for et hold uden
+  // farve, og en grå ring ligner en rigtig farve. Det var ikke teori — alle 32
+  // hold i håndbold-VM'et stod uden farve og ville have givet hver spiller en
+  // grå ring lige ved siden af et landeflag (QC på flagplanen, fund 1).
+  if (!egenFarve(teams, holdnavn, styles, 'home')) return null;
   const b = badgeFor(teams, holdnavn, styles, 'home');
-  return { primaer: b.color, sekundaer: b.color2, navn: b.navn };
+  return {
+    primaer: b.color,
+    sekundaer: sekundaerAf(teams, styles, holdnavn, b),
+    navn: b.navn,
+    landeflag: listeHarLandeflag(teams),
+  };
+}
+
+/**
+ * Ringens SEKUNDÆRFARVE. I et klubspil er det trøjens (`troejer.hjemme.
+ * sekundaer`) — Randers' skråbånd. Et flag-spil har ingen trøjeform, så dér
+ * var sekundærfarven altid null, og ringen var ensfarvet: Danmark, Norge,
+ * Tyskland, Kroatien og Portugal stod alle i rødt og kunne ikke skelnes i
+ * stillingen (Spilfører på flag-koden). Landets ANDEN flagfarve (`awayColor`,
+ * læst i flaget — haandboldVm2027Hold.js) skiller dem: rød/hvid, rød/blå,
+ * rød/guld.
+ *
+ * Gaten er evnen (`listeHarLandeflag`, samme som `harLandeflag`), ikke
+ * `sport` eller «har awayColor»: Superligaens og Premier Leagues klubber HAR
+ * awayColor (udetrøjen), og den må ikke blive til en stribe i deres ring.
+ * Udefarven går gennem `egenFarve`, så en admin-rettelse slår igennem som på
+ * primærfarven; er den den samme som primærfarven, er der ingen anden farve.
+ */
+function sekundaerAf(teams, styles, holdnavn, b) {
+  if (!listeHarLandeflag(teams)) return b.color2;
+  const anden = egenFarve(teams, holdnavn, styles, 'away');
+  return anden && anden.toUpperCase() !== b.color.toUpperCase() ? anden : null;
 }
 
 /**
@@ -146,7 +195,10 @@ export function klubAccentAf(teams, styles, holdnavn) {
   if (!holdnavn) return null;
   if (!teamInfo(teams, holdnavn)) return null;
   for (const variant of ['home', 'away', 'third']) {
-    const farve = badgeFor(teams, holdnavn, styles, variant).color;
+    // EGEN farve, ikke badgens: badgens grå (#5b6b7a, kulør 0,12) ligger over
+    // gulvet og tonede før hele siden gråblå for et hold uden farver.
+    // (null har kulør 0, så det falder igennem uden et ekstra tjek.)
+    const farve = egenFarve(teams, holdnavn, styles, variant);
     if (kuloer(farve) >= KULOER_GULV) return farve;
   }
   return null;

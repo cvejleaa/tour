@@ -32,7 +32,7 @@
 import { useMemo } from 'react';
 import ClubBadge from '../../../components/ClubBadge';
 import { badgeFor, matchBadges } from './badges';
-import { teamsOf } from './teamInfo';
+import { teamsOf, harLandeflag } from './teamInfo';
 import { colorDistance } from '../../../lib/contrastText';
 import GameTabLink from '../GameTabLink';
 
@@ -104,6 +104,11 @@ export default function TroejeOversigt({ game }) {
   const styles = game?.teamStyles;
   const hold = useMemo(() => {
     if (game?.type !== 'football') return [];
+    // ET FLAG-SPIL TEGNER INGEN TRØJER. Oversigten forklarer, hvordan
+    // kampkortet vælger mellem tre trøjer — i et spil med landeflag ville den
+    // vise 32 × 3 trøjer, der aldrig står nogen steder, og en regel, der ikke
+    // gælder. Samme evne som badgen (`harLandeflag`), så de ikke kan uenes.
+    if (harLandeflag(game)) return [];
     return [...teamsOf(game)].sort((a, b) => (a.vis || a.name).localeCompare(b.vis || b.name, 'da'));
   }, [game]);
 

@@ -15,6 +15,11 @@ import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import Avatar from './Avatar';
 import { avatarColor } from '../features/profile/avatarUtils';
+import { klubFarverAf } from '../features/games/football/badges';
+import { teamsOf } from '../features/games/football/teamInfo';
+import { HAANDBOLD_VM2027_HOLD } from '../data/haandboldVm2027Hold';
+import { SUPERLIGA_TEAMS_2026 } from '../data/superligaTeams2026';
+import { PREMIER_LEAGUE_TEAMS_2026 } from '../data/premierLeagueTeams2026';
 
 /** Den ydre boks og den indre cirkel. */
 function dele(container) {
@@ -176,7 +181,8 @@ describe('avatar med klubfarver', () => {
     expect(halvSkrift).toBeLessThan(indreRadius);
   });
 
-  // SEKUNDÆRBÅNDET ER 1 PX, som kommentaren lover. Uden det kunne det sættes
+  // SEKUNDÆRBÅNDET ER 1 PX I ET KLUBSPIL, som kommentaren lover (et flag-spil
+  // får 2 px — se «ringen i et flag-spil» nederst). Uden det kunne det sættes
   // til 8 px og æde primærringen — kun rækkefølgen var testet.
   it('gør sekundærbåndet præcis 1 px bredt', () => {
     const { cirkel } = dele(
@@ -235,4 +241,75 @@ describe('hårlinjen yderst', () => {
     expect(yderste({ primaer: '#FFFFFF', sekundaer: null, navn: 'a' }))
       .not.toBe(yderste({ primaer: '#0B0807', sekundaer: null, navn: 'b' }));
   });
+});
+
+// ---------------------------------------------------------------------------
+// I ET FLAG-SPIL SKAL LANDETS ANDEN FARVE KUNNE SES.
+//
+// Sekundærfarven er dér landets anden flagfarve (badges.js `sekundaerAf`), og
+// den er hele grunden til, at Danmark (rød/hvid) og Norge (rød/blå) kan skelnes
+// i stillingen. Men den blev tegnet 1 px bred — og stillingen og ligaerne
+// tegner avatarerne ved 22 og 26 px (GameLeagues.jsx, GameStandings.jsx), hvor
+// 1 px er præcis den bredde, Avatar selv siger forsvinder (QC på 3419ff6).
+//
+// Superligaens og Premier Leagues ring må IKKE ændre sig af det. Derfor går
+// testene gennem den ægte `klubFarverAf` med de ægte holdlister — den, der
+// sætter `landeflag` — og ikke gennem et håndskrevet objekt.
+// ---------------------------------------------------------------------------
+describe('ringen i et flag-spil', () => {
+  const HVM = teamsOf({ id: 'hvm2027', type: 'football', teams: HAANDBOLD_VM2027_HOLD });
+  const SL = teamsOf({ id: 'sl', type: 'football', teams: SUPERLIGA_TEAMS_2026 });
+  const PL = teamsOf({ id: 'pl', type: 'football', teams: PREMIER_LEAGUE_TEAMS_2026 });
+  const ring = (teams, navn, size) => dele(
+    render(<Avatar uid="a" name="Bo" klubFarver={klubFarverAf(teams, {}, navn)} size={size} />).container,
+  ).cirkel;
+  const sekundaerbaand = (cirkel) => {
+    const i = indad(lag(cirkel));
+    expect(i).toHaveLength(2);
+    return i[1].spredning - i[0].spredning;
+  };
+
+  // 2 px ved alle de størrelser, appen bruger. Halv ringbredde (Avatar.jsx
+  // `sekundaerBredde`) er ved 48 px round(4/2) = 2; var det HELE ringbredden,
+  // gav 48 px 4. Ved 22 px var det før 1.
+  it.each([22, 26, 34, 44, 48])('Danmarks hvide stribe er 2 px bred ved %i — ikke 1', (size) => {
+    expect(sekundaerbaand(ring(HVM, 'Danmark', size))).toBe(2);
+  });
+
+  // Alle 32 ved de to små størrelser — det er dér, den skal bære beskeden.
+  it.each([22, 26])('alle 32 lande har en sekundærstribe på mindst 2 px ved %i', (size) => {
+    for (const t of HAANDBOLD_VM2027_HOLD) {
+      expect(sekundaerbaand(ring(HVM, t.name, size)), t.name).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  // Den bredere stribe må ikke skubbe ringen ind over initialerne.
+  it.each([22, 26, 34, 44, 48])('lader initialerne stå fri af den tofarvede ring ved %i', (size) => {
+    const c = ring(HVM, 'Danmark', size);
+    const bredest = Math.max(...indad(lag(c)).map((x) => x.spredning));
+    expect(tal(c.style.fontSize) / 2).toBeLessThan(tal(c.style.width) / 2 - bredest);
+  });
+
+  // UÆNDRET SUPERLIGA-RING, byte for byte. Strengen er den, Avatar.jsx gav på
+  // 3419ff6 (før flag-bredden) for Randers ved 22 og 44 px: primærring 2/4 px,
+  // sekundærbånd 1 px, lys hårlinje (textOn giver hvid tekst på Randers' blå).
+  it('Randers FC tegnes præcis som før', () => {
+    expect(ring(SL, 'Randers FC', 22).style.boxShadow)
+      .toBe('inset 0 0 0 2px #78C5ED, inset 0 0 0 3px #30374F, 0 0 0 1px rgba(255,255,255,.5)');
+    expect(ring(SL, 'Randers FC', 44).style.boxShadow)
+      .toBe('inset 0 0 0 4px #78C5ED, inset 0 0 0 5px #30374F, 0 0 0 1px rgba(255,255,255,.5)');
+  });
+
+  // …og hver klub med en sekundærfarve i begge ligaer beholder sit 1-px-bånd.
+  // Forudsætningen står med, så testen ikke bliver grøn af en tom liste.
+  it.each([['Superligaen', SL, SUPERLIGA_TEAMS_2026], ['Premier League', PL, PREMIER_LEAGUE_TEAMS_2026]])(
+    '%s: sekundærbåndet er stadig 1 px ved 22 og 26',
+    (_navn, teams, liste) => {
+      const med = liste.filter((t) => klubFarverAf(teams, {}, t.name)?.sekundaer);
+      expect(med.length).toBeGreaterThan(0);
+      for (const t of med) {
+        for (const size of [22, 26]) expect(sekundaerbaand(ring(teams, t.name, size)), t.name).toBe(1);
+      }
+    },
+  );
 });

@@ -338,7 +338,9 @@ describe('deploy-platform.yml — seed-trinnene slår op, de vælger ikke selv',
     const labels = [...YML.matchAll(/^ {8}description: '([^']*)'/gm)].map((m) => m[1]);
     for (const l of labels) expect(l).not.toMatch(/kortkoder/);
     const teams = /^ {6}seedTeams:\n(?: {8}#.*\n)*\s{8}description: '([^']*)'/m.exec(YML)?.[1] ?? '';
-    expect(teams).toMatch(/\(trøjefarver, stadion\)/);
+    // Landekoder og landefarver (håndbold-VM'ets flag) skrives af samme trin —
+    // labelen er det eneste, ejeren ser, når F3 startes, så den skal sige det.
+    expect(teams).toMatch(/\(trøjefarver, landekoder og landefarver, stadion\)/);
     expect(teams).toMatch(/afviser ændret elo, kortkode eller antal hold/);
   });
 

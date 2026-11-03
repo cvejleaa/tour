@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { assetsInlineLimit } from './scripts/lib/assetsInline.mjs';
 
 // Samme kodebase bygger to sites: Tour (tour.vejleaa.dk, uden env) og den
 // samlede platform (tip.vejleaa.dk, VITE_PLATFORM_MODE=true). index.html er
@@ -39,6 +40,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tourBrandingPlugin(isPlatform)],
     server: { port: 5173 },
+    // Landeflagene bundtes som selvstændige filer, aldrig som data-URI i
+    // hovedbundtet — se scripts/lib/assetsInline.mjs.
+    build: { assetsInlineLimit },
     test: {
       environment: 'jsdom',
       globals: true,

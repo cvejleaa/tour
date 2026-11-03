@@ -1,5 +1,6 @@
 /**
- * ClubBadge — selvstændig hold-badge. Ingen eksterne logoer.
+ * ClubBadge — selvstændig hold-badge. Ingen eksterne logoer og ingen kald til
+ * tredjepart: landeflagene er bundtet (features/games/football/landeflag.js).
  *
  * TO FORMER, valgt af BRUGSSTEDET og ikke af dataen:
  *   variant="troeje" – trøje-silhuet i klubbens farver, med striber/bøjler
@@ -8,6 +9,13 @@
  * Formen må IKKE vælges automatisk ud fra, om holdet har to farver. Så ville
  * en tabelkolonne vise Newcastle som trøje og Liverpool som cirkel — to
  * formsprog i samme kolonne.
+ *
+ * DEN ENE UNDTAGELSE ER FLAGET (`flag`, en URL). Det vælges pr. SPIL, aldrig
+ * pr. hold: `teamsOf` lægger det kun på, når ALLE spillets hold har et
+ * (`alleHarLandeflag`), så en kolonne er enten flag hele vejen eller trøjer
+ * hele vejen — samme regel som ovenfor, holdt af data i stedet for af
+ * brugsstedet. Brugsstedet bestemmer stadig, OM flaget skal med: admin-
+ * cirklen i Hold-farver sender det ikke, fordi den viser farven, der rettes.
  *
  * KORTKODEN KAN IKKE STÅ I TRØJEN. Kroppen er 10 af 32 enheder bred, så "BHA"
  * fylder 2,4-2,8 gange kroppens bredde ved alle tre kanoniske størrelser (22,
@@ -172,7 +180,37 @@ export default function ClubBadge({
   color2 = null,
   moenster = null,
   aerme = null,
+  flag = null,
 }) {
+  if (flag) {
+    // 4:3 i samme kvadratiske felt som trøjen, så rækker og kort ikke flytter
+    // sig mellem et flag-spil og et trøje-spil. `alt=""` + aria-hidden:
+    // navnet står ved siden af på hver flade, der får flag, og et alt med
+    // holdnavnet ville læse det op to gange (samme grund som trøjens
+    // manglende <title>). KONTUREN er trøjens tal, så Japans hvide felt ikke
+    // forsvinder i en lys tabel. ALDRIG inline-svg — se landeflag.js.
+    return (
+      <span
+        className="club-flag"
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: size, height: size, flex: '0 0 auto',
+        }}
+      >
+        <img
+          src={flag}
+          alt=""
+          aria-hidden="true"
+          width={size}
+          height={Math.round(size * 0.75)}
+          loading="lazy"
+          decoding="async"
+          style={{ display: 'block', borderRadius: 2, boxShadow: '0 0 0 1px rgba(0,0,0,.32)' }}
+        />
+      </span>
+    );
+  }
+
   if (variant === 'troeje') {
     // Klip-id skal være entydigt: to trøjer på samme kampkort med samme id
     // ville dele klipsti, og den ene ville miste sit mønster.

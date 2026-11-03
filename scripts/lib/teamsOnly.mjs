@@ -13,6 +13,24 @@
 // ---------------------------------------------------------------------------
 
 import { teamsPlan, teamsVagt, overrideAfvig } from '../../src/lib/seedFootball.js';
+import { antalMedLandeflag, alleHarLandeflag } from '../../src/features/games/football/landeflagKoder.js';
+
+/**
+ * Tør-kørslens linje om landeflag: «N af M hold» for filen, hvad det giver på
+ * skærmen, og hvad spillet har i dag. Eksporteret, så teksten kan testes.
+ * @param {Array<object>} teams       holdlisten fra filen
+ * @param {Array<object>} [nuvaerende] spillets holdliste i dag
+ * @returns {string}
+ */
+export function landeflagLinje(teams, nuvaerende) {
+  const n = antalMedLandeflag(teams);
+  const ialt = Array.isArray(teams) ? teams.length : 0;
+  const vises = alleHarLandeflag(teams)
+    ? 'flaget vises'
+    : (n === 0 ? 'ingen flag — trøjer' : 'INGEN flag vises (alt eller intet)');
+  const idag = `${antalMedLandeflag(nuvaerende)} af ${Array.isArray(nuvaerende) ? nuvaerende.length : 0}`;
+  return `${n} af ${ialt} hold — ${vises} (i dag ${idag})`;
+}
 
 /**
  * Kør --teams-only mod et spil.
@@ -84,6 +102,11 @@ export async function koerTeamsOnly({
     log('      array-orden, så holdknapperne flytter sig for alle spillere.');
   }
   log(`\n  uændrede hold : ${plan.uaendrede}`);
+  // LANDEFLAG — fra SAMME funktion, som klienten gater på (landeflagKoder.js).
+  // Holdfilen lovede engang farver «i D6», og de 32 grå trøjer så ingen, fordi
+  // intet sted sagde det højt. Linjen her siger, om flaget bliver vist, FØR der
+  // skrives — alt eller intet, så «31 af 32» er ingen flag nogen steder.
+  log(`  landeflag     : ${landeflagLinje(teams, nuvaerende)}`);
 
   const vagt = teamsVagt(plan);
   const uaendret = !plan.aendringer.length && !plan.tilfoejede.length

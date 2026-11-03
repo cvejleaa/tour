@@ -346,3 +346,67 @@ describe('ClubBadge — mønstre', () => {
     expect(r[0].getAttribute('x')).not.toBe(r[1].getAttribute('x'));
   });
 });
+
+// ---------------------------------------------------------------------------
+// FLAGET — den tredje form, valgt pr. spil (landeflag.js). Et <img>, aldrig
+// inline-svg, og dekorativt: navnet står ved siden af på hver flade.
+// ---------------------------------------------------------------------------
+describe('ClubBadge — landeflag', () => {
+  const URL = '/assets/dk-abc123.svg';
+
+  it('tegner et <img> med flaget — og INGEN trøje eller cirkel', () => {
+    const { container } = render(
+      <ClubBadge variant="troeje" code="DEN" color="#C8102E" flag={URL} title="Danmark" size={34} />,
+    );
+    const img = container.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img.getAttribute('src')).toBe(URL);
+    // Den sidste er den, der gør «flaget kom oveni trøjen» rød.
+    expect(svg(container)).toBeNull();
+    expect(container.querySelector('[role="img"]')).toBeNull();
+    expect(container.textContent).toBe('');
+  });
+
+  // DEKORATIVT. Et alt med holdnavnet ville læse navnet op to gange, og
+  // aria-hidden skjuler det for getByRole — derfor querySelector her.
+  it('er dekorativt: alt="" og aria-hidden', () => {
+    const { container } = render(<ClubBadge flag={URL} title="Danmark" code="DEN" />);
+    const img = container.querySelector('img');
+    expect(img.getAttribute('alt')).toBe('');
+    expect(img.getAttribute('aria-hidden')).toBe('true');
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.queryByLabelText('Danmark')).toBeNull();
+  });
+
+  // 4:3 I TRØJENS FELT. Rækker og kort må ikke flytte sig mellem et flag-spil
+  // og et trøje-spil, så boksen er size×size, og flaget er 4:3 inden i.
+  it('er 4:3 i et size×size-felt', () => {
+    const { container } = render(<ClubBadge flag={URL} size={34} />);
+    const boks = container.firstChild;
+    expect(boks.style.width).toBe('34px');
+    expect(boks.style.height).toBe('34px');
+    const img = container.querySelector('img');
+    expect(img.getAttribute('width')).toBe('34');
+    expect(img.getAttribute('height')).toBe('26'); // round(34 × 0,75) = 25,5 → 26
+    const lille = render(<ClubBadge flag={URL} size={20} />).container.querySelector('img');
+    expect(lille.getAttribute('height')).toBe('15');
+  });
+
+  // KONTUREN er trøjens tal — uden den forsvinder Japans hvide felt i en lys
+  // tabel.
+  it('har trøjens kontur og loader dovent', () => {
+    const img = render(<ClubBadge flag={URL} />).container.querySelector('img');
+    expect(img.style.boxShadow).toBe('0 0 0 1px rgba(0,0,0,.32)');
+    expect(img.getAttribute('loading')).toBe('lazy');
+    // Puljen tegner alle 32 flag på én gang; afkodningen må ikke blokere
+    // render (Test Manager: attributten kunne fjernes med grøn suite).
+    expect(img.getAttribute('decoding')).toBe('async');
+  });
+
+  // Uden flag er alt som før — de to former ovenfor er uændrede.
+  it('tegner trøjen som før, når flag er null', () => {
+    const { container } = render(<ClubBadge variant="troeje" code="DEN" color="#C8102E" flag={null} />);
+    expect(container.querySelector('img')).toBeNull();
+    expect(svg(container)).not.toBeNull();
+  });
+});

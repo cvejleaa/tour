@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, renderHook, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { accentTema } from '../../lib/accentTema';
-import { klubAccentAf } from './football/badges';
+import { klubAccentAf, GREY } from './football/badges';
 import { kuloer } from '../../lib/contrastText';
 import { KULOER_GULV } from '../../lib/accentTema';
 import { useSpilTema } from './useSpilTema';
@@ -55,6 +55,20 @@ describe('klubAccentAf', () => {
 
   it('giver null, når ingen af de tre trøjer bærer kulør', () => {
     expect(klubAccentAf(HOLD, {}, 'Gråt BK')).toBeNull();
+  });
+
+  // HOLD UDEN FARVER FÅR INTET TEMA — ikke badgens grå. GREY (#5b6b7a) har
+  // kulør 0,12, altså OVER gulvet, så før tonede et hold uden farver hele
+  // siden gråblå. Det ramte alle 32 hold i håndbold-VM'et, indtil de fik
+  // landefarver (QC på flagplanen).
+  it('giver null for et hold helt uden farver — badgens grå er ikke en kulør', () => {
+    expect(kuloer(GREY)).toBeGreaterThanOrEqual(KULOER_GULV); // derfor er testen nødvendig
+    const uden = [{ name: 'Danmark', short: 'DEN' }];
+    expect(klubAccentAf(uden, {}, 'Danmark')).toBeNull();
+    // …men en farve sat i admin tæller som holdets egen.
+    expect(klubAccentAf(uden, { Danmark: { color: '#C8102E' } }, 'Danmark')).toBe('#C8102E');
+    // …også en udefarve alene: den springes ikke over for badgens grå hjemmefarve.
+    expect(klubAccentAf([{ name: 'Danmark', awayColor: '#C8102E' }], {}, 'Danmark')).toBe('#C8102E');
   });
 
   // GULVET SKAL BINDES I BEGGE RETNINGER. Test Manager flyttede KULOER_GULV

@@ -613,6 +613,11 @@ den kan heller ikke oprette en kamp, der ikke er seedet endnu.
 Symptomet ser kosmetisk ud og er det ikke: et hold tegnes i en farve, der
 clasher med hjemmeholdets, fordi produktionens holdliste er ældre end repoets.
 
+**Gælder ikke et spil med landeflag** (håndbold-VM 2027). Dér tegnes ingen
+trøje: badgen er landets flag, og farverne giver kun ringen om spillernes avatar
+og spillets tema. Står der trøjer i stedet for flag — eller en grå ring — så se
+«Landeflag i håndbold-VM'et» nedenfor.
+
 `badgeFor` falder tilbage `thirdColor || awayColor || color`. Mangler
 tredjefarven, bliver tredje **lig med** ude, og `matchBadges` — som vælger den
 FJERNESTE af de to — kommer til at sammenligne en værdi med sig selv. `>` er
@@ -689,6 +694,56 @@ tredjefarve i Superligaen ændrer udetrøjen i **35 af 132** kampkort (og
 **Nødbremse i en aktiv runde:** Admin → 🎨 Hold-farver kan rette en enkelt farve
 med det samme, uden deploy og uden produktionsnøgle. Men den kan kun farver
 (ikke mønstre), og en override dér skygger permanent for datafilen.
+
+## Landeflag i håndbold-VM'et (og hvis de mangler)
+
+Hvert hold i `src/data/haandboldVm2027Hold.js` har en landekode (`iso2`, fx
+`'dk'`) og to landefarver (`color`, `awayColor`). Koden vælger flaget; farverne
+giver ringen om avataren (`color` yderst, `awayColor` som en stribe inderst) og
+spillets tema. Flagene er de 32 svg-filer fra
+`flag-icons` (MIT, licensen i `public/licenser.txt`), bundtet med appen — der
+hentes intet fra andre værter.
+
+**Alt eller intet.** Flaget vises kun, når ALLE spillets hold har en kode med et
+bundtet flag (`harLandeflag`). Mangler ét, tegnes alle 32 som trøjer — så en
+kolonne aldrig blander flag og trøjer. Symptomet «trøjer i stedet for flag» betyder
+altså: mindst ét hold i produktionens `teams` mangler `iso2`.
+
+**Sådan kommer koderne og farverne i produktion** — ad «Ret holdlisten» ovenfor,
+med ejerens ja (det er en skrivning i produktionsdata):
+
+1. GitHub → Actions → **"Deploy platform (tip.vejleaa.dk)"** → `seedTeams` +
+   `hvm2027` i `seedSpil`, **uden** `seedTeamsSkriv`.
+2. Læs tør-kørslen. Den forventede udskrift (regnet offline på holdfilen fra
+   main, se `scripts/lib/teamsOnly.test.mjs`):
+   ```
+     96 feltændringer:
+       Tyskland  awayColor: — → "#FFCC00"
+       Tyskland  color: — → "#FF0000"
+       Tyskland  iso2: — → "de"
+       …
+     uændrede hold : 0
+     landeflag     : 32 af 32 hold — flaget vises (i dag 0 af 32)
+   ```
+   **Kriteriet:** 96 feltændringer, alle felterne `iso2`, `color` eller
+   `awayColor`, alle fra `—`; ingen hold, der kommer til eller forsvinder; ingen
+   omrokering; `uændrede hold : 0`; `landeflag : 32 af 32`. Står der andet — fx en
+   `elo`- eller `short`-linje — er holdfilen eller produktionen drevet siden D6.
+   Så **stopper** du; det løses ikke med `--overskriv-hold`.
+3. Kør igen med `seedTeamsSkriv`.
+4. Kør tør-kørslen en gang til: «Holdlisten er allerede den, filen beskriver.
+   Intet at gøre.» er beviset for, at skrivningen landede.
+
+Kørslen bygger og deployer hele platformen fra main (frontend, regler, indexes),
+før den retter holdlisten — se, hvad der ellers ligger på main, før du starter.
+
+**En gammel klient ignorerer `iso2`**, så rækkefølgen kode-før-data er ikke
+kritisk; men flaget kan først ses, når både frontend og data er ude.
+
+Linjen `landeflag : N af M hold` står i hver `seedTeams`-tør-kørsel, også for
+Superligaen og PL («0 af 12 hold — ingen flag — trøjer»). Den er der, fordi
+holdfilen engang lovede farver «i D6», og de 32 grå trøjer så ingen: nu siger
+tør-kørslen højt, om flaget bliver vist, før der skrives.
 
 ## Live-stilling på kampkortene (minut-synken)
 
@@ -881,7 +936,7 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
   kickoff-trinnet også håndbold-VM'et. Skal de ramme hver sit spil, så kør dem i
   hver sin kørsel.
 - `seedTeams` (default false, med `seedSpil` og `seedTeamsSkriv`) — retter
-  **kun** holdlisten: trøjefarver, stadion. Rører hverken kampe,
+  **kun** holdlisten: trøjefarver, landekoder (landeflag) og landefarver, stadion. Rører hverken kampe,
   odds, Elo eller resultater. Findes, fordi et gen-seed ikke skriver holdlisten,
   når spillet har en. `seedTeams` tørkører som default og **nægter at skrive**,
   hvis `elo`, `short` eller antallet af hold ville ændre sig. Se "Hvis en

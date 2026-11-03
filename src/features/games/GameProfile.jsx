@@ -14,7 +14,8 @@ import { useAuth } from '../../context/AuthContext';
 import Avatar from '../../components/Avatar';
 import ClubBadge from '../../components/ClubBadge';
 import { setPlayerFavoriteTeam } from './gameActions';
-import { teamsOf } from './football/teamInfo';
+import { teamsOf, harLandeflag } from './football/teamInfo';
+import { ringOgTemaTekst } from './football/yndlingsholdTekst';
 import { badgeFor } from './football/badges';
 import { useKlubFarver } from './football/useKlubFarver';
 import { useKlubTema } from './useSpilTema';
@@ -51,6 +52,11 @@ export default function GameProfile({ game, me }) {
 
   const chosen = teams.find((t) => t.name === team) || null;
   const temafarve = klubTema(team);
+  // Ringen for det valgte hold — null, når holdet ingen egen farve har (så
+  // tegnes der ingen ring, og teksten må ikke love en).
+  const ring = klubFarver(team);
+  // Flag-spil: ingen trøje at tale om — se yndlingsholdTekst.js.
+  const flagSpil = harLandeflag(game);
   // Trøjen som kampkortet ville tegne den — inkl. admin-overrides.
   const valgtBadge = useMemo(
     () => (chosen ? badgeFor(teams, chosen.name, game?.teamStyles, 'home') : null),
@@ -77,10 +83,9 @@ export default function GameProfile({ game, me }) {
           TRØJEN (FCK hvid), temaet er KLUBFARVEN (FCK marineblå). Nævnes kun
           den ene, ser den anden ud som en fejl. Se `klubFarverAf` og
           `klubAccentAf` i football/badges.js. */}
-      <p style={{ color: 'var(--c-muted)', marginTop: 0 }}>
-        Vælg dit <strong>yndlingshold</strong> i dette spil. Din avatar får trøjens farve som ring
-        om sig i stillingen og i dine ligaer, og hele spillet toner over i klubbens farve.
-        Holdet gælder kun her — andre spil har deres egne hold, og resten af appen bliver grøn.
+      <p style={{ color: 'var(--c-muted)', marginTop: 0 }} data-testid="yndlingshold-tekst">
+        Vælg dit <strong>yndlingshold</strong> i dette spil. {ringOgTemaTekst(flagSpil)}
+        {' '}Holdet gælder kun her — andre spil har deres egne hold, og resten af appen bliver grøn.
       </p>
 
       <div className="flex items-center" style={{ gap: '0.75rem', margin: '0.5rem 0 1rem' }}>
@@ -101,7 +106,7 @@ export default function GameProfile({ game, me }) {
           uid={uid}
           name={profile?.displayName || user?.displayName}
           emoji={profile?.avatarEmoji}
-          klubFarver={klubFarver(team)}
+          klubFarver={ring}
           size={48}
         />
         <div>
@@ -114,7 +119,7 @@ export default function GameProfile({ game, me }) {
             {chosen && <ClubBadge
               variant="troeje" code={valgtBadge.code} color={valgtBadge.color} size={22}
               color2={valgtBadge.color2} moenster={valgtBadge.moenster}
-              aerme={valgtBadge.aerme} title={chosen.name}
+              aerme={valgtBadge.aerme} flag={valgtBadge.flag} title={chosen.name}
             />}
             {chosen ? (chosen.vis || chosen.name) : 'Intet hold valgt'}
           </div>
@@ -147,8 +152,49 @@ export default function GameProfile({ game, me }) {
           bagefter. Crystal Palace står i datafilen med hvid, næsten sort og
           hvid igen. */}
       {chosen && (
-        <p className="troejer__mrk" style={{ margin: '0 0 0.75rem' }}>
-          {temafarve ? (
+        <p className="troejer__mrk" style={{ margin: '0 0 0.75rem' }} data-testid="tema-tekst">
+          {/* ET FLAG-SPIL HAR INGEN TRØJE. Holdfilens landefarve giver både
+              ring og tema (den har kulør nok, se haandboldVm2027Hold.js), så
+              sætningen om, at de to «ikke altid er den samme farve», gælder
+              kun, hvis de faktisk er forskellige — fx efter en admin-rettelse. */}
+          {flagSpil ? (
+            temafarve ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  data-testid="temafarve"
+                  style={{
+                    width: 13, height: 13, borderRadius: 4, display: 'inline-block',
+                    verticalAlign: '-1px', marginRight: '0.35rem',
+                    background: temafarve.tema.pitch, border: '1px solid var(--c-border)',
+                  }}
+                />
+                Spillet tones i landets farve.
+                {/* RINGEN ER TOFARVET, når landet har en anden farve
+                    (`sekundaerAf` i badges.js): den første yderst, den anden
+                    som en stribe inderst. «Har samme farve» om en rød/hvid
+                    ring var kun halvt sandt — og det er den hvide stribe, der
+                    skiller Danmark fra Norge. */}
+                {ring && (ring.primaer.toUpperCase() === temafarve.farve.toUpperCase()
+                  ? (ring.sekundaer
+                    ? ' Ringen om din avatar har samme farve yderst og landets anden farve inderst.'
+                    : ' Ringen om din avatar har samme farve.')
+                  : (ring.sekundaer
+                    ? ' Ringen om din avatar har holdets første farve yderst og den anden inderst — her er temaet ikke ringens yderste farve.'
+                    : ' Ringen om din avatar har holdets første farve — her er de to ikke den samme.'))}
+              </>
+            ) : (
+              <>
+                {chosen.vis || chosen.name} har ingen farve med kulør nok til at tone en hel side, så
+                spillet bliver stående i appens grønne.
+                {ring
+                  ? (ring.sekundaer
+                    ? ' Ringen om din avatar får stadig landets to farver.'
+                    : ' Ringen om din avatar får stadig landets farve.')
+                  : ' Holdet har ingen farve, så din avatar får ingen ring.'}
+              </>
+            )
+          ) : temafarve ? (
             <>
               <span
                 aria-hidden="true"
@@ -165,8 +211,8 @@ export default function GameProfile({ game, me }) {
           ) : (
             <>
               Ingen af {chosen.vis || chosen.name}s tre trøjer har kulør nok til at tone en hel
-              side, så spillet bliver stående i appens grønne. Ringen om din avatar får trøjens
-              farve som ellers.
+              side, så spillet bliver stående i appens grønne.
+              {ring ? ' Ringen om din avatar får trøjens farve som ellers.' : ' Holdet har ingen farve, så din avatar får ingen ring.'}
             </>
           )}
         </p>

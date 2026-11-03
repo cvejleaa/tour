@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { koerTeamsOnly } from './teamsOnly.mjs';
+import { koerTeamsOnly, landeflagLinje } from './teamsOnly.mjs';
+import { HAANDBOLD_VM2027_HOLD } from '../../src/data/haandboldVm2027Hold.js';
 
 // En fake af det, Firestore giver os. Den TÆLLER skrivninger, for det er hele
 // pointen: `teamsVagt` var grundigt unit-testet, og alligevel kunne kaldet af
@@ -209,5 +210,82 @@ describe('gemte overrides i tør-kørslen', () => {
       log: (s) => { tekst += `${s}\n`; },
     })).rejects.toThrow(/rører point/);
     expect(tekst).toContain('rettet i hånden');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LANDEFLAG-LINJEN (QC på flagplanen, fund 5). Holdfilen lovede farver «i D6»,
+// og de 32 grå trøjer så ingen. Tør-kørslen siger nu højt, om flaget bliver
+// vist — fra den SAMME funktion, klienten gater på (landeflagKoder.js).
+// ---------------------------------------------------------------------------
+describe('landeflagLinje', () => {
+  const uden = (t) => Object.fromEntries(Object.entries(t).filter(([k]) => k !== 'iso2'));
+
+  it('32 af 32: flaget vises — og hvad spillet har i dag', () => {
+    expect(landeflagLinje(HAANDBOLD_VM2027_HOLD, HAANDBOLD_VM2027_HOLD.map(uden)))
+      .toBe('32 af 32 hold — flaget vises (i dag 0 af 32)');
+  });
+
+  // ALT ELLER INTET skal stå i linjen: «31 af 32» læses ellers som «næsten».
+  it('31 af 32: siger højt, at INGEN flag vises', () => {
+    const mangler = HAANDBOLD_VM2027_HOLD.map((t, i) => (i === 0 ? uden(t) : t));
+    expect(landeflagLinje(mangler, HAANDBOLD_VM2027_HOLD))
+      .toBe('31 af 32 hold — INGEN flag vises (alt eller intet) (i dag 32 af 32)');
+  });
+
+  it('en klubliga: ingen flag — trøjer', () => {
+    expect(landeflagLinje([rfc, ...andre], [rfc, ...andre])).toBe('0 af 3 hold — ingen flag — trøjer (i dag 0 af 3)');
+    expect(landeflagLinje([rfc], undefined)).toBe('0 af 1 hold — ingen flag — trøjer (i dag 0 af 0)');
+  });
+
+  it('står i tør-kørslens udskrift', async () => {
+    let tekst = '';
+    await koerTeamsOnly({
+      gameRef: fakeRef([rfc, ...andre]), teams: [{ ...rfc, thirdColor: '#FC8033' }, ...andre],
+      skriv: false, serverTimestamp: 'NU', log: (x) => { tekst += `${x}\n`; },
+    });
+    expect(tekst).toContain('  landeflag     : 0 af 3 hold — ingen flag — trøjer (i dag 0 af 3)\n');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DEN FORVENTEDE TØR-KØRSEL FOR hvm2027 (F3), offline. Produktionen er
+// antaget = holdfilen på 3bac21e (D6 seedede de rå objekter, fuldtSeed.mjs),
+// altså holdfilen UDEN iso2 og farver. PÅSTAND, som Release Manager
+// efterprøver læs-only før skrivningen: viser den rigtige tør-kørsel andet
+// end det her, er filen eller produktionen drevet, og der skrives ikke.
+// ---------------------------------------------------------------------------
+describe('Ret holdlisten for hvm2027 — den forventede tør-kørsel', () => {
+  const NYE = ['iso2', 'color', 'awayColor'];
+  const prod = HAANDBOLD_VM2027_HOLD.map((t) => Object.fromEntries(Object.entries(t).filter(([k]) => !NYE.includes(k))));
+
+  it('96 feltændringer — iso2, color og awayColor på hver af de 32, alle fra —', async () => {
+    let tekst = '';
+    const ref = fakeRef(prod);
+    const r = await koerTeamsOnly({
+      gameRef: ref, teams: HAANDBOLD_VM2027_HOLD, skriv: false, serverTimestamp: 'NU',
+      log: (x) => { tekst += `${x}\n`; },
+    });
+    expect(r.grund).toBe('toerkoersel');
+    expect(r.vagt.ok).toBe(true);
+    expect(ref.kald).toHaveLength(0);
+    expect(r.plan.aendringer).toHaveLength(96);
+    expect(new Set(r.plan.aendringer.map((a) => a.felt))).toEqual(new Set(NYE));
+    expect(r.plan.aendringer.every((a) => a.fra === undefined)).toBe(true);
+    expect(r.plan.uaendrede).toBe(0);
+    expect(r.plan.tilfoejede).toEqual([]);
+    expect(r.plan.forsvundne).toEqual([]);
+    expect(r.plan.omrokeret).toBe(false);
+    expect(tekst).toContain('  96 feltændringer:\n');
+    expect(tekst).toContain('    Danmark  iso2: — → "dk"\n');
+    expect(tekst).toContain('    Danmark  color: — → "#C8102E"\n');
+    expect(tekst).toContain('  landeflag     : 32 af 32 hold — flaget vises (i dag 0 af 32)\n');
+  });
+
+  it('en gentaget tør-kørsel efter skrivningen siger «intet at gøre»', async () => {
+    const r = await koerTeamsOnly({
+      gameRef: fakeRef(HAANDBOLD_VM2027_HOLD), teams: HAANDBOLD_VM2027_HOLD, skriv: false, serverTimestamp: 'NU',
+    });
+    expect(r.grund).toBe('uaendret');
   });
 });

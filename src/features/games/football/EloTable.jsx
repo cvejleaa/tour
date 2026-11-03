@@ -60,7 +60,7 @@ export default function EloTable({ game }) {
                       <ClubBadge
                         variant="troeje" code={row.short || info?.short} color={row.color || info?.color} size={22}
                         color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
-                        aerme={info?.troejer?.hjemme?.aerme} title={row.name}
+                        aerme={info?.troejer?.hjemme?.aerme} flag={info?.flag} title={row.name}
                       />
                       {/* `title` med det EKSAKTE navn: kolonnen er sticky og
                           klippes med ellipsis under 600 px, og tre navne rammer

@@ -50,50 +50,78 @@
 //           tunge (K 120). EM 2026-finalen (DEN–GER 34–27, transkluderet fra
 //           sin egen side) ER med: uden den stod Danmark 2055 og Tyskland
 //           1925; finalen alene flyttede hver af dem 31 point.
+// `iso2`    landets kode i ISO 3166-1 alpha-2 med SMÅ bogstaver ('dk') —
+//           VISNINGENS nøgle: den vælger landeflaget (filnavnet i flag-icons,
+//           src/features/games/football/landeflag.js). Den er IKKE en
+//           kildenøgle og må aldrig blive det: Highlightlys hold bærer ingen
+//           landekode ({id, name, logo}; `{"code":"DK"}` er svaret fra
+//           /countries, og `match.country` er turneringens land), så der kan
+//           ikke matches hold på den. Afledes heller ikke af `hbKode` — det
+//           ville være at gate visningen på kildens nøgle (en proxy).
+//           Flaget vises kun, når ALLE spillets hold har ét (harLandeflag),
+//           så en kolonne aldrig blander flag og trøjer.
+// `color`, `awayColor`
+//           LANDEFARVERNE — samme form som klubbernes (superligaTeams2026.js),
+//           men de tegner ikke en trøje, når spillet har flag: de giver RINGEN
+//           om spillerens avatar og spillets TEMA (badges.js klubFarverAf /
+//           klubAccentAf). Uden dem fik alle 32 en grå ring (QC på flagplanen).
+//           `color` er ringens og temaets farve; `awayColor` er ringens
+//           SEKUNDÆRFARVE, så Danmark (rød/hvid) og Norge (rød/blå) kan
+//           skelnes i stillingen (badges.js `sekundaerAf`).
+//           Begge er farver FRA HOLDETS EGET FLAG, læst i flag-icons' svg —
+//           testen kræver, at de står i filen, så en farve skrevet fra
+//           hukommelsen er rød. Det er landets farve, ikke landsholdstrøjen:
+//           Italien er derfor grøn (flaget), ikke azzurro (trøjen). `color`
+//           har kulør nok til at tone en hel side (KULOER_GULV), så ring og
+//           tema er den SAMME farve for alle 32 — også det står i testen.
 //
 // MED VILJE UDELADT:
 //   - `venue`: alle kampe spilles på neutral bane (kun Tyskland er hjemme), og
 //     et hjemmestadion på kampkortet ville være forkert for 31 af 32
 //     (FootballTip viser `venue`, når holdet har en).
-//   - farver: lægges ind i D6 (eller i admin); uden farve tegnes holdet gråt.
+//   - `thirdColor` og `troejer`: de findes kun for at vælge mellem trøjer på
+//     kampkortet, og et flag-spil tegner ingen trøjer.
+//
+// I PRODUKTION kommer `iso2` og farverne ad «Ret holdlisten» (seedTeams med
+// --teams-only, docs/drift.md) — tør-kørslen viser «landeflag: 32 af 32».
 //
 // Grupperne står i kampprogrammet, ikke her: et hold har ét navn hele
 // turneringen, men skifter gruppe i hovedrunden.
 // ---------------------------------------------------------------------------
 
 export const HAANDBOLD_VM2027_HOLD = [
-  { name: 'Tyskland',        short: 'GER', hbKode: 'GER', ihfNavn: 'Germany',                   aliaser: [], elo: 1894 }, // 1869 + 25 værtsfordel
-  { name: 'Serbien',         short: 'SRB', hbKode: 'SRB', ihfNavn: 'Serbia',                    aliaser: [], elo: 1358 },
-  { name: 'Tunesien',        short: 'TUN', hbKode: 'TUN', ihfNavn: 'Tunisia',                   aliaser: [], elo: 1188 },
-  { name: 'Uruguay',         short: 'URU', hbKode: 'URU', ihfNavn: 'Uruguay',                   aliaser: [], elo: 838 },
-  { name: 'Egypten',         short: 'EGY', hbKode: 'EGY', ihfNavn: 'Egypt',                     aliaser: [], elo: 1681 },
-  { name: 'Italien',         short: 'ITA', hbKode: 'ITA', ihfNavn: 'Italy',                     aliaser: [], elo: 1316 },
-  { name: 'Kap Verde',       short: 'CPV', hbKode: 'CPV', ihfNavn: 'Cape Verde',                aliaser: [], elo: 1127 },
-  { name: 'Saudi-Arabien',   short: 'KSA', hbKode: 'KSA', ihfNavn: 'Saudi Arabia',              aliaser: [], elo: 1178 },
-  { name: 'Kroatien',        short: 'CRO', hbKode: 'CRO', ihfNavn: 'Croatia',                   aliaser: [], elo: 1849 },
-  { name: 'Spanien',         short: 'ESP', hbKode: 'ESP', ihfNavn: 'Spain',                     aliaser: [], elo: 1560 },
-  { name: 'Chile',           short: 'CHI', hbKode: 'CHI', ihfNavn: 'Chile',                     aliaser: [], elo: 1241 },
-  { name: 'Tyrkiet',         short: 'TUR', hbKode: 'TUR', ihfNavn: 'Türkiye',                   aliaser: [], elo: 1150 }, // ingen historik → nyStart
-  { name: 'Argentina',       short: 'ARG', hbKode: 'ARG', ihfNavn: 'Argentina',                 aliaser: [], elo: 1379 },
-  { name: 'Frankrig',        short: 'FRA', hbKode: 'FRA', ihfNavn: 'France',                    aliaser: [], elo: 1749 },
-  { name: 'Brasilien',       short: 'BRA', hbKode: 'BRA', ihfNavn: 'Brazil',                    aliaser: [], elo: 1635 },
-  { name: 'Kuwait',          short: 'KUW', hbKode: 'KUW', ihfNavn: 'Kuwait',                    aliaser: [], elo: 1230 },
-  { name: 'Sverige',         short: 'SWE', hbKode: 'SWE', ihfNavn: 'Sweden',                    aliaser: [], elo: 1631 },
-  { name: 'Norge',           short: 'NOR', hbKode: 'NOR', ihfNavn: 'Norway',                    aliaser: [], elo: 1637 },
-  { name: 'Grækenland',      short: 'GRE', hbKode: 'GRE', ihfNavn: 'Greece',                    aliaser: [], elo: 1089 },
-  { name: 'Qatar',           short: 'QAT', hbKode: 'QAT', ihfNavn: 'Qatar',                     aliaser: [], elo: 1214 },
-  { name: 'Portugal',        short: 'POR', hbKode: 'POR', ihfNavn: 'Portugal',                  aliaser: [], elo: 1773 },
-  { name: 'Færøerne',        short: 'FRO', hbKode: 'FRO', ihfNavn: 'Faroe Islands',             aliaser: [], elo: 1264 },
-  { name: 'Polen',           short: 'POL', hbKode: 'POL', ihfNavn: 'Poland',                    aliaser: [], elo: 1238 },
-  { name: 'Algeriet',        short: 'ALG', hbKode: 'ALG', ihfNavn: 'Algeria',                   aliaser: [], elo: 930 },
-  { name: 'Danmark',         short: 'DEN', hbKode: 'DEN', ihfNavn: 'Denmark',                   aliaser: [], elo: 2086 },
-  { name: 'Slovenien',       short: 'SLO', hbKode: 'SLO', ihfNavn: 'Slovenia',                  aliaser: [], elo: 1559 },
-  { name: 'USA',             short: 'USA', hbKode: 'USA', ihfNavn: 'United States of America',  aliaser: [], elo: 1300 },
-  { name: 'Angola',          short: 'ANG', hbKode: 'ANG', ihfNavn: 'Angola',                    aliaser: [], elo: 1071 },
-  { name: 'Island',          short: 'ISL', hbKode: 'ISL', ihfNavn: 'Iceland',                   aliaser: [], elo: 1695 },
-  { name: 'Nordmakedonien',  short: 'MKD', hbKode: 'MKD', ihfNavn: 'North Macedonia',           aliaser: [], elo: 1444 },
-  { name: 'Bahrain',         short: 'BHR', hbKode: 'BHR', ihfNavn: 'Bahrain',                   aliaser: [], elo: 1152 },
-  { name: 'Japan',           short: 'JPN', hbKode: 'JPN', ihfNavn: 'Japan',                     aliaser: [], elo: 1157 },
+  { name: 'Tyskland',        short: 'GER', hbKode: 'GER', ihfNavn: 'Germany',                   aliaser: [], elo: 1894, iso2: 'de', color: '#FF0000', awayColor: '#FFCC00' }, // 1869 + 25 værtsfordel
+  { name: 'Serbien',         short: 'SRB', hbKode: 'SRB', ihfNavn: 'Serbia',                    aliaser: [], elo: 1358, iso2: 'rs', color: '#C6363C', awayColor: '#0C4076' },
+  { name: 'Tunesien',        short: 'TUN', hbKode: 'TUN', ihfNavn: 'Tunisia',                   aliaser: [], elo: 1188, iso2: 'tn', color: '#E70013', awayColor: '#FFFFFF' },
+  { name: 'Uruguay',         short: 'URU', hbKode: 'URU', ihfNavn: 'Uruguay',                   aliaser: [], elo: 838, iso2: 'uy', color: '#0038A8', awayColor: '#FFFFFF' },
+  { name: 'Egypten',         short: 'EGY', hbKode: 'EGY', ihfNavn: 'Egypt',                     aliaser: [], elo: 1681, iso2: 'eg', color: '#CE1126', awayColor: '#FFFFFF' },
+  { name: 'Italien',         short: 'ITA', hbKode: 'ITA', ihfNavn: 'Italy',                     aliaser: [], elo: 1316, iso2: 'it', color: '#009246', awayColor: '#CE2B37' },
+  { name: 'Kap Verde',       short: 'CPV', hbKode: 'CPV', ihfNavn: 'Cape Verde',                aliaser: [], elo: 1127, iso2: 'cv', color: '#081873', awayColor: '#DE3929' },
+  { name: 'Saudi-Arabien',   short: 'KSA', hbKode: 'KSA', ihfNavn: 'Saudi Arabia',              aliaser: [], elo: 1178, iso2: 'sa', color: '#165D31', awayColor: '#FFFFFF' },
+  { name: 'Kroatien',        short: 'CRO', hbKode: 'CRO', ihfNavn: 'Croatia',                   aliaser: [], elo: 1849, iso2: 'hr', color: '#FF0000', awayColor: '#171796' },
+  { name: 'Spanien',         short: 'ESP', hbKode: 'ESP', ihfNavn: 'Spain',                     aliaser: [], elo: 1560, iso2: 'es', color: '#AA151B', awayColor: '#F1BF00' },
+  { name: 'Chile',           short: 'CHI', hbKode: 'CHI', ihfNavn: 'Chile',                     aliaser: [], elo: 1241, iso2: 'cl', color: '#D52B1E', awayColor: '#0039A6' },
+  { name: 'Tyrkiet',         short: 'TUR', hbKode: 'TUR', ihfNavn: 'Türkiye',                   aliaser: [], elo: 1150, iso2: 'tr', color: '#E30A17', awayColor: '#FFFFFF' }, // ingen historik → nyStart
+  { name: 'Argentina',       short: 'ARG', hbKode: 'ARG', ihfNavn: 'Argentina',                 aliaser: [], elo: 1379, iso2: 'ar', color: '#74ACDF', awayColor: '#FFFFFF' },
+  { name: 'Frankrig',        short: 'FRA', hbKode: 'FRA', ihfNavn: 'France',                    aliaser: [], elo: 1749, iso2: 'fr', color: '#000091', awayColor: '#E1000F' },
+  { name: 'Brasilien',       short: 'BRA', hbKode: 'BRA', ihfNavn: 'Brazil',                    aliaser: [], elo: 1635, iso2: 'br', color: '#F8E509', awayColor: '#229E45' },
+  { name: 'Kuwait',          short: 'KUW', hbKode: 'KUW', ihfNavn: 'Kuwait',                    aliaser: [], elo: 1230, iso2: 'kw', color: '#00D941', awayColor: '#F31830' },
+  { name: 'Sverige',         short: 'SWE', hbKode: 'SWE', ihfNavn: 'Sweden',                    aliaser: [], elo: 1631, iso2: 'se', color: '#FECB00', awayColor: '#005293' },
+  { name: 'Norge',           short: 'NOR', hbKode: 'NOR', ihfNavn: 'Norway',                    aliaser: [], elo: 1637, iso2: 'no', color: '#ED2939', awayColor: '#002664' },
+  { name: 'Grækenland',      short: 'GRE', hbKode: 'GRE', ihfNavn: 'Greece',                    aliaser: [], elo: 1089, iso2: 'gr', color: '#0D5EAF', awayColor: '#FFFFFF' },
+  { name: 'Qatar',           short: 'QAT', hbKode: 'QAT', ihfNavn: 'Qatar',                     aliaser: [], elo: 1214, iso2: 'qa', color: '#8D1B3D', awayColor: '#FFFFFF' },
+  { name: 'Portugal',        short: 'POR', hbKode: 'POR', ihfNavn: 'Portugal',                  aliaser: [], elo: 1773, iso2: 'pt', color: '#FF0000', awayColor: '#006600' },
+  { name: 'Færøerne',        short: 'FRO', hbKode: 'FRO', ihfNavn: 'Faroe Islands',             aliaser: [], elo: 1264, iso2: 'fo', color: '#D72828', awayColor: '#003897' },
+  { name: 'Polen',           short: 'POL', hbKode: 'POL', ihfNavn: 'Poland',                    aliaser: [], elo: 1238, iso2: 'pl', color: '#DC143C', awayColor: '#FFFFFF' },
+  { name: 'Algeriet',        short: 'ALG', hbKode: 'ALG', ihfNavn: 'Algeria',                   aliaser: [], elo: 930, iso2: 'dz', color: '#006233', awayColor: '#D21034' },
+  { name: 'Danmark',         short: 'DEN', hbKode: 'DEN', ihfNavn: 'Denmark',                   aliaser: [], elo: 2086, iso2: 'dk', color: '#C8102E', awayColor: '#FFFFFF' },
+  { name: 'Slovenien',       short: 'SLO', hbKode: 'SLO', ihfNavn: 'Slovenia',                  aliaser: [], elo: 1559, iso2: 'si', color: '#0000BF', awayColor: '#D50000' },
+  { name: 'USA',             short: 'USA', hbKode: 'USA', ihfNavn: 'United States of America',  aliaser: [], elo: 1300, iso2: 'us', color: '#192F5D', awayColor: '#BD3D44' },
+  { name: 'Angola',          short: 'ANG', hbKode: 'ANG', ihfNavn: 'Angola',                    aliaser: [], elo: 1071, iso2: 'ao', color: '#FF0000', awayColor: '#FFEC00' },
+  { name: 'Island',          short: 'ISL', hbKode: 'ISL', ihfNavn: 'Iceland',                   aliaser: [], elo: 1695, iso2: 'is', color: '#003897', awayColor: '#D72828' },
+  { name: 'Nordmakedonien',  short: 'MKD', hbKode: 'MKD', ihfNavn: 'North Macedonia',           aliaser: [], elo: 1444, iso2: 'mk', color: '#D20000', awayColor: '#FFE600' },
+  { name: 'Bahrain',         short: 'BHR', hbKode: 'BHR', ihfNavn: 'Bahrain',                   aliaser: [], elo: 1152, iso2: 'bh', color: '#CE1126', awayColor: '#FFFFFF' },
+  { name: 'Japan',           short: 'JPN', hbKode: 'JPN', ihfNavn: 'Japan',                     aliaser: [], elo: 1157, iso2: 'jp', color: '#BC002D', awayColor: '#FFFFFF' },
 ];
 
 /**
