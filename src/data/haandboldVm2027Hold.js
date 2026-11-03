@@ -85,8 +85,9 @@
 // I PRODUKTION kommer `iso2` og farverne ad «Ret holdlisten» (seedTeams med
 // --teams-only, docs/drift.md) — tør-kørslen viser «landeflag: 32 af 32».
 //
-// Grupperne står i kampprogrammet, ikke her: et hold har ét navn hele
-// turneringen, men skifter gruppe i hovedrunden.
+// Grupperne står i kampprogrammet og i game.grupper (scripts/games.mjs),
+// ikke her: et hold har ét navn hele turneringen, men skifter gruppe i
+// hovedrunden.
 // ---------------------------------------------------------------------------
 
 export const HAANDBOLD_VM2027_HOLD = [
