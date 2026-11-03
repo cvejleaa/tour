@@ -17,7 +17,8 @@ const {
   recomputeGameMatchCore, recomputeSeasonElo,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officielTop, puljeTipKomplet,
   gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald, ukendtSportFejl,
-  tilHttpsFejl, omprisFraKnap, spillereTriggerenGenberegner, recalcPlayerTotal,
+  tilHttpsFejl, omprisFraKnap, spillereTriggerenGenberegner, kampeTriggerenLaeser, IN_MAKS,
+  recalcPlayerTotal,
 } = require('./gameScoring');
 // Den RIGTIGE HttpsError — ikke en attrap — så oversættelsen bevises mod den
 // klasse, callablen faktisk kaster.
@@ -46,13 +47,25 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
   const alleBetDocs = () => bets.map((b, i) => ({
     ref: b.ref, data: () => b.data, updateTime: `t${i}`,
   }));
+  // `in` SKAL kunne svares. Triggeren henter rundens bets med
+  // where('matchId', 'in', [...]); kunne faken kun `==`, ville den give en tom
+  // liste, og hver test af combi-rettelsen (task #14) ville være tom og grøn.
+  // Forespørgslerne TÆLLES med operator og værdi, så "én forespørgsel for en
+  // runde på 6" og "en kamp uden runde læser kun sig selv" kan bindes.
+  const betForespoergsler = [];
   const betsCollection = {
-    where: (field, _op, val) => ({
-      get: async () => ({
-        docs: bets
-          .filter((b) => b.data[field] === val)
-          .map((b) => ({ ref: b.ref, data: () => b.data })),
-      }),
+    where: (field, op, val) => ({
+      get: async () => {
+        if (op !== '==' && op !== 'in') throw new Error(`faken kender ikke operatoren ${op}`);
+        if (op === 'in' && (!Array.isArray(val) || val.length > 30)) throw new Error(`'in' kræver 1-30 værdier, fik ${val?.length}`);
+        betForespoergsler.push({ field, op, val });
+        const passer = op === 'in' ? (v) => val.includes(v) : (v) => v === val;
+        return {
+          docs: bets
+            .filter((b) => passer(b.data[field]))
+            .map((b) => ({ ref: b.ref, data: () => b.data })),
+        };
+      },
     }),
     // rescoreAllBets henter ALLE bets på én gang — ikke pr. kamp.
     get: async () => ({ docs: alleBetDocs(), size: bets.length }),
@@ -209,6 +222,8 @@ function makeDb(betList, matchList = [], gameData = {}, playerSeed = {}, puljeSe
     },
     _players: players,
     _kampHentninger: () => matchesCollection.hentninger,
+    // Kun forespørgslerne på matchId — recalcPlayerTotal spørger på uid.
+    _betForespoergsler: () => betForespoergsler.filter((q) => q.field === 'matchId'),
     _detalje: detalje,
     _detaljeStier: stier,
     _bets: bets,
@@ -227,31 +242,61 @@ const FieldValue = {
 };
 
 // HVEM triggeren genberegner — delt med facit-prognosen (manuelFacit.js).
-describe('spillereTriggerenGenberegner', () => {
-  it('dem med tip på NETOP kampen — ikke resten af runden, og ikke bets uden uid', () => {
-    const ud = spillereTriggerenGenberegner([
-      { uid: 'a', matchId: 'm1' }, { uid: 'b', matchId: 'm2' }, { uid: 'a', matchId: 'm1' },
-      { matchId: 'm1' }, { uid: 'c', matchId: 'm1' }, null,
-    ], 'm1');
-    expect([...ud].sort()).toEqual(['a', 'c']);
-    expect(spillereTriggerenGenberegner([], 'm1').size).toBe(0);
+// Reglen bor ÉT sted: kampeTriggerenLaeser afgør, hvilke kampes bets der
+// læses; spillereTriggerenGenberegner tager bare uid'erne af det læste. (QC:
+// stod runde-filtret i begge, kunne det inderste fjernes med grøn suite.)
+describe('kampeTriggerenLaeser', () => {
+  const ctx = buildRoundContext([
+    { id: 'a', round: 1, result: '1' }, { id: 'b', round: 1, result: null },
+    { id: 'c', round: 2, result: '1' }, { id: 'u', result: '1' },
+  ]);
+
+  it('hele kampens RUNDE — ikke kun kampen, og ikke andre runder', () => {
+    expect(kampeTriggerenLaeser(ctx, 'a').sort()).toEqual(['a', 'b']);
+    expect(kampeTriggerenLaeser(ctx, 'b').sort()).toEqual(['a', 'b']);
+    expect(kampeTriggerenLaeser(ctx, 'c')).toEqual(['c']);
+  });
+
+  it('en kamp uden runde — eller en kamp konteksten ikke kender — giver kun sig selv', () => {
+    expect(kampeTriggerenLaeser(ctx, 'u')).toEqual(['u']);
+    expect(kampeTriggerenLaeser(ctx, 'ukendt')).toEqual(['ukendt']);
+  });
+
+  // Et glemt argument må ikke falde tilbage til «kun kampens egne tippere» —
+  // det var præcis hullet (task #14), og det ville være tavst.
+  it('KASTER uden runde-kontekst', () => {
+    for (const daarlig of [undefined, null, {}, { byMatch: null }]) {
+      expect(() => kampeTriggerenLaeser(daarlig, 'a')).toThrow(/runde-konteksten/);
+    }
   });
 });
 
-// KENDT HUL — DOKUMENTERER NUVÆRENDE ADFÆRD, SKAL RETTES I EN EGEN PR.
+describe('spillereTriggerenGenberegner', () => {
+  it('uid\'erne af ALLE læste bets — én gang hver, og ikke bets uden uid', () => {
+    const ud = spillereTriggerenGenberegner([
+      { uid: 'a', matchId: 'm1' }, { uid: 'b', matchId: 'm2' }, { uid: 'a', matchId: 'm1' },
+      { matchId: 'm1' }, { uid: 'c', matchId: 'm1' }, null,
+    ]);
+    // b har kun tip på m2 og ER med: afgrænsningen til runden er sket, da
+    // bets blev læst (kampeTriggerenLaeser). Før task #14 var b ude.
+    expect([...ud].sort()).toEqual(['a', 'b', 'c']);
+    expect(spillereTriggerenGenberegner([]).size).toBe(0);
+    expect(spillereTriggerenGenberegner(undefined).size).toBe(0);
+  });
+});
+
+// COMBI TIL SPILLERE UDEN TIP PÅ RUNDENS SIDSTE KAMP (task #14).
 //
 // Combi-bonussen har intet kuponkrav (pointOpdeling.combiPerRunde: "Har man
 // glemt et tip, tæller den kamp bare ikke med"). En spiller UDEN tip på
-// rundens sidste kamp får altså også combi, når runden bliver afgjort. Men
-// recomputeGameMatchCore genberegner kun spillereTriggerenGenberegner(bets
-// på kampen) — så hans bonus kommer først, når noget andet genberegner ham
-// (et facit på en af hans egne kampe, 🔄 Genberegn point, puljeafregningen).
+// rundens sidste kamp får altså også combi, når runden bliver afgjort.
 //
-// Testen er en test af NUVÆRENDE adfærd, ikke en it.todo: den bliver RØD den
-// dag, triggeren rettes, og skal da vendes bevidst (CLAUDE.md: "En test kan
-// fastfryse en fejl" — her er den fastfrosset MED VILJE og med navn).
-// Facit-prognosen siger det samme til admin (manuelFacit.pointPrognose: `senere`).
-describe('recomputeGameMatchCore — KENDT HUL: combi til spillere uden tip på kampen', () => {
+// VENDT BEVIDST. Testen hed før «KENDT HUL» og fastfrøs med vilje, at
+// triggeren kun genberegnede tipperne på kampen: res.players 1, d stod på 6
+// uden opdeling (combi undefined). Nu genberegnes alle med tip i runden, og d
+// får sine 11,7 (6 + combi 5,7) i samme kørsel som e. Begge tal står her, så
+// den gamle værdi kan ses at være rød.
+describe('recomputeGameMatchCore — combi til spillere uden tip på kampen', () => {
   const O = { 1: 2.0, X: 3.5, 2: 4.0 };
   const kampe = () => [
     { id: 'k1', round: 1, result: '1', homeGoals: 1, awayGoals: 0, odds: O, kickoff: 1 },
@@ -267,23 +312,143 @@ describe('recomputeGameMatchCore — KENDT HUL: combi til spillere uden tip på 
     { uid: 'e', matchId: 'k2', pick: '1', points: 2 },
   ];
 
-  it('facit på k1 genberegner e — men IKKE d, selv om d\'s combi nu er afgjort', async () => {
+  it('facit på k1 genberegner BÅDE e og d — d får sin combi med det samme', async () => {
     const db = makeDb(bets(), kampe(), { name: 'SL' }, { d: { totalPoints: 6 } });
     const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'k1', { result: '1', odds: O, round: 1 });
-    expect(res.players).toBe(1);
-    expect(db._players.e.opdeling.combi).toBe(4);
-    // d står med sine 6 point (2 + 4) uden combi — DET er hullet. (Runde-
-    // snapshottet sætter hans rang, men regner ikke hans point om.)
-    expect(db._players.d.totalPoints).toBe(6);
-    expect(db._players.d.opdeling).toBeUndefined();
+    expect(res.players).toBe(2); // var 1 (kun e)
+    expect(db._players.e.opdeling.combi).toBe(4); // 2·√(2,0·2,0)
+    // d: 2 + 4 + combi 2·√(2,0·4,0) = 5,66 → 11,7. Var 6 og opdeling undefined.
+    expect(db._players.d.opdeling.combi).toBe(5.7);
+    expect(db._players.d.totalPoints).toBe(11.7);
+    expect(db._players.d.perRound).toEqual({ 1: 11.7 });
     expect(res.roundCompleted).toBe(1);
   });
 
-  it('…og d\'s combi ER der, så snart noget genberegner ham (beviset for, at den mangler)', async () => {
+  // Vidnet: triggerens tal for d er præcis det, en direkte genberegning giver.
+  it('…og det er præcis, hvad en direkte genberegning af d giver', async () => {
     const db = makeDb(bets(), kampe(), { name: 'SL' }, { d: { totalPoints: 6 } });
     await recalcPlayerTotal(db, FieldValue, 'g1', 'd', buildRoundContext(kampe()), new Set());
     expect(db._players.d.opdeling.combi).toBe(5.7);
     expect(db._players.d.totalPoints).toBe(11.7);
+  });
+
+  // Rang-snapshottet tages i samme kørsel. Byggede det på d's forældede 6,
+  // lå han under e (8) for altid i rundens ↑/↓ og «du overhalede X».
+  it('rundens rang-snapshot bygger på d\'s FRISKE total (11,7 foran e\'s 8)', async () => {
+    const db = makeDb(bets(), kampe(), { name: 'SL' }, { d: { totalPoints: 6 } });
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'k1', { result: '1', odds: O, round: 1 });
+    expect(db._players.d.rank).toBe(1); // var 2 (6 < 8)
+    expect(db._players.e.rank).toBe(2);
+  });
+
+  // Den omvendte vej: facit fjernes igen på den afgørende kamp. Så er kuponen
+  // ikke længere komplet, og d skal MISTE sin combi — også selv om han ikke
+  // tippede k1. På den gamle kode beholdt han sine 11,7.
+  it('fjernes facit på den afgørende kamp, forsvinder d\'s combi igen', async () => {
+    const uden = kampe().map((m) => (m.id === 'k1' ? { ...m, result: null, homeGoals: null, awayGoals: null } : m));
+    const db = makeDb(bets(), uden, { name: 'SL' }, {
+      d: { totalPoints: 11.7, roundBonus: 5.7, opdeling: { p1x2: 6, chance: 0, combi: 5.7, pulje: 0 } },
+    });
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'k1', { result: null, round: 1 });
+    expect(db._players.d.opdeling.combi).toBe(0);
+    expect(db._players.d.totalPoints).toBe(6);
+  });
+
+  // Rundens ANDRE bets er læst for at finde spillerne — ikke for at blive
+  // scoret om med k1's facit. d's k2 står med et bevidst forkert gemt tal: det
+  // skal stå urørt (rescoreAllBets er vejen til at genscore alt).
+  it('kun den afgjorte kamps bets scores om — rundens andre bets står urørt', async () => {
+    const b = bets();
+    b[0].points = 99; // d på k2
+    const db = makeDb(b, kampe(), { name: 'SL' });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'k1', { result: '1', odds: O, round: 1 });
+    expect(db._bets[0].data.points).toBe(99);
+    expect(res.rescored).toBe(1); // kun e's k1 (0 → 2)
+    expect(db._bets[2].data.points).toBe(2);
+  });
+
+  it('en spiller med tip KUN i en anden runde røres ikke', async () => {
+    const db = makeDb(
+      [...bets(), { uid: 'g', matchId: 'r2', pick: '1', points: 2 }],
+      [...kampe(), { id: 'r2', round: 2, result: '1', odds: O, kickoff: 1 }],
+      { name: 'SL' },
+    );
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 'k1', { result: '1', odds: O, round: 1 });
+    expect(db._players.g).toBeUndefined();
+    expect(res.players).toBe(2);
+  });
+});
+
+// RUNDE, IKKE KUPON (QC fund 4). Alle fixtures ovenfor har kickoff 1 og ligger
+// dermed alle på kuponen, så en indsnævring af kampeTriggerenLaeser til «M's
+// kupon» ville stå grøn. Her ligger k3 en måned efter rundens uge — udsat og
+// UDEN FOR kuponen (kuponen = k1+k2, allerede afgjort). P har kun tippet
+// kuponen og står uden sin combi (kuponen blev komplet ved en
+// kickoff-flytning, der ikke starter nogen trigger). Facit på den udsatte k3
+// skal genberegne hele RUNDEN, så P får sin combi.
+describe('recomputeGameMatchCore — runden, ikke kuponen', () => {
+  const O = { 1: 2.0, X: 3.5, 2: 4.0 };
+  const uge = Date.UTC(2026, 7, 8, 15);
+  const kampe = () => [
+    { id: 'k1', round: 5, result: '1', odds: O, kickoff: uge },
+    { id: 'k2', round: 5, result: '1', odds: O, kickoff: uge + 3_600_000 },
+    { id: 'k3', round: 5, result: 'X', odds: O, kickoff: Date.UTC(2026, 8, 9, 15) },
+  ];
+
+  it('facit på en udsat kamp uden for kuponen genberegner P, der kun tippede kuponen', async () => {
+    const ctx = buildRoundContext(kampe());
+    // Forudsætningen: k3 står UDEN FOR kuponen, k1+k2 er kuponen.
+    expect(ctx.byMatch.k3.iVindue).toBe(false);
+    expect(ctx.rounds[5].combiCount).toBe(2);
+    const db = makeDb([
+      { uid: 'P', matchId: 'k1', pick: '1', points: 2 },
+      { uid: 'P', matchId: 'k2', pick: '1', points: 2 },
+      { uid: 'Q', matchId: 'k3', pick: 'X', points: 0 },
+    ], kampe(), { name: 'SL' }, { P: { totalPoints: 4 } });
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'k3', { result: 'X', odds: O, round: 5 });
+    // 2 + 2 + combi 2·√(2,0·2,0) = 4 → 8. Indsnævret til k3's «kupon»: 4.
+    expect(db._players.P.opdeling.combi).toBe(4);
+    expect(db._players.P.totalPoints).toBe(8);
+    expect(db._players.Q.totalPoints).toBe(3.5);
+  });
+});
+
+// LÆSEPRISEN. Rettelsen læser rundens bets i ÉN 'in'-forespørgsel pr. 30
+// kampe — ikke én pr. kamp, og ikke hele spillets bets.
+describe('recomputeGameMatchCore — hvad triggeren læser', () => {
+  const O = { 1: 2.0, X: 3.5, 2: 4.0 };
+
+  it('en runde på 6 kampe = præcis ÉN forespørgsel på rundens kampe', async () => {
+    const kampe = Array.from({ length: 6 }, (_, i) => ({ id: `s${i}`, round: 3, result: '1', odds: O, kickoff: 1 }));
+    const db = makeDb([{ uid: 'A', matchId: 's0', pick: '1', points: 0 }], kampe, { name: 'SL' });
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 's0', { result: '1', odds: O, round: 3 });
+    const q = db._betForespoergsler();
+    expect(q).toHaveLength(1);
+    expect(q[0].op).toBe('in');
+    expect([...q[0].val].sort()).toEqual(['s0', 's1', 's2', 's3', 's4', 's5']);
+  });
+
+  it('en kamp uden runde læser kun sine egne bets', async () => {
+    const db = makeDb([{ uid: 'A', matchId: 'm1', pick: '1', points: 0 }],
+      [{ id: 'm1', result: '1', odds: O, kickoff: 1 }, { id: 'm2', round: 1, result: '1', odds: O, kickoff: 1 }]);
+    await recomputeGameMatchCore(db, FieldValue, 'g1', 'm1', { result: '1', odds: O });
+    expect(db._betForespoergsler()).toEqual([{ field: 'matchId', op: 'in', val: ['m1'] }]);
+  });
+
+  // Firestore afviser 'in' med mere end 30 værdier (faken gør det samme). En
+  // runde på 31 kampe er urealistisk, men bidderne er netop det, der gør
+  // forespørgslen gyldig — og en spiller i den 31. kamp skal stadig med.
+  it('over 30 kampe deles i bidder af 30 — og ingen spiller falder ud', async () => {
+    const kampe = Array.from({ length: 31 }, (_, i) => ({ id: `t${String(i).padStart(2, '0')}`, round: 1, result: '1', odds: O, kickoff: 1 }));
+    const db = makeDb([
+      { uid: 'A', matchId: 't00', pick: '1', points: 0 },
+      { uid: 'Z', matchId: 't30', pick: '1', points: 2 },
+    ], kampe, { name: 'SL' });
+    const res = await recomputeGameMatchCore(db, FieldValue, 'g1', 't00', { result: '1', odds: O, round: 1 });
+    expect(db._betForespoergsler().map((q) => q.val.length)).toEqual([30, 1]);
+    expect(IN_MAKS).toBe(30);
+    expect(res.players).toBe(2);
+    expect(db._players.Z.totalPoints).toBe(2);
   });
 });
 
@@ -478,8 +643,11 @@ describe('recomputeGameMatchCore', () => {
     // A: 2 (m1 = odds 2,0) + 3 (m2 = odds 3,0) + 4,9 (combi = 2·√(2,0×3,0)) = 9,9
     expect(db._players.A.totalPoints).toBe(9.9);
     expect(db._players.A.roundBonus).toBe(4.9);
-    // B rørt ikke (ingen bet på m2) → ingen genberegning
-    expect(db._players.B).toBeUndefined();
+    // B har intet tip på m2, men et i RUNDEN (m1) → genberegnes nu også
+    // (task #14). Stod før som `toBeUndefined` og fastfrøs dermed hullet: B's
+    // combi kunne ikke lande her, selv hvis han havde haft to træf.
+    expect(db._players.B.totalPoints).toBe(2);
+    expect(db._players.B.roundBonus).toBe(0);
   });
 });
 

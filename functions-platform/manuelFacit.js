@@ -31,7 +31,9 @@ const {
 const { erKnockout } = require('./faser');
 const { scoreBet, round1 } = require('./superligaScoring');
 const { buildRoundContext, combiPerRunde, kickoffMs } = require('./pointOpdeling');
-const { gatedIds, spillereTriggerenGenberegner } = require('./gameScoring');
+const {
+  gatedIds, spillereTriggerenGenberegner, kampeTriggerenLaeser, betsPaaKampe,
+} = require('./gameScoring');
 const { createHash } = require('node:crypto');
 
 /** Fejl med en HttpsError-kode — oversættes af tilHttpsFejl i callablen. */
@@ -50,21 +52,6 @@ const KODER = new Set(['invalid-argument', 'not-found', 'failed-precondition']);
 function tilHttpsFejl(err, HttpsError) {
   if (err && KODER.has(err.kode)) return new HttpsError(err.kode, err.message);
   return err;
-}
-
-// Firestore tager højst 30 værdier i en 'in'-forespørgsel.
-const IN_MAKS = 30;
-
-/** Alle bets på de givne kampe, i bidder af 30. */
-async function betsPaaKampe(db, gameId, ids) {
-  const col = db.collection('games').doc(gameId).collection('bets');
-  const ud = [];
-  for (let i = 0; i < ids.length; i += IN_MAKS) {
-    const del = ids.slice(i, i + IN_MAKS);
-    const snap = await col.where('matchId', 'in', del).get();
-    for (const d of snap.docs) ud.push(d.data());
-  }
-  return ud;
 }
 
 /** Fælles opslag: spil + kamp + hele kamplisten. Kaster med dansk besked. */
@@ -170,13 +157,14 @@ function sammeSlut(a, b) {
  *   * Triggeren kører KUN, når `result` (1X2) ændrer sig. Rettes kun målene
  *     (2-1 → 3-1), flytter intet point — og det siger tør-kørslen.
  *   * En kamp før spillets start (gatet) scores aldrig.
- *   * Point (1X2, Chancen OG combi) tælles KUN for de spillere, triggeren
- *     faktisk genberegner — samme udvælgelse, samme funktion
- *     (gameScoring.spillereTriggerenGenberegner): dem med tip på DENNE kamp.
- *   * Combi-bonussen kan også flytte sig for spillere UDEN tip på kampen (der
- *     er intet kuponkrav). Dem genberegner triggeren IKKE — et kendt hul, der
- *     rettes i en egen PR. De står for sig i `senere`, så fladen kan sige det
- *     ærligt i stedet for at love point, der ikke kommer nu.
+ *   * Point (1X2, Chancen OG combi) tælles for de spillere, triggeren
+ *     faktisk genberegner — samme udvælgelse, samme funktioner
+ *     (gameScoring.kampeTriggerenLaeser + spillereTriggerenGenberegner): ALLE
+ *     med tip i kampens runde. Combi har intet kuponkrav, så også den, der
+ *     ikke tippede kampen, kan få (eller miste) sin combi af dens facit — og
+ *     triggeren genberegner ham med det samme. Der er derfor ingen spillere,
+ *     hvis point flytter sig «senere»; feltet `senere` fandtes, mens triggeren
+ *     kun tog kampens egne tippere (task #14), og er fjernet med hullet.
  *   * Runde-Botten poster, når runden netop bliver HELT afgjort, og den ikke
  *     er gjort op før (snapshottedRounds).
  * Totalens gulv ved 0 er IKKE regnet med: det binder kun for en spiller med
@@ -190,29 +178,31 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
   const tom = {
     udfaldSkifter, gatet, eloFlytter: udfaldSkifter, botPoster: false,
     point: { tips: 0, aendredeTips: 0, spillere: 0, iAlt: 0, combi: 0 },
-    senere: { spillere: 0, combi: 0 },
   };
   if (!udfaldSkifter) return tom;
-  // INGEN egen vagt for en gatet kamp: gaten er hele runder (startGate.js),
-  // så en gatet kamp falder ud af `taelles` og bets-filteret nedenfor og giver
-  // 0 af sig selv — præcis som i afregningen. En ekstra `|| gatet` her var
-  // en anden vagt om samme regel og kunne fjernes med grøn suite (fundet ved
-  // mutation); ÉN vagt pr. regel, så en mutation af den bliver rød.
+  // En gatet kamp scores aldrig — samme tidlige retur som triggeren
+  // (recomputeGameMatchCore: `if (gated.has(matchId)) return`). Det er den
+  // ENESTE vagt her. Før task #14 lå gaten i bets-filteret (rundens kampe af
+  // `taelles`), men kampeTriggerenLaeser giver en kamp, konteksten ikke kender,
+  // sig selv tilbage — så uden returen blev en gatet kamps tips scoret i
+  // prognosen (fundet af testen nedenfor: iAlt 22 mod 0).
+  if (gatet) return tom;
 
   const taelles = alle.filter((m) => !gated.has(m.id));
   const efterKampe = taelles.map((m) => (m.id === kamp.id ? { ...m, ...felter } : m));
   const ctxFoer = buildRoundContext(taelles);
   const ctxEfter = buildRoundContext(efterKampe);
 
-  const ids = runde == null ? [kamp.id] : taelles.filter((m) => m.round === runde).map((m) => m.id);
-  // Kun ikke-gatede kampe er med i `ids` (taelles), så bets på en gatet kamp
-  // hentes slet ikke — ét filter, ikke to.
-  const bets = await betsPaaKampe(db, game.id, ids);
+  // SAMME kampe, som triggeren læser (kampeTriggerenLaeser). Konteksten er
+  // bygget af de ikke-gatede kampe (taelles), og gaten er hele runder, så en
+  // rundefælle er aldrig gatet. ctxEfter og ctxFoer kender de samme kampe i
+  // de samme runder; kun facit adskiller dem.
+  const bets = (await betsPaaKampe(db, game.id, kampeTriggerenLaeser(ctxEfter, kamp.id))).map((d) => d.data());
 
   const perUid = new Map();
   const tilfoej = (uid, d) => perUid.set(uid, round1((perUid.get(uid) || 0) + d));
-  // Dem, triggeren genberegner. KUN deres bevægelser kommer på stillingen nu.
-  const berorte = spillereTriggerenGenberegner(bets, kamp.id);
+  // Dem, triggeren genberegner — alle med tip i runden.
+  const berorte = spillereTriggerenGenberegner(bets);
   let tips = 0;
   let aendredeTips = 0;
   for (const b of bets) {
@@ -226,8 +216,6 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
     if (b.uid) tilfoej(b.uid, efter - foer);
   }
   let combi = 0;
-  // Combi for spillere UDEN tip på kampen: regnes, men tælles for sig.
-  const senere = { spillere: 0, combi: 0 };
   if (runde != null) {
     const perSpiller = new Map();
     for (const b of bets) {
@@ -235,17 +223,18 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
       if (!perSpiller.has(b.uid)) perSpiller.set(b.uid, []);
       perSpiller.get(b.uid).push(b);
     }
-    for (const [uid, liste] of perSpiller) {
+    // Løkken går over DEM, TRIGGEREN GENBEREGNER — ikke over alle, der står i
+    // bets. I dag er de to det samme, men tør-kørslen spørger den delte
+    // funktion i stedet for at antage det: snævres udvælgelsen ind, falder
+    // combien ud af prognosen med det samme, i stedet for at blive lovet til
+    // nogen, triggeren ikke rører.
+    for (const uid of berorte) {
+      const liste = perSpiller.get(uid) || [];
       const c0 = combiPerRunde(liste, ctxFoer).get(runde) || 0;
       const c1 = combiPerRunde(liste, ctxEfter).get(runde) || 0;
       if (c1 === c0) continue;
-      if (berorte.has(uid)) {
-        combi = round1(combi + (c1 - c0));
-        tilfoej(uid, c1 - c0);
-      } else {
-        senere.spillere += 1;
-        senere.combi = round1(senere.combi + (c1 - c0));
-      }
+      combi = round1(combi + (c1 - c0));
+      tilfoej(uid, c1 - c0);
     }
   }
   let iAlt = 0;
@@ -264,7 +253,6 @@ async function pointPrognose(db, { game, kamp, alle, felter }) {
   return {
     udfaldSkifter, gatet, eloFlytter: true, botPoster,
     point: { tips, aendredeTips, spillere, iAlt, combi },
-    senere,
   };
 }
 

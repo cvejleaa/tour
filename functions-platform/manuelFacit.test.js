@@ -376,17 +376,21 @@ describe('saetFacitCore — prognosen regner som afregningen', () => {
   });
 });
 
-// MODSTANDER-FUNDET (blokerende): prognosen gav combi til ALLE med tip i
-// runden, men triggeren genberegner kun dem med tip på DENNE kamp
-// (gameScoring.spillereTriggerenGenberegner). Tør-kørslen lovede altså point,
-// der ikke kom. Nu tælles kun dem, triggeren rører — resten står for sig i
-// `senere`, så fladen kan sige det.
-describe('saetFacitCore — prognosen tæller kun dem, triggeren genberegner', () => {
+// Prognosen tæller PRÆCIS dem, triggeren genberegner — samme to funktioner
+// (gameScoring.kampeTriggerenLaeser + spillereTriggerenGenberegner): alle med
+// tip i kampens runde.
+//
+// VENDT BEVIDST (task #14). Mens triggeren kun genberegnede tipperne på
+// kampen, talte prognosen kun dem, og combi'en til spillere UDEN tip på kampen
+// stod for sig i feltet `senere` ({ spillere: 1, combi: 5,7 } her), så fladen
+// kunne sige "men ikke nu". Nu genberegner triggeren hele runden, og d tælles
+// med det samme. Feltet `senere` findes ikke længere.
+describe('saetFacitCore — prognosen tæller dem, triggeren genberegner: hele runden', () => {
   //   Runde 1: k1 (uden facit, sættes til 1-0), k2 (1, 2-0), k3 (2, 0-1).
-  //   d: ramte k2 og k3 — INTET tip på k1. combi 0 → 5,7 (2,0 · … to træf)
+  //   d: ramte k2 og k3 — INTET tip på k1. combi 0 → 5,7 (2·√(2,0·4,0))
   //   e: tippede 1 på k1 og 1 på k2. 1X2 +2,0 på k1; combi 0 → 4,0
-  // Før rettelsen: { spillere: 2, combi: 9,7, iAlt: 11,7 } — d talt med.
-  // Efter:         { spillere: 1, combi: 4,0, iAlt: 6,0 }, senere { 1, 5,7 }.
+  // Før task #14: { spillere: 1, combi: 4,0, iAlt: 6,0 }, senere { 1, 5,7 }.
+  // Nu:           { spillere: 2, combi: 9,7, iAlt: 11,7 } — d talt med.
   const matches = {
     k1: { round: 1, home: 'AGF', away: 'OB', kickoff: FOER, odds: ODDS },
     k2: { round: 1, kickoff: FOER, odds: ODDS, result: '1', homeGoals: 2, awayGoals: 0 },
@@ -399,43 +403,61 @@ describe('saetFacitCore — prognosen tæller kun dem, triggeren genberegner', (
     { uid: 'e', matchId: 'k2', pick: '1', points: scoreBet({ pick: '1' }, '1', ODDS) },
   ];
 
-  it('d (uden tip på kampen) er IKKE i point-tallene — men står i `senere`', async () => {
+  it('d (uden tip på kampen) ER i point-tallene — og der er intet `senere`', async () => {
     const { db } = makeDb({ game: { ...SL, snapshottedRounds: [] }, matches, bets });
     const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
-    expect(ud.point).toEqual({ tips: 1, aendredeTips: 1, spillere: 1, iAlt: 6, combi: 4 });
-    expect(ud.senere).toEqual({ spillere: 1, combi: 5.7 });
+    expect(ud.point).toEqual({ tips: 1, aendredeTips: 1, spillere: 2, iAlt: 11.7, combi: 9.7 });
+    expect(ud).not.toHaveProperty('senere');
     expect(ud.botPoster).toBe(true);
   });
 
   // f har tippet runden, men IKKE k1, og f's combi flytter sig ikke (ét
-  // træf før og efter → 0 → 0). f må ikke tælles i `senere` — ellers lovede
-  // fladen "2 spillere får ændret combi" om en, der intet får. Uden
-  // `if (c1 === c0) continue;` blev tallet 2 (fundet ved mutation).
-  it('en spiller uden tip på kampen, hvis combi IKKE flytter sig, står ikke i `senere`', async () => {
+  // træf før og efter → 0 → 0). Triggeren genberegner ham (han har tip i
+  // runden), men hans point flytter sig ikke — så han må ikke tælles i
+  // "spillere får ændret point". Det er tælleren (`d !== 0`), der holder ham
+  // ude; `if (c1 === c0) continue;` er en genvej, og at fjerne den er en
+  // ækvivalent mutation (målt: overlever med rette).
+  it('en rundetipper, hvis combi IKKE flytter sig, tælles ikke som "får ændret point"', async () => {
     const f = { uid: 'f', matchId: 'k2', pick: '1', points: scoreBet({ pick: '1' }, '1', ODDS) };
     const { db } = makeDb({ game: { ...SL, snapshottedRounds: [] }, matches, bets: [...bets, f] });
     const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
-    expect(ud.senere).toEqual({ spillere: 1, combi: 5.7 });
-    expect(ud.point).toEqual({ tips: 1, aendredeTips: 1, spillere: 1, iAlt: 6, combi: 4 });
+    expect(ud.point).toEqual({ tips: 1, aendredeTips: 1, spillere: 2, iAlt: 11.7, combi: 9.7 });
   });
 
-  it('uden nogen uden for kampen er `senere` 0 — også når 1X2 er uændret', async () => {
+  it('kun kampens tippere i runden: combi kun for dem — og 1X2 uændret giver intet', async () => {
     const { db } = makeDb({ game: SL, matches, bets: bets.filter((b) => b.uid === 'e') });
     const ud = await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
-    expect(ud.senere).toEqual({ spillere: 0, combi: 0 });
+    expect(ud.point).toEqual({ tips: 1, aendredeTips: 1, spillere: 1, iAlt: 6, combi: 4 });
+    expect(ud).not.toHaveProperty('senere');
     const r2 = makeDb({ game: SL, matches: { ...matches, k1: { ...matches.k1, result: '1', homeGoals: 1, awayGoals: 0 } }, bets });
     const ud2 = await saetFacitCore(r2.db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 2, awayGoals: 0, nowMs: NU });
-    expect(ud2.senere).toEqual({ spillere: 0, combi: 0 });
+    expect(ud2.point).toEqual({ tips: 0, aendredeTips: 0, spillere: 0, iAlt: 0, combi: 0 });
+    expect(ud2).not.toHaveProperty('senere');
   });
 
   // Udvælgelsen er DELT, ikke kopieret: kopierede man den, kunne de to drive
   // fra hinanden igen uden en rød test. Bevogtes som tekst (mønstret fra
-  // ledningstesten nedenfor) — og gameScoring.test.js binder selve funktionen.
-  it('prognosen og triggeren bruger SAMME udvælgelses-funktion', () => {
+  // ledningstesten nedenfor) — og gameScoring.test.js binder selve funktionerne.
+  // BEGGE kald i BEGGE filer: hvilke kampe der læses (kampeTriggerenLaeser med
+  // runde-konteksten) og hvem der genberegnes (spillereTriggerenGenberegner af
+  // netop det læste).
+  it('prognosen og triggeren bruger SAMME to udvælgelses-funktioner', () => {
     const kode = (f) => readFileSync(new URL(f, import.meta.url), 'utf8')
       .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
-    expect(kode('./manuelFacit.js')).toMatch(/const berorte = spillereTriggerenGenberegner\(bets, kamp\.id\);/);
-    expect(kode('./gameScoring.js')).toMatch(/const berorteUids = spillereTriggerenGenberegner\(betsSnap\.docs\.map\(\(d\) => d\.data\(\)\), matchId\);/);
+    const mf = kode('./manuelFacit.js');
+    const gs = kode('./gameScoring.js');
+    expect(mf).toMatch(/const bets = \(await betsPaaKampe\(db, game\.id, kampeTriggerenLaeser\(ctxEfter, kamp\.id\)\)\)\.map\(\(d\) => d\.data\(\)\);/);
+    expect(mf).toMatch(/const berorte = spillereTriggerenGenberegner\(bets\);/);
+    expect(mf).toMatch(/for \(const uid of berorte\) \{/);
+    expect(gs).toMatch(/const betDocs = await betsPaaKampe\(db, gameId, kampeTriggerenLaeser\(roundCtx, matchId\)\);/);
+    expect(gs).toMatch(/const berorteUids = spillereTriggerenGenberegner\(betDocs\.map\(\(d\) => d\.data\(\)\)\);/);
+  });
+
+  // Prognosen læser de samme kampe som triggeren: rundens kampe i ÉN 'in'.
+  it('prognosen læser rundens kampe i én forespørgsel', async () => {
+    const { db, inKald } = makeDb({ game: SL, matches, bets });
+    await saetFacitCore(db, FieldValue, { gameId: 'g1', matchId: 'k1', homeGoals: 1, awayGoals: 0, nowMs: NU });
+    expect(inKald.map((v) => [...v].sort())).toEqual([['k1', 'k2', 'k3']]);
   });
 });
 

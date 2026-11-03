@@ -12,6 +12,20 @@
 //   p1x2 + chance = Σ bet.points for de kampe, der er kendt og afgjort
 // Rubrikkerne er "best-effort; totalen er stillingen" — så en afvigelse ud over
 // afrundingen betyder, at opdelingen og stillingen er uenige.
+//
+// FORÆLDET (task #14, D0). Intern konsistens fanger ikke en spiller, der aldrig
+// blev genberegnet: mangler hans combi, er han stadig enig med sig selv (total
+// 6 = rubrikker 6). Får `vurder` kampene og spil-dokumentet med, regnes hver
+// spiller derfor også FORFRA af hans tips og spillets kampe — med de samme
+// moduler som serveren og fladen (src/lib/pointOpdeling.js, spejlet af
+// functions-platform/pointOpdeling.js) og samme startrunde-gate — og hans
+// gemte `perRound` sammenlignes RUNDE FOR RUNDE med genberegningen. Pr. runde,
+// ikke kun totalen: en combi for lidt i én runde og en for meget i en anden
+// går ellers ud med hinanden (QC). Noten nævner ALLE afvigende runder og,
+// hvor combi er en del af forskellen, hvor meget combi spilleren har til gode.
+
+import { buildRoundContext, opdelPoint, maaVises } from '../../src/lib/pointOpdeling.js';
+import { startRundeFor, gatedeKampe } from '../../src/lib/startGate.js';
 
 /**
  * Største afvigelse, afrundingen alene kan give: fire rubrikker afrundet hver
@@ -52,12 +66,110 @@ export function harIndsatsAf(bets) {
 }
 
 /**
+ * Det, serveren regner en spiller forfra med: runde-konteksten af de
+ * IKKE-gatede kampe og mængden af gatede kampe — præcis som
+ * gameScoring.recomputeAllPlayerTotals (gatedIds → buildRoundContext af
+ * resten). Regnede vi uden gaten, ville en spiller med tips i en gatet runde
+ * få et for højt tal her, og forskellen blev læst som «forældet» — den
+ * forkerte vej (samme fælde som audit-spiller-point.mjs beskriver).
+ * @param {Array<object>} kampe  HELE kamplisten (med `id`)
+ * @param {object|null} game     spil-dokumentet
+ * @param {number} [nu]          tidspunktet, «intet tip»-tællingen måles mod
+ */
+export function facitKontekst(kampe, game, nu = Date.now()) {
+  const alle = Array.isArray(kampe) ? kampe : [];
+  const gated = gatedeKampe(alle, startRundeFor(game || null, alle));
+  return { roundCtx: buildRoundContext(alle.filter((m) => !gated.has(m.id))), gated, nu };
+}
+
+/** Rundenøglerne i talorden, `uden` sidst — så tabellen læses som sæsonen. */
+export function sorterRunder(noegler) {
+  const tal = (k) => (Number.isFinite(Number(k)) ? Number(k) : Infinity);
+  return [...noegler].sort((a, b) => tal(a) - tal(b) || String(a).localeCompare(String(b)));
+}
+
+/**
+ * Er spillerens gemte total forældet i forhold til hans tips og kampene?
+ *
+ * Genberegner med opdelPoint (serverens eget regnestykke) og sammenligner
+ * `perRound` RUNDE FOR RUNDE, plus totalen. En runde afviger, hvis den ene
+ * side har nøglen og den anden ikke, eller tallene er mere end afrundingen
+ * (RUNDE_TOLERANCE) fra hinanden. For hver afvigende runde: gemt og
+ * genberegnet tal, combi gemt (af `opdelingPerRunde`, ellers ukendt) og
+ * genberegnet, og hvor mange af kuponens kampe spilleren IKKE tippede — det
+ * er det, der skiller «combi-hullet» (missede en kuponkamp) fra andre årsager
+ * (fx en kamp, der er flyttet ind på eller ud af kuponen).
+ *
+ * «Intet tip» tælles KUN på kampe, hvis tips andre må se (maaVises: facit OG
+ * kickoff passeret). Tabellen står i en OFFENTLIG Actions-log med navne; en
+ * runde i gang, der afviger af en anden grund, ville ellers sige, om en
+ * navngiven spiller har tippet en kamp, der ikke er startet — det skjuler
+ * firestore.rules ellers (Security). Combi-hullet findes kun, når HELE
+ * kuponen er afgjort, så det, målingen er til for, mister intet.
+ *
+ * @param {{uid:string, totalPoints?:unknown, perRound?:object, opdelingPerRunde?:object, bonusPoints?:unknown}} p
+ * @param {Array<object>} egneBets  spillerens bets (alle — gaten lægges her)
+ * @param {{roundCtx:object, gated:Set<string>, nu?:number}} ktx  fra facitKontekst
+ * @returns {{totalGemt:number, totalNy:number, runder:Array<{runde:string, gemt:number|null, ny:number|null, combiGemt:number|null, combiNy:number, udenTip:number, kupon:number}>}}
+ */
+export function kontrollerForaeldet(p, egneBets, ktx) {
+  const bets = (egneBets || []).filter((b) => !ktx.gated.has(b.matchId));
+  const ny = opdelPoint({ bets, roundCtx: ktx.roundCtx, puljeBonus: Number(p.bonusPoints) || 0 });
+  const gemtVektor = (p.perRound && typeof p.perRound === 'object') ? p.perRound : {};
+  const gemtOpr = (p.opdelingPerRunde && typeof p.opdelingPerRunde === 'object') ? p.opdelingPerRunde : null;
+  const tippet = new Set(bets.map((b) => b.matchId));
+  const nu = Number.isFinite(ktx.nu) ? ktx.nu : Date.now();
+  const runder = [];
+  for (const k of sorterRunder(new Set([...Object.keys(gemtVektor), ...Object.keys(ny.perRunde)]))) {
+    const gemt = k in gemtVektor ? r1(gemtVektor[k]) : null;
+    const nyV = k in ny.perRunde ? r1(ny.perRunde[k]) : null;
+    const ens = (gemt == null && nyV == null)
+      || (gemt != null && nyV != null && Math.abs(gemt - nyV) <= RUNDE_TOLERANCE);
+    if (ens) continue;
+    const combiGemt = gemtOpr && gemtOpr[k] && typeof gemtOpr[k] === 'object' ? r1(gemtOpr[k].combi) : (gemt == null ? 0 : null);
+    const combiNy = r1(ny.opdelingPerRunde[k]?.combi);
+    // Kuponens kampe i runden, og hvor mange af dem spilleren ikke tippede.
+    let kupon = 0;
+    let udenTip = 0;
+    for (const [id, info] of Object.entries(ktx.roundCtx.byMatch)) {
+      if (String(info.round) !== k || !info.iVindue) continue;
+      kupon += 1;
+      if (!tippet.has(id) && maaVises(info, nu)) udenTip += 1;
+    }
+    runder.push({ runde: k, gemt, ny: nyV, combiGemt, combiNy, udenTip, kupon });
+  }
+  return { totalGemt: r1(p.totalPoints), totalNy: ny.total, runder };
+}
+
+/** Er forældet-svaret en afvigelse? Totalen ELLER en runde. */
+export function erForaeldet(f) {
+  return !!f && (f.runder.length > 0 || Math.abs(f.totalGemt - f.totalNy) > RUNDE_TOLERANCE);
+}
+
+const fortegn = (n) => (n > 0 ? `+${n}` : `${n}`);
+/** Combi, spilleren har til gode i én afvigende runde (negativ = for meget). null = ukendt. */
+export const combiTilGode = (r) => (r.combiGemt == null ? null : r1(r.combiNy - r.combiGemt));
+
+/** Én afvigende runde som tekst: «runde 9: 6 → 11.7 (combi +5.7; intet tip på 1 af kuponens 3)». */
+export function rundeTekst(r) {
+  const tal = (v) => (v == null ? '–' : String(v));
+  const c = combiTilGode(r);
+  const dele = [];
+  if (c == null) dele.push(`combi ? → ${r.combiNy}`);
+  else if (c !== 0) dele.push(`combi ${fortegn(c)}`);
+  if (r.kupon > 0 && r.udenTip > 0) dele.push(`intet tip på ${r.udenTip} af kuponens ${r.kupon}`);
+  return `runde ${r.runde}: ${tal(r.gemt)} → ${tal(r.ny)}${dele.length ? ` (${dele.join('; ')})` : ''}`;
+}
+
+/**
  * Efterprøv ÉN spiller. Returnerer tallene til tabellen og de bemærkninger,
  * der gør rækken til en fejl. Tom `noter` = ok.
  * @param {{uid:string, totalPoints?:unknown, opdeling?:object}} p
  * @param {Set<string>} harIndsats
+ * @param {{bets:Array<object>, ktx:{roundCtx:object, gated:Set<string>}}} [facit]
+ *   Spillerens egne bets og facitKontekst. Uden den springes FORÆLDET over.
  */
-export function kontrollerSpiller(p, harIndsats) {
+export function kontrollerSpiller(p, harIndsats, facit = null) {
   const o = p.opdeling;
   const rubrik = (k) => r1(o ? o[k] : 0);
   const p1x2 = rubrik('p1x2');
@@ -106,22 +218,132 @@ export function kontrollerSpiller(p, harIndsats) {
     }
   }
 
-  return { uid: p.uid, p1x2, chance, combi, pulje, sum, total, noter, rester };
+  // FORÆLDET: det gemte mod en genberegning forfra (se øverst). Står efter de
+  // andre noter, så en spiller uden opdeling stadig får sin egen besked først.
+  let foraeldet = null;
+  if (facit) {
+    foraeldet = kontrollerForaeldet(p, facit.bets, facit.ktx);
+    if (erForaeldet(foraeldet)) {
+      noter.push(`FORÆLDET: total gemt ${foraeldet.totalGemt}, genberegnet ${foraeldet.totalNy}`
+        + (foraeldet.runder.length ? `; ${foraeldet.runder.map(rundeTekst).join(', ')}` : '')
+        + ' — kør Genberegn point for spillet');
+    } else {
+      foraeldet = null;
+    }
+  }
+
+  // leagueIds bæres med til vægsætningen: den skæres pr. liga (se vaegPrLiga).
+  const leagueIds = Array.isArray(p.leagueIds) ? p.leagueIds.filter((l) => typeof l === 'string' && l) : [];
+  return { uid: p.uid, leagueIds, p1x2, chance, combi, pulje, sum, total, noter, rester, foraeldet };
 }
 
 /**
  * Efterprøv alle spillere. Rækkerne sorteres som stillingen (total faldende).
- * @returns {{ rows: Array, fejl: number, iAlt: number }}
+ * @param {Array<object>} spillere
+ * @param {Array<object>} bets  ALLE spillets bets
+ * @param {{kampe:Array<object>, game:object|null, nu?:number}} [kilde]  Med kampene og
+ *   spil-dokumentet regnes hver spiller også forfra (FORÆLDET). Uden: kun den
+ *   interne konsistens, som før. `nu` (standard Date.now()) er til testene.
+ * @returns {{ rows: Array, fejl: number, rester: number, iAlt: number, foraeldede: number, foraeldetPrRunde?: Array }}
  */
-export function vurder(spillere, bets) {
+export function vurder(spillere, bets, kilde = null) {
   const harIndsats = harIndsatsAf(bets);
+  let facitFor = () => null;
+  if (kilde) {
+    const ktx = facitKontekst(kilde.kampe, kilde.game, kilde.nu);
+    const perUid = new Map();
+    for (const b of bets) {
+      if (!b || !b.uid) continue;
+      if (!perUid.has(b.uid)) perUid.set(b.uid, []);
+      perUid.get(b.uid).push(b);
+    }
+    facitFor = (uid) => ({ bets: perUid.get(uid) || [], ktx });
+  }
   const rows = [...spillere]
     .sort((x, y) => (Number(y.totalPoints) || 0) - (Number(x.totalPoints) || 0))
-    .map((p) => kontrollerSpiller(p, harIndsats));
+    .map((p) => kontrollerSpiller(p, harIndsats, facitFor(p.uid)));
   const fejl = rows.reduce((a, r) => a + r.noter.length, 0);
   const rester = rows.reduce((a, r) => a + (r.rester.length ? 1 : 0), 0);
   const iAlt = r1(spillere.reduce((a, p) => a + (Number(p.totalPoints) || 0), 0));
-  return { rows, fejl, rester, iAlt };
+  const foraeldede = rows.filter((r) => r.foraeldet).length;
+  const ud = { rows, fejl, rester, iAlt, foraeldede };
+  if (kilde) ud.foraeldetPrRunde = foraeldetPrRunde(rows);
+  return ud;
+}
+
+/**
+ * Forældet-listen vendt om: PR. RUNDE, hvem står forkert, og hvor meget combi
+ * de har til gode. Det er listen, ejeren afgør genberegningen på.
+ * @returns {Array<{runde:string, spillere:Array<{uid:string, leagueIds:string[], gemt:number|null, ny:number|null, combi:number|null, udenTip:number, kupon:number}>, combiIAlt:number, combiUkendt:number}>}
+ */
+export function foraeldetPrRunde(rows) {
+  const perRunde = new Map();
+  for (const row of rows) {
+    if (!row.foraeldet) continue;
+    for (const r of row.foraeldet.runder) {
+      if (!perRunde.has(r.runde)) perRunde.set(r.runde, []);
+      perRunde.get(r.runde).push({ uid: row.uid, leagueIds: row.leagueIds || [], gemt: r.gemt, ny: r.ny, combi: combiTilGode(r), udenTip: r.udenTip, kupon: r.kupon });
+    }
+  }
+  return sorterRunder(perRunde.keys()).map((runde) => {
+    const spillere = perRunde.get(runde).sort((a, b) => (b.combi ?? -Infinity) - (a.combi ?? -Infinity) || String(a.uid).localeCompare(String(b.uid)));
+    return {
+      runde,
+      spillere,
+      combiIAlt: r1(spillere.reduce((a, s) => a + (s.combi ?? 0), 0)),
+      combiUkendt: spillere.filter((s) => s.combi == null).length,
+    };
+  });
+}
+
+/** Et tal, som spillerne skriver det: decimalkomma. */
+const komma = (n) => String(n).replace('.', ',');
+
+/**
+ * Én færdig sætning til ÉN ligas væg om en runde, hvor combi'en er regnet
+ * forfra — så en bagfyldning bliver noget at snakke om og ikke en tavs
+ * ændring af stillingen (Spilfører). Ejeren kopierer den og skriver den som
+ * sig selv; der sendes ingen mail. Kun spillere med combi TIL GODE (> 0)
+ * nævnes: en combi for meget eller en ukendt er ikke en nyhed, man lægger på
+ * væggen. null = ingen sætning.
+ *
+ * `r.spillere` skal allerede være skåret til ÉN liga (vaegPrLiga): antallet og
+ * «Største» er dem, ligaens væg må se. Ordet er «regnet forfra», ikke
+ * «manglede» — combi til gode kan også komme af en kamp, der er flyttet ind på
+ * kuponen (QC).
+ * @param {{runde:string, spillere:Array<{uid:string, combi:number|null}>}} r
+ * @param {(uid:string) => string} navnAf  visningsnavn — sætningen renses af tabel()
+ */
+export function vaegSaetning(r, navnAf) {
+  const plus = r.spillere.filter((s) => s.combi != null && s.combi > 0);
+  if (!plus.length) return null;
+  const stoerst = plus.reduce((a, s) => (s.combi > a.combi ? s : a));
+  const hvem = plus.length === 1 ? '1 spiller' : `${plus.length} spillere`;
+  return `Rettelse: combi'en fra runde ${r.runde} er regnet forfra, og ${hvem} har fået combi lagt til. `
+    + `Største: ${navnAf(stoerst.uid)} +${komma(stoerst.combi)}.`;
+}
+
+/**
+ * Én runde fra foraeldetPrRunde skåret PR. LIGA (players.leagueIds). En
+ * spillers point kan kun læses af dem, der deler en liga med ham
+ * (firestore.rules, games/{g}/players) — en sætning målt på hele spillet ville
+ * navngive en spiller fra liga A, med beløb, på liga B's væg, og antallet ville
+ * ikke passe for nogen af dem (QC). Hver liga får derfor kun sine egne
+ * medlemmer; en spiller i to ligaer står i begge. En spiller uden liga har
+ * ingen væg og nævnes ingen steder. Ligaerne sorteres efter id, så udskriften
+ * er stabil.
+ * @param {{runde:string, spillere:Array<{uid:string, leagueIds?:string[], combi:number|null}>}} r
+ * @returns {Array<{leagueId:string, runde:string, spillere:Array<object>}>}
+ */
+export function vaegPrLiga(r) {
+  const perLiga = new Map();
+  for (const s of r.spillere) {
+    for (const l of new Set(s.leagueIds || [])) {
+      if (!perLiga.has(l)) perLiga.set(l, []);
+      perLiga.get(l).push(s);
+    }
+  }
+  return [...perLiga.keys()].sort().map((leagueId) => ({ leagueId, runde: r.runde, spillere: perLiga.get(leagueId) }));
 }
 
 /**
@@ -131,8 +353,9 @@ export function vurder(spillere, bets) {
  * @param {ReturnType<typeof vurder>} v
  * @param {Map<string,string>} navn  uid → visningsnavn
  * @param {string} gameId
+ * @param {Map<string,string>} [ligaNavn]  leagueId → ligaens navn (til vægsætningerne)
  */
-export function tabel(v, navn, gameId) {
+export function tabel(v, navn, gameId, ligaNavn = new Map()) {
   const b = (s, n) => String(s).padEnd(n);
   // Visningsnavnet er brugerstyret tekst uden indholdsvagt i firestore.rules
   // (kun typen er tjekket). Et navn med linjeskift eller ANSI kunne lægge en
@@ -163,8 +386,36 @@ export function tabel(v, navn, gameId) {
   }
   linjer.push('-'.repeat(96));
   linjer.push(`${b('I ALT', 26)}${h('', 39)}${h(v.iAlt, 8)}`);
+  if (v.foraeldetPrRunde) {
+    // PR. RUNDE: hvem står forkert, og hvor meget combi de har til gode. Det
+    // er listen, ejeren afgør genberegningen på (docs/drift.md).
+    linjer.push('');
+    linjer.push('FORÆLDET PR. RUNDE (gemt → genberegnet forfra af tips og kampe)');
+    if (!v.foraeldetPrRunde.length) linjer.push('  ingen — alle gemte totaler stemmer med en genberegning');
+    for (const r of v.foraeldetPrRunde) {
+      linjer.push(`  runde ${rent(r.runde)}: ${r.spillere.length} spiller(e), combi til gode i alt ${fortegn(r.combiIAlt)}`
+        + (r.combiUkendt ? ` (+ ${r.combiUkendt} med ukendt gemt combi)` : ''));
+      for (const s of r.spillere) {
+        linjer.push(`    ${b(rent(navn.get(s.uid) || s.uid).slice(0, 25), 26)}${h(s.gemt ?? '–', 8)} →${h(s.ny ?? '–', 7)}`
+          + `   combi ${s.combi == null ? '?' : fortegn(s.combi)}`
+          + (s.kupon > 0 && s.udenTip > 0 ? `   intet tip på ${s.udenTip} af kuponens ${s.kupon}` : ''));
+      }
+      // Én sætning PR. LIGA, kun med ligaens egne medlemmer (vaegPrLiga).
+      for (const liga of vaegPrLiga(r)) {
+        const saetning = vaegSaetning(liga, (uid) => navn.get(uid) || uid);
+        // Navnene, ligaens navn og rundenøglen er data fra dokumenterne — HELE
+        // linjen renses ét sted (en ekstra rensning af navnet alene var en
+        // overlevende mutant).
+        if (saetning) linjer.push(rent(`    til væggen i «${ligaNavn.get(liga.leagueId) || liga.leagueId}» efter 🔄: «${saetning}»`));
+      }
+    }
+  }
   linjer.push('');
   linjer.push(v.fejl === 0 ? '✓ Ingen fejl fundet.' : `⚠️  ${v.fejl} problem(er) fundet.`);
+  if (v.foraeldede > 0) {
+    linjer.push(`⚠️  ${v.foraeldede} spiller(e) har en FORÆLDET total — svaret er 🔄 Genberegn point for spillet, `
+      + 'men kun med ejerens ja (det flytter stillingen).');
+  }
   if (v.rester > 0) {
     linjer.push(`ℹ️  ${v.rester} spiller(e) har point fra kampe, opdelingen ikke kan læse (rubrikkerne pr. runde summer ikke) `
       + '— vises som «–» i ligaens regnskab. Ikke en fejl.');

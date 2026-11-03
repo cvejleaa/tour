@@ -117,8 +117,11 @@ function anthropicClient() {
 }
 
 // recomputeGameMatch — afregn point i den samlede platform når en kamps facit
-// (result) sættes: score alle bets på kampen (1X2 + Chancen) og genberegn hver
-// berørt spillers total. Spejler Tour-motorens recomputeStage, men spil-scoped.
+// (result) sættes: score alle bets på kampen (1X2 + Chancen) og genberegn
+// totalen for ALLE med tip i kampens runde — combi har intet kuponkrav, så
+// også den, der ikke tippede kampen, kan få eller miste sin combi af dens
+// facit (gameScoring.kampeTriggerenLaeser). Spejler Tour-motorens
+// recomputeStage, men spil-scoped.
 exports.recomputeGameMatch = onDocumentWritten(
   { document: 'games/{gameId}/matches/{matchId}', region: REGION, secrets: [ANTHROPIC_API_KEY] },
   async (event) => {

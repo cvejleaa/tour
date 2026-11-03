@@ -205,6 +205,11 @@ function taeller(info) {
  * firestore.rules. Et ulæseligt kickoff må derfor betyde "vis ikke", ikke "vis
  * alligevel" — ellers ville et tip blive udstillet før kampstart i samme
  * øjeblik, adgangen udvides.
+ *
+ * Eksporteret til paritetstesten: src-udgaven bruges også af verificer-totaler
+ * (scripts/lib/verificerTotaler.mjs), der skriver i en OFFENTLIG Actions-log,
+ * om en navngiven spiller har tippet en kamp — også dér er det denne regel,
+ * der afgør, hvad andre må se (Security).
  */
 function maaVises(info, nowMs) {
   if (!taeller(info)) return false;
@@ -212,9 +217,12 @@ function maaVises(info, nowMs) {
 }
 
 /**
- * Combi-bonus for én spillers bets. Gives kun når hele KUPONEN er spillet, og
- * spilleren har tippet alle kampe på den. Hver ramt kamp tæller med i
- * produktet; de forkerte tæller hverken for eller imod.
+ * Combi-bonus for én spillers bets. Gives, når hele KUPONEN er spillet — der
+ * er INTET krav om, at spilleren har tippet alle kampe på den (se
+ * combiPerRunde). Hver ramt kamp tæller med i produktet; de forkerte og de
+ * glemte tæller hverken for eller imod. Derfor kan en kamps facit flytte
+ * combi'en for en spiller, der ikke har tippet netop den kamp — og derfor
+ * genberegner triggeren hele rundens tippere (gameScoring.kampeTriggerenLaeser).
  *
  * @param {Array<{matchId:string, pick:string}>} bets
  * @param {{byMatch:object, rounds:object}|null} roundCtx
@@ -463,5 +471,5 @@ function puljeLockFraRunde(matches, round) {
 
 module.exports = {
   opdelPoint, combiBonus, combiPerRunde, buildRoundContext, kickoffMs, matchOutcome,
-  ugeNoegle, rundensUge, puljeLockFraRunde, rubrikkerPerRunde, REST_AFRUNDING,
+  ugeNoegle, rundensUge, puljeLockFraRunde, rubrikkerPerRunde, REST_AFRUNDING, maaVises,
 };

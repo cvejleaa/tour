@@ -66,7 +66,6 @@ const PLAN = {
   efter: { result: '1', homeGoals: 2, awayGoals: 0, slut: null, resultatKilde: 'manuel' },
   udfaldSkifter: true, gatet: false, eloFlytter: true, botPoster: true,
   point: { tips: 14, aendredeTips: 14, spillere: 9, iAlt: 27.7, combi: 5.7 },
-  senere: { spillere: 0, combi: 0 },
   aftryk: 'aftryk-r5',
 };
 
@@ -141,6 +140,7 @@ describe('✍️ listen og advarslerne', () => {
     const tekst = bekraeft.mock.calls[0][0];
     expect(tekst).toContain(advarselBot(HB));
     expect(tekst).toContain('Det er dagens sidste kamp');
+    expect(tekst).toContain('combi regnes for alle dagens tippere, også dem uden tip på kampen');
     expect(tekst).not.toMatch(/rundens/);
     bekraeft.mockRestore();
   });
@@ -349,7 +349,7 @@ describe('✍️ tør-kørsel → skriv', () => {
     expect(await screen.findByRole('button', { name: 'Skriv facit' })).toBeInTheDocument();
     expect(mockSaet).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true, homeGoals: 2, awayGoals: 0, slut: null }));
     expect(screen.getByText('1/X/2: intet facit → 1. Mål: — → 2-0.')).toBeInTheDocument();
-    expect(screen.getByText(/14 tips på kampen\. 9 spillere får ændret point, i alt \+27,7 \(heraf combi \+5,7\)/)).toBeInTheDocument();
+    expect(screen.getByText('14 tips på kampen. 9 spillere får ændret point, i alt +27,7 (heraf combi +5,7 — combi regnes for alle rundens tippere, også dem uden tip på kampen). Elo og odds på kommende kampe regnes om.')).toBeInTheDocument();
     expect(screen.getByText(/rundens sidste kamp: Runde-Botten skriver straks/)).toBeInTheDocument();
   });
 
@@ -560,19 +560,27 @@ describe('prognoseLinjer', () => {
     expect(l).toMatch(/før spillets start og giver ingen point/);
     expect(l).not.toMatch(/spillere får ændret point/);
   });
-  // Modstander-fundet: spillere UDEN tip på kampen får combi, men triggeren
-  // genberegner dem ikke. Fladen må ikke love dem point nu — og må ikke tie.
-  it('spillere uden tip på kampen: siger ærligt, at combien kommer senere, og hvordan', () => {
-    const l = prognoseLinjer({ ...PLAN, botPoster: false, point: { tips: 1, aendredeTips: 1, spillere: 1, iAlt: 6, combi: 4 }, senere: { spillere: 3, combi: 12.4 } });
-    expect(l).toContain('1 tips på kampen. 1 spillere får ændret point, i alt +6,0 (heraf combi +4,0). Elo og odds på kommende kampe regnes om.');
-    expect(l).toContain('3 spillere uden tip på denne kamp får ændret combi (i alt +12,4), men ikke nu: serveren genberegner kun dem, der har tippet kampen. De får den, når et af deres egne tips afgøres eller rettes — eller når du trykker 🔄 Genberegn point efter start-ændring.');
-    // De 3 er IKKE talt med i "spillere får ændret point".
-    expect(l.join(' ')).not.toMatch(/4 spillere får ændret point/);
-  });
-  it('ingen sætning om combi senere, når ingen uden for kampen rammes', () => {
-    for (const senere of [{ spillere: 0, combi: 0 }, undefined]) {
-      expect(prognoseLinjer({ ...PLAN, senere }).join(' ')).not.toMatch(/uden tip på denne kamp|Genberegn point/);
+  // VENDT BEVIDST (task #14). Mens serveren kun genberegnede kampens egne
+  // tippere, stod der en sætning om "N spillere uden tip på denne kamp får
+  // ændret combi … men ikke nu", fodret af feltet `senere`. Nu genberegner
+  // serveren hele runden, og spillerne er med i tallet. Sætningen må ALDRIG
+  // komme igen — heller ikke hvis en gammel server stadig sender `senere`
+  // (hosting rulles ud minutter før functions).
+  it('ingen sætning om combi "senere" — heller ikke når en gammel server sender feltet', () => {
+    for (const senere of [{ spillere: 3, combi: 12.4 }, { spillere: 0, combi: 0 }, undefined]) {
+      const l = prognoseLinjer({ ...PLAN, senere }).join(' ');
+      expect(l).not.toMatch(/uden tip på denne kamp|men ikke nu|Genberegn point|3 spillere/);
     }
+  });
+  // QC: "8 tips på kampen. 10 spillere får ændret point" ligner en fejl, når
+  // combi'en også går til rundens tippere uden tip på kampen. Linjen siger
+  // det — men KUN når der er combi; ellers er tallet bare kampens tippere.
+  it('med combi siger linjen, at combi regnes for hele runden — uden combi gør den ikke', () => {
+    const med = prognoseLinjer({ ...PLAN, botPoster: false, point: { tips: 8, aendredeTips: 8, spillere: 10, iAlt: 30.2, combi: 11.4 } });
+    expect(med).toContain('8 tips på kampen. 10 spillere får ændret point, i alt +30,2 (heraf combi +11,4 — combi regnes for alle rundens tippere, også dem uden tip på kampen). Elo og odds på kommende kampe regnes om.');
+    const uden = prognoseLinjer({ ...PLAN, botPoster: false, point: { tips: 8, aendredeTips: 8, spillere: 8, iAlt: 12, combi: 0 } }).join(' ');
+    expect(uden).toContain('8 tips på kampen. 8 spillere får ændret point, i alt +12,0. Elo og odds på kommende kampe regnes om.');
+    expect(uden).not.toMatch(/rundens tippere|uden tip på kampen/);
   });
   it('combi nævnes kun, når den flytter sig — og negative tal har ægte minus', () => {
     const l = prognoseLinjer({ ...PLAN, botPoster: false, point: { tips: 3, aendredeTips: 3, spillere: 2, iAlt: -4, combi: 0 } }).join(' ');

@@ -723,35 +723,91 @@ async function planPuljeAfregning(gameRef, gameId, spil, konfig, matches, nowMs)
   return ud;
 }
 
+// Firestore tager højst 30 værdier i en 'in'-forespørgsel.
+const IN_MAKS = 30;
+
 /**
- * HVEM triggeren genberegner, når en kamps facit ændrer sig: spillerne med et
- * tip på NETOP den kamp — ikke resten af runden.
+ * Alle bets på de givne kampe, i bidder af IN_MAKS. Returnerer DOKUMENTERNE
+ * (med `ref`), fordi triggeren skal kunne skrive de genscorede point tilbage;
+ * prognosen tager bare `.data()`.
+ *
+ * Bor her og ikke i manuelFacit.js, fordi manuelFacit allerede kræver
+ * gameScoring — den omvendte import ville være en cirkel.
+ * @returns {Promise<Array<{ref:object, data:() => object}>>}
+ */
+async function betsPaaKampe(db, gameId, ids) {
+  const col = db.collection('games').doc(gameId).collection('bets');
+  const ud = [];
+  for (let i = 0; i < ids.length; i += IN_MAKS) {
+    const del = ids.slice(i, i + IN_MAKS);
+    const snap = await col.where('matchId', 'in', del).get();
+    for (const d of snap.docs) ud.push(d);
+  }
+  return ud;
+}
+
+/**
+ * HVILKE KAMPES bets triggeren læser, når en kamps facit ændrer sig: ALLE
+ * kampe i kampens RUNDE (som roundCtx kender dem — gatede kampe er ikke med).
+ * En kamp uden runde, eller en kamp roundCtx ikke kender, giver kun sig selv.
+ *
+ * Det er HELE reglen for, hvem der genberegnes — ÉN vagt.
+ * spillereTriggerenGenberegner tager bare uid'erne af det, der blev læst.
+ *
+ * HVORFOR RUNDEN. Combi-bonussen har intet kuponkrav
+ * (pointOpdeling.combiPerRunde), så en spiller UDEN tip på rundens sidste
+ * kamp får også sin combi, når kuponen bliver afgjort — og mister den igen,
+ * hvis facit fjernes. Læste vi kun kampens egne bets, blev han aldrig
+ * genberegnet: bonussen lå død, til noget andet tilfældigt genberegnede ham,
+ * og rundens rang-snapshot blev taget af hans forældede total (task #14,
+ * «KENDT HUL», rettet 11/2026).
+ *
+ * Hvorfor RUNDEN og ikke kun KUPONEN (iVindue): at afgrænse til kuponen ville
+ * kode kupon-reglen en gang til, og en kupon kan blive komplet ved en
+ * kickoff-flytning, der ikke starter nogen trigger — så kommer den udsatte
+ * kamps eget facit og skal genberegne hele runden. En spiller med tip kun på
+ * en udsat kamp genberegnes unødigt, men recalc er idempotent.
+ *
+ * Hvorfor ikke ALLE spillere: combi kræver tip i runden. Uden tip i runden
+ * kan totalen ikke flytte sig af denne kamp.
  *
  * Delt med facit-prognosen (manuelFacit.pointPrognose), så tør-kørslen ikke
- * kan love point til nogen, triggeren aldrig rører. Det skete: prognosen gav
- * combi til alle med tip i runden, mens triggeren kun genberegnede dem med tip
- * på kampen.
+ * kan love point til nogen, triggeren aldrig rører.
  *
- * KENDT HUL (skal rettes i en egen PR — det er en scoringsændring for SL og
- * PL): combi-bonussen har intet kuponkrav (pointOpdeling.combiPerRunde), så en
- * spiller UDEN tip på rundens sidste kamp får også sin combi, når runden
- * bliver afgjort. Men han er ikke i dette sæt og genberegnes derfor ikke —
- * bonussen lander først, når noget andet genberegner ham. Bevist i
- * gameScoring.test.js ("KENDT HUL").
+ * KASTER uden runde-kontekst. Et glemt argument ville ellers falde tilbage
+ * til «kun kampens egne bets» — det gamle hul, tavst.
  *
- * @param {Array<{uid?:string, matchId?:string}>} bets
+ * @param {{byMatch:object}} roundCtx  buildRoundContext af de ikke-gatede kampe
  * @param {string} matchId
+ * @returns {string[]}
+ */
+function kampeTriggerenLaeser(roundCtx, matchId) {
+  if (!roundCtx || typeof roundCtx.byMatch !== 'object' || roundCtx.byMatch === null) {
+    throw new TypeError('kampeTriggerenLaeser(roundCtx, matchId): mangler runde-konteksten — uden den genberegnes kun kampens egne tippere (combi-hullet).');
+  }
+  const runde = roundCtx.byMatch[matchId]?.round;
+  if (runde == null) return [matchId];
+  return Object.keys(roundCtx.byMatch).filter((id) => roundCtx.byMatch[id].round === runde);
+}
+
+/**
+ * HVEM triggeren genberegner: uid'erne af de bets, kampeTriggerenLaeser fik
+ * læst. Ingen egen regel — afgrænsningen til runden bor ÉT sted
+ * (kampeTriggerenLaeser), så den ikke kan snævres tavst ind her.
+ *
+ * @param {Array<{uid?:string}>} bets
  * @returns {Set<string>}
  */
-function spillereTriggerenGenberegner(bets, matchId) {
+function spillereTriggerenGenberegner(bets) {
   const ud = new Set();
-  for (const b of bets || []) if (b && b.matchId === matchId && b.uid) ud.add(b.uid);
+  for (const b of bets || []) if (b && b.uid) ud.add(b.uid);
   return ud;
 }
 
 /**
  * Kernen bag recomputeGameMatch (uden Cloud Functions-wrapper, så den kan
- * unit-testes). Scorer alle bets på en kamp og genberegner berørte spillere.
+ * unit-testes). Scorer alle bets på en kamp og genberegner ALLE med tip i
+ * kampens runde (kampeTriggerenLaeser) — ikke kun dem med tip på kampen.
  * @returns {Promise<{rescored:number, players:number}>}
  */
 async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData) {
@@ -783,28 +839,39 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   const gated = gatedIds(allMatches, game);
   if (gated.has(matchId)) return { rescored: 0, players: 0, gated: true };
 
-  const betsSnap = await db
-    .collection('games').doc(gameId).collection('bets')
-    .where('matchId', '==', matchId).get();
+  // Runde-kontekst til combi-bonussen OG til udvælgelsen nedenfor. Kampe før
+  // spillets start udelukkes fra både konteksten og totalen — listen og gaten
+  // er hentet øverst. Bygges af kampenes facit, ikke af bet-point, så den kan
+  // bygges før genscoringen.
+  const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
+
+  // Bets på HELE RUNDENS kampe (én 'in'-forespørgsel pr. 30 kampe), ikke kun
+  // på denne — se kampeTriggerenLaeser.
+  const betDocs = await betsPaaKampe(db, gameId, kampeTriggerenLaeser(roundCtx, matchId));
 
   let batch = db.batch();
   let ops = 0;
   const batches = [batch];
   const bump = () => { if (++ops >= BATCH_MAKS) { batch = db.batch(); batches.push(batch); ops = 0; } };
 
-  // ALLE, der har tippet på kampen — ikke kun dem, hvis point ændrede sig.
+  // ALLE med tip i rundens kampe — ikke kun dem, hvis point ændrede sig, og
+  // ikke kun dem med tip på netop denne kamp.
   //
   // Rammer en spiller forkert uden at bruge Chancen, går hans point 0 → 0.
   // Samlede vi kun de ændrede, blev han aldrig genberegnet — og var det
   // rundens SIDSTE kamp, fik han derfor aldrig sin combi-bonus for én fejl.
-  // Bonussen kræver, at hele runden er spillet, så den kunne kun komme fra
-  // netop denne genberegning. Fejlen var tavs: totalen var jo "rigtig" set fra
-  // hver enkelt kamp.
-  // Udvælgelsen er delt med facit-prognosen — se spillereTriggerenGenberegner.
-  const berorteUids = spillereTriggerenGenberegner(betsSnap.docs.map((d) => d.data()), matchId);
+  // Det samme gælder den, der slet ikke tippede kampen: combi har intet
+  // kuponkrav, så hans bonus afgøres også af denne kamps facit. Fejlen var
+  // tavs begge gange: totalen var jo "rigtig" set fra hver enkelt kamp.
+  // Udvælgelsen er delt med facit-prognosen — se kampeTriggerenLaeser.
+  const berorteUids = spillereTriggerenGenberegner(betDocs.map((d) => d.data()));
   let rescored = 0;
-  for (const d of betsSnap.docs) {
+  for (const d of betDocs) {
     const bet = d.data();
+    // KUN denne kamps bets scores med dens facit. Rundens andre bets er læst
+    // for at finde spillerne, ikke for at blive scoret om — en anden regel end
+    // udvælgelsen. Uden den fik de denne kamps facit.
+    if (bet.matchId !== matchId) continue;
     const pts = scoreBet(bet, result, odds);
     if (Number(bet.points) === pts) continue; // uændret → spar skrivningen
     batch.update(d.ref, { points: pts });
@@ -818,10 +885,8 @@ async function recomputeGameMatchCore(db, FieldValue, gameId, matchId, matchData
   // vi kommer kun herned, når der faktisk er sket noget.
   if (rescored) for (const b of batches) await b.commit();
 
-  // Runde-kontekst til combi-bonussen. Kampe før spillets start udelukkes fra
-  // både konteksten og totalen — listen og gaten er hentet øverst.
-  const roundCtx = buildRoundContext(allMatches.filter((m) => !gated.has(m.id)));
-
+  // Totalerne genberegnes FØR snapshottet nedenfor, så rundens rang bygger på
+  // friske totaler — også for den, der ikke tippede kampen.
   const uids = [...berorteUids];
   const CHUNK = 10;
   for (let i = 0; i < uids.length; i += CHUNK) {
@@ -960,5 +1025,5 @@ module.exports = {
   dryRunFraKald, ukendtSportFejl, tilHttpsFejl, omprisFraKnap,
   computeRanks, snapshotRoundRanks,
   settlePuljeBets, rundePuljeTilstand, meldPuljeAlarm, officielTop, puljeTipKomplet, gatedIds, recomputeAllPlayerTotals,
-  spillereTriggerenGenberegner,
+  spillereTriggerenGenberegner, kampeTriggerenLaeser, betsPaaKampe, IN_MAKS,
 };

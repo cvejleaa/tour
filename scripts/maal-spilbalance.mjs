@@ -188,7 +188,8 @@ function alenevinder(P, loft, alene, flok, medCombi, runder) {
     }
 
     if (ramt) {
-      // Kuponen kræver, at man har tippet hele runden — det gør alle her.
+      // Combi har intet kuponkrav (pointOpdeling.combiPerRunde); her har alle
+      // tippet hele runden alligevel, så antalIRunde er kuponen.
       for (let j = 0; j < FELT; j += 1) {
         for (const [rd, o] of ramt[j]) point[j] += roundComboBonus(o, antalIRunde.get(rd));
       }

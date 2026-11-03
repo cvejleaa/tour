@@ -973,6 +973,19 @@
   skriver `games/{g}/matches` (rules L907-911) og intet hvm2027-spil er seedet før loftet
   (scripts/seed-filer.mjs har ingen post, 2026-11-03). Tjek ved seed-PR'en: ingen gamle odds.
 
+- **[ÅBEN, lav — D9 haandbold-d9puls a273a56, BEKRÆFTET emulator] `retFaseKampKickoff`s aftryk binder
+  IKKE den nye tid.** `faseKampe.js:672` `nuAftryk = kampAftryk(kamp)` (kampens tilstand) — tør med 19:00,
+  skriv med 23:45 + samme aftryk → `skrevet:true`, kickoff 23:45. Kun admin; vagterne (gammelt kickoff ikke
+  passeret, samme dato) holder for ENHVER tid, så ingen tip-efter-kampstart. Men "skriver præcis det, tør-
+  kørslen viste" hviler alene på klientens `nulstil()` (FaseKampe.jsx). Fix: hash `{kamp, ny}`. Kontrol:
+  opretFaseKampe-aftrykket binder hele planen (anden tid/andet hold → afvist).
+- **[ÅBEN, lav — D9 P3, BEKRÆFTET ren funktion] Dubletter i `championship` forfalsker Runde-Bottens
+  `favoritter`.** `gameRecap.js:420-430` tæller ét navn pr. FOREKOMST: Mallory med 4×'Norge' (reglen tillader
+  det, se RENT om puljeScore) → `favoritter:[{hold:'Norge',tippetAf:4,af:4}]` — botten kan skrive, at hele
+  ligaen troede på Norge, og hendes enegænger-historie forsvinder. Kontrol: ærligt tip → enegænger. Holdnavne
+  i fakta er Set.has-filtreret (gift når ikke prompten). Fix: `new Set(bet.championship)` pr. tip (som
+  puljeScore). Formen: HVER ny forbruger af championship skal deduplikere.
+
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
 - **IHF-parseren efter omskrivningen (PR #240, 205fa54, 2026-11-01) — BEKRÆFTET lukket:**
@@ -1168,6 +1181,18 @@
   '', null, 'finale' → NaN → filtreret FØR tolkning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **Fasekampe-callables (D9, haandbold-d9puls a273a56, 2026-11-03): RENT bortset fra aftryk-fundet — 84
+  emulator-checks.** `opretFaseKampe`/`retFaseKampKickoff` (index.js ~L1214/L1241): `requireAdmin` første linje
+  → anonym/pending/spiller/uden users-dok/`role:'Owner'` afvist, også TØR (ingen plan-læk). dryRun `'false'`,0,
+  null,[false],{} → tør. Aftryk manglende/falsk/objekt/liste/genbrugt på anden plan → afvist. Holdnavne
+  `__proto__`/`constructor`/`toString`/`<img>`/objekt/liste → "står ikke i holdlisten" (Map-opslag). Ekstra
+  felter i kamp og kald (result, odds, points, round, id) kopieres ikke; skrevet dok har præcis 8 nøgler,
+  kickoff som Timestamp, id `r8-den-nor` fra hbKode. Fortid, hviledag, sommertidshul, 49 kampe, SL/afsluttet,
+  sti-trick i gameId/matchId afvist. Ret kickoff: gået i gang / facit → afvist. Bot: puljeBets læses kun når
+  `nowMs >= puljeLockAt` (gameRecap.js:589), navne via sanitizeName. PoC: scratchpad sec-d9/callables.cjs
+  (`node callables.cjs <udpakket src>`) + bot.cjs. Udpak branchen med `git archive <br> functions-platform |
+  tar -x` og symlink node_modules — så rører PoC'en aldrig arbejdstræet.
 
 - **Facit i hånden (D7, 680755b, 2026-11-02): RENT — 58 PoC-checks mod emulator, 0 fejl.**
   `saetFacitManuelt`/`frigivFacitTilSynk` (index.js ~L1141/L1170): `requireAdmin` er første
@@ -1849,6 +1874,20 @@
   deltager-gaten). Rest (ikke hul): ingen server-vagt binder admins håndsatte `puljeLockAt` ≤
   første kickoff for et spil uden kickoff-synk — admin-tillid, skal stå i Release-planen.
 
+- **Combi-hullet (haandbold-combi cd84718+c4516a5, 3/11 2026) — RENT.** Ingen ny callable,
+  ingen rules-/afhængighedsændring, rescore-bets.yml kun kommentarer. Triggeren læser nu bets på
+  HELE rundens kampe (`in`, bidder af 30) og recalc'er alle deres uid'er, men genscorer kun
+  `bet.matchId === matchId`. Ikke angriber-nåeligt: matches er admin-only, bets kræver
+  `erAktivDeltager`+`uid_matchId`+kickoff-`get` (matchId SKAL være en ægte kamp), points
+  urørligt. Recalc er deterministisk af server-skrevne `bets.points` → ingen ny pointvej.
+  Genopstandelse af selv-slettet players-dok (VIRKER-listen, #221-klassen) sker nu blot TIDLIGERE
+  i runden — samme spiller, egne bets, ingen ny klasse. verificerTotaler D0: rundenøgle +
+  navn med `\n::error::`/`\n✓ Ingen fejl` i perRound/opdelingPerRunde/matches.round giver 0
+  linjer i kolonne 0 (`rent()` står om noter, `runde ${rent()}` og navne). PoC:
+  scratchpad/sec-combi/poc.mjs (importér lib direkte, ingen deps). Rest: `udenTip` tæller
+  kuponkampe UDEN kickoff-filter → i en igangværende, afvigende runde afslører den offentlige
+  Actions-log, om en spiller har tippet en FREMTIDIG kamp (antal, ikke valg). Bemærkning.
+
 ### E2E mod emulatorer (destilleret sep 2026 fra to sag-afsnit)
 - **Emulator-fixturen kan ikke nå produktion — målt, ikke læst.** `.env.e2e`
   gælder kun `--mode e2e`, og begge deploy-workflows kører `npm run build` uden
@@ -2049,6 +2088,18 @@
   180 seedede → ~200 mangler-poster daglig) svarer SL-kilden kun med de KOMMENDE
   kampe i sæsonens runder — målt 93 events, alle inden for spillets runder 1-22,
   `mangler` = 0. Runde 23+ (mesterskabsspil) filtreres af `runder`-sættet.
+- **Landeflag (haandbold-flag, f0242b1, 2026-11-03) — RENT.** Ingen regler/functions/
+  workflows rørt; ren klient + én npm-pakke. `flag-icons@7.6.0` (exact pin): lockfile-
+  integritet = registry = sha512 af hentet tarball, og den udpakkede mappe er `diff -r`-
+  identisk med tarballen. Ingen install-scripts, ingen dependencies (kun css/flags/sass/
+  country.json). De 32 importerede svg'er: 0 `<script`, 0 `on*=`, 0 foreignObject/`<image`/
+  `<style`/`data:`; alle 50 referencer er interne (`xlink:href="#…"`, `url(#…)`). Det betyder
+  noget, fordi en svg under /assets/ åbnet DIREKTE er et dokument på vores origin (Hosting
+  har ingen CSP/nosniff) — `<img>` alene beskytter kun i siden. `flag` fra data når aldrig
+  `<img src>`: medLandeflag sætter ALTID `flag` (null eller bundt-URL), `harFlagKode` er
+  `Set.has` → constructor/__proto__/'DK'/' dk'/array/objekt = null; teamStyles kan ikke
+  indføre flag; alle 9 `flag=`-kaldsteder læser teamsOf → teamInfo/badgeFor. PoC (vite-node
+  importerer svg som URL): `scratchpad/sec-flag/poc/poc.mjs`, 22/22 inkl. kontrol.
 
 ## Åbne observationer (ikke sårbarheder, men kend tallene)
 
@@ -2210,6 +2261,11 @@
 
 ## Faste faldgruber i dette repo (vedligeholdes her)
 
+- **En svg i bundtet er et same-origin-dokument.** `<img>` stopper script på SIDEN, men
+  `/assets/x.svg` åbnet direkte kører sit eget script på vores origin (ingen CSP). Udvides
+  et svg-sæt (flere lande, nye ikoner), så scan HVER fil: `<script|on[a-z]+=|foreignObject|
+  <image|data:|href="[^#]`. Og en billed-URL må aldrig komme fra data — kun fra et bundt-opslag
+  bag `Set.has` (ikke objekt-opslag: 'constructor').
 - **En fejlbesked, der citerer fremmed input, skal have et loft.** Et citat uden loft
   gør skraberens fejl større end Firestores 1 MiB, og så fejler selve alarmen om fejlen
   tavst. Grep efter `«${` i kast-beskeder og mål med 2 MB fyld (ihfParse, 205fa54).
@@ -2743,3 +2799,7 @@ kampe kun kan skrives af admin. Firebase-CLI fandtes ikke i dag: brug jar'en dir
 D6 (fb7072f, 2026-11-03): seed + skjult spil RENT (se RENT). Næste angrebsflade er D8
 (provideren: punkt 1d-4 ovenfor) og D9 (senere faser oprettes på SERVEREN — hvem kan udløse det,
 og kan holdnavne fra kilden blive nøgler?).
+D9+puls (haandbold-d9puls, 2026-11-03): callables RENT, to lave åbne (VIRKER: ret-kickoff-aftryk uden tid,
+championship-dubletter i bottens favoritter). Holdnavne bliver aldrig nøgler (Map + hbKode-regex). Næste: D8.
+Landeflag (haandbold-flag, 2026-11-03): RENT (se RENT). Rest: ingen test scanner svg-
+indholdet, så et udvidet flagsæt skal scannes i hånden (faldgrube).

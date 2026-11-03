@@ -181,8 +181,13 @@ spørgsmålet er lukket, og `useLeagueQuestions` forespørger tilsvarende.
 | Tour | `src/lib/tourScoring.js` | `functions/tourScoring.js` | etape-tips + klassementer |
 
 Afregningen sker i `functions-platform/gameScoring.js`: når en kamps `result`
-sættes, scores alle bets på kampen, og hver berørt spillers total genberegnes i
-en transaktion (rå bet-point + combi-bonus + pulje-bonus, gulvet ved 0).
+sættes, scores alle bets på kampen, og totalen genberegnes for **alle med tip i
+kampens runde** — ikke kun dem med tip på kampen — i en transaktion pr. spiller
+(rå bet-point + combi-bonus + pulje-bonus, gulvet ved 0). Runden og ikke kun
+kampen, fordi combi-bonussen ikke kræver, at man har tippet hele kuponen: en
+kamps facit kan gøre kuponen komplet (eller ufuldstændig igen) for en spiller,
+der ikke har tippet netop den kamp. Udvælgelsen er ÉN funktion,
+`kampeTriggerenLaeser`, delt med facit-prognosen (`manuelFacit.pointPrognose`).
 
 **Serveren er eneste autoritet.** Klientens validering (fx Chancens loft) kan
 omgås, så den skal altid have en pendant på serveren.

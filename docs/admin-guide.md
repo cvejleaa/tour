@@ -328,13 +328,12 @@ at rette et forkert facit.
    serveren skrivningen: "Kampen er ændret siden tør-kørslen — kør
    tør-kørslen igen."
 
-   Tallet for spillere og point gælder dem, der har **tippet kampen** — det er
-   dem, serveren genberegner med det samme. Står der også, at "N spillere uden
-   tip på denne kamp får ændret combi", er det spillere, hvis combi for runden
-   flytter sig, selv om de ikke har tippet netop denne kamp. De får den først,
-   når et af deres egne tips afgøres eller rettes, eller når du trykker
-   **🔄 Genberegn point efter start-ændring** samme sted. (Det er et kendt hul i
-   afregningen, der rettes for sig.)
+   Tallet for spillere og point gælder **alle med tip i runden** (i håndbold:
+   dagen), hvis point flytter sig — ikke kun dem, der har tippet kampen.
+   Combi kræver ikke, at man har tippet hele kuponen, så rundens sidste facit
+   kan give (eller tage) combi også til den, der glemte netop den kamp — og
+   serveren genberegner dem alle med det samme. Derfor kan der stå flere
+   spillere end tips på kampen; linjen siger det, når der er combi med.
 
 Når du skriver, sker det samme som ved en synk: tippene scores, Elo og odds på
 kommende kampe regnes om, og er det rundens sidste kamp, skriver Runde-Botten
