@@ -36,10 +36,11 @@ const SAET = new Set(LANDEFLAG_KODER);
  * ikke 'dk' — feltet matches aldrig mod en kilde, så der er intet at
  * normalisere, og en stor kode i holdfilen er en tastefejl, der skal ses.
  * Et Set i stedet for et objekt-opslag, så 'constructor' og 'toString' ikke
- * kan svare ja.
+ * kan svare ja — og så alt, der ikke er en af de 32 strenge (null, et tal,
+ * et objekt), svarer nej uden et typetjek ved siden af.
  */
 export function harFlagKode(iso2) {
-  return typeof iso2 === 'string' && SAET.has(iso2);
+  return SAET.has(iso2);
 }
 
 /** Hvor mange af holdene har et bundtet flag. Til tør-kørslens linje. */

@@ -5,7 +5,7 @@
 // ikke, halen lover kun det, spillet kan holde (Guide kun for medlemmer), og
 // pulje-linjen afledes af spillets egne labels.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('../firebase', () => ({ db: {} }));
@@ -176,6 +176,24 @@ describe('HelpPage (platform) — licensen for landeflagene', () => {
     expect(linje.textContent).toContain('der hentes intet fra andre');
     const link = linje.querySelector('a');
     expect(link.getAttribute('href')).toBe('/licenser.txt');
+  });
+
+  // ET ALMINDELIGT LINK, IKKE <Link>. Filen er ikke en rute i appen: en
+  // router-Link ville fange klikket (preventDefault) og vise appens tomme
+  // side i stedet for licensteksten. Klikket her skal altså gå UBERØRT
+  // igennem appen; testen stopper det selv bagefter (jsdom kan ikke navigere).
+  it('klik på licenser.txt fanges ikke af routeren', () => {
+    renderMed([SL], []);
+    const link = screen.getByTestId('licenser').querySelector('a');
+    let fangetAfAppen = null;
+    const efterAppen = (e) => { fangetAfAppen = e.defaultPrevented; e.preventDefault(); };
+    window.addEventListener('click', efterAppen);
+    try {
+      fireEvent.click(link);
+    } finally {
+      window.removeEventListener('click', efterAppen);
+    }
+    expect(fangetAfAppen).toBe(false);
   });
 
   it('public/licenser.txt bærer pakkens LICENSE ordret', () => {

@@ -76,14 +76,11 @@ const HB_HOLD = HAANDBOLD_VM2027_HOLD.filter((t) => HB_NAVNE.includes(t.name));
 const SL_HOLD = SUPERLIGA_TEAMS_2026.slice(0, 4);
 const HB = { id: 'hvm2027', type: 'football', sport: 'haandbold', name: 'Håndbold-VM 2027', teams: HB_HOLD };
 const SL = { id: 'superliga2627', type: 'football', name: 'Superligaen', teams: SL_HOLD };
+const udenFelter = (t, felter) => Object.fromEntries(Object.entries(t).filter(([k]) => !felter.includes(k)));
 // ÉT hold uden iso2 — så har spillet INGEN flag (alt eller intet).
 const MANGLER = {
   ...HB,
-  teams: HB_HOLD.map((t) => {
-    if (t.name !== 'Frankrig') return t;
-    const { iso2: _iso2, ...resten } = t;
-    return resten;
-  }),
+  teams: HB_HOLD.map((t) => (t.name === 'Frankrig' ? udenFelter(t, ['iso2']) : t)),
 };
 
 const navneAf = (game) => game.teams.map((t) => t.name);
@@ -302,7 +299,7 @@ describe('Mit hold — teksterne', () => {
   });
 
   it('flag-spil uden farver: intet tema, ingen ring — og teksten lover ingen', () => {
-    const uden = { ...HB, teams: HB_HOLD.map(({ color: _c, awayColor: _a, ...t }) => t) };
+    const uden = { ...HB, teams: HB_HOLD.map((t) => udenFelter(t, ['color', 'awayColor'])) };
     profil(uden, 'Danmark');
     const t = screen.getByTestId('tema-tekst').textContent.replace(/\s+/g, ' ').trim();
     expect(t).toBe('Danmark har ingen farve med kulør nok til at tone en hel side, så spillet bliver stående i appens grønne. Holdet har ingen farve, så din avatar får ingen ring.');

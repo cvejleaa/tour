@@ -219,7 +219,7 @@ describe('gemte overrides i tør-kørslen', () => {
 // vist — fra den SAMME funktion, klienten gater på (landeflagKoder.js).
 // ---------------------------------------------------------------------------
 describe('landeflagLinje', () => {
-  const uden = (t) => { const { iso2: _i, ...r } = t; return r; };
+  const uden = (t) => Object.fromEntries(Object.entries(t).filter(([k]) => k !== 'iso2'));
 
   it('32 af 32: flaget vises — og hvad spillet har i dag', () => {
     expect(landeflagLinje(HAANDBOLD_VM2027_HOLD, HAANDBOLD_VM2027_HOLD.map(uden)))

@@ -19,11 +19,9 @@ import { HAANDBOLD_VM2027_HOLD } from '../../../data/haandboldVm2027Hold';
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 
 const HVM = { id: 'hvm2027', type: 'football', teams: HAANDBOLD_VM2027_HOLD };
-const udenEn = (navn) => HAANDBOLD_VM2027_HOLD.map((t) => {
-  if (t.name !== navn) return t;
-  const { iso2: _iso2, ...resten } = t;
-  return resten;
-});
+const udenEn = (navn) => HAANDBOLD_VM2027_HOLD.map((t) => (
+  t.name === navn ? Object.fromEntries(Object.entries(t).filter(([k]) => k !== 'iso2')) : t
+));
 
 describe('bundtet og evnen er samme liste', () => {
   it('LANDEFLAG har præcis LANDEFLAG_KODER som nøgler', () => {
