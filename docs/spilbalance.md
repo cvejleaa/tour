@@ -240,16 +240,19 @@ Alt ovenfor er fodbold, og fodbold har **intet** odds-loft (`odds.max: null` i
 herunder reproduceres med
 
 ```bash
-node scripts/maal-haandbold.mjs                    # afsnit 8 (odds) og 8c (loft-følsomhed)
+node scripts/maal-haandbold.mjs                    # afsnit 8 (odds), 8c (loft-følsomhed), 8d (Chancen ved loftet)
 ```
 
-**Hvorfor fodboldens argument ikke kan overføres.** Loftet på 6, der blev
+**Fodboldens argument gælder — men kun for 11 udfald.** Loftet på 6, der blev
 fjernet, klippede udfald med op til ca. 17 % chance — dét gjorde Chancen til
-et tab og skabte skævheden mod favorit-spilleren. Et loft på 25 klipper kun
-udfald under 4 % chance. Med K 120 og få uafgjorte giver håndboldmodellen til
-gengæld priser langt over fodboldens højeste (24,39): uden loft stod
-Uruguay–Tyskland «1» til **461,77**, så ét ramt tip gav 461,8 point og en
-Chance på 8 gav 3.686 — konkurrencen ville være afgjort af ét langskud.
+et tab og skabte skævheden mod favorit-spilleren. Samme mekanisme virker her:
+på et klippet udfald er Chancen et tab i forventning (se 8d nedenfor). Forskellen
+er omfanget: et loft på 25 klipper kun udfald under 4 % chance, 11 af 144 i den
+indledende runde. Og alternativet er værre end i fodbold: med K 120 og få
+uafgjorte giver håndboldmodellen priser langt over fodboldens højeste (24,39) —
+uden loft stod Uruguay–Tyskland «1» til **461,77**, så ét ramt tip gav 461,8
+point og en Chance på 8 gav 3.686, og konkurrencen ville være afgjort af ét
+langskud. Ejeren har valgt den pris; den står her, så den ikke er skjult.
 
 **Hvad loftet koster — målt på de 48 kampe i den indledende runde** (seedet
 med holdfilen; forventede point over alle 48 kampe, hvis man tipper samme slags
@@ -272,6 +275,28 @@ udfald hver gang):
   Det betyder kun noget, hvis nogen har tippet udfaldet.
 - Favorit-tallet over 48 er afrundingen af pointene til én decimal (1,06 → 1,1),
   ikke loftet.
+
+**Hvad loftet koster Chancen** (afsnit 8d; fuld indsats 8, modellens
+sandsynlighed og spillets egen afregning `settleChance`). Ved fair odds er en
+Chance EV-neutral — på de klippede udfald er den et tab:
+
+| Udfald | Chance | Fair odds | Forventet pr. Chance (8) |
+|---|---|---|---|
+| Uruguay–Tyskland «1» | 0,22 % | 461,77 | −7,57 |
+| Angola–Danmark «1» | 0,27 % | 364,94 | −7,45 |
+| Algeriet–Portugal «1» | 0,73 % | 136,33 | −6,53 |
+| Danmark–USA «2» | 1,01 % | 98,53 | −5,97 |
+| Tyskland–Tunesien «2» | 1,60 % | 62,61 | −4,81 |
+| Tyrkiet–Kroatien «1» | 1,66 % | 60,18 | −4,68 |
+| Kroatien–Chile «2» | 2,77 % | 36,13 | −2,46 |
+| Egypten–Kap Verde «2» | 3,73 % | 26,79 | −0,54 |
+| Norge–Grækenland «2» | 3,86 % | 25,92 | −0,29 |
+| Island–Bahrain «2» | 3,96 % | 25,22 | −0,07 |
+| Sverige–Grækenland «2» | 3,99 % | 25,09 | −0,03 |
+
+6 af de 11 taber mindst halvdelen af indsatsen i forventning, de 2 skæveste
+over 90 %. Hjælpesiden siger det i Chance-afsnittet: «på et udfald, der står
+til loftet, er Chancen et tab i det lange løb».
 
 Loftet ligger i **prisningen** (`oddsParametre` → `outcomeOdds`), så seedet,
 de levende odds (`recomputeSeasonElo`) og Ompris-knappen arver det, og de

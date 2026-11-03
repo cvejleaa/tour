@@ -22,8 +22,10 @@
 //
 // BRUG:
 //   node scripts/haandbold-historik.mjs                       # alle 8, vis; skriv intet
-//   node scripts/haandbold-historik.mjs --skriv               # skriv scripts/haandbold-historik.json
-//   node scripts/haandbold-historik.mjs --turneringer vm2025,em2026
+//   node scripts/haandbold-historik.mjs --skriv --filer /sti   # skriv scripts/haandbold-historik.json
+//        (alle 8; mappen skal have em2026-finale.wikitext — uden den, eller via
+//        API'et, nægter --skriv, se ERKLÆREDE SIDER)
+//   node scripts/haandbold-historik.mjs --turneringer vm2025,em2026   # vis; med --skriv kræves --ud
 //   node scripts/haandbold-historik.mjs --cache /sti/til/mappe   # standard: <tmp>/vejleaa-wiki
 //   node scripts/haandbold-historik.mjs --filer /sti/til/mappe   # NØDVEJ: gemte sider, intet kald
 //   node scripts/haandbold-historik.mjs --skriv --ud /tmp/x.json # skriv et andet sted (testene)
@@ -43,10 +45,13 @@
 // den afviste, ikke i stilhed. API-vejen henter ingen anden side.
 //
 // ERKLÆREDE SIDER. En side i TURNERINGER[].transklusioner er KENDT: dens kamp
-// skal med. Ender den alligevel som 'andenSide' (API-vejen, eller filen
-// mangler i mappen), NÆGTER --skriv at skrive — ellers tabte hver opfriskning
-// finalen med rc 0. Tør-kørslen siger det. Er det meningen (fx en hurtig
-// opfriskning, hvor finalen bevidst står som afvist), så --tillad-anden-side.
+// skal med. Ender en kamp alligevel som 'andenSide' (API-vejen, filen mangler
+// i mappen, eller siden er ny eller stavet om på Wikipedia), NÆGTER --skriv
+// at skrive — ellers tabte hver opfriskning finalen med rc 0. Det gælder
+// ENHVER 'andenSide', erklæret eller ej; titlerne sammenlignes som MediaWiki
+// gør (normTitel: `_` = mellemrum). Tør-kørslen siger det. Er det meningen
+// (fx en hurtig opfriskning, hvor finalen bevidst står som afvist), så
+// --tillad-anden-side.
 //
 // MAPPEN SKAL GÅ OP. Ligger der en fil i --filer-mappen, som ingen turnering
 // eller erklæret side hedder (en stavefejl som `em2026-final.wikitext`),
@@ -62,7 +67,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { lavWikiHenter, parseScriptArgs, laesGemtSide } from './lib/wikiHent.mjs';
 import {
-  TURNERINGER, udtraekKampe, resume, gemteFiler, sidensTidszone, ubrugteFiler, manglendeErklaerede,
+  TURNERINGER, udtraekKampe, resume, gemteFiler, sidensTidszone, ubrugteFiler, andenSideAfvisninger,
 } from './lib/haandboldHistorik.mjs';
 import { wikiSideUrl } from './lib/haandboldProgram.mjs';
 
@@ -72,6 +77,12 @@ const UD = join(ROD, 'scripts', 'haandbold-historik.json');
 async function main() {
   const args = parseScriptArgs(process.argv.slice(2), { vaerdier: ['turneringer', 'cache', 'filer', 'ud'], flag: ['skriv', 'tillad-anden-side'] });
   const ud = args.ud ? resolve(process.cwd(), args.ud) : UD;
+  // En delmængde må ikke overskrive den committede historik (QC, D4): CI's
+  // test af FIL.turneringer ville fange det, men først efter skrivningen.
+  if (args.flag.has('skriv') && args.turneringer && !args.ud) {
+    throw new Error('--skriv med --turneringer ville overskrive scripts/haandbold-historik.json med en delmængde. '
+      + 'Giv --ud <fil> — eller drop --turneringer for at skrive alle otte. Intet er skrevet.');
+  }
   if (args.filer && args.cache) throw new Error('--filer og --cache udelukker hinanden: --filer læser kun mappen og henter intet.');
   let valgte = TURNERINGER;
   if (args.turneringer) {
@@ -142,9 +153,11 @@ async function main() {
     for (const x of r.transkluderet) console.log(`   ↳ afsnittet «${x.afsnit}» indsat fra «${x.side}» (${andre[x.side].fil})`);
     const ART = { walkover: 'WALKOVER', andenSide: 'AFVIST (anden side)', ulaeselig: 'AFVIST' };
     for (const a of r.afviste) console.log(`   ⚠️  ${ART[a.art]} ${a.sektion}${a.nr ? ` nr. ${a.nr}` : ''}: ${a.grund}`);
-    for (const m of manglendeErklaerede(t, r.afviste)) {
+    for (const m of andenSideAfvisninger(t, r.afviste)) {
       mangler.push({ turnering: t.noegle, ...m });
-      console.log(`   ⚠️  «${m.side}» er ERKLÆRET (TURNERINGER.transklusioner) — læg ${m.fil}.wikitext/.json i --filer-mappen; ellers nægter --skriv`);
+      console.log(m.erklaeret
+        ? `   ⚠️  «${m.side}» er ERKLÆRET (TURNERINGER.transklusioner) — læg ${m.fil}.wikitext/.json i --filer-mappen; ellers nægter --skriv`
+        : `   ⚠️  «${m.side}» er IKKE erklæret (TURNERINGER.transklusioner) — erklær siden og læg filen i --filer-mappen; ellers nægter --skriv`);
     }
     if (Object.keys(r.ukendteFelter).length) console.log(`   (ukendte felter, ikke resultat-lignende: ${Object.entries(r.ukendteFelter).map(([k, n]) => `${k}×${n}`).join(', ')})`);
     kilder.push({
@@ -187,11 +200,15 @@ async function main() {
     console.log('Tør-kørsel — intet skrevet. Kør med --skriv for at skrive scripts/haandbold-historik.json.\n');
     return;
   }
-  // ÉN vagt for «en erklæret side mangler»: her, lige før skrivningen.
+  // ÉN vagt for «en kamp står på en anden side»: her, lige før skrivningen —
+  // for ENHVER andenSide, ikke kun de erklærede (Security, D4: en titel, der
+  // var stavet om på Wikipedia, gled forbi en tegn-for-tegn-sammenligning).
   if (mangler.length && !args.flag.has('tillad-anden-side')) {
-    throw new Error(`${mangler.map((m) => `${m.turnering}: «${m.side}» (${m.sektion})`).join('; ')} er erklæret, men ikke givet med `
-      + `— kampen derfra ville mangle i historikken. Kør med --filer og ${mangler.map((m) => `${m.fil}.wikitext`).join(', ')} i mappen, `
-      + 'eller med --tillad-anden-side, hvis kampen bevidst skal stå som afvist. Intet er skrevet.');
+    const filer = mangler.filter((m) => m.erklaeret).map((m) => `${m.fil}.wikitext`);
+    throw new Error(`${mangler.map((m) => `${m.turnering}: «${m.side}» (${m.sektion}${m.erklaeret ? '' : ', IKKE erklæret'})`).join('; ')} `
+      + 'er ikke givet med — kampen derfra ville mangle i historikken. '
+      + (filer.length ? `Kør med --filer og ${filer.join(', ')} i mappen` : 'Erklær siden i TURNERINGER[].transklusioner og læg filen i --filer-mappen')
+      + ', eller med --tillad-anden-side, hvis kampen bevidst skal stå som afvist. Intet er skrevet.');
   }
   const fil = {
     _note: `Færdige kampe fra ${kilder.map((k) => k.noegle).join(', ')} (herrer), bygget af scripts/haandbold-historik.mjs fra Wikipedia; `

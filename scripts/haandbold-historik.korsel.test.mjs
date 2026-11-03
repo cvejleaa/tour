@@ -7,7 +7,9 @@
 // Uden --skriv skriver scriptet intet; --filer sender intet kald.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, utimesSync } from 'node:fs';
+import {
+  mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, utimesSync, mkdirSync, copyFileSync, symlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,7 +75,8 @@ describe('scripts/haandbold-historik.mjs --filer med en transkluderet side', () 
   it('--skriv uden finalesiden: stopper, skriver intet — medmindre --tillad-anden-side', () => {
     const r = koer('--skriv', '--ud', UD);
     expect(r.status).toBe(1);
-    expect(r.stderr).toContain(`em2026: «${FINALE}» (Knockout stage › Final) er erklæret, men ikke givet med — kampen derfra ville mangle i historikken.`);
+    expect(r.stderr).toContain(`em2026: «${FINALE}» (Knockout stage › Final) er ikke givet med — kampen derfra ville mangle i historikken. `
+      + 'Kør med --filer og em2026-finale.wikitext i mappen');
     expect(r.stderr).toContain('--tillad-anden-side');
     expect(r.stderr).toContain('Intet er skrevet.');
     expect(r.stdout).not.toContain('✅ skrev');
@@ -84,6 +87,68 @@ describe('scripts/haandbold-historik.mjs --filer med en transkluderet side', () 
     const fil = JSON.parse(readFileSync(UD, 'utf8'));
     expect(fil.kampe).toHaveLength(61);
     expect(fil.kilder[0].afviste.map((a) => [a.art, a.side])).toEqual([['andenSide', FINALE]]);
+  });
+
+  // Security, D4 (sec-d4c/poc.mjs): siden stavet om på Wikipedia
+  // (`…_final`) gled forbi den erklærede side, og --skriv skrev 61 kampe med
+  // rc 0. Nu: med filen i mappen indsættes finalen alligevel (normTitel) …
+  it('en omstavet titel (understregning) med filen i mappen: finalen indsættes', () => {
+    writeFileSync(join(mappe, 'em2026.wikitext'), EM2026.replace(`{{#section:${FINALE}|`, `{{#section:${FINALE.replace(/ /g, '_')}|`));
+    writeFileSync(join(mappe, 'em2026-finale.wikitext'), FINALESIDE);
+    const r = koer('--skriv', '--ud', UD);
+    expect(r.stderr).toBe('');
+    expect(r.status).toBe(0);
+    expect(JSON.parse(readFileSync(UD, 'utf8')).kampe).toHaveLength(62);
+  });
+
+  // … og uden filen nægter --skriv, også for en side, INGEN har erklæret: ÉN
+  // vagt for enhver andenSide. VENDT: her skrev scriptet med rc 0.
+  it('en ikke-erklæret anden side: --skriv nægter, medmindre --tillad-anden-side', () => {
+    const ANDEN = '2026 Noget helt andet';
+    writeFileSync(join(mappe, 'em2026.wikitext'), EM2026.replace(`{{#section:${FINALE}|`, `{{#section:${ANDEN}|`));
+    const tør = koer();
+    expect(tør.status).toBe(0);
+    expect(tør.stdout).toContain(`⚠️  «${ANDEN}» er IKKE erklæret (TURNERINGER.transklusioner) — erklær siden og læg filen i --filer-mappen; ellers nægter --skriv`);
+    const r = koer('--skriv', '--ud', UD);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(`em2026: «${ANDEN}» (Knockout stage › Final, IKKE erklæret) er ikke givet med — kampen derfra ville mangle i historikken. `
+      + 'Erklær siden i TURNERINGER[].transklusioner og læg filen i --filer-mappen, eller med --tillad-anden-side');
+    expect(r.stderr).toContain('Intet er skrevet.');
+    expect(existsSync(UD)).toBe(false);
+    const t = koer('--skriv', '--ud', UD, '--tillad-anden-side');
+    expect(t.status).toBe(0);
+    expect(JSON.parse(readFileSync(UD, 'utf8')).kilder[0].afviste.map((a) => [a.art, a.side])).toEqual([['andenSide', ANDEN]]);
+  });
+
+  // QC, D4: --skriv med --turneringer skrev en DELMÆNGDE over den committede
+  // historik. Nu kræves --ud — og intet læses eller skrives uden.
+  // Testen kan IKKE ramme den committede fil, heller ikke under en mutant, der
+  // fjerner vagten: scriptet køres som en KOPI i en temp-rod (scripts/ med lib/
+  // som symlink), så dens faste sti er <temp>/scripts/haandbold-historik.json.
+  it('--skriv med --turneringer uden --ud: stopper, før noget læses', () => {
+    writeFileSync(join(mappe, 'em2026-finale.wikitext'), FINALESIDE);
+    const rod = mkdtempSync(join(tmpdir(), 'hb-historik-rod-'));
+    try {
+      mkdirSync(join(rod, 'scripts'));
+      copyFileSync(SCRIPT, join(rod, 'scripts', 'haandbold-historik.mjs'));
+      symlinkSync(resolve(her, 'lib'), join(rod, 'scripts', 'lib'), 'dir');
+      const fast = join(rod, 'scripts', 'haandbold-historik.json');
+      const r = spawnSync(process.execPath, [join(rod, 'scripts', 'haandbold-historik.mjs'), '--filer', mappe, '--turneringer', 'em2026', '--skriv'],
+        { encoding: 'utf8', env: { ...process.env, NODE_USE_ENV_PROXY: '' } });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('--skriv med --turneringer ville overskrive scripts/haandbold-historik.json med en delmængde. Giv --ud <fil>');
+      expect(r.stdout).not.toContain('Gemte sider');
+      expect(r.stdout).not.toContain('✅ skrev');
+      expect(existsSync(fast)).toBe(false);
+      // Kontrol: kopien VIRKER (ellers beviste rc 1 ovenfor intet) — med --ud skriver den.
+      const ok = spawnSync(process.execPath, [join(rod, 'scripts', 'haandbold-historik.mjs'), '--filer', mappe, '--turneringer', 'em2026', '--skriv', '--ud', UD],
+        { encoding: 'utf8', env: { ...process.env, NODE_USE_ENV_PROXY: '' } });
+      expect(ok.stderr).toBe('');
+      expect(ok.status).toBe(0);
+      expect(JSON.parse(readFileSync(UD, 'utf8')).kampe).toHaveLength(62);
+    } finally {
+      rmSync(rod, { recursive: true, force: true });
+    }
   });
 
   // B3 (modstanderen): kildens transkluderet.hentet skal være FINALESIDENS

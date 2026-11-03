@@ -13,8 +13,12 @@ funktionerne `eloExpectedHome`, `outcomeProbabilities`, `fairOdds`, `outcomeOdds
 `sportProfil(game)`, der læser `game.sport` og giver fodbold, når feltet
 mangler — som det gør for Superligaen og Premier League. Fodboldprofilen er
 bygget af `ELO` og `ODDS.MIN` og er altså de samme tal. En anden sport får sin
-egen profil (hjemmebane, uafgjort-model, K, start-rating og odds-gulv), når dens
-tal er målt — ikke før.
+egen profil (hjemmebane, uafgjort-model, K, start-rating, odds-gulv og
+odds-loft), når dens tal er målt — ikke før. Håndbold er målt (D4): K 120,
+`DRAW_BASE` 0,157, `DRAW_DECAY` 0,55, ingen hjemmebane, odds-gulv 1,01 og — som
+ejerens valg, ikke en måling — odds-loft 25. Målingen er
+`scripts/maal-haandbold.mjs`; loftets pris står i
+[docs/spilbalance.md](spilbalance.md#håndbold--et-odds-loft-på-25-med-vilje).
 
 Et `game.sport`, der er **sat, men ukendt** (fx tastefejlen `'handbold'`), giver
 også fodbold — serveren må ikke gå i stå i drift — men ikke tavst:
@@ -201,12 +205,15 @@ proportionalt over de tre udfald, **overdriver langskuddene systematisk**.
 Markedet så fladt ud, fordi metoden gjorde det fladt. 0,25 ville have overprist
 uafgjort i de skæve kampe med 49 %. Brug facit, ikke priser.
 
-## Odds-loftet hørte ikke til her — og findes ikke længere
+## Odds-loftet hørte ikke til her — og findes ikke længere i fodbold
 
 `ODDS.MAX` lignede en Elo-parameter, men var det ikke: den rørte ikke modellen,
 kun hvad et udfald *betalte*. Loftet var en balanceskrue på pointreglen, og
-skruen er nu fjernet helt — der er kun et **gulv** tilbage (`ODDS.MIN` = 1,10),
-så et udfald altid betaler mere end indsatsen.
+i fodbold er skruen nu fjernet helt — der er kun et **gulv** tilbage
+(`ODDS.MIN` = 1,10), så et udfald altid betaler mere end indsatsen. Håndbold har
+et loft på 25 (`SPORT_PROFILER.haandbold.odds.max`), fordi dens model ellers
+priser langskud til flere hundrede; det er en profilværdi, ikke en
+Elo-parameter, og prisen for det står i [docs/spilbalance.md](spilbalance.md).
 
 Kort sagt hvorfor: et loft klipper kun gevinsten, aldrig indsatsen, så en
 Chance på høje odds fik negativ forventning. Den fulde måling står i

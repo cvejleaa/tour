@@ -204,8 +204,8 @@ målingen er `node scripts/maal-haandbold.mjs`, se docs/elo-metodik.md):
 
 ```bash
 NODE_USE_ENV_PROXY=1 node scripts/haandbold-historik.mjs           # alle 8 turneringer, vis
-node scripts/haandbold-historik.mjs --skriv                        # skriv scripts/haandbold-historik.json
-node scripts/haandbold-historik.mjs --turneringer vm2025,em2026    # kun nogle
+node scripts/haandbold-historik.mjs --skriv --filer <mappe>       # skriv scripts/haandbold-historik.json (alle 8; mappen med em2026-finale.wikitext)
+node scripts/haandbold-historik.mjs --turneringer vm2025,em2026    # kun nogle, vis (med --skriv kræves --ud <fil>)
 ```
 
 Hver side hentes **én gang** og gemmes i en cache (`<tmp>/vejleaa-wiki`,
@@ -255,11 +255,14 @@ mappe under filnøglen fra `TURNERINGER[].transklusioner` i
 Præcis det navngivne afsnit (`<section begin="Final" />` … `<section end="Final" />`)
 indsættes, hvor transklusionen stod, før kampene læses; kilden får
 `transkluderet` med den sides fil og tid, og udskriften siger «↳ afsnittet
-«Final» indsat fra …». Mangler filen, afvises kampen som `andenSide` — og
-fordi siden er **erklæret** i `TURNERINGER[].transklusioner`, **nægter
-`--skriv` at skrive** (tør-kørslen siger det med ⚠️). Ellers ville hver
-opfriskning ad API-vejen, som aldrig henter en anden side, tabe finalen med
-rc 0. Skal kampen bevidst stå som afvist, så tilføj `--tillad-anden-side`.
+«Final» indsat fra …». Mangler filen, afvises kampen som `andenSide` — og så
+**nægter `--skriv` at skrive** (tør-kørslen siger det med ⚠️). Det gælder
+**enhver** `andenSide`, ikke kun den erklærede: også en side, der er ny eller
+stavet om på Wikipedia (titlerne sammenlignes som MediaWiki gør — `_` er
+mellemrum). Ellers ville hver opfriskning ad API-vejen, som aldrig henter en
+anden side, tabe finalen med rc 0. Det betyder, at **API-vejen ikke kan skrive
+alle otte** uden flaget. Skal kampen bevidst stå som afvist, så tilføj
+`--tillad-anden-side`.
 
 Scriptet stopper også, før noget skrives, når afsnittet mangler på siden eller
 står to gange, når afsnittet selv indeholder en overskrift (så ville kampene
@@ -270,7 +273,9 @@ erklæret side hedder — en stavefejl som `em2026-final.wikitext` eller en
 `foo.wikitext` — stopper scriptet, før noget læses. Filer for turneringer, der
 ikke er valgt med `--turneringer`, springes over og nævnes i udskriften;
 skjulte filer (`.DS_Store`) tæller ikke. `--ud <fil>` skriver et andet sted
-end `scripts/haandbold-historik.json` (bruges af testene).
+end `scripts/haandbold-historik.json` (bruges af testene) — og **kræves**, når
+`--skriv` står sammen med `--turneringer`, så en delmængde aldrig overskriver
+den committede historik.
 
 > **Status 3/11 2026:** `scripts/haandbold-historik.json` rummer **alle otte**
 > turneringer: 678 kampe, **inkl. EM 2026-finalen**. Siderne — de otte

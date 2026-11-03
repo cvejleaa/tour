@@ -25,6 +25,7 @@ import {
 } from './lib/haandboldMaaling.mjs';
 import {
   ELO, ODDS, OUTCOME, CHANCE, SPORT_PROFILER, sportProfil, outcomeProbabilities, oddsParametre, outcomePoints,
+  settleChance,
 } from '../src/lib/superligaScoring.js';
 import { buildMatches } from '../src/lib/superligaSeed.js';
 import { HAANDBOLD_VM2027_HOLD } from '../src/data/haandboldVm2027Hold.js';
@@ -445,10 +446,33 @@ if (!profil) {
   }
   const l25 = loftFoelsomhed.find((r) => r.loft === 25);
   log(`      Med loft 25: et tip på Uruguay (fair ${tal(uru.odds['1'], 2)}, p ${pct(1 / uru.odds['1'], 2)}) er ${tal(l25.uruguay.forventet, 3)} point værd mod ~1 for et fair udfald.`);
+
+  // 8d. CHANCEN PÅ DE KLIPPEDE UDFALD (QC, D4). Chancen er EV-neutral KUN ved
+  // fair odds: forventningen er p·gevinst − (1−p)·indsats. På et udfald, der
+  // står til loftet, er den et tab — det er netop fodboldens argument mod et
+  // loft, og det GÆLDER for disse udfald. Regnet med modellens p og spillets
+  // egen afregning (settleChance), fuld indsats (CHANCE.MAX_ABS), loft 25.
+  const chanceEv = (p, odds) => p * settleChance({ correct: true, stake: CHANCE.MAX_ABS, fairOdds: odds }).delta
+    + (1 - p) * settleChance({ correct: false, stake: CHANCE.MAX_ABS, fairOdds: odds }).delta;
+  const kampe25 = buildMatches(PROGRAM.fixtures, holdMedElo, medLoft(25));
+  const chanceKlip = fair48.flatMap((f, i) => ['1', 'X', '2'].filter((u) => f.odds[u] > 25).map((u) => {
+    const p = sandsyn(kampe25[i])[u];
+    return { home: f.home, away: f.away, udfald: u, fair: f.odds[u], p, evLoft: chanceEv(p, kampe25[i].odds[u]), evFair: chanceEv(p, f.odds[u]) };
+  })).sort((a, b) => a.evLoft - b.evLoft);
+  log('');
+  log(`  8d. Chancen (fuld indsats ${CHANCE.MAX_ABS}) på de ${chanceKlip.length} udfald, loft 25 klipper — forventet gevinst pr. Chance:`);
+  const ev2 = (x) => tal(Math.abs(x) < 0.005 ? 0 : x, 2); // ingen «-0,00»
+  log(`      ${'kamp «udfald»'.padEnd(30)}${'p'.padStart(8)}${'fair'.padStart(9)}${'EV fair'.padStart(9)}${'EV loft'.padStart(9)}`);
+  for (const x of chanceKlip) {
+    log(`      ${`${x.home}–${x.away} «${x.udfald}»`.padEnd(30)}${pct(x.p, 2).padStart(8)}${tal(x.fair, 2).padStart(9)}${ev2(x.evFair).padStart(9)}${ev2(x.evLoft).padStart(9)}`);
+  }
+  const tabMindst = (g) => chanceKlip.filter((x) => x.evLoft <= -g * CHANCE.MAX_ABS).length;
+  log(`      Spænd: ${tal(chanceKlip.at(-1).evLoft, 2)} til ${tal(chanceKlip[0].evLoft, 2)} · ${tabMindst(0.5)} af ${chanceKlip.length} taber mindst halvdelen af indsatsen i forventning, ${tabMindst(0.9)} mindst 90 %.`);
   log(`      Forventet antal af de ${lange.length} langskud over 24,39, der går ind: ${tal(forventLange, 3)} → chance for mindst ét: ${pct(1 - lange.reduce((a, x) => a * (1 - sandsyn(x.m)[x.u]), 1))}.`);
 
   oddsUd = {
     loftFoelsomhed,
+    chanceVedLoft25: chanceKlip,
     top5: top5.map((m) => ({ home: m.home, away: m.away, eloHome: m.eloHome, eloAway: m.eloAway, odds: m.odds, seedet: seedetFor(m).odds })),
     xOdds: { min: xs[0], median: xMedian, max: xs.at(-1), over10 },
     knockoutTop8: { min: parX[0], median: median(parX), max: parX.at(-1), over10: parX.filter((x) => x > 10).length },

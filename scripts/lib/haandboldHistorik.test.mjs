@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   udtraekKampe, resume, TURNERINGER, MIN_SPILLEDE, gemteFiler, sidensTidszone, SAMME_HOLD, indsaetTransklusioner,
-  ubrugteFiler, manglendeErklaerede,
+  ubrugteFiler, andenSideAfvisninger, normTitel,
 } from './haandboldHistorik.mjs';
 
 const HER = dirname(fileURLToPath(import.meta.url));
@@ -179,16 +179,36 @@ describe('regnskabet mod infoboksens «matches=»', () => {
       side: "2026 European Men's Handball Championship final",
     }]);
     expect(x.transkluderet).toEqual([]);
-    // Siden er ERKLÆRET for EM 2026 — så nægter --skriv (manglendeErklaerede).
+    // Siden er ERKLÆRET for EM 2026 — med sin fil, så beskeden kan nævne den.
     const em = TURNERINGER.find((t) => t.noegle === 'em2026');
-    expect(manglendeErklaerede(em, x.afviste)).toEqual([{
-      side: "2026 European Men's Handball Championship final", sektion: 'Knockout stage › Final', fil: 'em2026-finale',
+    expect(andenSideAfvisninger(em, x.afviste)).toEqual([{
+      side: "2026 European Men's Handball Championship final", sektion: 'Knockout stage › Final', erklaeret: true, fil: 'em2026-finale',
     }]);
-    // … men en turnering, der ikke har erklæret siden, får kun den synlige afvisning.
-    expect(manglendeErklaerede({ noegle: 'x' }, x.afviste)).toEqual([]);
-    expect(manglendeErklaerede({ noegle: 'x', transklusioner: { 'Anden side': 'x-anden' } }, x.afviste)).toEqual([]);
-    // Og andre afvisninger (walkover, ulaeselig) er aldrig «manglende sider».
-    expect(manglendeErklaerede(em, [{ art: 'walkover', side: "2026 European Men's Handball Championship final" }])).toEqual([]);
+    // VENDT (Security, D4): her stod `toEqual([])` — en side, ingen havde
+    // erklæret, var KUN en synlig afvisning og blev skrevet med rc 0. Nu er
+    // den med på listen, som --skriv nægter (én vagt), bare uden fil.
+    const ikke = { side: "2026 European Men's Handball Championship final", sektion: 'Knockout stage › Final', erklaeret: false, fil: null };
+    expect(andenSideAfvisninger({ noegle: 'x' }, x.afviste)).toEqual([ikke]);
+    expect(andenSideAfvisninger({ noegle: 'x', transklusioner: { 'Anden side': 'x-anden' } }, x.afviste)).toEqual([ikke]);
+    // Og andre afvisninger (walkover, ulaeselig) er aldrig «andre sider».
+    expect(andenSideAfvisninger(em, [{ art: 'walkover', side: "2026 European Men's Handball Championship final" }])).toEqual([]);
+    expect(andenSideAfvisninger(em, [{ art: 'ulaeselig', side: "2026 European Men's Handball Championship final" }])).toEqual([]);
+  });
+
+  // Security, D4 (sec-d4c/poc.mjs): `…_final` med understregning — eller et
+  // dobbelt mellemrum — er SAMME side for Wikipedia. Tegn for tegn gled den
+  // forbi den erklærede side; nu genkendes den, både som erklæret og ved indsættelse.
+  it('normTitel sammenligner som MediaWiki: _ = mellemrum, ét mellemrum, stort forbogstav', () => {
+    expect(normTitel("2026_European_Men's_Handball_Championship_final")).toBe("2026 European Men's Handball Championship final");
+    expect(normTitel("  2026 European  Men's Handball Championship   final ")).toBe("2026 European Men's Handball Championship final");
+    expect(normTitel('final')).toBe('Final');
+    expect(normTitel('Final')).toBe('Final');
+    // Kun mellemrum og forbogstav — ikke resten af store/små bogstaver.
+    expect(normTitel('Anden Side')).not.toBe(normTitel('anden side'));
+    const em = TURNERINGER.find((t) => t.noegle === 'em2026');
+    for (const side of ["2026_European_Men's_Handball_Championship_final", "2026 European Men's Handball Championship  final"]) {
+      expect(andenSideAfvisninger(em, [{ art: 'andenSide', side, sektion: 'S' }])).toEqual([{ side, sektion: 'S', erklaeret: true, fil: 'em2026-finale' }]);
+    }
   });
 
   // SIKKERHEDSNETTET. Står transklusionen i en niveau-2-sektion EFTER den
@@ -246,6 +266,20 @@ describe('en transkluderet side, der er givet med (andreSider)', () => {
     // KUN afsnittet: FRA–ESP står på finalesiden, men uden for «Final».
     expect(x.kampe.some((k) => k.hjemme === 'FRA')).toBe(false);
     expect(x.ukendteFelter).toEqual({ bg: 1 });
+  });
+
+  // Security, D4: siden stavet om på Wikipedia (understregning, dobbelt
+  // mellemrum, lille forbogstav) er SAMME side — og finalen indsættes. Den
+  // indsatte side bærer den GIVNE titel, så scriptet finder sin fil.
+  it.each([
+    [`{{#section:${FINALE.replace(/ /g, '_')}|Final}}`],
+    [`{{#section:${FINALE.replace('Handball', ' Handball')}|Final}}`],
+    [`{{#section:${FINALE.replace('2026', ' 2026 ')}|Final}}`],
+  ])('en omstavet titel (%s) genkendes og indsættes', (transklusion) => {
+    const x = udtraekKampe(side(transklusion), 'em2026', O({ [FINALE]: finaleside() }));
+    expect(x.afviste).toEqual([]);
+    expect(x.kampe).toHaveLength(4);
+    expect(x.transkluderet).toEqual([{ side: FINALE, afsnit: 'Final', sektion: 'Knockout stage › Final' }]);
   });
 
   it('uden siden (eller med en anden sides navn) er kampen afvist som «andenSide» — som før', () => {

@@ -195,8 +195,12 @@ export function indsaetTransklusioner(wikitekst, andreSider, turnering) {
   const indsat = [];
   const udenKommentarer = fjernKommentarer(wikitekst);
   const overs = overskrifter(udenKommentarer);
-  const tekst = udenKommentarer.replace(SEKTION_TRANSKLUSION, (hel, side, afsnit, pos) => {
-    if (!titler.includes(side)) return hel;
+  const tekst = udenKommentarer.replace(SEKTION_TRANSKLUSION, (hel, raa, afsnit, pos) => {
+    // Titlen slås op NORMALISERET (Security, D4): `…_final` og `…  final` er
+    // samme side for Wikipedia og skal også være det her. `side` er den
+    // givne titel — den, scriptet kender filen under.
+    const side = titler.find((t) => normTitel(t) === normTitel(raa));
+    if (side === undefined) return hel;
     indsat.push({ side, afsnit, sektion: sektionVed(overs, pos).join(' › ') });
     return afsnitFra(andreSider[side], side, afsnit, turnering);
   });
@@ -258,18 +262,35 @@ export function ubrugteFiler(filnavne, valgte, alle = TURNERINGER) {
 }
 
 /**
- * De ERKLÆREDE transklusioner (TURNERINGER[].transklusioner), der alligevel
- * endte som 'andenSide' — siden blev ikke givet med (API-vejen henter den
- * aldrig; --filer-mappen manglede den). --skriv nægter at skrive dem, for så
- * taber historikken kampen ved hver opfriskning (modstanderen, finale-vejen).
- * En transklusion, ingen har erklæret, er stadig kun en synlig afvisning.
- * @returns {Array<{side: string, sektion: string, fil: string}>}
+ * En sidetitel, som MediaWiki selv sammenligner den: understregning =
+ * mellemrum, flere mellemrum = ét, intet i enderne, stort forbogstav.
+ * `2026_European_Men's_Handball_Championship_final` og `2026 European Men's
+ * Handball Championship  final` er SAMME side — en tegn-for-tegn-sammenligning
+ * lod en sådan omskrivning på Wikipedia glide forbi den erklærede side.
+ * @param {string} titel
  */
-export function manglendeErklaerede(turnering, afviste) {
-  const erklaeret = turnering.transklusioner ?? {};
+export function normTitel(titel) {
+  const t = String(titel).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/**
+ * ALLE kampe, der endte som 'andenSide' — med, om siden er ERKLÆRET
+ * (TURNERINGER[].transklusioner, sammenlignet med normTitel) og i så fald
+ * dens fil. --skriv nægter at skrive, når listen ikke er tom, medmindre
+ * --tillad-anden-side er givet: ÉN vagt, uanset om siden er erklæret, stavet
+ * om på Wikipedia, eller ny (Security, D4). Erklæret/fil bruges kun til
+ * beskeden — så den kan sige, hvilken fil der mangler.
+ * @returns {Array<{side: string, sektion: string, erklaeret: boolean, fil: string|null}>}
+ */
+export function andenSideAfvisninger(turnering, afviste) {
+  const erklaeret = Object.entries(turnering.transklusioner ?? {});
   return afviste
-    .filter((a) => a.art === 'andenSide' && Object.prototype.hasOwnProperty.call(erklaeret, a.side))
-    .map((a) => ({ side: a.side, sektion: a.sektion, fil: erklaeret[a.side] }));
+    .filter((a) => a.art === 'andenSide')
+    .map((a) => {
+      const hit = erklaeret.find(([titel]) => normTitel(titel) === normTitel(a.side));
+      return { side: a.side, sektion: a.sektion, erklaeret: Boolean(hit), fil: hit ? hit[1] : null };
+    });
 }
 
 /** Et resumé pr. turnering til udskriften og outputtet. */

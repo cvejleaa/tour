@@ -310,7 +310,9 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
     );
     // Chancen arver loftet: 8 × (25 − 1) = 192.
     expect(screen.getByTestId('hjaelp-chance-loft').textContent.replace(/\s+/g, ' '))
-      .toBe('Chancen bruger de samme odds, så loftet gælder også her: fuld indsats kan højst give 8 × (25 − 1) = 192 point oveni.');
+      .toBe('Chancen bruger de samme odds, så loftet gælder også her: fuld indsats kan højst give 8 × (25 − 1) = 192 point oveni. '
+        + 'Ved fair odds er en Chance hverken et godt eller et dårligt køb i det lange løb. Men på et udfald, der står til loftet, '
+        + 'er Chancen et tab i det lange løb — på de skæveste kampe næsten hele indsatsen.');
     expect(screen.getByTestId('hjaelp-uden-live')).toBeInTheDocument();
     expect(t).toContain('Combi-bonus pr. dag');
     expect(t).toContain('holdets resultater ved de seneste slutrunder');

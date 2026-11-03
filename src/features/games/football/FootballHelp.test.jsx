@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import FootballHelp from './FootballHelp';
 import { RUBRIKKER } from './PointOpdeling';
-import { COMBI, ODDS, TRAEF_BONUS } from '../../../lib/superligaScoring';
-import { medProeveSport } from '../../../test/proeveSport';
+import { COMBI, ODDS, TRAEF_BONUS, SPORT_PROFILER } from '../../../lib/superligaScoring';
+import { medProeveSport, PROEVE } from '../../../test/proeveSport';
 import { createHash } from 'node:crypto';
 import { GAMES } from '../../../../scripts/games.mjs';
 
@@ -576,7 +576,27 @@ describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
     // `loftHistorie && loft === null` → `loftHistorie` overlevede).
     const chancen = afsnit(/^⚡ ?Chancen/);
     expect(chancen).toMatch(/8 × \(20 − 1\) = 152 point oveni/);
+    // Prisen, ikke kun opsiden (QC, D4): et klippet udfald gør Chancen til et tab.
+    expect(chancen).toMatch(/på et udfald, der står til loftet, er Chancen et tab i det lange løb/);
     expect(chancen).not.toMatch(/ikke længere har et loft|Premier League kan en enkelt/);
+  });
+
+  // Et loft, der hverken går op i 100 eller er et helt tal: 14,5. Grænsen er
+  // 100/14,5 = 6,90 % — «under 6 %» er sand, «under 7 %» (Math.round) ville
+  // omfatte udfald på 6,95 %, der IKKE klippes. Og 14,5 skal stå med komma:
+  // ved 25 og 20 er der intet punktum at erstatte, så `.replace` var ubevist.
+  it('et loft på 14,5: nedrundet procent og komma i tallet', () => {
+    SPORT_PROFILER.proeveLoft = { ...PROEVE, sport: 'proeveLoft', odds: { min: 1.01, max: 14.5 } };
+    try {
+      const afsnit = vis({ id: 'x', sport: 'proeveLoft' });
+      const odds = afsnit(/Point følger oddsene/);
+      expect(odds).toMatch(/mindst 1,01 og højst 14,5\. Under loftet/);
+      expect(odds).toMatch(/Oddsene har et loft på 14,5\. Et udfald, modellen giver under 6 % chance, står til 14,5 —/);
+      expect(odds).not.toMatch(/under 7 %|14\.5/);
+      expect(afsnit(/^⚡ ?Chancen/)).toMatch(/8 × \(14,5 − 1\) = 108 point oveni/);
+    } finally {
+      delete SPORT_PROFILER.proeveLoft;
+    }
   });
 });
 

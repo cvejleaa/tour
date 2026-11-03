@@ -92,8 +92,10 @@ export default function FootballHelp({ game }) {
   // her. null = intet loft (fodbold).
   const loft = oddsLoft(game);
   const loftTekst = loft === null ? null : String(loft).replace('.', ',');
-  // Under denne sandsynlighed står et udfald til loftet (1/loft, hele procent).
-  const loftPct = loft === null ? null : Math.round(100 / loft);
+  // Under denne sandsynlighed står et udfald til loftet (1/loft). NEDrundet
+  // til hele procent, så sætningen altid er sand: ved loft 15 er grænsen
+  // 6,67 %, og «under 7 %» ville omfatte udfald (6,8 %), der IKKE klippes.
+  const loftPct = loft === null ? null : Math.floor(100 / loft);
   // Sportens ord ("Dagens konge" i håndbold) — fra registret, ikke en if.
   const ord = sportOrd(game);
   // EVNERNE, guiden gater på. Uden fasekalender, med hjemmebane, med
@@ -319,6 +321,13 @@ export default function FootballHelp({ game }) {
         <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-chance-loft">
           Chancen bruger de samme odds, så loftet gælder også her: fuld indsats kan højst give{' '}
           <strong>{CHANCE.MAX_ABS} × ({loftTekst} − 1) = {String(Math.round(CHANCE.MAX_ABS * (loft - 1) * 100) / 100).replace('.', ',')} point</strong> oveni.
+          {/* Prisen, ikke kun opsiden (QC, D4): Chancen er kun neutral ved fair
+              odds. På et klippet udfald er forventningen indsats × (loft·p − 1)
+              — målt i scripts/maal-haandbold.mjs afsnit 8d: −0,03 til −7,57
+              pr. Chance på 8, de to skæveste over 90 % af indsatsen. */}
+          {' '}Ved fair odds er en Chance hverken et godt eller et dårligt køb i det lange løb. Men på
+          et udfald, der står til loftet, er <strong>Chancen et tab i det lange løb</strong> — på
+          de skæveste kampe næsten hele indsatsen.
         </p>
         )}
         {loftHistorie && loft === null && (

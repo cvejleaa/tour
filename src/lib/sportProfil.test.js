@@ -339,6 +339,22 @@ describe('odds-gulvet er en profilværdi', () => {
     expect(fairOdds(0.99)).toBe(1.1);
     expect(fairOdds(0, 1.01)).toBe(ODDS.UGYLDIG);
   });
+
+  // Klientens EGEN test af loftet i UGYLDIG-grenen. Serverens paritetstest
+  // (functions-platform/superligaScoring.test.js) sammenligner med src, men
+  // kører i en anden suite: en mutant `return ODDS.UGYLDIG` (uden loft) her
+  // overlevede hele frontend-kørslen. Et spejlet loft skal bevises i begge ender.
+  it('fairOdds klipper også UGYLDIG til loftet — og kun når der ER et loft', () => {
+    expect(ODDS.UGYLDIG).toBeGreaterThan(25); // ellers beviser 25 nedenfor intet
+    expect(fairOdds(0, 1.01, 25)).toBe(25);
+    expect(fairOdds(-1, 1.01, 25)).toBe(25);
+    expect(fairOdds('x', 1.01, 25)).toBe(25);
+    expect(fairOdds(0, 1.01, null)).toBe(ODDS.UGYLDIG);
+    expect(fairOdds(0, 1.01, undefined)).toBe(ODDS.UGYLDIG);
+    // Det almindelige klip, for sammenhængens skyld: 1/0,01 = 100 → 25.
+    expect(fairOdds(0.01, 1.01, 25)).toBe(25);
+    expect(fairOdds(0.041, 1.01, 25)).toBe(24.39);
+  });
 });
 
 // --- 1. Ingenting flytter sig: facit fra koden FØR profilen --------------------
