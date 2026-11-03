@@ -65,6 +65,9 @@
 //           men de tegner ikke en trøje, når spillet har flag: de giver RINGEN
 //           om spillerens avatar og spillets TEMA (badges.js klubFarverAf /
 //           klubAccentAf). Uden dem fik alle 32 en grå ring (QC på flagplanen).
+//           `color` er ringens og temaets farve; `awayColor` er ringens
+//           SEKUNDÆRFARVE, så Danmark (rød/hvid) og Norge (rød/blå) kan
+//           skelnes i stillingen (badges.js `sekundaerAf`).
 //           Begge er farver FRA HOLDETS EGET FLAG, læst i flag-icons' svg —
 //           testen kræver, at de står i filen, så en farve skrevet fra
 //           hukommelsen er rød. Det er landets farve, ikke landsholdstrøjen:

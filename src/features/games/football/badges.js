@@ -12,7 +12,7 @@
 // De bor derfor her, hvor både kampkortet, stillingen og ligaerne kan nå dem.
 // ---------------------------------------------------------------------------
 
-import { teamInfo } from './teamInfo';
+import { teamInfo, listeHarLandeflag } from './teamInfo';
 import { colorsClash, colorDistance, kuloer } from '../../../lib/contrastText';
 import { KULOER_GULV } from '../../../lib/accentTema';
 
@@ -117,6 +117,8 @@ export function matchBadges(teams, home, away, styles) {
  * @param {Array} teams   spillets holdliste (fra `teamsOf`)
  * @param {object} styles games/{id}.teamStyles
  * @param {string|null} holdnavn
+ * I et flag-spil er sekundærfarven landets anden farve — se `sekundaerAf`.
+ *
  * @returns {{primaer: string, sekundaer: string|null, navn: string}|null}
  */
 export function klubFarverAf(teams, styles, holdnavn) {
@@ -129,7 +131,28 @@ export function klubFarverAf(teams, styles, holdnavn) {
   // grå ring lige ved siden af et landeflag (QC på flagplanen, fund 1).
   if (!egenFarve(teams, holdnavn, styles, 'home')) return null;
   const b = badgeFor(teams, holdnavn, styles, 'home');
-  return { primaer: b.color, sekundaer: b.color2, navn: b.navn };
+  return { primaer: b.color, sekundaer: sekundaerAf(teams, styles, holdnavn, b), navn: b.navn };
+}
+
+/**
+ * Ringens SEKUNDÆRFARVE. I et klubspil er det trøjens (`troejer.hjemme.
+ * sekundaer`) — Randers' skråbånd. Et flag-spil har ingen trøjeform, så dér
+ * var sekundærfarven altid null, og ringen var ensfarvet: Danmark, Norge,
+ * Tyskland, Kroatien og Portugal stod alle i rødt og kunne ikke skelnes i
+ * stillingen (Spilfører på flag-koden). Landets ANDEN flagfarve (`awayColor`,
+ * læst i flaget — haandboldVm2027Hold.js) skiller dem: rød/hvid, rød/blå,
+ * rød/guld.
+ *
+ * Gaten er evnen (`listeHarLandeflag`, samme som `harLandeflag`), ikke
+ * `sport` eller «har awayColor»: Superligaens og Premier Leagues klubber HAR
+ * awayColor (udetrøjen), og den må ikke blive til en stribe i deres ring.
+ * Udefarven går gennem `egenFarve`, så en admin-rettelse slår igennem som på
+ * primærfarven; er den den samme som primærfarven, er der ingen anden farve.
+ */
+function sekundaerAf(teams, styles, holdnavn, b) {
+  if (!listeHarLandeflag(teams)) return b.color2;
+  const anden = egenFarve(teams, holdnavn, styles, 'away');
+  return anden && anden.toUpperCase() !== b.color.toUpperCase() ? anden : null;
 }
 
 /**

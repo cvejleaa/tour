@@ -53,7 +53,11 @@ describe('bundtet og evnen er samme liste', () => {
 // firebase.json har ingen CSP. I dag er alle 32 rene — men ingen test så
 // efter, og et udvidet flagsæt eller en ny pakkeversion ville gå tavst
 // igennem. Scanningen læser de PRÆCISE filer, landeflag.js importerer.
-const FARLIGT = /<script|\son[a-z]+\s*=|foreignObject|<image|<style|data:|javascript:|href\s*=\s*"[^#]/i;
+//
+// KVOTETOLERANT (Test Manager): SVG/XML tillader både "…" og '…' om en
+// attributværdi, og mønstret så før kun dobbelte — `href='https://…'` gik
+// igennem. Kontrollen nedenfor er en ÆGTE flagfil, forgiftet i hukommelsen.
+const FARLIGT = /<script|\son[a-z]+\s*=|foreignObject|<image|<style|data:|javascript:|href\s*=\s*["'][^#]/i;
 
 describe('flagfilerne indeholder intet aktivt', () => {
   const kilde = readFileSync(resolve(process.cwd(), 'src/features/games/football/landeflag.js'), 'utf8');
@@ -69,13 +73,26 @@ describe('flagfilerne indeholder intet aktivt', () => {
   it.each([
     '<script>alert(1)</script>', '<svg onload="x()">', '<foreignObject>', '<image href="x"/>',
     '<style>@import</style>', 'href="data:text/html,x"', '<a href="https://ond.example">',
-    '<a xlink:href="javascript:x">',
+    '<a xlink:href="javascript:x">', "<a href='https://ond.example'>", "<use xlink:href='https://ond.example/x.svg#a'/>",
   ])('mønsteret fanger %p', (ond) => {
     expect(ond).toMatch(FARLIGT);
   });
 
   it('mønsteret lader flagenes egne interne henvisninger være', () => {
     expect('<use xlink:href="#a"/><path fill="url(#b)"/>').not.toMatch(FARLIGT);
+    expect("<use xlink:href='#a'/>").not.toMatch(FARLIGT);
+  });
+
+  // FORGIFTET FLAG. Danmarks egen fil, læst som scanningen læser den, med én
+  // ekstern henvisning i ENKELTE citationstegn sat ind — i testen, ikke i
+  // node_modules. Ren før indsættelsen, fanget efter: det er indsættelsen og
+  // intet andet, mønstret reagerer på.
+  it('fanger en ekstern henvisning i enkelte citationstegn i en ægte flagfil', () => {
+    const ren = readFileSync(resolve(process.cwd(), 'node_modules/flag-icons/flags/4x3/dk.svg'), 'utf8');
+    expect(ren).not.toMatch(FARLIGT);
+    const forgiftet = ren.replace(/<\/svg>\s*$/, "<a href='https://ond.example'><path d='M0 0h1v1z'/></a></svg>");
+    expect(forgiftet).not.toBe(ren);
+    expect(forgiftet).toMatch(FARLIGT);
   });
 
   it('ingen fil har script, hændelser, fremmedobjekter eller eksterne henvisninger', () => {

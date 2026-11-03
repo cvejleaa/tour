@@ -256,6 +256,10 @@ describe('guiden', () => {
     expect(t).not.toMatch(/trøjens farve/);
     expect(t).not.toMatch(/klubbens farve/);
     expect(t).toContain(ringOgTemaTekst(true));
+    // Ordlyden selv: ringen bærer landets TO farver (sekundærfarven er
+    // awayColor, badges.js `sekundaerAf`), temaet den ene.
+    expect(t).toContain('Din avatar får landets farver som ring om sig i stillingen');
+    expect(t).not.toContain('landets farve som ring');
     expect(t).toContain('Klik på et holdnavn — i Elo-tabellen eller på et kampkort — så får du');
   });
 

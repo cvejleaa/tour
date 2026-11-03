@@ -59,7 +59,20 @@ export function teamsOf(game) {
  * @returns {boolean}
  */
 export function harLandeflag(game) {
-  return Boolean(teamsOf(game)?.[0]?.flag);
+  return listeHarLandeflag(teamsOf(game));
+}
+
+/**
+ * Samme evne for en holdliste, der ALLEREDE er gået gennem `teamsOf` — til de
+ * funktioner, der får listen og ikke spillet (`klubFarverAf` i badges.js).
+ * `harLandeflag` er bygget på den, så de to ikke kan uenes. En rå liste uden
+ * `flag` (fx direkte fra en datafil) giver falsk — med vilje: flaget lægges
+ * kun på af `teamsOf`.
+ * @param {Array<object>} teams
+ * @returns {boolean}
+ */
+export function listeHarLandeflag(teams) {
+  return Boolean(teams?.[0]?.flag);
 }
 
 /** Navnet som det skal på skærmen. Falder tilbage på det eksakte navn. */
