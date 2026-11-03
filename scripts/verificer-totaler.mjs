@@ -17,7 +17,9 @@
 //      gate, og `perRound` sammenlignes RUNDE FOR RUNDE med det gemte. Til
 //      sidst en liste PR. RUNDE: hvem står forkert, og hvor meget combi de har
 //      til gode. Det er listen, ejeren afgør en genberegning på — og den, der
-//      skal stå på 0 bagefter (docs/drift.md, «Combi til gode»).
+//      skal stå på 0 bagefter (docs/drift.md, «Combi til gode»). Pr. runde
+//      står også en færdig sætning til hver berørt ligas væg — skåret pr.
+//      liga (players.leagueIds), så den kun nævner ligaens egne medlemmer.
 //
 // Logikken ligger i scripts/lib/verificerTotaler.mjs og er testet dér; denne
 // fil læser kun Firestore og skriver tabellen. Skriver ALDRIG noget.
@@ -47,16 +49,19 @@ const gameRef = db.collection('games').doc(GAME_ID);
 
 // Kampene og spil-dokumentet er til genberegningen forfra (FORÆLDET): runde-
 // konteksten og startrunde-gaten bygges af dem, som på serveren.
-const [playersSnap, betsSnap, kampeSnap, gameSnap] = await Promise.all([
+// Ligaerne læses KUN for deres navne i vægsætningerne.
+const [playersSnap, betsSnap, kampeSnap, gameSnap, ligaSnap] = await Promise.all([
   gameRef.collection('players').get(),
   gameRef.collection('bets').get(),
   gameRef.collection('matches').get(),
   gameRef.get(),
+  gameRef.collection('leagues').get(),
 ]);
 const spillere = playersSnap.docs.map((d) => ({ ...d.data(), uid: d.id }));
 const bets = betsSnap.docs.map((d) => d.data());
 const kampe = kampeSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
 const game = gameSnap.exists ? gameSnap.data() : null;
+const ligaNavn = new Map(ligaSnap.docs.map((d) => [d.id, d.data().name || d.id]));
 console.log(`Læst: ${new Date().toISOString()} · ${spillere.length} spillere, ${bets.length} bets, ${kampe.length} kampe`);
 
 // Visningsnavne — kun til tabellen. getAll() uden argumenter kaster, så et spil
@@ -68,5 +73,5 @@ if (spillere.length) {
 }
 
 const v = vurder(spillere, bets, { kampe, game });
-console.log('\n' + tabel(v, navn, GAME_ID).join('\n') + '\n');
+console.log('\n' + tabel(v, navn, GAME_ID, ligaNavn).join('\n') + '\n');
 if (v.fejl) process.exit(1);

@@ -1014,9 +1014,13 @@ når rettelsen (functions) er ude — ellers kommer nye huller til:
 
 1. Kør målingen for SL og PL og vis ejeren listen (antal spillere, største
    beløb, hvem der rykker). Send INGEN mail om det. Pr. runde med combi til
-   gode står en færdig linje «til væggen efter 🔄: «Rettelse: …»» — vil ejeren
-   forklare stillingsskiftet, skriver han den som sig selv på væggen i de
-   berørte ligaer, efter trin 2.
+   gode står én færdig linje PR. LIGA: «til væggen i «Liganavn» efter 🔄:
+   «Rettelse: …»». Hver linje er målt på ligaens egne medlemmer
+   (`players.leagueIds`) — antallet og «Største» er dem, ligaen selv kan se,
+   for en spillers point kan kun læses af liga-fæller (`firestore.rules`,
+   `games/{g}/players`). Vil ejeren forklare stillingsskiftet, skriver han
+   hver ligas EGEN linje som sig selv på netop dén ligas væg, efter trin 2 —
+   aldrig samme linje på flere vægge. En spiller uden liga får ingen linje.
 2. Ejerens ja → Admin → 🗓️ Spil-tidsplan → vælg spillet → **🔄 Genberegn point
    efter start-ændring** — SL og PL hver for sig. Knappen lægger kun totalerne
    sammen forfra; den rører ikke bet-pointene.

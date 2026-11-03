@@ -232,7 +232,9 @@ export function kontrollerSpiller(p, harIndsats, facit = null) {
     }
   }
 
-  return { uid: p.uid, p1x2, chance, combi, pulje, sum, total, noter, rester, foraeldet };
+  // leagueIds bæres med til vægsætningen: den skæres pr. liga (se vaegPrLiga).
+  const leagueIds = Array.isArray(p.leagueIds) ? p.leagueIds.filter((l) => typeof l === 'string' && l) : [];
+  return { uid: p.uid, leagueIds, p1x2, chance, combi, pulje, sum, total, noter, rester, foraeldet };
 }
 
 /**
@@ -272,7 +274,7 @@ export function vurder(spillere, bets, kilde = null) {
 /**
  * Forældet-listen vendt om: PR. RUNDE, hvem står forkert, og hvor meget combi
  * de har til gode. Det er listen, ejeren afgør genberegningen på.
- * @returns {Array<{runde:string, spillere:Array<{uid:string, gemt:number|null, ny:number|null, combi:number|null, udenTip:number, kupon:number}>, combiIAlt:number, combiUkendt:number}>}
+ * @returns {Array<{runde:string, spillere:Array<{uid:string, leagueIds:string[], gemt:number|null, ny:number|null, combi:number|null, udenTip:number, kupon:number}>, combiIAlt:number, combiUkendt:number}>}
  */
 export function foraeldetPrRunde(rows) {
   const perRunde = new Map();
@@ -280,7 +282,7 @@ export function foraeldetPrRunde(rows) {
     if (!row.foraeldet) continue;
     for (const r of row.foraeldet.runder) {
       if (!perRunde.has(r.runde)) perRunde.set(r.runde, []);
-      perRunde.get(r.runde).push({ uid: row.uid, gemt: r.gemt, ny: r.ny, combi: combiTilGode(r), udenTip: r.udenTip, kupon: r.kupon });
+      perRunde.get(r.runde).push({ uid: row.uid, leagueIds: row.leagueIds || [], gemt: r.gemt, ny: r.ny, combi: combiTilGode(r), udenTip: r.udenTip, kupon: r.kupon });
     }
   }
   return sorterRunder(perRunde.keys()).map((runde) => {
@@ -298,13 +300,18 @@ export function foraeldetPrRunde(rows) {
 const komma = (n) => String(n).replace('.', ',');
 
 /**
- * Én færdig sætning til ligaens væg om en runde, hvor combi manglede — så en
- * bagfyldning bliver noget at snakke om og ikke en tavs ændring af stillingen
- * (Spilfører). Ejeren kopierer den og skriver den som sig selv; der sendes
- * ingen mail. Kun spillere med combi TIL GODE (> 0) nævnes: en combi for
- * meget eller en ukendt er ikke en nyhed, man lægger på væggen. null = ingen
- * sætning.
- * @param {{runde:string, spillere:Array<{uid:string, combi:number|null}>}} r  én række fra foraeldetPrRunde
+ * Én færdig sætning til ÉN ligas væg om en runde, hvor combi'en er regnet
+ * forfra — så en bagfyldning bliver noget at snakke om og ikke en tavs
+ * ændring af stillingen (Spilfører). Ejeren kopierer den og skriver den som
+ * sig selv; der sendes ingen mail. Kun spillere med combi TIL GODE (> 0)
+ * nævnes: en combi for meget eller en ukendt er ikke en nyhed, man lægger på
+ * væggen. null = ingen sætning.
+ *
+ * `r.spillere` skal allerede være skåret til ÉN liga (vaegPrLiga): antallet og
+ * «Største» er dem, ligaens væg må se. Ordet er «regnet forfra», ikke
+ * «manglede» — combi til gode kan også komme af en kamp, der er flyttet ind på
+ * kuponen (QC).
+ * @param {{runde:string, spillere:Array<{uid:string, combi:number|null}>}} r
  * @param {(uid:string) => string} navnAf  visningsnavn — sætningen renses af tabel()
  */
 export function vaegSaetning(r, navnAf) {
@@ -312,8 +319,31 @@ export function vaegSaetning(r, navnAf) {
   if (!plus.length) return null;
   const stoerst = plus.reduce((a, s) => (s.combi > a.combi ? s : a));
   const hvem = plus.length === 1 ? '1 spiller' : `${plus.length} spillere`;
-  return `Rettelse: combi'en fra runde ${r.runde} manglede hos ${hvem} og er nu lagt til. `
+  return `Rettelse: combi'en fra runde ${r.runde} er regnet forfra, og ${hvem} har fået combi lagt til. `
     + `Største: ${navnAf(stoerst.uid)} +${komma(stoerst.combi)}.`;
+}
+
+/**
+ * Én runde fra foraeldetPrRunde skåret PR. LIGA (players.leagueIds). En
+ * spillers point kan kun læses af dem, der deler en liga med ham
+ * (firestore.rules, games/{g}/players) — en sætning målt på hele spillet ville
+ * navngive en spiller fra liga A, med beløb, på liga B's væg, og antallet ville
+ * ikke passe for nogen af dem (QC). Hver liga får derfor kun sine egne
+ * medlemmer; en spiller i to ligaer står i begge. En spiller uden liga har
+ * ingen væg og nævnes ingen steder. Ligaerne sorteres efter id, så udskriften
+ * er stabil.
+ * @param {{runde:string, spillere:Array<{uid:string, leagueIds?:string[], combi:number|null}>}} r
+ * @returns {Array<{leagueId:string, runde:string, spillere:Array<object>}>}
+ */
+export function vaegPrLiga(r) {
+  const perLiga = new Map();
+  for (const s of r.spillere) {
+    for (const l of new Set(s.leagueIds || [])) {
+      if (!perLiga.has(l)) perLiga.set(l, []);
+      perLiga.get(l).push(s);
+    }
+  }
+  return [...perLiga.keys()].sort().map((leagueId) => ({ leagueId, runde: r.runde, spillere: perLiga.get(leagueId) }));
 }
 
 /**
@@ -323,8 +353,9 @@ export function vaegSaetning(r, navnAf) {
  * @param {ReturnType<typeof vurder>} v
  * @param {Map<string,string>} navn  uid → visningsnavn
  * @param {string} gameId
+ * @param {Map<string,string>} [ligaNavn]  leagueId → ligaens navn (til vægsætningerne)
  */
-export function tabel(v, navn, gameId) {
+export function tabel(v, navn, gameId, ligaNavn = new Map()) {
   const b = (s, n) => String(s).padEnd(n);
   // Visningsnavnet er brugerstyret tekst uden indholdsvagt i firestore.rules
   // (kun typen er tjekket). Et navn med linjeskift eller ANSI kunne lægge en
@@ -369,10 +400,14 @@ export function tabel(v, navn, gameId) {
           + `   combi ${s.combi == null ? '?' : fortegn(s.combi)}`
           + (s.kupon > 0 && s.udenTip > 0 ? `   intet tip på ${s.udenTip} af kuponens ${s.kupon}` : ''));
       }
-      const v = vaegSaetning(r, (uid) => navn.get(uid) || uid);
-      // Navnet og rundenøglen er data fra dokumentet — HELE sætningen renses
-      // ét sted (en ekstra rensning af navnet alene var en overlevende mutant).
-      if (v) linjer.push(`    til væggen efter 🔄: «${rent(v)}»`);
+      // Én sætning PR. LIGA, kun med ligaens egne medlemmer (vaegPrLiga).
+      for (const liga of vaegPrLiga(r)) {
+        const saetning = vaegSaetning(liga, (uid) => navn.get(uid) || uid);
+        // Navnene, ligaens navn og rundenøglen er data fra dokumenterne — HELE
+        // linjen renses ét sted (en ekstra rensning af navnet alene var en
+        // overlevende mutant).
+        if (saetning) linjer.push(rent(`    til væggen i «${ligaNavn.get(liga.leagueId) || liga.leagueId}» efter 🔄: «${saetning}»`));
+      }
     }
   }
   linjer.push('');

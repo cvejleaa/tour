@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TOLERANCE, harIndsatsAf, kontrollerSpiller, vurder, tabel, vaegSaetning } from './verificerTotaler.mjs';
+import { TOLERANCE, harIndsatsAf, kontrollerSpiller, vurder, tabel, vaegSaetning, vaegPrLiga } from './verificerTotaler.mjs';
 
 const ingen = new Set();
 const spiller = (over) => ({ uid: 'u1', totalPoints: 15.2, opdeling: { p1x2: 10, chance: 0, combi: 5.2, pulje: 0 }, ...over });
@@ -271,7 +271,7 @@ describe('vurder med kampene — FORÆLDET pr. runde', () => {
   const kilde = { kampe, game: { name: 'SL' } };
   // d som han stod efter hullet: konsistent (6 = 6), men uden combi.
   const dGammel = { uid: 'd', totalPoints: 6, opdeling: { p1x2: 6, chance: 0, combi: 0, pulje: 0 },
-    perRound: { 1: 6 }, opdelingPerRunde: { 1: { p1x2: 6, chance: 0, combi: 0 } } };
+    perRound: { 1: 6 }, opdelingPerRunde: { 1: { p1x2: 6, chance: 0, combi: 0 } }, leagueIds: ['L1'] };
   // e frisk: 2 + 2 + combi 4 = 8.
   const eFrisk = { uid: 'e', totalPoints: 8, opdeling: { p1x2: 4, chance: 0, combi: 4, pulje: 0 },
     perRound: { 1: 8 }, opdelingPerRunde: { 1: { p1x2: 4, chance: 0, combi: 4 } } };
@@ -291,7 +291,7 @@ describe('vurder med kampene — FORÆLDET pr. runde', () => {
     expect(v.foraeldede).toBe(1);
     expect(v.fejl).toBe(1);
     expect(v.foraeldetPrRunde).toEqual([{ runde: '1', combiIAlt: 5.7, combiUkendt: 0,
-      spillere: [{ uid: 'd', gemt: 6, ny: 11.7, combi: 5.7, udenTip: 1, kupon: 3 }] }]);
+      spillere: [{ uid: 'd', leagueIds: ['L1'], gemt: 6, ny: 11.7, combi: 5.7, udenTip: 1, kupon: 3 }] }]);
   });
 
   // Fraværs-assertion: en frisk spiller må ALDRIG meldes forældet — ellers er
@@ -450,13 +450,15 @@ describe('vurder med kampene — FORÆLDET pr. runde', () => {
 
   it('tabellen viser FORÆLDET PR. RUNDE med navne og combi til gode — og ⚠️-linjen', () => {
     const v = vurder([dGammel, eFrisk], bets, kilde);
-    const t = tabel(v, new Map([['d', 'Søren'], ['e', 'Mads']]), 'superliga2627').join('\n');
+    const t = tabel(v, new Map([['d', 'Søren'], ['e', 'Mads']]), 'superliga2627', new Map([['L1', 'Kontoret']])).join('\n');
     expect(t).toContain('FORÆLDET PR. RUNDE (gemt → genberegnet forfra af tips og kampe)');
     expect(t).toMatch(/^ {2}runde 1: 1 spiller\(e\), combi til gode i alt \+5\.7$/m);
     expect(t).toMatch(/^ {4}Søren +6 → +11\.7 {3}combi \+5\.7 {3}intet tip på 1 af kuponens 3$/m);
     expect(t).not.toMatch(/^ {4}Mads/m);
     // Spilfører: én færdig sætning, ejeren kan kopiere til væggen efter 🔄.
-    expect(t).toMatch(/^ {4}til væggen efter 🔄: «Rettelse: combi'en fra runde 1 manglede hos 1 spiller og er nu lagt til\. Største: Søren \+5,7\.»$/m);
+    expect(t).toMatch(/^ {4}til væggen i «Kontoret» efter 🔄: «Rettelse: combi'en fra runde 1 er regnet forfra, og 1 spiller har fået combi lagt til\. Største: Søren \+5,7\.»$/m);
+    // QC: «manglede» passer ikke altid (en kamp kan være flyttet ind på kuponen).
+    expect(t).not.toMatch(/manglede/);
     expect(t).toContain('⚠️  1 spiller(e) har en FORÆLDET total — svaret er 🔄 Genberegn point for spillet, men kun med ejerens ja (det flytter stillingen).');
     expect(t).toContain('LÆS-ONLY — der er ikke skrevet noget.');
   });
@@ -465,7 +467,7 @@ describe('vurder med kampene — FORÆLDET pr. runde', () => {
     const navnAf = (u) => ({ a: 'Anna', b: 'Bo' })[u] || u;
     expect(vaegSaetning({ runde: '9', spillere: [
       { uid: 'a', combi: 2 }, { uid: 'b', combi: 5.7 }, { uid: 'c', combi: -1 }, { uid: 'd', combi: null },
-    ] }, navnAf)).toBe("Rettelse: combi'en fra runde 9 manglede hos 2 spillere og er nu lagt til. Største: Bo +5,7.");
+    ] }, navnAf)).toBe("Rettelse: combi'en fra runde 9 er regnet forfra, og 2 spillere har fået combi lagt til. Største: Bo +5,7.");
     expect(vaegSaetning({ runde: '9', spillere: [{ uid: 'c', combi: -1 }, { uid: 'd', combi: null }, { uid: 'e', combi: 0 }] }, navnAf)).toBeNull();
   });
 
@@ -504,10 +506,78 @@ describe('vurder med kampene — FORÆLDET pr. runde', () => {
     const giftKampe = kampe.map((m) => ({ ...m, round: gift }));
     const gBets = bets.filter((b) => b.uid === 'd');
     const d = { uid: 'd', totalPoints: 6, opdeling: { p1x2: 6, chance: 0, combi: 0, pulje: 0 },
-      perRound: { [gift]: 6 }, opdelingPerRunde: { [gift]: { p1x2: 6, chance: 0, combi: 0 } } };
+      perRound: { [gift]: 6 }, opdelingPerRunde: { [gift]: { p1x2: 6, chance: 0, combi: 0 } }, leagueIds: ['L1'] };
     const linjer = tabel(vurder([d], gBets, { kampe: giftKampe, game: null }), new Map([['d', 'Søren']]), 'x');
     const vaeg = linjer.filter((l) => l.includes('til væggen'));
-    expect(vaeg).toEqual(["    til væggen efter 🔄: «Rettelse: combi'en fra runde  ::error::FALSK manglede hos 1 spiller og er nu lagt til. Største: Søren +5,7.»"]);
+    expect(vaeg).toEqual(["    til væggen i «L1» efter 🔄: «Rettelse: combi'en fra runde  ::error::FALSK er regnet forfra, og 1 spiller har fået combi lagt til. Største: Søren +5,7.»"]);
     for (const l of linjer) expect(l).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/); // eslint-disable-line no-control-regex
+  });
+  // QC: sætningen står på ÉN ligas væg, men en spillers point kan kun læses af
+  // liga-fæller (firestore.rules, games/{g}/players). Målt på hele spillet ville
+  // Bo fra liga B blive navngivet med beløb på liga A's væg.
+  describe('vægsætningen skæres pr. liga', () => {
+    // a (liga A) og b (liga B) mangler begge combi i runde 1; b's er størst.
+    const aGammel = { ...dGammel, uid: 'a', leagueIds: ['A'] };
+    const bGammel = { ...dGammel, uid: 'b', leagueIds: ['B'] };
+    const abBets = bets.filter((x) => x.uid === 'd').flatMap((x) => [{ ...x, uid: 'a' }, { ...x, uid: 'b' }]);
+    // b har også tippet k1 rigtigt → større combi end a.
+    abBets.push({ uid: 'b', matchId: 'k1', pick: '1', points: 2 });
+    const bMere = { ...bGammel, totalPoints: 8, opdeling: { p1x2: 8, chance: 0, combi: 0, pulje: 0 },
+      perRound: { 1: 8 }, opdelingPerRunde: { 1: { p1x2: 8, chance: 0, combi: 0 } } };
+    const navn = new Map([['a', 'Anna'], ['b', 'Bo'], ['c', 'Cecilie']]);
+    const ligaNavn = new Map([['A', 'Kontoret'], ['B', 'Familien']]);
+    const vaegLinjer = (spillere, extraBets = []) => tabel(vurder(spillere, [...abBets, ...extraBets], kilde), navn, 'x', ligaNavn)
+      .filter((l) => l.includes('til væggen'));
+
+    it('to ligaer, én spiller i hver: hver væg nævner kun sin egen — navnet krydser ikke', () => {
+      const vaeg = vaegLinjer([aGammel, bMere]);
+      expect(vaeg).toHaveLength(2);
+      const a = vaeg.find((l) => l.includes('«Kontoret»'));
+      const b = vaeg.find((l) => l.includes('«Familien»'));
+      expect(a).toMatch(/1 spiller har fået combi lagt til\. Største: Anna \+5,7\.»$/);
+      expect(b).toMatch(/1 spiller har fået combi lagt til\. Største: Bo \+8\.»$/);
+      // Det, der IKKE må stå: den anden ligas spiller.
+      expect(a).not.toMatch(/Bo/);
+      expect(b).not.toMatch(/Anna/);
+      // Spil-bredt ville det have været «2 spillere» og «Største: Bo» begge steder.
+      expect(vaeg.join('\n')).not.toMatch(/2 spillere/);
+    });
+
+    it('en spiller i begge ligaer står i begge; en uden liga står ingen steder', () => {
+      const c = { ...dGammel, uid: 'c', leagueIds: ['A', 'B'] };
+      const ingenLiga = { ...dGammel, uid: 'z', leagueIds: [] };
+      const cBets = bets.filter((x) => x.uid === 'd').flatMap((x) => [{ ...x, uid: 'c' }, { ...x, uid: 'z' }]);
+      const vaeg = vaegLinjer([aGammel, bMere, c, ingenLiga], cBets);
+      expect(vaeg.find((l) => l.includes('«Kontoret»'))).toMatch(/2 spillere har fået combi/);
+      expect(vaeg.find((l) => l.includes('«Familien»'))).toMatch(/2 spillere har fået combi/);
+      expect(vaeg.join('\n')).not.toMatch(/\bz\b/);
+      expect(vaeg).toHaveLength(2);
+    });
+
+    it('kun ægte liga-id\'er bæres med — null, tom streng og tal giver ingen «væg» (og et ikke-array ingen)', () => {
+      expect(kontrollerSpiller({ ...dGammel, leagueIds: ['A', null, '', 7] }, ingen).leagueIds).toEqual(['A']);
+      expect(kontrollerSpiller({ ...dGammel, leagueIds: 'A' }, ingen).leagueIds).toEqual([]);
+    });
+
+    it('vaegPrLiga: grupperer efter leagueIds, sorteret, dubletter i én spillers liste tæller én gang', () => {
+      const r = { runde: '3', spillere: [
+        { uid: 'x', leagueIds: ['B', 'A', 'B'], combi: 1 }, { uid: 'y', leagueIds: ['A'], combi: 2 }, { uid: 'z', combi: 3 },
+      ] };
+      expect(vaegPrLiga(r).map((l) => [l.leagueId, l.runde, l.spillere.map((s) => s.uid)])).toEqual([
+        ['A', '3', ['x', 'y']], ['B', '3', ['x']],
+      ]);
+    });
+
+    it('et fjendtligt liganavn kan ikke skrive sin egen linje', () => {
+      const linjer = tabel(vurder([aGammel], abBets, kilde), navn, 'x', new Map([['A', '\n::error::FALSK']]));
+      for (const l of linjer) expect(l).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/); // eslint-disable-line no-control-regex
+      expect(linjer.filter((l) => l.includes('til væggen'))).toEqual(
+        ["    til væggen i « ::error::FALSK» efter 🔄: «Rettelse: combi'en fra runde 1 er regnet forfra, og 1 spiller har fået combi lagt til. Største: Anna +5,7.»"]);
+    });
+
+    it('uden liganavn falder linjen tilbage til ligaens id', () => {
+      const t = tabel(vurder([aGammel], abBets, kilde), navn, 'x').join('\n');
+      expect(t).toContain('til væggen i «A» efter 🔄');
+    });
   });
 });
