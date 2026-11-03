@@ -755,6 +755,9 @@ a:focus-visible,
 }
 .match-card__kickoff { font-size: 0.95rem; font-weight: 700; color: var(--c-text); }
 .match-card__venue { font-size: 0.82rem; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Gruppemærket («Gruppe IV») i stadionets plads må aldrig klippes til «Grup…»
+   (QC Q8): det krymper ikke, og højre halvdel ombryder i stedet (FootballTip). */
+.match-card__venue--gruppe { flex-shrink: 0; }
 
 /* Kuponmærket: står kampen med i runde-bonussen?
    Vises kun i en splittet runde — se FootballTip. Den udsatte kamp får en
@@ -1096,6 +1099,14 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
 .sltab__divider--champ td { color: var(--c-pitch); box-shadow: inset 3px 0 0 var(--c-pitch); }
 .sltab__divider--releg td { color: var(--c-err); box-shadow: inset 3px 0 0 var(--c-err); }
 @media (max-width: 480px) { .sltab__hide-sm { display: none; } }
+
+/* 📊 Grupper (Grupper.jsx): stregen under de hold, der går videre, ✓ ved de
+   hold, der FAKTISK er lagt ind i næste fase, og 🎖️ ved spillerens egne
+   semifinaletip. Ingen farve på holdene under stregen — nr. 4 er ikke «ude». */
+.grupper__kort { margin-bottom: 0; }
+.grupper__streg td { border-bottom: 2px solid var(--c-pitch); }
+.grupper__videre { color: var(--c-pitch); font-weight: 800; font-size: 0.85rem; }
+.grupper__egen { font-size: 0.85rem; }
 
 /* Liga-væg */
 .wall { margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--c-border); }

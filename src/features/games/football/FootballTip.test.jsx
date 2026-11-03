@@ -35,6 +35,7 @@ vi.mock('../../../lib/share', () => ({ shareText: (...a) => mockShare(...a) }));
 import { TRAEF_BONUS } from '../../../lib/superligaScoring';
 import FootballTip from './FootballTip';
 import { HAANDBOLD_SPIL, TEST_FASER, kl18 } from '../../../test/faseKalender';
+import { HVM27G, INDLEDENDE, hovedrundeKampe } from '../../../test/hvm2027Grupper';
 
 const KICKOFF = new Date('2026-09-01T18:00:00Z');
 const KICKOFF2 = new Date('2026-09-08T18:00:00Z');
@@ -2273,5 +2274,67 @@ describe('FootballTip — knockout', () => {
     setup(hb, '/spil/hvm?runde=14', kvart());
     expect(screen.getByText(/^Chancen er brugt på denne dag — kampen er låst/)).toBeInTheDocument();
     expect(screen.queryByText(/i denne runde/)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GRUPPEMÆRKET («Gruppe A», «Gruppe I») i stadionets plads på kampkortet.
+// To forskellige bogstaver, så en literal falder. Mærket ER `.match-card__venue`
+// (håndbold har intet stadion), og ellers er meta-rækken uændret: samme
+// elementer som på det samme kort uden grupper (QC Q8).
+// ---------------------------------------------------------------------------
+describe('FootballTip — gruppemærket', () => {
+  const hvm = () => ({ ...HVM27G, eloHistory: [] });
+  const metaKlasser = (c, id) => [...c.querySelector(`#kamp-${id} .match-card__meta`).querySelectorAll('*')]
+    .map((e) => `${e.tagName}.${e.className}`);
+
+  it('den indledende runde: r1-srb-uru er præcis «Gruppe A», r1-ita-ksa «Gruppe B»', () => {
+    const { container } = setup(hvm(), '/spil/hvm2027?runde=1', INDLEDENDE);
+    const a = container.querySelector('#kamp-r1-srb-uru .match-card__meta .match-card__venue');
+    const b = container.querySelector('#kamp-r1-ita-ksa .match-card__meta .match-card__venue');
+    expect(a.textContent).toBe('Gruppe A');
+    expect(b.textContent).toBe('Gruppe B');
+    expect(a).toHaveAttribute('data-testid', 'kamp-gruppe');
+    expect(a.textContent).not.toMatch(/pulje/i);
+    // Hver af dagens kampe har sit mærke — programmets gruppe (en uafhængig kilde).
+    expect(screen.getAllByTestId('kamp-gruppe').map((e) => e.textContent).sort()).toEqual(INDLEDENDE.filter((m) => m.round === 1).map((m) => `Gruppe ${m.gruppe}`).sort());
+  });
+
+  it('intet ANDET nyt element i meta-rækken — kun mærket', () => {
+    const med = setup(hvm(), '/spil/hvm2027?runde=1', INDLEDENDE).container;
+    const medK = metaKlasser(med, 'r1-srb-uru');
+    cleanup();
+    const udenGrupper = { ...hvm(), grupper: undefined };
+    const uden = setup(udenGrupper, '/spil/hvm2027?runde=1', INDLEDENDE).container;
+    const udenK = metaKlasser(uden, 'r1-srb-uru');
+    expect(udenK).not.toContain('SPAN.match-card__venue');
+    expect(medK.filter((k) => !k.startsWith('SPAN.match-card__venue'))).toEqual(udenK);
+    expect(medK.filter((k) => k.startsWith('SPAN.match-card__venue'))).toEqual(['SPAN.match-card__venue match-card__venue--gruppe']);
+  });
+
+  it('hovedrunden: «Gruppe I» … «Gruppe IV» af de indledende grupper', () => {
+    const kampe = [...INDLEDENDE, ...hovedrundeKampe({}, { runder: [8, 9] })];
+    setup(hvm(), '/spil/hvm2027?runde=8', kampe);
+    expect(screen.getAllByTestId('kamp-gruppe').map((e) => e.textContent).sort())
+      .toEqual(['Gruppe I', 'Gruppe I', 'Gruppe I', 'Gruppe III', 'Gruppe III', 'Gruppe III']);
+    cleanup();
+    setup(hvm(), '/spil/hvm2027?runde=9', kampe);
+    expect(screen.getAllByTestId('kamp-gruppe').map((e) => e.textContent).sort())
+      .toEqual(['Gruppe II', 'Gruppe II', 'Gruppe II', 'Gruppe IV', 'Gruppe IV', 'Gruppe IV']);
+  });
+
+  it('knockout: intet mærke', () => {
+    const kvart = [...INDLEDENDE, { id: 'r14-a', round: 14, home: 'Danmark', away: 'Norge', kickoff: new Date('2027-01-26T17:00:00Z') }];
+    const { container } = setup(hvm(), '/spil/hvm2027?runde=14', kvart);
+    expect(container.querySelector('#kamp-r14-a')).not.toBeNull();
+    expect(screen.queryByTestId('kamp-gruppe')).toBeNull();
+    expect(container.querySelector('#kamp-r14-a').textContent).not.toMatch(/Gruppe/);
+  });
+
+  it('Superligaen: intet gruppemærke nogen steder', () => {
+    const { container } = setup();
+    expect(container.querySelectorAll('.match-card').length).toBeGreaterThan(0);
+    expect(container.textContent).not.toMatch(/Gruppe/);
+    expect(screen.queryByTestId('kamp-gruppe')).toBeNull();
   });
 });
