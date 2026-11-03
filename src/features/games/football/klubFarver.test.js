@@ -56,6 +56,22 @@ describe('klubFarverAf', () => {
     expect(klubFarverAf(HOLD, {}, 'Brøndby IF').primaer).toBe('#E5B905');
   });
 
+  // INGEN EGEN FARVE → INGEN RING (QC på flagplanen, fund 1). `badgeFor`
+  // giver GREY for et kendt hold uden farve, og en grå ring ligner en rigtig
+  // farve — lige ved siden af et landeflag. Før landefarverne gjaldt det alle
+  // 32 hold i håndbold-VM'et.
+  it('giver null for et kendt hold uden farve — ingen grå ring', () => {
+    const uden = [{ name: 'Danmark', short: 'DEN', iso2: 'dk' }];
+    expect(klubFarverAf(uden, {}, 'Danmark')).toBeNull();
+    expect(klubFarverAf(uden, undefined, 'Danmark')).toBeNull();
+  });
+
+  it('giver en ring, når farven er sat i admin eller i holdlisten', () => {
+    const uden = [{ name: 'Danmark', short: 'DEN' }];
+    expect(klubFarverAf(uden, { Danmark: { color: '#C8102E' } }, 'Danmark').primaer).toBe('#C8102E');
+    expect(klubFarverAf([{ name: 'Danmark', color: '#C8102E' }], {}, 'Danmark').primaer).toBe('#C8102E');
+  });
+
   it('bruger visningsnavnet, hvis holdet har et', () => {
     const medVis = [{ ...HOLD[0], vis: 'Brøndby' }];
     expect(klubFarverAf(medVis, {}, 'Brøndby IF').navn).toBe('Brøndby');

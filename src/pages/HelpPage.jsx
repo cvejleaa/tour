@@ -152,6 +152,16 @@ function PlatformHelp() {
         mini-liga sin egen <strong>væg</strong> inde i det spil, ligaen hører til. Et rødt tal ved “Beskeder”
         viser ulæste beskeder.
       </Section>
+
+      {/* MIT KRÆVER, AT NOTITSEN FØLGER MED FILERNE. Vite skriver ingen
+          licensfil for assets, så notitsen ligger i public/licenser.txt, og
+          linjen her peger på den. Et almindeligt <a> og ikke <Link>: filen er
+          ikke en rute i appen. */}
+      <p style={{ color: 'var(--c-muted)', fontSize: '0.8rem', marginTop: '1.25rem' }} data-testid="licenser">
+        Landeflagene er fra <strong>flag-icons</strong> af Panayiotis Lipiridis (MIT-licens). De ligger
+        {' '}på vores egen server, så der hentes intet fra andre. Licensteksten står
+        {' '}i <a href="/licenser.txt">licenser.txt</a>.
+      </p>
     </div>
   );
 }

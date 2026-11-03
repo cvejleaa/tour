@@ -20,6 +20,8 @@ vi.mock('../features/games/useGames', async (orig) => ({
 
 import HelpPage from './HelpPage';
 import { HAANDBOLD_SPIL, TEST_FASER } from '../test/faseKalender';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const VM = {
   id: 'vm2026', name: 'VM 2026', emoji: '⚽', type: 'football',
@@ -155,5 +157,35 @@ describe('HelpPage (platform) — Spillene lige nu afledes af games-collectionen
     unmount();
     renderMed([], [], true);
     expect(screen.getByText(/Henter spillene/)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LICENSEN FOR LANDEFLAGENE. MIT kræver, at notitsen følger med filerne, og
+// Vite skriver ingen licensfil for assets — derfor public/licenser.txt og en
+// linje her, der peger på den. Filen er et SPEJL af pakkens LICENSE, bundet
+// af testen: opgraderes flag-icons med en ny notits, er spejlet rødt.
+// ---------------------------------------------------------------------------
+describe('HelpPage (platform) — licensen for landeflagene', () => {
+  beforeEach(() => { mockUse.mockReset(); });
+
+  it('nævner flag-icons, MIT og forfatteren — og linker til licenser.txt', () => {
+    renderMed([SL], []);
+    const linje = screen.getByTestId('licenser');
+    expect(linje.textContent.replace(/\s+/g, ' ')).toContain('Landeflagene er fra flag-icons af Panayiotis Lipiridis (MIT-licens).');
+    expect(linje.textContent).toContain('der hentes intet fra andre');
+    const link = linje.querySelector('a');
+    expect(link.getAttribute('href')).toBe('/licenser.txt');
+  });
+
+  it('public/licenser.txt bærer pakkens LICENSE ordret', () => {
+    const rod = process.cwd();
+    const licens = readFileSync(resolve(rod, 'node_modules/flag-icons/LICENSE'), 'utf8').trim();
+    const vores = readFileSync(resolve(rod, 'public/licenser.txt'), 'utf8');
+    expect(vores).toContain(licens);
+    expect(vores).toContain('flag-icons 7.6.0');
+    // Versionen i filen er den, der er låst i package.json (--save-exact).
+    const pkg = JSON.parse(readFileSync(resolve(rod, 'package.json'), 'utf8'));
+    expect(pkg.dependencies['flag-icons']).toBe('7.6.0');
   });
 });

@@ -271,3 +271,16 @@ describe('opslagsfunktionerne', () => {
     expect(superligaTeamInfo('OB')?.short).toBe('OB');
   });
 });
+
+// BEVIDST FRAVÆR. Klubber er ikke lande: et `iso2` her ville give hele ligaen
+// landeflag (alt eller intet, harLandeflag) i stedet for trøjer — og et `flag`
+// felt fra data må aldrig nå <img src> (landeflag.js medLandeflag). Et
+// landsholdsspil i fodbold vender denne test; en klubliga gør det aldrig.
+describe('ingen landeflag i en klubliga', () => {
+  it('intet hold har iso2 eller flag', () => {
+    for (const t of SUPERLIGA_TEAMS_2026) {
+      expect(t, t.name).not.toHaveProperty('iso2');
+      expect(t, t.name).not.toHaveProperty('flag');
+    }
+  });
+});

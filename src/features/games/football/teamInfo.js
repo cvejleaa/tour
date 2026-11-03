@@ -14,6 +14,7 @@
 
 import { SUPERLIGA_TEAMS_2026 } from '../../../data/superligaTeams2026';
 import { medVisningsnavn } from './visningsnavn';
+import { medLandeflag } from './landeflag';
 
 /**
  * Spillets holdliste. Falder tilbage på Superligaens, hvis spillet ikke har
@@ -34,7 +35,31 @@ export function teamsOf(game) {
   // at skrive `t.name`. Så viste kampkortet "Brighton", mens knappen ved siden
   // af sagde "Brighton and Hove Albion". `visningsnavnFlader.test.jsx` holder
   // listen over flader, der skal læse det.
-  return medVisningsnavn(liste, game?.teamStyles);
+  //
+  // `flag` lægges på samme sted og af samme grund (landeflag.js): evnen regnes
+  // ÉN gang for hele listen — alt eller intet — og hver badge-flade læser bare
+  // `info.flag`. `flagFlader.test.jsx` er listen over de flader. medLandeflag
+  // cacher på medVisningsnavn's array, så identiteten pr. (teams, teamStyles)
+  // består.
+  return medLandeflag(medVisningsnavn(liste, game?.teamStyles));
+}
+
+/**
+ * HAR SPILLET LANDEFLAG — evnen, som tekster og oversigter gater på
+ * (TroejeOversigt, FootballHelp, GameProfile, TeamStylesTab). Regnet af
+ * `teamsOf`, så en tekst aldrig kan sige «trøje», mens badgen ved siden af
+ * viser et flag — eller omvendt. Afledt af DATA (holdenes `iso2`), aldrig af
+ * `sport`: et håndboldspil uden flag tegner trøjer, og et fodboldspil med
+ * landshold ville få flag.
+ *
+ * Det første hold er nok: alt-eller-intet er afgjort ÉT sted
+ * (`alleHarLandeflag` i medLandeflag), og et andet `every` her ville være en
+ * vagt nummer to om samme regel — en, hvis mutation ingen test kunne se.
+ * @param {object} game
+ * @returns {boolean}
+ */
+export function harLandeflag(game) {
+  return Boolean(teamsOf(game)?.[0]?.flag);
 }
 
 /** Navnet som det skal på skærmen. Falder tilbage på det eksakte navn. */
