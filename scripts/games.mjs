@@ -195,6 +195,46 @@ export const GAMES = [
       { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 16, til: 16, start: '2027-01-29', antalKampe: 2, knockout: true },
       { navn: 'Finaledag', bestemt: 'Finaledagen', fra: 17, til: 17, start: '2027-01-31', antalKampe: 2, knockout: true },
     ],
+    // GRUPPERNE — hvem der er i hvilken gruppe, og hvilke indledende grupper
+    // en hovedrundegruppe kommer fra. Kopieret ordret fra `grupper` i
+    // scripts/haandbold-vm2027-program.json, ligesom `faser` (games.test.mjs
+    // binder dem). Et EGET felt, ikke en nøgle på faserne: faseKalenderFejl
+    // afviser ukendte nøgler, så en fejl her ville ellers slå hele kalenderen
+    // ihjel — nu forsvinder kun det, der læser grupperne.
+    // `hold` står i PROGRAMRÆKKEFØLGE (første kamp i programmet), ikke i en
+    // placering. Hovedrundens hold gemmes ikke: de udledes af de kampe, der
+    // lægges ind med 📥 Læg næste fases kampe ind — IHF afgør, hvem der gik
+    // videre, ikke vores regnestykke. point/videre er formatets konstanter
+    // (VM2027_FORMAT i scripts/lib/haandboldProgram.mjs), efterprøvet mod siden.
+    grupper: {
+      point: { sejr: 2, uafgjort: 1 },
+      faser: [
+        {
+          fase: 'Indledende runde',
+          videre: 3,
+          grupper: [
+            { navn: 'A', hold: ['Serbien', 'Uruguay', 'Tyskland', 'Tunesien'] },
+            { navn: 'B', hold: ['Italien', 'Saudi-Arabien', 'Egypten', 'Kap Verde'] },
+            { navn: 'C', hold: ['Spanien', 'Tyrkiet', 'Kroatien', 'Chile'] },
+            { navn: 'D', hold: ['Argentina', 'Brasilien', 'Frankrig', 'Kuwait'] },
+            { navn: 'E', hold: ['Sverige', 'Grækenland', 'Norge', 'Qatar'] },
+            { navn: 'F', hold: ['Færøerne', 'Algeriet', 'Portugal', 'Polen'] },
+            { navn: 'G', hold: ['Slovenien', 'Angola', 'Danmark', 'USA'] },
+            { navn: 'H', hold: ['Nordmakedonien', 'Japan', 'Island', 'Bahrain'] },
+          ],
+        },
+        {
+          fase: 'Hovedrunde',
+          videre: 2,
+          grupper: [
+            { navn: 'I', fra: ['A', 'B'] },
+            { navn: 'II', fra: ['C', 'D'] },
+            { navn: 'III', fra: ['E', 'F'] },
+            { navn: 'IV', fra: ['G', 'H'] },
+          ],
+        },
+      ],
+    },
     // 🏆 SEMIFINALISTERNE: hvilke fire hold når semifinalerne? Facit er
     // holdene i fasen «Semifinaler» (2 kampe = 4 hold), afgjort så snart
     // fasen er HELT lagt ind (src/lib/puljeFacit.js).

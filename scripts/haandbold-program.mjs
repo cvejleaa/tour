@@ -6,7 +6,8 @@
 // en gemt kopi, og bygger
 //   - den indledende runde (48 kampe) i seed-football-formen:
 //     {id, round, home, away, kickoff (UTC), gruppe}
-//   - fasekalenderen til `game.faser` (D6 lægger den i scripts/games.mjs).
+//   - fasekalenderen til `game.faser` og grupperne til `game.grupper` (begge
+//     kopieres ordret til scripts/games.mjs; games.test.mjs binder dem).
 // Regler og vagter: scripts/lib/haandboldProgram.mjs.
 //
 // HVAD DEN IKKE GØR: skriver intet i databasen. Ingen Firebase, ingen nøgle.
@@ -27,7 +28,7 @@
 //   node scripts/haandbold-program.mjs --skriv             # skriv programmet + fixture
 //
 //   --skriv skriver to filer i repoet:
-//     scripts/haandbold-vm2027-program.json          (programmet og faserne)
+//     scripts/haandbold-vm2027-program.json          (programmet, faserne og grupperne)
 //     scripts/testdata/wiki-vm2027.wikitext          (siden, beskåret til kampene)
 //   Testen (scripts/lib/haandboldProgram.test.mjs) bygger programmet af
 //   fixturen og kræver, at det er IDENTISK med JSON-filen. Ret aldrig i den
@@ -72,6 +73,11 @@ async function main() {
   console.log(`\n${fil.fixtures.length} kampe i den indledende runde · ${fil.faser.length} faser`);
   for (const f of fil.faser) {
     console.log(`  ${f.navn.padEnd(17)} runde ${String(f.fra).padStart(2)}-${String(f.til).padEnd(2)} fra ${f.start}  ${f.antalKampe} kampe${f.knockout ? ' · knockout' : ''}`);
+  }
+  console.log(`\nGrupperne (${fil.grupper.point.sejr} point for en sejr, ${fil.grupper.point.uafgjort} for uafgjort):`);
+  for (const f of fil.grupper.faser) {
+    console.log(`  ${f.fase} — de ${f.videre} øverste går videre`);
+    for (const g of f.grupper) console.log(`    ${g.navn.padEnd(3)} ${g.hold ? g.hold.join(', ') : `fra gruppe ${g.fra.join(' og ')}`}`);
   }
   const vis = (iso) => new Intl.DateTimeFormat('da-DK', {
     timeZone: 'Europe/Copenhagen', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
