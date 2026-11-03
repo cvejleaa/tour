@@ -24,6 +24,7 @@ import { SEED_FILER } from './seed-filer.mjs';
 import { SYNK_HULLER } from '../src/test/synkHuller.js';
 import { harFaseKalender } from '../src/lib/faser.js';
 import { HAANDBOLD_VM2027_HOLD } from '../src/data/haandboldVm2027Hold.js';
+import { grupperFejl, harGrupper } from '../src/lib/grupper.js';
 
 // Providerens navn → de nøgler, den præcist skal have. Ingen flere, ingen
 // færre. Et `SHAPES`-objekt frem for if-grene, så en NY provider ikke kan
@@ -325,9 +326,17 @@ describe('faser på spillene', () => {
   // kalenderen, hvert hold står i holdfilen og i præcis én gruppe, og hver
   // hovedrundegruppes `fra` er bogstaver fra den forrige fase — hver brugt
   // én gang.
-  // TODO (integration med src/lib/grupper.js): tilføj
-  //   expect(grupperFejl(hvm.grupper, hvm)).toEqual([]) og harGrupper(hvm) === true
-  // her, når B's grupperFejl er landet. Indtil da bærer denne test formen.
+  // Evnen (src/lib/grupper.js) skal sige ja til PRÆCIS det, der seedes —
+  // med holdlisten, som spil-dokumentet får den (teams seedes fra holdfilen).
+  // Uden den ja er fanen og kortets mærke tavst væk i produktion.
+  it('Håndbold-VM: grupperFejl er tom og harGrupper er sand for det seedede spil', () => {
+    const hvm = { ...GAMES.find((g) => g.id === 'hvm2027'), teams: HAANDBOLD_VM2027_HOLD };
+    expect(grupperFejl(hvm.grupper, hvm)).toEqual([]);
+    expect(harGrupper(hvm)).toBe(true);
+    // Og evnen er ikke bare altid sand: uden holdlisten siger den nej.
+    expect(harGrupper({ ...hvm, teams: [] })).toBe(false);
+  });
+
   it('Håndbold-VM: grupperne har kontraktens form og passer til kalenderen og holdene', () => {
     const hvm = GAMES.find((g) => g.id === 'hvm2027');
     const { grupper } = hvm;
@@ -356,6 +365,7 @@ describe('faser på spillene', () => {
   it('Superligaen og Premier League har INGEN grupper', () => {
     for (const id of ['superliga2627', 'pl2627-efteraar']) {
       expect(GAMES.find((g) => g.id === id), id).not.toHaveProperty('grupper');
+      expect(harGrupper(GAMES.find((g) => g.id === id)), id).toBe(false);
     }
   });
 
