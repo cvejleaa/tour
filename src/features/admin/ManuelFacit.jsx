@@ -120,14 +120,15 @@ export function prognoseLinjer(d, game) {
     linjer.push('Kampen ligger før spillets start og giver ingen point. Elo og odds på kommende kampe regnes om.');
   } else {
     const p = d.point;
-    linjer.push(`${p.tips} tips på kampen. ${p.spillere} spillere får ændret point, i alt ${fmtSignedDec(p.iAlt)}${p.combi ? ` (heraf combi ${fmtSignedDec(p.combi)})` : ''}. Elo og odds på kommende kampe regnes om.`);
-    // Spillere UDEN tip på kampen, hvis combi flytter sig. Triggeren
-    // genberegner dem ikke (kendt hul, gameScoring.spillereTriggerenGenberegner)
-    // — så de er IKKE med i tallet ovenfor, og fladen siger, hvornår de får den.
-    const s = d.senere;
-    if (s?.spillere > 0) {
-      linjer.push(`${s.spillere} spillere uden tip på denne kamp får ændret combi (i alt ${fmtSignedDec(s.combi)}), men ikke nu: serveren genberegner kun dem, der har tippet kampen. De får den, når et af deres egne tips afgøres eller rettes — eller når du trykker 🔄 Genberegn point efter start-ændring.`);
-    }
+    // Tallet "spillere" tæller ALLE med tip i runden, hvis point flytter sig —
+    // også dem uden tip på netop denne kamp, for combi har intet kuponkrav, og
+    // serveren genberegner hele runden (gameScoring.kampeTriggerenLaeser). Står
+    // der combi, siger linjen det, ellers ligner "8 tips, 10 spillere" en fejl.
+    //
+    // Der er INGEN sætning om spillere, der får deres combi "senere". Den
+    // fandtes, mens serveren kun genberegnede kampens egne tippere (task #14);
+    // en gammel server kan stadig sende feltet `senere`, men det læses ikke.
+    linjer.push(`${p.tips} tips på kampen. ${p.spillere} spillere får ændret point, i alt ${fmtSignedDec(p.iAlt)}${p.combi ? ` (heraf combi ${fmtSignedDec(p.combi)} — combi regnes for alle ${rundensOrd(game)} tippere, også dem uden tip på kampen)` : ''}. Elo og odds på kommende kampe regnes om.`);
   }
   if (d.botPoster) {
     linjer.push(`Det er ${rundensOrd(game)} sidste kamp: Runde-Botten skriver straks på alle ligavægge, når du skriver.`);

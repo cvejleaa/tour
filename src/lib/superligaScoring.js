@@ -8,10 +8,12 @@
 //   - 1X2-point: point FØLGER oddsene — et ramt udfald giver kampens frosne
 //     odds afrundet til 1 decimal (fx 3.1 / 4.3 / 2.3). Så en favorit-tip
 //     giver få point og et overraskende udfald giver mange, i takt med oddsene.
-//   - RUNDE-BONUS (combi): tipper man ALLE kampe på rundens KUPON, får man en
-//     bonus = 2 × kvadratroden af de ramte odds ganget sammen, med et loft på
-//     25 — som en tæmmet bookmaker-kupon. Hver ramt kamp tæller. Kuponen er
-//     rundens kampe i samme uge; en udsat kamp giver point, men står udenfor.
+//   - RUNDE-BONUS (combi): når rundens KUPON er afgjort, får man en bonus =
+//     2 × kvadratroden af de ramte odds ganget sammen (mindst to træf), med et
+//     loft på 25 — som en tæmmet bookmaker-kupon. Hver ramt kamp tæller; der
+//     er INTET krav om at have tippet dem alle (en glemt kamp tæller bare
+//     ikke med). Kuponen er rundens kampe i samme uge; en udsat kamp giver
+//     point, men står udenfor.
 //   - Chancen: indsats mellem MIN og MAX, hvor MAX cappes til 15 % af saldo.
 //   - Gevinst = indsats × (fair odds − 1). Tab = kun indsatsen (ingen bøde).
 //   - Saldoen kan aldrig gå i minus (garanteret af 15 %-cappet).
@@ -143,8 +145,9 @@ export const COMBI = { FAKTOR: 2, LOFT: 25 };
  * Combi-bonus for én spillers kupon: **2 × kvadratroden af de ramte odds
  * ganget sammen**, med et loft på 25.
  *
- * FORUDSÆTTER at spilleren har tippet ALLE kuponens kampe (kaldes kun så).
- * `hitOdds` er de (1-decimals) odds for de kampe, han RAMTE.
+ * Kaldes, når hele kuponen er afgjort — uanset om spilleren har tippet alle
+ * dens kampe (intet kuponkrav, pointOpdeling.combiPerRunde). `hitOdds` er de
+ * (1-decimals) odds for de kampe, han RAMTE; glemte og forkerte er ikke med.
  *
  * HVORFOR KVADRATRODEN. Den gamle regel gav de ramte odds ganget rå, med loft
  * 25 ved nul fejl og 12 ved én, og nul ved to. Den havde to problemer, som

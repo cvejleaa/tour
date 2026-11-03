@@ -93,8 +93,9 @@ function outcomePoints(pick, result, odds) {
 }
 
 // Combi-bonus: 2 × kvadratroden af de ramte odds ganget sammen, med loft.
-// Kaldes kun når spilleren har tippet ALLE kuponens kampe. Hver ramt kamp
-// tæller — der er ikke længere et krav om højst én fejl.
+// Kaldes, når hele KUPONEN er afgjort — uanset om spilleren har tippet alle
+// dens kampe (intet kuponkrav, pointOpdeling.combiPerRunde). Hver ramt kamp
+// tæller; en forkert eller glemt kamp tæller hverken for eller imod.
 //
 // Kvadratroden er ikke pynt: den gamle regel STRAFFEDE mod (−1,3 point pr.
 // runde for den, der tippede tre outsidere) og afgjorde sæsonvinderen i
