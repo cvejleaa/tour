@@ -13,8 +13,6 @@
  * (lib/puljeFacit.js: puljeKanAfregnes).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../../firebase';
 import { puljenTaeller, puljeMaksStartRunde, PULJE_MAKS_STARTRUNDE } from '../../../lib/ligaPoint';
 import {
   puljeKanAfregnes, rundeFacit, rundePuljeTekster, stadigMed, pulsFor,
@@ -23,8 +21,8 @@ import { useGameStandings } from '../useGameStandings';
 import PuljeAfsloering from './PuljeAfsloering';
 import { rundeAfventerTekst, stadigMedTekst } from './puljeAfsloering';
 import { useAuth } from '../../../context/AuthContext';
-import { COL } from '../../../lib/constants';
 import { teamsOf } from './teamInfo';
+import { useEgetPuljeBet } from './useEgetPuljeBet';
 import {
   puljeKonfig, leagueTable, championshipTeams, bundTeams, puljeScore,
 } from '../../../lib/superligaScoring';
@@ -132,23 +130,20 @@ export default function PuljeTip({ game, matches }) {
   const ligaForbehold = useMemo(
     () => puljeLigaForbehold(leagues, puljeMaksStartRunde(game)), [leagues, game],
   );
-  const [bet, setBet] = useState(undefined); // undefined = indlæser, null = intet tip
+  // Eget tip, live — samme hook som 📊 Grupper (🎖️ ud for egne hold).
+  const bet = useEgetPuljeBet(gameId, uid); // undefined = indlæser, null = intet tip
   const [picks, setPicks] = useState([]);    // toppen
   const [nedPicks, setNedPicks] = useState([]); // bunden (kun når nedSize > 0)
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
 
+  // Hvert snapshot af tippet nulstiller valgene til det GEMTE — som før,
+  // da lytteren selv satte dem.
   useEffect(() => {
-    if (!gameId || !uid) { setBet(null); return undefined; }
-    const ref = doc(db, COL.GAMES, gameId, COL.GAME_PULJE, uid);
-    return onSnapshot(ref, (snap) => {
-      const data = snap.exists() ? snap.data() : null;
-      setBet(data);
-      setPicks(Array.isArray(data?.championship) ? data.championship : []);
-      setNedPicks(Array.isArray(data?.relegation) ? data.relegation : []);
-    }, () => setBet(null));
-  }, [gameId, uid]);
+    setPicks(Array.isArray(bet?.championship) ? bet.championship : []);
+    setNedPicks(Array.isArray(bet?.relegation) ? bet.relegation : []);
+  }, [bet]);
 
   const lockMs = useMemo(() => toMillis(game?.puljeLockAt), [game]);
   const locked = lockMs != null && Date.now() >= lockMs;

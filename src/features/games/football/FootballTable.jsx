@@ -9,10 +9,11 @@
  * ikke et format — uden tabelDeling vises én flad tabel med nedrykningsstreg
  * (QC-fund: puljen på PL må ikke flippe hele Tabel-fanen).
  */
-import { teamsOf, teamInfo } from './teamInfo';
+import { teamsOf } from './teamInfo';
 import { puljeKonfig } from '../../../lib/superligaScoring';
-import ClubBadge from '../../../components/ClubBadge';
-import GameTabLink from '../GameTabLink';
+// Rækken og hovedet bor i TabelRaekke.jsx — delt med 📊 Grupper, så de to
+// tabeller tegner badge, flag og holdside-link ens.
+import TabelRaekke, { TabelHoved } from './TabelRaekke';
 
 // Hvor mange hold der rykker ud af en liga uden slutspilsdeling. En engelsk
 // kendsgerning (PL rykker altid 3 ned) — men regnet fra bunden af tabellen,
@@ -22,44 +23,6 @@ const NEDRYK = 3;
 // Kildelinjen siger, hvor stillingen kommer FRA. Ukendt provider ⇒ ingen
 // linje: en gættet kilde er værre end ingen.
 const KILDER = { superliga: 'api.superliga.dk', pulselive: 'premierleague.com' };
-
-function Row({ r, teams }) {
-  const info = teamInfo(teams, r.teamName);
-  const gd = (Number(r.gf) || 0) - (Number(r.ga) || 0);
-  return (
-    <tr>
-      <td className="sltab__rank">{r.rank}</td>
-      <td className="sltab__team">
-        <span className="sltab__teamcell">
-          <ClubBadge
-            variant="troeje" code={r.teamShortName || info?.short} color={info?.color} size={22}
-            color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
-            aerme={info?.troejer?.hjemme?.aerme} flag={info?.flag} title={r.teamName}
-          />
-          {/* Tabelrækken er den mest naturlige indgang til en holdside.
-              Kortkoden kommer fra HOLDLISTEN (info.short), ikke fra API'ets
-              teamShortName: URL'en skal matche spillets egen nøgle, og de to
-              kan afvige. Uden kortkode intet link — aldrig et link bygget af
-              et holdnavn med mellemrum. */}
-          {info?.short ? (
-            <GameTabLink fane="elo" hold={info.short} className="sltab__name">
-              {info?.vis || r.teamName}
-            </GameTabLink>
-          ) : (
-            <span className="sltab__name">{info?.vis || r.teamName}</span>
-          )}
-        </span>
-      </td>
-      <td>{r.played}</td>
-      <td className="sltab__hide-sm">{r.won}</td>
-      <td className="sltab__hide-sm">{r.draw}</td>
-      <td className="sltab__hide-sm">{r.lost}</td>
-      <td className="sltab__hide-sm">{r.gf}-{r.ga}</td>
-      <td>{gd > 0 ? `+${gd}` : gd}</td>
-      <td className="sltab__pts">{r.points}</td>
-    </tr>
-  );
-}
 
 export default function FootballTable({ game }) {
   // Spillets egne hold — ellers får engelske klubber hverken farve eller
@@ -91,7 +54,7 @@ export default function FootballTable({ game }) {
       <tr className={`sltab__divider sltab__divider--${tone}`}>
         <td colSpan={9}>{title}</td>
       </tr>
-      {rows.map((r) => <Row key={r.teamName} r={r} teams={hold} />)}
+      {rows.map((r) => <TabelRaekke key={r.teamName} r={r} teams={hold} />)}
     </>
   );
 
@@ -115,19 +78,7 @@ export default function FootballTable({ game }) {
       )}
       <div className="sltab-wrap">
         <table className="sltab">
-          <thead>
-            <tr>
-              <th className="sltab__rank">#</th>
-              <th className="sltab__team">Hold</th>
-              <th title="Kampe">K</th>
-              <th className="sltab__hide-sm" title="Vundet">V</th>
-              <th className="sltab__hide-sm" title="Uafgjort">U</th>
-              <th className="sltab__hide-sm" title="Tabt">T</th>
-              <th className="sltab__hide-sm" title="Mål">Mål</th>
-              <th title="Målforskel">±</th>
-              <th className="sltab__pts" title="Point">P</th>
-            </tr>
-          </thead>
+          <TabelHoved />
           <tbody>
             {poolSize ? (
               <>
@@ -145,7 +96,7 @@ export default function FootballTable({ game }) {
               // en halv-synket tabel må ikke vise alle hold som nedrykkere.
               <>
                 {standings.filter((r) => standings.length <= NEDRYK || r.rank <= standings.length - NEDRYK)
-                  .map((r) => <Row key={r.teamName} r={r} teams={hold} />)}
+                  .map((r) => <TabelRaekke key={r.teamName} r={r} teams={hold} />)}
                 {standings.length > NEDRYK && (
                   <Section
                     title={`⬇️ Nedrykning (bund ${NEDRYK})`}
