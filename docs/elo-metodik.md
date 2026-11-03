@@ -35,10 +35,19 @@ fodboldens hjemmebane, K og uafgjort-model, uanset spillet:
 `maal-favoritfordeling.mjs`, `calibrate-superliga-elo.mjs`,
 `calibrate-premier-league-elo.mjs`, `compute-superliga-elo.mjs` samt
 testfixturerne `e2e/fixtures/seed-e2e.mjs` og `src/test/scenarie/superliga.js`.
-Det er korrekt for Superligaen og Premier League. Før en måling bruges til en
-anden sport, skal scriptet gøres profil-bevidst (tage profilen som argument) —
-det hører til **delopgave 4** (håndboldprofilen målt). Et tal, et fodbold-låst
+Det er korrekt for Superligaen og Premier League. Et tal, et fodbold-låst
 script har givet, gælder ikke for håndbold.
+
+**Håndbold har sin egen måling:** `node scripts/maal-haandbold.mjs` (≈ 40 s,
+intet netværk) kører Elo kronologisk over `scripts/haandbold-historik.json`
+(VM/EM 2019-2026, stillingen efter 60 min) med spillets egne
+`updateElo`/`outcomeProbabilities` og vælger K, `DRAW_BASE` og startstyrkerne
+ved log-loss. Resultatet står i `SPORT_PROFILER.haandbold`
+(`src/lib/superligaScoring.js`, med tabellen i kommentaren) og i `elo`-feltet i
+`src/data/haandboldVm2027Hold.js`. `scripts/lib/haandboldMaaling.test.mjs` og
+holdfilens test regner tallene efter, så en håndrettet værdi bliver rød.
+`DRAW_DECAY` er **låst** på 0,55 (umålelig med 47 uafgjorte), og `HFA` er 0:
+værtsfordelen ligger i værtens start-Elo, ikke i profilen.
 
 ## Formål (hvorfor modellen ser ud som den gør)
 Elo bruges til to ting i tippespillet:

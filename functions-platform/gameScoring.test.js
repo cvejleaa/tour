@@ -2133,7 +2133,7 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
     expect(e.message).toContain('Spillet "vm-haandbold"');
     expect(e.message).toContain('sport ["fodbold"]');
     expect(e.message).not.toContain('sport "fodbold"');
-    expect(e.message).toContain('(kendte: fodbold)');
+    expect(e.message).toContain('(kendte: fodbold, haandbold)');
     expect(e.message).toMatch(/IKKE omprist noget — heller ikke i tør-kørslen/);
     expect(e.message).toMatch(/ret det dér og kør seedGames; skal feltet væk \(fodbold\), så fjern det i Firebase-konsollen/);
     expect(ukendtSportFejl('g', 123).message).toContain('sport 123,');
@@ -2146,16 +2146,16 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
     }
   });
 
-  // Med fodbold alene er "kendte: fodbold" også, hvad en hardkodet
-  // `const kendte = 'fodbold'` giver. Listen skal komme af REGISTRET.
+  // En hardkodet liste ville også kunne give "kendte: fodbold, haandbold".
+  // Listen skal komme af REGISTRET — så en prøvesport skal stå med.
   it('ukendtSportFejl: de kendte sporter læses af registret — en prøvesport står med', () => {
     scoring.SPORT_PROFILER.proeve = { sport: 'proeve', elo: { START: 1000, HFA: 0, K: 40, DRAW_BASE: 0.05, DRAW_DECAY: 0.2 }, odds: { min: 1.01 } };
     try {
-      expect(ukendtSportFejl('g', 'handbold').message).toContain('(kendte: fodbold, proeve)');
+      expect(ukendtSportFejl('g', 'handbold').message).toContain('(kendte: fodbold, haandbold, proeve)');
     } finally {
       delete scoring.SPORT_PROFILER.proeve;
     }
-    expect(ukendtSportFejl('g', 'handbold').message).toContain('(kendte: fodbold)');
+    expect(ukendtSportFejl('g', 'handbold').message).toContain('(kendte: fodbold, haandbold)');
   });
 
   // Knappens HELE vej: kaldet og oversættelsen. Før stod de i index.js og var
@@ -2181,6 +2181,28 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
         expect(JSON.stringify(db._matches.map((m) => m.data))).toBe(foerKampe);
       });
     }
+
+    // D4: håndbold er MÅLT og dermed kendt. Før blev et håndboldspil afvist af
+    // knappen (ukendt sport); nu skal det omprises med HÅNDBOLDENS tal —
+    // K 120, HFA 0, base 0,155, gulv 1,01 — og ikke med fodboldens.
+    it('håndbold (målt i D4) afvises ikke længere — og omprises med håndboldprofilen', async () => {
+      const db = nytDb({ sport: 'haandbold' });
+      const svar = await omprisFraKnap(db, FieldValue, 'hvm2027', GOLDEN_NU_MS, false, HttpsError);
+      const hb = scoring.SPORT_PROFILER.haandbold;
+      expect(svar.updated).toBeGreaterThan(50);
+      const kampe = new Map(db._matches.map((m) => [m.data.id, m.data]));
+      for (const a of svar.aendringer) {
+        const m = kampe.get(a.id);
+        expect(m.odds, a.id).toEqual(a.efter);
+        expect(a.efter, a.id).toEqual(scoring.outcomeOdds({ eloHome: m.eloHome, eloAway: m.eloAway, ...scoring.oddsParametre(hb) }));
+      }
+      // Den levende Elo er regnet med K 120 og uden hjemmebane: samme facit,
+      // andre ratings end fodboldens.
+      expect(db._game.eloCurrent).not.toEqual(golden.sl.eloCurrent);
+      const fodbold = nytDb({});
+      await recomputeSeasonElo(fodbold, FieldValue, 'sl', GOLDEN_NU_MS, { dryRun: false });
+      expect(fodbold._game.eloCurrent).toEqual(golden.sl.eloCurrent);
+    });
 
     it('en kendt sport giver præcis recomputeSeasonElo-svaret — og dryRun sendes igennem', async () => {
       const tor = nytDb({});

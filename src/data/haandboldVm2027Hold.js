@@ -23,18 +23,32 @@
 // `aliaser` andre koder, kilden har brugt for samme hold (fx på en ældre side).
 //           Tom for alle i dag; feltet findes, så en ny kode kan tilføjes uden
 //           at ændre opslaget (`holdForKode`).
+// `elo`     STARTSTYRKEN, MÅLT af scripts/maal-haandbold.mjs (afsnit 7): Elo
+//           efter alle 677 kampe i scripts/haandbold-historik.json (VM 2019-
+//           EM 2026, stillingen efter 60 min) med håndboldprofilens K og
+//           metodens parametre (scripts/lib/haandboldMaaling.mjs, STARTMETODE).
+//           Seedet prissætter de første kampe med den, og den levende Elo
+//           (recomputeSeasonElo) starter fra den. Testen regner den efter —
+//           et håndrettet tal her bliver rødt.
+//           To undtagelser, begge dokumenteret og testet:
+//             Tyskland: målt 1900 + værtsfordelen 25 = 1925. VM 2027 spilles
+//               kun i Tyskland, og spillets HFA er 0 (neutral bane), så
+//               værtsfordelen ligger i holdets start-Elo (planen B5). Målt
+//               separat: bedste værdi 25-30 Elo-point, 95 %-interval 0-140 —
+//               svagt bestemt, men data foretrækker den frem for 0.
+//             Tyrkiet: ingen kampe i historikken (ikke med ved VM/EM 2019-
+//               2026) → 1150, målingens bedste rating for et hold, der dukker
+//               op første gang (STARTMETODE.nyStart). INGEN tavs fallback til
+//               profilens START (1500, skalaens nulpunkt): testen kræver et
+//               tal på hvert hold, og at præcis de hold uden historik — i dag
+//               kun Tyrkiet — har nyStart.
+//           Usikre, og det er accepteret (§11.8): ratingerne er recency-
+//           tunge (K 120), og EM 2026-finalen (DEN-GER) mangler i historikken.
 //
 // MED VILJE UDELADT:
 //   - `venue`: alle kampe spilles på neutral bane (kun Tyskland er hjemme), og
 //     et hjemmestadion på kampkortet ville være forkert for 31 af 32
 //     (FootballTip viser `venue`, når holdet har en).
-//   - `elo`: startstyrkerne MÅLES i delopgave D4 og skrives ind dér. Indtil da
-//     viser seed-footballs tør-kørsel neutrale odds uden advarsel, og `--skriv`
-//     vil efter al sandsynlighed fejle ved `gameRef.set`, fordi `eloCurrent`
-//     får `undefined`-værdier (seed-football.mjs:288-289, :322 — udledt af
-//     koden, ikke kørt). D6 seeder derfor ikke, før D4 har sat tallene
-//     (planen §12.2). D4 skal VENDE fraværs-testen «INGEN elo» i
-//     haandboldVm2027Hold.test.js.
 //   - farver: lægges ind i D6 (eller i admin); uden farve tegnes holdet gråt.
 //
 // Grupperne står i kampprogrammet, ikke her: et hold har ét navn hele
@@ -42,38 +56,38 @@
 // ---------------------------------------------------------------------------
 
 export const HAANDBOLD_VM2027_HOLD = [
-  { name: 'Tyskland',        short: 'GER', hbKode: 'GER', ihfNavn: 'Germany',                   aliaser: [] },
-  { name: 'Serbien',         short: 'SRB', hbKode: 'SRB', ihfNavn: 'Serbia',                    aliaser: [] },
-  { name: 'Tunesien',        short: 'TUN', hbKode: 'TUN', ihfNavn: 'Tunisia',                   aliaser: [] },
-  { name: 'Uruguay',         short: 'URU', hbKode: 'URU', ihfNavn: 'Uruguay',                   aliaser: [] },
-  { name: 'Egypten',         short: 'EGY', hbKode: 'EGY', ihfNavn: 'Egypt',                     aliaser: [] },
-  { name: 'Italien',         short: 'ITA', hbKode: 'ITA', ihfNavn: 'Italy',                     aliaser: [] },
-  { name: 'Kap Verde',       short: 'CPV', hbKode: 'CPV', ihfNavn: 'Cape Verde',                aliaser: [] },
-  { name: 'Saudi-Arabien',   short: 'KSA', hbKode: 'KSA', ihfNavn: 'Saudi Arabia',              aliaser: [] },
-  { name: 'Kroatien',        short: 'CRO', hbKode: 'CRO', ihfNavn: 'Croatia',                   aliaser: [] },
-  { name: 'Spanien',         short: 'ESP', hbKode: 'ESP', ihfNavn: 'Spain',                     aliaser: [] },
-  { name: 'Chile',           short: 'CHI', hbKode: 'CHI', ihfNavn: 'Chile',                     aliaser: [] },
-  { name: 'Tyrkiet',         short: 'TUR', hbKode: 'TUR', ihfNavn: 'Türkiye',                   aliaser: [] },
-  { name: 'Argentina',       short: 'ARG', hbKode: 'ARG', ihfNavn: 'Argentina',                 aliaser: [] },
-  { name: 'Frankrig',        short: 'FRA', hbKode: 'FRA', ihfNavn: 'France',                    aliaser: [] },
-  { name: 'Brasilien',       short: 'BRA', hbKode: 'BRA', ihfNavn: 'Brazil',                    aliaser: [] },
-  { name: 'Kuwait',          short: 'KUW', hbKode: 'KUW', ihfNavn: 'Kuwait',                    aliaser: [] },
-  { name: 'Sverige',         short: 'SWE', hbKode: 'SWE', ihfNavn: 'Sweden',                    aliaser: [] },
-  { name: 'Norge',           short: 'NOR', hbKode: 'NOR', ihfNavn: 'Norway',                    aliaser: [] },
-  { name: 'Grækenland',      short: 'GRE', hbKode: 'GRE', ihfNavn: 'Greece',                    aliaser: [] },
-  { name: 'Qatar',           short: 'QAT', hbKode: 'QAT', ihfNavn: 'Qatar',                     aliaser: [] },
-  { name: 'Portugal',        short: 'POR', hbKode: 'POR', ihfNavn: 'Portugal',                  aliaser: [] },
-  { name: 'Færøerne',        short: 'FRO', hbKode: 'FRO', ihfNavn: 'Faroe Islands',             aliaser: [] },
-  { name: 'Polen',           short: 'POL', hbKode: 'POL', ihfNavn: 'Poland',                    aliaser: [] },
-  { name: 'Algeriet',        short: 'ALG', hbKode: 'ALG', ihfNavn: 'Algeria',                   aliaser: [] },
-  { name: 'Danmark',         short: 'DEN', hbKode: 'DEN', ihfNavn: 'Denmark',                   aliaser: [] },
-  { name: 'Slovenien',       short: 'SLO', hbKode: 'SLO', ihfNavn: 'Slovenia',                  aliaser: [] },
-  { name: 'USA',             short: 'USA', hbKode: 'USA', ihfNavn: 'United States of America',  aliaser: [] },
-  { name: 'Angola',          short: 'ANG', hbKode: 'ANG', ihfNavn: 'Angola',                    aliaser: [] },
-  { name: 'Island',          short: 'ISL', hbKode: 'ISL', ihfNavn: 'Iceland',                   aliaser: [] },
-  { name: 'Nordmakedonien',  short: 'MKD', hbKode: 'MKD', ihfNavn: 'North Macedonia',           aliaser: [] },
-  { name: 'Bahrain',         short: 'BHR', hbKode: 'BHR', ihfNavn: 'Bahrain',                   aliaser: [] },
-  { name: 'Japan',           short: 'JPN', hbKode: 'JPN', ihfNavn: 'Japan',                     aliaser: [] },
+  { name: 'Tyskland',        short: 'GER', hbKode: 'GER', ihfNavn: 'Germany',                   aliaser: [], elo: 1925 }, // 1900 + 25 værtsfordel
+  { name: 'Serbien',         short: 'SRB', hbKode: 'SRB', ihfNavn: 'Serbia',                    aliaser: [], elo: 1358 },
+  { name: 'Tunesien',        short: 'TUN', hbKode: 'TUN', ihfNavn: 'Tunisia',                   aliaser: [], elo: 1188 },
+  { name: 'Uruguay',         short: 'URU', hbKode: 'URU', ihfNavn: 'Uruguay',                   aliaser: [], elo: 838 },
+  { name: 'Egypten',         short: 'EGY', hbKode: 'EGY', ihfNavn: 'Egypt',                     aliaser: [], elo: 1681 },
+  { name: 'Italien',         short: 'ITA', hbKode: 'ITA', ihfNavn: 'Italy',                     aliaser: [], elo: 1316 },
+  { name: 'Kap Verde',       short: 'CPV', hbKode: 'CPV', ihfNavn: 'Cape Verde',                aliaser: [], elo: 1127 },
+  { name: 'Saudi-Arabien',   short: 'KSA', hbKode: 'KSA', ihfNavn: 'Saudi Arabia',              aliaser: [], elo: 1178 },
+  { name: 'Kroatien',        short: 'CRO', hbKode: 'CRO', ihfNavn: 'Croatia',                   aliaser: [], elo: 1849 },
+  { name: 'Spanien',         short: 'ESP', hbKode: 'ESP', ihfNavn: 'Spain',                     aliaser: [], elo: 1560 },
+  { name: 'Chile',           short: 'CHI', hbKode: 'CHI', ihfNavn: 'Chile',                     aliaser: [], elo: 1241 },
+  { name: 'Tyrkiet',         short: 'TUR', hbKode: 'TUR', ihfNavn: 'Türkiye',                   aliaser: [], elo: 1150 }, // ingen historik → nyStart
+  { name: 'Argentina',       short: 'ARG', hbKode: 'ARG', ihfNavn: 'Argentina',                 aliaser: [], elo: 1379 },
+  { name: 'Frankrig',        short: 'FRA', hbKode: 'FRA', ihfNavn: 'France',                    aliaser: [], elo: 1749 },
+  { name: 'Brasilien',       short: 'BRA', hbKode: 'BRA', ihfNavn: 'Brazil',                    aliaser: [], elo: 1635 },
+  { name: 'Kuwait',          short: 'KUW', hbKode: 'KUW', ihfNavn: 'Kuwait',                    aliaser: [], elo: 1230 },
+  { name: 'Sverige',         short: 'SWE', hbKode: 'SWE', ihfNavn: 'Sweden',                    aliaser: [], elo: 1631 },
+  { name: 'Norge',           short: 'NOR', hbKode: 'NOR', ihfNavn: 'Norway',                    aliaser: [], elo: 1637 },
+  { name: 'Grækenland',      short: 'GRE', hbKode: 'GRE', ihfNavn: 'Greece',                    aliaser: [], elo: 1089 },
+  { name: 'Qatar',           short: 'QAT', hbKode: 'QAT', ihfNavn: 'Qatar',                     aliaser: [], elo: 1214 },
+  { name: 'Portugal',        short: 'POR', hbKode: 'POR', ihfNavn: 'Portugal',                  aliaser: [], elo: 1773 },
+  { name: 'Færøerne',        short: 'FRO', hbKode: 'FRO', ihfNavn: 'Faroe Islands',             aliaser: [], elo: 1264 },
+  { name: 'Polen',           short: 'POL', hbKode: 'POL', ihfNavn: 'Poland',                    aliaser: [], elo: 1238 },
+  { name: 'Algeriet',        short: 'ALG', hbKode: 'ALG', ihfNavn: 'Algeria',                   aliaser: [], elo: 930 },
+  { name: 'Danmark',         short: 'DEN', hbKode: 'DEN', ihfNavn: 'Denmark',                   aliaser: [], elo: 2055 },
+  { name: 'Slovenien',       short: 'SLO', hbKode: 'SLO', ihfNavn: 'Slovenia',                  aliaser: [], elo: 1559 },
+  { name: 'USA',             short: 'USA', hbKode: 'USA', ihfNavn: 'United States of America',  aliaser: [], elo: 1300 },
+  { name: 'Angola',          short: 'ANG', hbKode: 'ANG', ihfNavn: 'Angola',                    aliaser: [], elo: 1071 },
+  { name: 'Island',          short: 'ISL', hbKode: 'ISL', ihfNavn: 'Iceland',                   aliaser: [], elo: 1695 },
+  { name: 'Nordmakedonien',  short: 'MKD', hbKode: 'MKD', ihfNavn: 'North Macedonia',           aliaser: [], elo: 1444 },
+  { name: 'Bahrain',         short: 'BHR', hbKode: 'BHR', ihfNavn: 'Bahrain',                   aliaser: [], elo: 1152 },
+  { name: 'Japan',           short: 'JPN', hbKode: 'JPN', ihfNavn: 'Japan',                     aliaser: [], elo: 1157 },
 ];
 
 /**

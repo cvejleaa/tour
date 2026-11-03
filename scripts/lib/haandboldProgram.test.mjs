@@ -199,7 +199,8 @@ describe('den indledende runde', () => {
     const ukendte = P.fixtures.flatMap((f) => [f.home, f.away]).filter((n) => !navne.has(n));
     expect(ukendte).toEqual([]);
     // buildMatches bevarer id'et — ellers skrev seedet til et andet dokument.
-    // Fodboldprofilen: håndboldens måles i D4. Her gælder det kun id'et.
+    // Her gælder det kun id'et — profilen er ligegyldig for det (håndboldens
+    // odds er testet i src/lib/sportProfil.test.js).
     const m = buildMatches(P.fixtures, HAANDBOLD_VM2027_HOLD, sportProfil());
     expect(m.map((x) => x.id)).toEqual(P.fixtures.map((f) => f.id));
   });

@@ -238,8 +238,9 @@ function outcomeOdds(eloArgs) {
 // --- Sportsprofil (spejl af src): tallene, der hører til SPORTEN -------------
 // Fuld begrundelse i src/lib/superligaScoring.js. Kort: et spil uden `sport`
 // er fodbold, fodbold bygges AF ELO/ODDS (intet skrevet af), profilerne er
-// frosset, registret er ikke (testene lægger en prøvesport ind), og der er
-// endnu ingen håndboldprofil — dens tal skal måles først.
+// frosset, registret er ikke (testene lægger en prøvesport ind). Håndbold er
+// MÅLT med scripts/maal-haandbold.mjs og skrevet som literaler — målingens
+// tabel og begrundelsen for hvert tal står ved profilen i src.
 const STANDARD_SPORT = 'fodbold';
 
 function frys(o) {
@@ -252,6 +253,15 @@ const SPORT_PROFILER = {
     sport: 'fodbold',
     elo: { ...ELO },
     odds: { min: ODDS.MIN },
+  }),
+  // K 120 (95 % 80-160), DRAW_BASE 0,157 (95 % 0,118-0,203), DRAW_DECAY 0,55
+  // LÅST (umålelig: 95 % 0-0,88), HFA 0 (neutral bane; værtsfordelen ligger
+  // i værtens start-Elo), START 1500 (skalaens nulpunkt), gulv 1,01 (binder
+  // aldrig: laveste odds er 1,06). Se src/lib/superligaScoring.js.
+  haandbold: frys({
+    sport: 'haandbold',
+    elo: { START: 1500, HFA: 0, K: 120, DRAW_BASE: 0.157, DRAW_DECAY: 0.55 },
+    odds: { min: 1.01 },
   }),
 };
 
@@ -279,7 +289,7 @@ function ukendtSport(game) {
 // --- Sportens ORD: hvad tingene hedder, uafhængigt af Elo-tallene ----------
 //
 // EN EGEN DEL, IKKE ET FELT PÅ PROFILEN. Ordene for håndbold er besluttet af
-// ejeren (§11.2: "Dagens konge"), men håndboldens Elo-tal er ikke målt endnu
+// ejeren (§11.2: "Dagens konge"), og de kom FØR håndboldens Elo-tal var målt
 // (delopgave 4). Lå ordene på profilen, krævede de en håndboldprofil — og en
 // håndboldprofil med fodboldens tal ville gøre 'haandbold' til en KENDT sport
 // for ukendtSport, så seed og Ompris prissatte med umålte tal uden at sige fra.
@@ -320,7 +330,7 @@ function sportOrd(game) {
 // --- Sportens EVNER (spejl af src) -------------------------------------------
 // Fuld begrundelse i src/lib/superligaScoring.js. Kort: en evne som "spilles
 // der på hjemmebane" er et faktum om sporten, ikke et målt tal, så den bor i
-// sit eget register og kan komme før håndboldprofilen. harHjemmebane kræver
+// sit eget register og kom før håndboldprofilen. harHjemmebane kræver
 // JA fra både evnen og modellen (HFA > 0).
 const SPORT_EVNER = {
   fodbold: frys({ hjemmebane: true }),

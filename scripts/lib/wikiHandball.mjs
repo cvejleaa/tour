@@ -175,8 +175,9 @@ export function findHandballboxe(wikitekst) {
 //     Koden COR er vores, ikke sidens: siden bruger KOR som nøgle i
 //     gruppetabellen (|name_KOR=…), men holdet er IKKE Sydkorea (det havde
 //     spillere fra både Syd- og Nordkorea), og KOR er Sydkoreas kode i VM
-//     2021 og 2023. Om COR skal kædes til KOR i Elo, afgør målingen (D4) —
-//     her får holdet bare en stabil kode, der ikke blander dem sammen.
+//     2021 og 2023. Målingen (D4) har afgjort, at COR forbliver sit eget hold
+//     i Elo (ELO_SAMME i haandboldMaaling.mjs, tom; scripts/maal-haandbold.mjs
+//     afsnit 7b) — her får holdet en stabil kode, der ikke blander dem sammen.
 //   VM 2021: Rusland spillede som «Russian Handball Federation» (RHF), fordi
 //     WADA-sanktionen forbød navn og flag — ikke fordi det var et andet hold.
 //     Samme forbund, samme spillere, samme landshold (linket peger på

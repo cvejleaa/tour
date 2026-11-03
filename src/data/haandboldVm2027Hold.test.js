@@ -11,8 +11,12 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { HAANDBOLD_VM2027_HOLD, holdForKode, holdForIhfNavn } from './haandboldVm2027Hold';
+import { SPORT_PROFILER } from '../lib/superligaScoring';
+import { teamElo } from '../lib/superligaSeed';
+import { holdStartElo, valgteParametre, STARTMETODE } from '../../scripts/lib/haandboldMaaling.mjs';
 
 const PROGRAM = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/haandbold-vm2027-program.json'), 'utf8'));
+const HISTORIK = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/haandbold-historik.json'), 'utf8'));
 
 describe('listens form', () => {
   it('har præcis 32 hold med entydige navne, kortkoder og kildekoder', () => {
@@ -33,15 +37,9 @@ describe('listens form', () => {
   });
 
   // Neutral bane: et hjemmestadion ville stå på kampkortet for 31 af 32 hold
-  // og være forkert for dem alle. Og Elo måles i D4 — et tal her før målingen
-  // ville være et gæt, der så ud som et resultat.
-  // D4 SKAL VENDE elo-halvdelen af denne test, når startstyrkerne skrives ind
-  // (CLAUDE.md: «En test kan fastfryse en fejl»). venue-halvdelen består.
-  it('har INGEN venue og INGEN elo', () => {
-    for (const t of HAANDBOLD_VM2027_HOLD) {
-      expect(t, t.name).not.toHaveProperty('venue');
-      expect(t, t.name).not.toHaveProperty('elo');
-    }
+  // og være forkert for dem alle.
+  it('har INGEN venue', () => {
+    for (const t of HAANDBOLD_VM2027_HOLD) expect(t, t.name).not.toHaveProperty('venue');
   });
 
   it('kode → dansk navn for alle 32 (skrevet ud, så et ombytte er rødt)', () => {
@@ -56,6 +54,57 @@ describe('listens form', () => {
       DEN: 'Danmark', SLO: 'Slovenien', USA: 'USA', ANG: 'Angola',
       ISL: 'Island', MKD: 'Nordmakedonien', BHR: 'Bahrain', JPN: 'Japan',
     });
+  });
+});
+
+// STARTSTYRKERNE (D4). Vendt fra «INGEN elo», da målingen landede. Et hold
+// uden elo-felt fik før TAVST sportens START i seedet (teamElo) — og et tal
+// skrevet i hånden ville se ud som en måling. Begge dele skal være røde.
+describe('elo: startstyrken er målt, aldrig en tavs fallback', () => {
+  const PROFIL = SPORT_PROFILER.haandbold;
+  const maalt = holdStartElo(HISTORIK, HAANDBOLD_VM2027_HOLD, valgteParametre(PROFIL));
+
+  it('hvert hold har sit EGET elo-felt, og det er et endeligt heltal', () => {
+    for (const t of HAANDBOLD_VM2027_HOLD) {
+      expect(Object.hasOwn(t, 'elo'), t.name).toBe(true);
+      expect(Number.isInteger(t.elo), `${t.name}: ${String(t.elo)}`).toBe(true);
+    }
+  });
+
+  it('seedet når aldrig fallbacken: teamElo med et UGYLDIGT start giver holdets eget tal for alle 32', () => {
+    // Faldt et hold tilbage, gav det NaN her — og ikke 1500, som ligner et tal.
+    for (const t of HAANDBOLD_VM2027_HOLD) expect(teamElo(HAANDBOLD_VM2027_HOLD, t.name, NaN), t.name).toBe(t.elo);
+  });
+
+  it('ingen har profilens START (1500, skalaens nulpunkt) — det er fallbackens tal, ikke en måling', () => {
+    expect(PROFIL.elo.START).toBe(1500);
+    expect(HAANDBOLD_VM2027_HOLD.filter((t) => t.elo === PROFIL.elo.START).map((t) => t.name)).toEqual([]);
+  });
+
+  it('hvert tal ER målingen (scripts/maal-haandbold.mjs afsnit 7) — et håndrettet tal er rødt', () => {
+    const fil = Object.fromEntries(HAANDBOLD_VM2027_HOLD.map((t) => [t.hbKode, t.elo]));
+    const ud = Object.fromEntries(maalt.map((h) => [h.kode, h.elo]));
+    expect(fil).toEqual(ud);
+  });
+
+  it('kun hold UDEN historik har nyStart (1150) — i dag præcis Tyrkiet', () => {
+    expect(maalt.filter((h) => !h.harHistorik).map((h) => h.kode)).toEqual(['TUR']);
+    expect(holdForKode('TUR').elo).toBe(STARTMETODE.nyStart);
+    // Et hold MED historik må ikke stå på nyStart: det ville være et hold, hvis
+    // kampe er tabt i opslaget (fx en kode, historikken skriver anderledes).
+    for (const h of maalt.filter((x) => x.harHistorik)) expect(h.kampe, h.kode).toBeGreaterThan(0);
+  });
+
+  it('Tyskland (eneste vært 2027) har værtsfordelen lagt oveni: 1900 + 25 = 1925', () => {
+    const ger = maalt.find((h) => h.kode === 'GER');
+    expect(ger.vaert).toBe(STARTMETODE.vaert);
+    expect(holdForKode('GER').elo).toBe(1925);
+    expect(maalt.filter((h) => h.vaert > 0).map((h) => h.kode)).toEqual(['GER']);
+  });
+
+  it('top-10, som ejeren så den (planen §11.8) — en ændring i målingen skal ses her', () => {
+    const top = [...HAANDBOLD_VM2027_HOLD].sort((a, b) => b.elo - a.elo).slice(0, 10).map((t) => `${t.hbKode} ${t.elo}`);
+    expect(top).toEqual(['DEN 2055', 'GER 1925', 'CRO 1849', 'POR 1773', 'FRA 1749', 'ISL 1695', 'EGY 1681', 'NOR 1637', 'BRA 1635', 'SWE 1631']);
   });
 });
 

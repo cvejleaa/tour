@@ -199,7 +199,8 @@ den gamle, se «Et rettet holdnavn eller en rettet runde» ovenfor.
 `--kickoffs-only` melder den som **IKKE SEEDET**. Den situation skal afgøres
 bevidst og må ikke køres igennem.
 
-**Historikken** (færdige kampe til målingen af håndboldprofilen, D4):
+**Historikken** (færdige kampe til målingen af håndboldprofilen, D4 — selve
+målingen er `node scripts/maal-haandbold.mjs`, se docs/elo-metodik.md):
 
 ```bash
 NODE_USE_ENV_PROXY=1 node scripts/haandbold-historik.mjs           # alle 8 turneringer, vis

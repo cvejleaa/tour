@@ -346,7 +346,8 @@ export function outcomeProbabilities({
  * src/lib/sportProfil.test.js, "odds-gulvet er en profilværdi"). Dér binder
  * 1,1 og giver favorittippet positiv forventning. Derfor er gulvet en
  * profilværdi (`profil.odds.min`, se sportProfil), og MIN her er kun
- * fodboldens.
+ * fodboldens. Den MÅLTE håndboldprofil når p ≈ 0,948 (laveste odds 1,06) —
+ * her ville 1,1 binde, og derfor har den gulvet 1,01 (SPORT_PROFILER.haandbold).
  *
  * Måles med scripts/maal-chancen.mjs (tabellen ovenfor) og
  * scripts/maal-spilbalance.mjs (1X2 og combi). Se docs/spilbalance.md.
@@ -419,19 +420,77 @@ function frys(o) {
  * kan ELO og profilen ikke drive fra hinanden, og en model-ændring i ELO
  * (målt med scripts/maal-uafgjort.mjs) slår igennem begge steder.
  *
- * Der er bevidst INGEN håndboldprofil endnu: dens tal skal måles først
- * (harness i scripts/, ikke tal uden kode — se CLAUDE.md).
+ * Håndbold er MÅLT (se kommentaren ved profilen nedenfor) og skrevet som
+ * literaler: dens tal må ikke flytte sig, fordi fodboldens gør.
  *
  * Selve REGISTRET er ikke frosset, kun profilerne i det. Testene lægger en
  * prøvesport ind for at bevise, at hvert kaldested faktisk bruger SPILLETS
- * profil — så længe fodbold er den eneste profil, er en fjernet profil i et
- * kald ellers usynlig, fordi standardværdierne er de samme tal.
+ * profil — standardværdierne er fodboldens, så kun en profil med andre tal
+ * end fodboldens kan afsløre et kald, der har tabt profilen.
  */
 export const SPORT_PROFILER = {
   fodbold: frys({
     sport: 'fodbold',
     elo: { ...ELO },
     odds: { min: ODDS.MIN },
+  }),
+
+  /**
+   * HÅNDBOLD (herrer, VM/EM). Målt med scripts/maal-haandbold.mjs på
+   * scripts/haandbold-historik.json: 677 kampe fra VM 2019 til EM 2026, på
+   * stillingen EFTER 60 MIN (det, der tippes på — også i knockout, §11.1).
+   * Kampene køres kronologisk med spillets egen updateElo/outcomeProbabilities;
+   * log-loss over de 516 kampe fra VM 2021 og frem (VM 2019 + EM 2020 er
+   * opvarmning, for dér starter alle hold i 1500).
+   *
+   *     variant                     K     base    decay   log-loss   Brier
+   *     håndbold (denne profil)    120   0,157   0,55    0,7131    0,4066
+   *     fodboldens K                20   0,157   0,55    0,7568    0,4368
+   *     fodboldens uafgjort        120   0,305   0,55    0,7434    0,4204
+   *     fodbold (K, base, decay)    20   0,305   0,55    0,7888    0,4502
+   *     uden Elo (flad rate)         —   0,083      —    0,9355
+   *
+   * UAFGJORT efter 60 min er 8,3 % (56 af 677) mod fodboldens 24,3 %
+   * (1.493 af 6.143, scripts/maal-uafgjort.mjs). I knockout 18,6 % (8 af 43).
+   *
+   * K = 120 — seks gange fodboldens. 95 %-intervallet er 80-160, og
+   * fodboldens 20 ligger 17,1 log-likelihood-enheder fra (grænsen er 1,92).
+   * Det er ikke et udslag af indsvingningen: opvarmningen har sin egen K (150,
+   * se scripts/lib/haandboldMaaling.mjs), og K her er den, der forudsiger bedst
+   * BAGEFTER. Håndbold har få kampe pr. hold (højst 9 pr. turnering) og store
+   * styrkeforskelle, så hver kamp skal flytte meget. Prisen: den levende Elo
+   * svinger mere i løbet af turneringen end i fodbold (op til ±120 pr. kamp).
+   *
+   * DRAW_BASE = 0,157 (95 % 0,118-0,203 — fodboldens 0,305 ligger UDEN FOR).
+   *
+   * DRAW_DECAY = 0,55 er LÅST, ikke målt. Med 47 uafgjorte i de målte kampe
+   * er decay umålelig: et frit fit giver 0,44 med 95 %-interval 0-0,88, altså
+   * både "ingen afhængighed af styrkeforskel" og fodboldens form. Låsen er
+   * fodboldens målte 0,55 (begrundelsen står ved DECAY_LAAS i
+   * scripts/lib/haandboldMaaling.mjs), og kun base er fittet. Låst giver den
+   * 46,8 forventede uafgjorte mod 47 faktiske; fodboldens model 91,0.
+   *
+   * HFA = 0: VM spilles på neutral bane (planen B5). Værtsfordelen er målt
+   * separat til 25-30 Elo-point (95 % 0-140, svagt bestemt) og ligger i
+   * Tysklands START-Elo i src/data/haandboldVm2027Hold.js, ikke her.
+   *
+   * START = 1500: skalaens nulpunkt — målingen starter alle hold dér i VM
+   * 2019 (MIDTE i scripts/lib/haandboldMaaling.mjs), præcis som fodbold. Det
+   * er IKKE ratingen for et hold uden historik: den er målt til 1150
+   * (STARTMETODE.nyStart) og står eksplicit i holdfilen (Tyrkiet). START er
+   * kun teamElo's fallback, og seedet advarer i tør-kørslen og afviser med
+   * --skriv både et ukendt holdnavn og et hold uden elo
+   * (scripts/lib/fuldtSeed.mjs), så den når ikke et håndboldodds ad den vej.
+   *
+   * ODDS-GULVET 1,01 (§11.5, Spilfører): det må aldrig binde. Den højeste
+   * sandsynlighed modellen kan give er 1 − 0,157·e^(−1,1) ≈ 0,948 → laveste
+   * odds 1,06. Fodboldens gulv 1,1 ville binde over p = 0,909 og give
+   * favorittippet positiv forventning; 1,01 kan ikke nås.
+   */
+  haandbold: frys({
+    sport: 'haandbold',
+    elo: { START: 1500, HFA: 0, K: 120, DRAW_BASE: 0.157, DRAW_DECAY: 0.55 },
+    odds: { min: 1.01 },
   }),
 };
 
@@ -469,7 +528,7 @@ export function ukendtSport(game) {
 // --- Sportens ORD: hvad tingene hedder, uafhængigt af Elo-tallene ----------
 //
 // EN EGEN DEL, IKKE ET FELT PÅ PROFILEN. Ordene for håndbold er besluttet af
-// ejeren (§11.2: "Dagens konge"), men håndboldens Elo-tal er ikke målt endnu
+// ejeren (§11.2: "Dagens konge"), og de kom FØR håndboldens Elo-tal var målt
 // (delopgave 4). Lå ordene på profilen, krævede de en håndboldprofil — og en
 // håndboldprofil med fodboldens tal ville gøre 'haandbold' til en KENDT sport
 // for ukendtSport, så seed og Ompris prissatte med umålte tal uden at sige fra.
@@ -516,8 +575,8 @@ export function sportOrd(game) {
 //
 // Et TREDJE register, ved siden af profilen og ordene, af samme grund som
 // ordene: en evne som "spilles der på hjemmebane" er et faktum om sporten
-// (håndbold-VM spilles på neutral bane), ikke et målt tal — og den skal kunne
-// komme før håndboldprofilen (delopgave 4). Ordene er tekster, evnerne er
+// (håndbold-VM spilles på neutral bane), ikke et målt tal — og den kom før
+// håndboldprofilen (delopgave 4). Ordene er tekster, evnerne er
 // sandt/falsk; de blandes ikke, så formtesten for ordene stadig kan kræve
 // ikke-tomme tekster.
 //
@@ -544,12 +603,10 @@ export function sportEvner(game) {
  * Guiden må hverken sige "takket være hjemmebanen" om en model uden
  * hjemmebanefordel (en profil med HFA 0) eller om en sport på neutral bane.
  * Og at de to ikke modsiger hinanden for en sport med begge dele, vogtes af
- * en test over begge registre (sportProfil.test.js) — måler delopgave 4 en
- * hjemmebanefordel for håndbold, bliver den rød og kræver en beslutning.
- *
- * Indtil håndboldprofilen findes, prissættes et håndboldspil slet ikke:
- * seed og Ompris afviser sporten (ukendtSport). Der kan altså ikke stå
- * fodboldens hjemmebane-odds på et spil, hvis tekster siger neutral bane.
+ * en test over begge registre (sportProfil.test.js) — får håndboldprofilen
+ * en dag en hjemmebanefordel (HFA > 0), bliver den rød og kræver en
+ * beslutning. Den målte værtsfordel ligger i værtens start-Elo, ikke i HFA
+ * (se SPORT_PROFILER.haandbold), så de to er enige: neutral bane, HFA 0.
  */
 export function harHjemmebane(game) {
   return sportEvner(game).hjemmebane === true && sportProfil(game).elo.HFA > 0;

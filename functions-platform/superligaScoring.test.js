@@ -286,7 +286,20 @@ describe('sportsprofilen: server-spejlet er identisk med src', () => {
     const src = await import('../src/lib/superligaScoring.js');
     expect(STANDARD_SPORT).toBe(src.STANDARD_SPORT);
     expect(SPORT_PROFILER).toEqual(src.SPORT_PROFILER);
-    expect(Object.keys(SPORT_PROFILER)).toEqual(['fodbold']); // ingen håndbold før delopgave 4
+    // VENDT I D4 (her stod ['fodbold']): håndboldprofilen er målt.
+    expect(Object.keys(SPORT_PROFILER)).toEqual(['fodbold', 'haandbold']);
+    // Literaler i BEGGE ender, så en ændring i den ene ikke kan gemme sig bag
+    // toEqual-sammenligningen ovenfor, hvis begge ændres ens ved en fejl.
+    expect(SPORT_PROFILER.haandbold).toEqual({
+      sport: 'haandbold', elo: { START: 1500, HFA: 0, K: 120, DRAW_BASE: 0.157, DRAW_DECAY: 0.55 }, odds: { min: 1.01 },
+    });
+    expect(Object.isFrozen(SPORT_PROFILER.haandbold.elo)).toBe(true);
+    for (const g of [{ sport: 'haandbold' }, { id: 'hvm2027', type: 'football', sport: 'haandbold' }]) {
+      expect(sportProfil(g)).toBe(SPORT_PROFILER.haandbold);
+      expect(sportProfil(g)).toEqual(src.sportProfil(g));
+      expect(oddsParametre(sportProfil(g))).toEqual(src.oddsParametre(src.sportProfil(g)));
+      expect(eloParametre(sportProfil(g))).toEqual({ hfa: 0, k: 120 });
+    }
     for (const g of SPIL) {
       expect(sportProfil(g), JSON.stringify(g)).toEqual(src.sportProfil(g));
       // Ikke bare ens med src — det SKAL være fodbold. Ellers ville to spejle,
@@ -307,9 +320,12 @@ describe('sportsprofilen: server-spejlet er identisk med src', () => {
     for (const g of [undefined, null, {}, { sport: null }, { sport: undefined }, { sport: 'fodbold' }]) {
       expect(ukendtSport(g), JSON.stringify(g)).toBe(false);
     }
-    for (const sport of ['handbold', 'curling', 'Fodbold', '', 123, 'toString', '__proto__', 'constructor', ['fodbold']]) {
+    for (const sport of ['handbold', 'Haandbold', 'curling', 'Fodbold', '', 123, 'toString', '__proto__', 'constructor', ['fodbold'], ['haandbold']]) {
       expect(ukendtSport({ sport }), JSON.stringify(sport)).toBe(true);
     }
+    // Målt i D4: håndbold er kendt i begge ender — Ompris afviser den ikke længere.
+    expect(ukendtSport({ sport: 'haandbold' })).toBe(false);
+    expect(src.ukendtSport({ sport: 'haandbold' })).toBe(false);
     // En registreret sport er kendt — kun en streng finder den.
     SPORT_PROFILER.proeve = { sport: 'proeve', elo: { ...ELO }, odds: { min: 1.01 } };
     try {
