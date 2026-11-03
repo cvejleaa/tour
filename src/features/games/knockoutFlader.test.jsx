@@ -282,7 +282,16 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
     expect(t).toContain('fra dit daglige flow');
     expect(t).toContain('Sådan forløber en dag');
     expect(t).toContain('1 (det første hold på kampkortet vinder)');
-    expect(screen.getByTestId('hjaelp-neutral-bane').textContent).toContain('der regnes ingen hjemmebanefordel');
+    // Neutral bane — men værtens fordel findes (D4: Tyskland +25 i start-Elo),
+    // så teksten må ikke påstå, at der slet ingen er (modstanderen, D4).
+    const neutral = screen.getByTestId('hjaelp-neutral-bane').textContent.replace(/\s+/g, ' ');
+    expect(neutral).toContain('der lægges ingen hjemmebanefordel oven i den enkelte kamp. To hold med samme rating står altså lige.');
+    expect(neutral).toContain('En eventuel værtsfordel ligger allerede i værtens start-rating og regnes ikke med igen.');
+    expect(neutral).not.toContain('der regnes ingen hjemmebanefordel.');
+    // Start-ratingen er ikke «beregnet ud fra resultaterne» for ALLE: et hold
+    // uden historik (Tyrkiet, 1150) og værten er undtagelserne.
+    const undt = screen.getByTestId('hjaelp-start-undtagelser').textContent.replace(/\s+/g, ' ');
+    expect(undt).toBe('Et hold uden slutrunder bag sig får en fast start-rating under 1500, for nye hold klarer sig typisk dårligere end nulpunktet. Og spiller en værtsnation hjemme, kan der være lagt en værtsfordel ind i dens start-rating.');
     expect(screen.getByTestId('hjaelp-intet-loft')).toBeInTheDocument();
     expect(screen.getByTestId('hjaelp-uden-live')).toBeInTheDocument();
     expect(t).toContain('Combi-bonus pr. dag');
@@ -346,6 +355,8 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
     const t = vis(SL);
     expect(screen.queryByTestId('hjaelp-knockout')).toBeNull();
     expect(screen.queryByTestId('hjaelp-neutral-bane')).toBeNull();
+    expect(screen.queryByTestId('hjaelp-start-undtagelser')).toBeNull();
+    expect(t).not.toMatch(/værtsfordel|uden slutrunder/);
     expect(screen.queryByTestId('hjaelp-intet-loft')).toBeNull();
     expect(screen.queryByTestId('hjaelp-uden-live')).toBeNull();
     expect(t).toContain('1 (hjemmesejr)');

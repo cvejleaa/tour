@@ -582,7 +582,15 @@ export default function FootballHelp({ game }) {
           <li><strong>Holdene starter ikke alle på {START}.</strong> {START} er blot det neutrale
             nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra holdets
             resultater ved de seneste slutrunder — så en favorit starter <em>over</em> {START} og en
-            outsider <em>under</em>. Derfor er favoritter og outsidere forskellige allerede fra første kamp.</li>
+            outsider <em>under</em>. Derfor er favoritter og outsidere forskellige allerede fra første kamp.
+            {/* To undtagelser fra «beregnet ud fra resultaterne» (D4, holdfilen):
+                et hold uden slutrunder bag sig og værtens fordel. Teksten siger
+                «kan», fordi den gælder enhver turnering — om der er et nyt hold
+                eller en vært, står i holdenes data, ikke her. */}
+            {' '}<span data-testid="hjaelp-start-undtagelser">Et hold <strong>uden slutrunder</strong> bag sig
+            får en fast start-rating under {START}, for nye hold klarer sig typisk dårligere end nulpunktet.
+            Og spiller en <strong>værtsnation</strong> hjemme, kan der være lagt en værtsfordel ind i
+            dens start-rating.</span></li>
           ) : (
           <li><strong>Holdene starter ikke alle på {START}.</strong> {START} er blot det neutrale
             nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra de
@@ -599,8 +607,10 @@ export default function FootballHelp({ game }) {
             ikke 50/50 — hjemmeholdet forventes at tage omkring {hjemmeLige} % takket være hjemmebanen.</li>
           ) : (
           <li data-testid="hjaelp-neutral-bane">Før en kamp regnes en <strong>forventning</strong> ud fra
-            forskellen i rating — og kun den: der regnes ingen hjemmebanefordel. To hold med samme
-            rating står altså lige.</li>
+            forskellen i rating — og kun den: der lægges ingen hjemmebanefordel oven i den enkelte
+            kamp. To hold med samme rating står altså lige.{/* En vært findes kun i en
+            turnering (samme gate som start-rating-teksten ovenfor). */}{kal && <> En eventuel værtsfordel ligger allerede i
+            værtens start-rating og regnes ikke med igen.</>}</li>
           )}
           <li>Efter kampen flyttes rating mod resultatet: <em>ny rating = gammel + {K} ×
             (resultat − forventning)</em>, hvor resultat er 1 (sejr), ½ (uafgjort) eller 0 (nederlag).

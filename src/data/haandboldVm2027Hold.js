@@ -33,17 +33,25 @@
 //           To undtagelser, begge dokumenteret og testet:
 //             Tyskland: målt 1900 + værtsfordelen 25 = 1925. VM 2027 spilles
 //               kun i Tyskland, og spillets HFA er 0 (neutral bane), så
-//               værtsfordelen ligger i holdets start-Elo (planen B5). Målt
-//               separat: bedste værdi 25-30 Elo-point, 95 %-interval 0-140 —
-//               svagt bestemt, men data foretrækker den frem for 0.
+//               værtsfordelen ligger i holdets start-Elo (planen B5). +25 er
+//               et VALG, ikke en måling: punktestimatet er 25-30 Elo-point,
+//               men 95 %-intervallet er 0-140, og 0 koster kun ΔNLL 0,24
+//               (grænsen er 1,92). Ejeren beslutter (VAERT_2027 i
+//               scripts/lib/haandboldMaaling.mjs; priserne med og uden står i
+//               scripts/maal-haandbold.mjs afsnit 8b).
 //             Tyrkiet: ingen kampe i historikken (ikke med ved VM/EM 2019-
 //               2026) → 1150, målingens bedste rating for et hold, der dukker
-//               op første gang (STARTMETODE.nyStart). INGEN tavs fallback til
+//               op første gang (STARTMETODE.nyStart; 95 %-interval 1050-1275,
+//               afsnit 7a, så ±ca. 120). INGEN tavs fallback til
 //               profilens START (1500, skalaens nulpunkt): testen kræver et
 //               tal på hvert hold, og at præcis de hold uden historik — i dag
 //               kun Tyrkiet — har nyStart.
 //           Usikre, og det er accepteret (§11.8): ratingerne er recency-
-//           tunge (K 120), og EM 2026-finalen (DEN-GER) mangler i historikken.
+//           tunge (K 120), og EM 2026-finalen (GER-DEN) mangler i historikken.
+//           Den flytter MERE end en værtsfordel: vandt Danmark den inden for
+//           60 min, stod Danmark 2086 (+31) og Tyskland 1894 (−31); vandt
+//           Tyskland, 1966 (−89) og 2014 (+89). Udfaldet står ikke i data
+//           (scripts/maal-haandbold.mjs afsnit 7c).
 //
 // MED VILJE UDELADT:
 //   - `venue`: alle kampe spilles på neutral bane (kun Tyskland er hjemme), og

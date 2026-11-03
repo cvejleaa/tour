@@ -547,7 +547,10 @@ describe('guidens Elo- og odds-tal kommer fra spillets sportsprofil', () => {
     const afsnit = vis({ id: 'x', sport: 'proeve' });
     const elo = afsnit(/Elo-tabellen/);
     expect(elo).toMatch(/Holdene starter ikke alle på 1000\./);
-    expect(elo).toContain('der regnes ingen hjemmebanefordel. To hold med samme rating står altså lige.');
+    // D4: «oven i den enkelte kamp» — og i en liga uden turnering ingen
+    // værtssætning (en vært findes kun i en turnering, gaten er `kal`).
+    expect(elo).toContain('der lægges ingen hjemmebanefordel oven i den enkelte kamp. To hold med samme rating står altså lige.');
+    expect(elo).not.toMatch(/værtsfordel|værtsnation|uden slutrunder/);
     expect(elo).not.toMatch(/ikke 50\/50|takket være hjemmebanen|hjemmebanefordel på|~0 point|hjemmeholdet|udeholdet/);
     expect(elo).toMatch(/gammel \+ 40 ×/);
     expect(elo).toMatch(/40 × \(1 − 0,5\) = \+20 point/);

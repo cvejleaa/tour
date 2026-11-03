@@ -454,12 +454,22 @@ export const SPORT_PROFILER = {
    * (1.493 af 6.143, scripts/maal-uafgjort.mjs). I knockout 18,6 % (8 af 43).
    *
    * K = 120 — seks gange fodboldens. 95 %-intervallet er 80-160, og
-   * fodboldens 20 ligger 17,1 log-likelihood-enheder fra (grænsen er 1,92).
+   * fodboldens 20 ligger 17,1 log-likelihood-enheder fra (grænsen er 1,92;
+   * 17,0, hvis base også genfittes for K 20).
    * Det er ikke et udslag af indsvingningen: opvarmningen har sin egen K (150,
    * se scripts/lib/haandboldMaaling.mjs), og K her er den, der forudsiger bedst
-   * BAGEFTER. Håndbold har få kampe pr. hold (højst 9 pr. turnering) og store
-   * styrkeforskelle, så hver kamp skal flytte meget. Prisen: den levende Elo
-   * svinger mere i løbet af turneringen end i fodbold (op til ±120 pr. kamp).
+   * BAGEFTER. Håndbold har få kampe pr. hold (højst 10 pr. turnering i
+   * historikken — VM 2019 — og 9 i de øvrige; scripts/maal-haandbold.mjs
+   * afsnit 1) og store styrkeforskelle, så hver kamp skal flytte meget.
+   * Prisen: den levende Elo svinger mere i løbet af turneringen end i fodbold
+   * (op til ±120 pr. kamp).
+   *
+   * 120 ER ET KOMPROMIS MELLEM VM OG EM (afsnit 3b): målt på VM-kampene alene
+   * er bedste K 180 (95 % 120-200+, base 0,147), på EM-kampene alene 70
+   * (40-110, base 0,178). K 120 koster 1,64 på VM og 1,94 på EM — lige uden
+   * for EM's interval. VM 2027 er et VM, så data peger snarere på en højere K
+   * og en lidt lavere base; profilen bruger det samlede fit (516 kampe mod
+   * 322), og den levende Elo retter undervejs (§11.8).
    *
    * DRAW_BASE = 0,157 (95 % 0,118-0,203 — fodboldens 0,305 ligger UDEN FOR).
    *
@@ -468,11 +478,15 @@ export const SPORT_PROFILER = {
    * både "ingen afhængighed af styrkeforskel" og fodboldens form. Låsen er
    * fodboldens målte 0,55 (begrundelsen står ved DECAY_LAAS i
    * scripts/lib/haandboldMaaling.mjs), og kun base er fittet. Låst giver den
-   * 46,8 forventede uafgjorte mod 47 faktiske; fodboldens model 91,0.
+   * 46,8 forventede uafgjorte mod 47 faktiske; fodboldens uafgjort-model
+   * (base 0,305) giver 91,0 på de samme K 120-ratings (92,0 med K 20).
    *
    * HFA = 0: VM spilles på neutral bane (planen B5). Værtsfordelen er målt
-   * separat til 25-30 Elo-point (95 % 0-140, svagt bestemt) og ligger i
-   * Tysklands START-Elo i src/data/haandboldVm2027Hold.js, ikke her.
+   * separat: punktestimat 25-30 Elo-point, men 95 %-intervallet er 0-140, og
+   * 0 koster kun ΔNLL 0,24 — data kan ikke skelne den fra 0. Den ligger som
+   * et VALG (+25, planen B5) i Tysklands START-Elo i
+   * src/data/haandboldVm2027Hold.js, ikke her; ejeren beslutter, om den skal
+   * med (priserne med og uden: scripts/maal-haandbold.mjs afsnit 8b).
    *
    * START = 1500: skalaens nulpunkt — målingen starter alle hold dér i VM
    * 2019 (MIDTE i scripts/lib/haandboldMaaling.mjs), præcis som fodbold. Det

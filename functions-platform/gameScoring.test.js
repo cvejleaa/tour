@@ -2184,7 +2184,7 @@ describe('recomputeSeasonElo bruger spillets sportsprofil', () => {
 
     // D4: håndbold er MÅLT og dermed kendt. Før blev et håndboldspil afvist af
     // knappen (ukendt sport); nu skal det omprises med HÅNDBOLDENS tal —
-    // K 120, HFA 0, base 0,155, gulv 1,01 — og ikke med fodboldens.
+    // K 120, HFA 0, base 0,157, gulv 1,01 — og ikke med fodboldens.
     it('håndbold (målt i D4) afvises ikke længere — og omprises med håndboldprofilen', async () => {
       const db = nytDb({ sport: 'haandbold' });
       const svar = await omprisFraKnap(db, FieldValue, 'hvm2027', GOLDEN_NU_MS, false, HttpsError);

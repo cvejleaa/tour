@@ -38,7 +38,7 @@ testfixturerne `e2e/fixtures/seed-e2e.mjs` og `src/test/scenarie/superliga.js`.
 Det er korrekt for Superligaen og Premier League. Et tal, et fodbold-låst
 script har givet, gælder ikke for håndbold.
 
-**Håndbold har sin egen måling:** `node scripts/maal-haandbold.mjs` (≈ 40 s,
+**Håndbold har sin egen måling:** `node scripts/maal-haandbold.mjs` (≈ 1 min,
 intet netværk) kører Elo kronologisk over `scripts/haandbold-historik.json`
 (VM/EM 2019-2026, stillingen efter 60 min) med spillets egne
 `updateElo`/`outcomeProbabilities` og vælger K, `DRAW_BASE` og startstyrkerne
@@ -47,7 +47,10 @@ ved log-loss. Resultatet står i `SPORT_PROFILER.haandbold`
 `src/data/haandboldVm2027Hold.js`. `scripts/lib/haandboldMaaling.test.mjs` og
 holdfilens test regner tallene efter, så en håndrettet værdi bliver rød.
 `DRAW_DECAY` er **låst** på 0,55 (umålelig med 47 uafgjorte), og `HFA` er 0:
-værtsfordelen ligger i værtens start-Elo, ikke i profilen.
+værtsfordelen ligger i værtens start-Elo, ikke i profilen. Den er lige så
+svagt bestemt som decay (0 koster kun ΔNLL 0,24), så de +25 til Tyskland er et
+**valg**, ejeren tager stilling til — scriptets afsnit 8b viser priserne med og
+uden, og afsnit 7c, hvad den manglende EM 2026-finale ville flytte.
 
 ## Formål (hvorfor modellen ser ud som den gør)
 Elo bruges til to ting i tippespillet:

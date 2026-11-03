@@ -5,7 +5,7 @@
 //      Små konstruerede kampe, så hver regel kan ses.
 //   2. TALLENE: de committede konstanter (SPORT_PROFILER.haandbold og
 //      STARTMETODE) ER, hvad målingen giver på den committede historik. Det
-//      fulde gitter er scriptets (scripts/maal-haandbold.mjs, ~40 s); her
+//      fulde gitter er scriptets (scripts/maal-haandbold.mjs, ~1 min); her
 //      efterprøves, at de valgte tal er et LOKALT minimum (hver parameter ét
 //      trin op og ned) — og at fodboldens tal er MÅLBART dårligere.
 //
@@ -19,6 +19,7 @@ import {
   MIDTE, OPVARMNING, VAERTER, ELO_SAMME, DECAY_LAAS, GITTER, STARTMETODE, VAERT_2027,
   kronologisk, koerElo, maaltePaa, score, fitUafgjort, fitBase, baseInterval, basePaa, skew,
   uafgjortAndel, erKnockout, bedreNaboer, valgteParametre, holdStartElo, startStyrker, vedKant, trin,
+  erfaringVedStart, flestKampePrTurnering, median,
 } from './haandboldMaaling.mjs';
 import { ELO, SPORT_PROFILER, OUTCOME, updateElo } from '../../src/lib/superligaScoring.js';
 
@@ -103,10 +104,56 @@ describe('koerElo', () => {
     expect(koerElo(kronologisk(mini([m])), { k: 20 }).obs[0].udfald).toBe(OUTCOME.DRAW);
   });
 
+  it('en kamp uden gyldig stilling efter 60 min STOPPER kørslen — den falder ikke ud i stilhed', () => {
+    const god = kamp('vm2019', '2019-01-10', 'A', 'B', 20, 19);
+    for (const efter60 of [{ h: null, u: 3 }, { h: 3, u: '' }, { h: 'x', u: 3 }, undefined]) {
+      const ond = { ...kamp('vm2019', '2019-01-11', 'C', 'D', 1, 1), efter60 };
+      expect(() => koerElo(kronologisk(mini([god, ond])), { k: 20 }), JSON.stringify(efter60)).toThrow(/uden gyldig stilling efter 60 min: vm2019 2019-01-11 C-D/);
+    }
+    // …og den rigtige historik har ingen sådan kamp (ellers kastede OBS ovenfor).
+    expect(koerElo(KAMPE, VALGT).obs).toHaveLength(677);
+  });
+
   it('kun kampene efter opvarmningen tæller i målingen', () => {
     expect(OPVARMNING).toEqual(['vm2019', 'em2020']);
     expect(OBS).toHaveLength(677 - 96 - 65);
     expect(OBS.some((o) => OPVARMNING.includes(o.turnering))).toBe(false);
+  });
+});
+
+// OPVARMNING-kommentaren og kommentaren ved SPORT_PROFILER.haandbold citerer
+// disse tal; de er talt her, ikke skønnet (scripts/maal-haandbold.mjs afsnit 1/1b).
+describe('opvarmningen og kampe pr. hold — tallene, kommentarerne bygger på', () => {
+  it('33 hold var med både i opvarmningen og senere; 6 af dem har kun EM 2020\'s 3 kampe', () => {
+    const e = erfaringVedStart(HISTORIK);
+    expect(e).toHaveLength(33);
+    expect(e.filter((x) => x.kampe < 7)).toEqual(['BIH', 'MNE', 'NED', 'POL', 'SUI', 'UKR'].map((kode) => ({ kode, kampe: 3 })));
+    expect(e.filter((x) => x.kampe >= 7)).toHaveLength(27);
+    // Den gamle kommentar («mindst 7 kampe bag sig») var forkert: Polen er med i 2027.
+    expect(Math.min(...e.map((x) => x.kampe))).toBe(3);
+  });
+
+  it('erfaringVedStart tæller kun opvarmningskampe og kun hold, der også spiller bagefter', () => {
+    const e = erfaringVedStart(mini([
+      kamp('vm2019', '2019-01-10', 'A', 'B', 1, 0), kamp('em2020', '2020-01-10', 'A', 'C', 1, 0),
+      kamp('vm2021', '2021-01-10', 'A', 'D', 1, 0), kamp('vm2021', '2021-01-11', 'C', 'D', 1, 0),
+    ]));
+    expect(e).toEqual([{ kode: 'C', kampe: 1 }, { kode: 'A', kampe: 2 }]);
+  });
+
+  it('flest kampe for ét hold i én turnering: 10 (VM 2019), ellers 9', () => {
+    expect(flestKampePrTurnering(HISTORIK)).toEqual({
+      vm2019: 10, em2020: 9, vm2021: 9, em2022: 9, vm2023: 9, em2024: 9, vm2025: 9, em2026: 9,
+    });
+  });
+});
+
+describe('median', () => {
+  it('gennemsnittet af de to midterste ved et lige antal — ikke den øvre', () => {
+    // Top-8-parrenes midterste var 9,60 og 10,02: medianen er 9,81, ikke 10,02.
+    expect(median([10.02, 1, 9.6, 20])).toBeCloseTo(9.81, 10);
+    expect(median([3, 1, 2])).toBe(2);
+    expect(() => median([])).toThrow();
   });
 });
 
@@ -220,12 +267,26 @@ describe('profilen ER målingen (SPORT_PROFILER.haandbold)', () => {
     expect(f.brier).toBeCloseTo(0.4502, 3);
   });
 
-  it('HFA er 0 (neutral bane); værtsfordelen ligger i STARTMETODE, ikke i profilen', () => {
+  it('HFA er 0 (neutral bane); værtsfordelen ligger i STARTMETODE, ikke i profilen — og den er SVAGT bestemt', () => {
     expect(PROFIL.elo.HFA).toBe(0);
     expect(STARTMETODE.vaert).toBeGreaterThan(0);
-    // Data foretrækker værtsfordelen frem for 0 — ellers skulle den ikke i Tysklands start-Elo.
-    const nll = (vaert) => score(maaltePaa(koerElo(KAMPE, { ...VALGT, vaert }).obs), MODEL).logLoss;
-    expect(nll(STARTMETODE.vaert)).toBeLessThan(nll(0));
+    // At 25 er gitterets punktestimat, beviser lokalt-minimum-testen ovenfor.
+    // Her: det er KUN et punktestimat. Vært 0 koster ΔNLL ≈ 0,24 — under
+    // grænsen 1,92 — så data kan ikke skelne 25 fra 0, og +25 i Tysklands
+    // 2027-rating er et VALG (VAERT_2027). Gør flere data en dag 0 målbart
+    // dårligere, bliver testen rød, og kommentarerne skal skrives om.
+    const nll = (vaert) => score(maaltePaa(koerElo(KAMPE, { ...VALGT, vaert }).obs), MODEL).logLoss * OBS.length;
+    const dNul = nll(0) - nll(STARTMETODE.vaert);
+    expect(dNul).toBeGreaterThan(0);
+    expect(dNul).toBeLessThan(1.92);
+  });
+
+  it('carry = 1 er et ÆGTE minimum, ikke bare gitterets loft: 1,05 er dårligere', () => {
+    // ΔNLL 1,44 (scripts/maal-haandbold.mjs afsnit 2). vedKant undtager carry = 1
+    // som naturlig grænse; uden denne test var undtagelsen en påstand.
+    const nll = (carry) => score(maaltePaa(koerElo(KAMPE, { ...VALGT, carry }).obs), MODEL).logLoss * OBS.length;
+    expect(VALGT.carry).toBe(1);
+    expect(nll(1.05) - nll(1)).toBeGreaterThan(1);
   });
 });
 

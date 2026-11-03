@@ -28,8 +28,15 @@ export const MIDTE = 1500;
 /**
  * Turneringerne, der kun er opvarmning: de giver ratings, men indgår ikke i
  * log-loss. I VM 2019 starter ALLE hold i 1500, så dens forudsigelser er
- * meningsløse; EM 2020 er stadig præget af det. Fra VM 2021 har hvert hold,
- * der var med i 2019-2020, mindst 7 kampe bag sig.
+ * meningsløse; EM 2020 er stadig præget af det.
+ *
+ * TO er et VALG, ikke en måling (log-loss over forskellige kampe kan ikke
+ * sammenlignes). Hvad det giver, er talt i scripts/maal-haandbold.mjs
+ * (afsnit 1b, erfaringVedStart): af de 33 hold i VM 2021-EM 2026, der også
+ * var med i 2019-2020, har 27 mindst 7 kampe bag sig — men 6 har kun EM
+ * 2020's 3 (BIH, MNE, NED, POL, SUI, UKR), og Polen er med i 2027.
+ * Deres første målte kampe hviler altså på 3 kampe; det er accepteret, og
+ * testen (haandboldMaaling.test.mjs) holder tallene her fast.
  */
 export const OPVARMNING = ['vm2019', 'em2020'];
 
@@ -79,9 +86,50 @@ export function kronologisk(historik, samme = ELO_SAMME) {
       || a._i - b._i);
 }
 
-/** Udfaldet efter 60 min ('1' | 'X' | '2'). */
+/** Udfaldet efter 60 min ('1' | 'X' | '2'), eller null uden gyldig stilling. */
 export function udfald60(m) {
-  return outcomeFromScore(m.efter60.h, m.efter60.u);
+  return outcomeFromScore(m.efter60?.h, m.efter60?.u);
+}
+
+/**
+ * Hvor mange kampe havde hvert hold bag sig, da målingen begyndte? For hvert
+ * hold, der spiller i en målt turnering (ikke OPVARMNING) OG var med i
+ * opvarmningen: antal opvarmningskampe. Det er grundlaget for at kalde to
+ * turneringer nok (se OPVARMNING).
+ * @returns {Array<{kode: string, kampe: number}>} sorteret med færrest først
+ */
+export function erfaringVedStart(historik, opvarmning = OPVARMNING) {
+  const foer = new Map();
+  const maalt = new Set();
+  for (const m of historik.kampe) {
+    for (const h of [m.hjemme, m.ude]) {
+      if (opvarmning.includes(m.turnering)) foer.set(h, (foer.get(h) || 0) + 1);
+      else maalt.add(h);
+    }
+  }
+  return [...maalt].filter((h) => foer.has(h)).map((kode) => ({ kode, kampe: foer.get(kode) }))
+    .sort((a, b) => a.kampe - b.kampe || a.kode.localeCompare(b.kode));
+}
+
+/**
+ * Flest kampe ét hold har spillet i én turnering, pr. turnering (alle
+ * sektioner i historikken, også placeringskampe).
+ * @returns {Object<string, number>} turnering → maks
+ */
+export function flestKampePrTurnering(historik) {
+  const n = new Map();
+  for (const m of historik.kampe) {
+    for (const h of [m.hjemme, m.ude]) {
+      const k = `${m.turnering}\u0000${h}`;
+      n.set(k, (n.get(k) || 0) + 1);
+    }
+  }
+  const ud = {};
+  for (const [k, v] of n) {
+    const t = k.split('\u0000')[0];
+    ud[t] = Math.max(ud[t] || 0, v);
+  }
+  return ud;
 }
 
 /**
@@ -126,8 +174,12 @@ export function koerElo(kampe, { k, kOpvarmning = k, opvarmning = OPVARMNING, ca
     }
     const start = m.turnering === foersteTurnering ? MIDTE : nyStart;
     for (const h of [m.hjemme, m.ude]) if (!ratings.has(h)) ratings.set(h, start);
+    // ÉN VAGT: en kamp uden gyldig stilling efter 60 min må ikke falde ud i
+    // stilhed — så ville målingen og startstyrkerne regnes på færre kampe end
+    // historikken siger. Historikken afviser sådanne kampe FØR de skrives
+    // (kilder[].afviste); står der alligevel én, er filen forkert.
     const u = udfald60(m);
-    if (!u) continue;
+    if (!u) throw new Error(`Kamp uden gyldig stilling efter 60 min: ${m.turnering} ${m.dato} ${m.hjemme}-${m.ude} (${JSON.stringify(m.efter60)})`);
     const vaerter = VAERTER[m.turnering] || [];
     const hfa = (vaerter.includes(m.hjemme) ? vaert : 0) - (vaerter.includes(m.ude) ? vaert : 0);
     const eh = ratings.get(m.hjemme);
@@ -300,8 +352,11 @@ export function gitterElo(kampe, model, gitter = GITTER) {
 export function vedKant(bedst, gitter = GITTER) {
   return Object.keys(gitter).filter((p) => {
     const v = gitter[p];
-    // carry = 1 er en NATURLIG grænse (et hold kan ikke beholde mere end hele
-    // sin afvigelse) og vaert = 0 ligeså; dem tæller vi ikke som kant.
+    // carry = 1 er gitterets øverste værdi, men en NATURLIG grænse (et hold
+    // beholder højst hele sin afvigelse). At 1 også er et ægte minimum og ikke
+    // bare loftet, er MÅLT: carry 1,05 er dårligere (scripts/maal-haandbold.mjs
+    // afsnit 2, og testen). vaert = 0 er en naturlig nedre grænse. Dem tæller
+    // vi ikke som kant.
     if (p === 'carry' && bedst[p] === 1) return false;
     if (p === 'vaert' && bedst[p] === 0) return false;
     return bedst[p] === v[0] || bedst[p] === v[v.length - 1];
@@ -404,7 +459,18 @@ export function startStyrker(historik, eloParam) {
  */
 export const STARTMETODE = Object.freeze({ kOpvarmning: 150, carry: 1, nyStart: 1150, vaert: 25 });
 
-/** VM 2027's vært — kun den får værtsfordelen lagt i sin start-Elo. */
+/**
+ * VM 2027's vært — kun den får værtsfordelen lagt i sin start-Elo.
+ *
+ * DET ER ET VALG, IKKE EN MÅLING. vaert = 25 er gitterets punktestimat, og
+ * det er det rigtige tal at regne HISTORIKKEN med (som K: punktestimatet
+ * forudsiger bedst). Men 95 %-intervallet er 0-140, og vært 0 koster kun
+ * ΔNLL ≈ 0,25 (grænsen er 1,92; scripts/maal-haandbold.mjs afsnit 5): data
+ * kan ikke skelne 25 fra 0. Efter samme målestok som DECAY_LAAS er værdien
+ * altså umålelig. At lægge +25 oven i Tysklands 2027-rating følger planen B5
+ * («værtsfordelen lægges i holdets seed-Elo»), men om den skal med, er
+ * ejerens beslutning: afsnit 5 viser priserne med og uden.
+ */
 export const VAERT_2027 = Object.freeze(['GER']);
 
 /** Alle fem Elo-parametre: profilens K + STARTMETODE. */
@@ -415,8 +481,8 @@ export function valgteParametre(profil) {
 
 /**
  * Start-Elo for hvert hold i holdlisten, PRÆCIS som holdfilen skal have den:
- * målt rating afrundet, + værtsfordel for VM 2027's vært, og profilens START
- * for et hold uden kampe i historikken.
+ * målt rating afrundet, + værtsfordel for VM 2027's vært, og metodens nyStart
+ * (p.nyStart) for et hold uden kampe i historikken.
  * @param {Array<{hbKode: string, name: string}>} hold
  * @param {{k, kOpvarmning, carry, nyStart, vaert}} p  fx valgteParametre(profil)
  * @returns {Array<{kode, navn, elo, harHistorik, kampe, sidst, vaert}>}
@@ -433,4 +499,16 @@ export function holdStartElo(historik, hold, p) {
       kampe: st.kampeProHold.get(t.hbKode) || 0, sidst: st.sidst.get(t.hbKode) || '—',
     };
   });
+}
+
+/**
+ * Medianen: gennemsnittet af de to midterste ved et lige antal. (Scriptet tog
+ * før xs[Math.floor(n/2)] — den ØVRE af de to midterste — og skrev 10,02 for
+ * top-8-parrene, hvor medianen er 9,81.)
+ */
+export function median(xs) {
+  if (!xs.length) throw new Error('median af ingenting');
+  const v = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(v.length / 2);
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
 }
