@@ -173,6 +173,16 @@ describe('📥 Læg næste fases kampe ind', () => {
     confirm.mockRestore();
   });
 
+  it('en anden dato sendes, som den er tastet — klienten udleder ikke dagen', async () => {
+    await aabn();
+    udfyld(1, { dato: '2027-01-21', tid: '20:30', hjemme: 'Sverige', ude: 'Island' });
+    mockOpret.mockResolvedValueOnce({ ok: true, data: { ...PLAN, nye: [] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Vis hvad der oprettes' }));
+    await waitFor(() => expect(mockOpret).toHaveBeenLastCalledWith({
+      gameId: 'hvm2027', kampe: [{ dato: '2027-01-21', tid: '20:30', hjemme: 'Sverige', ude: 'Island' }], dryRun: true,
+    }));
+  });
+
   it('flere kampe: ＋ Tilføj kamp arver datoen, og ✕ fjerner rækken', async () => {
     await aabn();
     fireEvent.click(screen.getByRole('button', { name: '＋ Tilføj kamp' }));
