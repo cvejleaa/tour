@@ -24,18 +24,18 @@
 //           Tom for alle i dag; feltet findes, så en ny kode kan tilføjes uden
 //           at ændre opslaget (`holdForKode`).
 // `elo`     STARTSTYRKEN, MÅLT af scripts/maal-haandbold.mjs (afsnit 7): Elo
-//           efter alle 677 kampe i scripts/haandbold-historik.json (VM 2019-
-//           EM 2026, stillingen efter 60 min) med håndboldprofilens K og
+//           efter alle 678 kampe i scripts/haandbold-historik.json (VM 2019-
+//           EM 2026 inkl. finalen, stillingen efter 60 min) med håndboldprofilens K og
 //           metodens parametre (scripts/lib/haandboldMaaling.mjs, STARTMETODE).
 //           Seedet prissætter de første kampe med den, og den levende Elo
 //           (recomputeSeasonElo) starter fra den. Testen regner den efter —
 //           et håndrettet tal her bliver rødt.
 //           To undtagelser, begge dokumenteret og testet:
-//             Tyskland: målt 1900 + værtsfordelen 25 = 1925. VM 2027 spilles
+//             Tyskland: målt 1869 + værtsfordelen 25 = 1894. VM 2027 spilles
 //               kun i Tyskland, og spillets HFA er 0 (neutral bane), så
 //               værtsfordelen ligger i holdets start-Elo (planen B5). +25 er
-//               et VALG, ikke en måling: punktestimatet er 25-30 Elo-point,
-//               men 95 %-intervallet er 0-140, og 0 koster kun ΔNLL 0,24
+//               et VALG, ikke en måling: punktestimatet er 25-35 Elo-point,
+//               men 95 %-intervallet er 0-140, og 0 koster kun ΔNLL 0,25
 //               (grænsen er 1,92). Ejeren beslutter (VAERT_2027 i
 //               scripts/lib/haandboldMaaling.mjs; priserne med og uden står i
 //               scripts/maal-haandbold.mjs afsnit 8b).
@@ -47,11 +47,9 @@
 //               tal på hvert hold, og at præcis de hold uden historik — i dag
 //               kun Tyrkiet — har nyStart.
 //           Usikre, og det er accepteret (§11.8): ratingerne er recency-
-//           tunge (K 120), og EM 2026-finalen (GER-DEN) mangler i historikken.
-//           Den flytter MERE end en værtsfordel: vandt Danmark den inden for
-//           60 min, stod Danmark 2086 (+31) og Tyskland 1894 (−31); vandt
-//           Tyskland, 1966 (−89) og 2014 (+89). Udfaldet står ikke i data
-//           (scripts/maal-haandbold.mjs afsnit 7c).
+//           tunge (K 120). EM 2026-finalen (DEN–GER 34–27, transkluderet fra
+//           sin egen side) ER med: uden den stod Danmark 2055 og Tyskland
+//           1925; finalen alene flyttede hver af dem 31 point.
 //
 // MED VILJE UDELADT:
 //   - `venue`: alle kampe spilles på neutral bane (kun Tyskland er hjemme), og
@@ -64,7 +62,7 @@
 // ---------------------------------------------------------------------------
 
 export const HAANDBOLD_VM2027_HOLD = [
-  { name: 'Tyskland',        short: 'GER', hbKode: 'GER', ihfNavn: 'Germany',                   aliaser: [], elo: 1925 }, // 1900 + 25 værtsfordel
+  { name: 'Tyskland',        short: 'GER', hbKode: 'GER', ihfNavn: 'Germany',                   aliaser: [], elo: 1894 }, // 1869 + 25 værtsfordel
   { name: 'Serbien',         short: 'SRB', hbKode: 'SRB', ihfNavn: 'Serbia',                    aliaser: [], elo: 1358 },
   { name: 'Tunesien',        short: 'TUN', hbKode: 'TUN', ihfNavn: 'Tunisia',                   aliaser: [], elo: 1188 },
   { name: 'Uruguay',         short: 'URU', hbKode: 'URU', ihfNavn: 'Uruguay',                   aliaser: [], elo: 838 },
@@ -88,7 +86,7 @@ export const HAANDBOLD_VM2027_HOLD = [
   { name: 'Færøerne',        short: 'FRO', hbKode: 'FRO', ihfNavn: 'Faroe Islands',             aliaser: [], elo: 1264 },
   { name: 'Polen',           short: 'POL', hbKode: 'POL', ihfNavn: 'Poland',                    aliaser: [], elo: 1238 },
   { name: 'Algeriet',        short: 'ALG', hbKode: 'ALG', ihfNavn: 'Algeria',                   aliaser: [], elo: 930 },
-  { name: 'Danmark',         short: 'DEN', hbKode: 'DEN', ihfNavn: 'Denmark',                   aliaser: [], elo: 2055 },
+  { name: 'Danmark',         short: 'DEN', hbKode: 'DEN', ihfNavn: 'Denmark',                   aliaser: [], elo: 2086 },
   { name: 'Slovenien',       short: 'SLO', hbKode: 'SLO', ihfNavn: 'Slovenia',                  aliaser: [], elo: 1559 },
   { name: 'USA',             short: 'USA', hbKode: 'USA', ihfNavn: 'United States of America',  aliaser: [], elo: 1300 },
   { name: 'Angola',          short: 'ANG', hbKode: 'ANG', ihfNavn: 'Angola',                    aliaser: [], elo: 1071 },

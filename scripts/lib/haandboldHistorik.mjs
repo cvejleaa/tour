@@ -30,7 +30,19 @@
 //   'walkover'   tildelt ved bordet, ikke spillet (VM 2021: Kap Verdes seks).
 //                RIGTIGT afvist — der er intet at måle på.
 //   'andenSide'  kampen står på en anden side, der er transkluderet (EM 2026:
-//                finalen). Den side er ikke hentet, så kampen er IKKE med.
+//                finalen), og den side er ikke givet med. Kampen er IKKE med.
+//
+// TRANSKLUDEREDE SIDER. EM 2026-siden har ingen kasse for finalen, kun
+// «{{#section:2026 European Men's Handball Championship final|Final}}».
+// Gives den anden sides wikitekst med (`andreSider`; scriptet læser den fra
+// --filer-mappen under nøglen i TURNERINGER[].transklusioner), erstattes
+// transklusionen med PRÆCIS det navngivne afsnit (<section begin="Final" />
+// … <section end="Final" />) FØR kampene læses — så finalen er en kamp som
+// alle andre, i sektionen, hvor transklusionen stod. Kun {{#section:Side|
+// Afsnit}} og {{#lst:Side|Afsnit}} (samme funktion, to navne). Alt andet —
+// en side, der ikke er givet med, eller en anden form — afvises som før
+// ('andenSide'), aldrig tavst. Og et afsnit, der mangler eller står to gange
+// på den anden side, eller en given side, der aldrig bruges, KASTER.
 //   'ulaeselig'  alt andet: en form, parseren ikke kender. Læs siden.
 //
 // STRUKTUR-VAGTER. (1) En side med færre end MIN_SPILLEDE spillede kampe
@@ -43,7 +55,8 @@
 // ---------------------------------------------------------------------------
 
 import {
-  findHandballboxe, laesBox, sidensForskydning, transklusioner, infoboksKampe,
+  findHandballboxe, laesBox, sidensForskydning, transklusioner, infoboksKampe, fjernKommentarer,
+  overskrifter, sektionVed,
 } from './wikiHandball.mjs';
 
 // Sidenavnene. Fundet 2/11 2026; API-kaldet følger omdirigeringer (redirects=1),
@@ -56,7 +69,13 @@ export const TURNERINGER = [
   { noegle: 'vm2023', titel: "2023 World Men's Handball Championship" },
   { noegle: 'em2024', titel: "2024 European Men's Handball Championship" },
   { noegle: 'vm2025', titel: "2025 World Men's Handball Championship" },
-  { noegle: 'em2026', titel: "2026 European Men's Handball Championship" },
+  {
+    noegle: 'em2026',
+    titel: "2026 European Men's Handball Championship",
+    // Finalen står på sin egen side (se TRANSKLUDEREDE SIDER øverst).
+    // Sidetitel → filnøgle i --filer-mappen (em2026-finale.wikitext/.json).
+    transklusioner: { "2026 European Men's Handball Championship final": 'em2026-finale' },
+  },
 ];
 
 // VM 2019 og EM 2020-2026 har 24 hold (≈ 65-84 kampe); VM 2021+ har 32 (108).
@@ -75,12 +94,16 @@ export const SAMME_HOLD = new Map([['FAR', 'FRO']]);
  * Én sides kampe.
  * @param {string} wikitekst
  * @param {string} turnering  nøglen, fx 'vm2025'
- * @param {{minSpillede?: number, kraevKamptal?: boolean}} [o]  kun testene sænker gulvet og
- *   slår kravet om infoboksens kamptal fra (en beskåret fixture har ingen infoboks)
+ * @param {{minSpillede?: number, kraevKamptal?: boolean, andreSider?: Record<string, string>}} [o]
+ *   kun testene sænker gulvet og slår kravet om infoboksens kamptal fra (en
+ *   beskåret fixture har ingen infoboks). `andreSider`: sidetitel → wikitekst
+ *   for de transkluderede sider, der er givet med (indsaetTransklusioner).
  * @returns {{kampe: Array, afviste: Array<{nr, sektion, grund, art}>, ikkeSpillet: number,
- *   ukendteFelter: Record<string, number>, infoboksKampe: number|null}}
+ *   ukendteFelter: Record<string, number>, infoboksKampe: number|null,
+ *   transkluderet: Array<{side: string, afsnit: string, sektion: string}>}}
  */
-export function udtraekKampe(wikitekst, turnering, { minSpillede = MIN_SPILLEDE, kraevKamptal = true } = {}) {
+export function udtraekKampe(raaTekst, turnering, { minSpillede = MIN_SPILLEDE, kraevKamptal = true, andreSider = {} } = {}) {
+  const { tekst: wikitekst, indsat } = indsaetTransklusioner(raaTekst, andreSider, turnering);
   const kampe = [];
   const afviste = [];
   const ukendteFelter = {};
@@ -121,7 +144,7 @@ export function udtraekKampe(wikitekst, turnering, { minSpillede = MIN_SPILLEDE,
     afviste.push({
       nr: null,
       sektion: t.sektion.join(' › '),
-      grund: `kampen står ikke på siden, men transkluderes fra «${t.side}» (${t.skabelon}) — den side er ikke hentet, så kampen er IKKE med`,
+      grund: `kampen står ikke på siden, men transkluderes fra «${t.side}» (${t.skabelon}) — den side er ikke givet med, så kampen er IKKE med`,
       art: 'andenSide',
     });
   }
@@ -142,7 +165,60 @@ export function udtraekKampe(wikitekst, turnering, { minSpillede = MIN_SPILLEDE,
     }
   }
   kampe.sort((a, b) => a.dato.localeCompare(b.dato) || String(a.tid).localeCompare(String(b.tid)) || a.hjemme.localeCompare(b.hjemme));
-  return { kampe, afviste, ikkeSpillet, ukendteFelter, infoboksKampe: tal.antal };
+  return { kampe, afviste, ikkeSpillet, ukendteFelter, infoboksKampe: tal.antal, transkluderet: indsat };
+}
+
+// {{#section:Side|Afsnit}} / {{#lst:Side|Afsnit}} — præcis ét afsnit, intet
+// andet (ikke #section-h, #lstx eller {{:Side}}: dem afviser transklusioner()).
+const SEKTION_TRANSKLUSION = /\{\{\s*#(?:section|lst)\s*:\s*([^|{}]+?)\s*\|\s*([^|{}]+?)\s*\}\}/gi;
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Erstat {{#section:Side|Afsnit}} med afsnittet fra den anden side, når den
+ * side er givet med. En side, der IKKE er givet med, røres ikke — så meldes
+ * den af transklusioner() og afvises som 'andenSide'.
+ * KASTER, når afsnittet ikke står præcis én gang på den anden side, og når en
+ * given side aldrig transkluderes (en fil, der lå i mappen uden at blive brugt,
+ * ville ellers ligne en kamp, der er med).
+ * @param {string} wikitekst
+ * @param {Record<string, string>} andreSider  sidetitel → wikitekst
+ * @param {string} turnering  til fejlbeskeden
+ * @returns {{tekst: string, indsat: Array<{side: string, afsnit: string, sektion: string}>}}
+ *   sektion: hvor transklusionen stod — dér står kampene derfra nu
+ */
+export function indsaetTransklusioner(wikitekst, andreSider, turnering) {
+  const titler = Object.keys(andreSider);
+  if (!titler.length) return { tekst: wikitekst, indsat: [] };
+  const indsat = [];
+  const udenKommentarer = fjernKommentarer(wikitekst);
+  const overs = overskrifter(udenKommentarer);
+  const tekst = udenKommentarer.replace(SEKTION_TRANSKLUSION, (hel, side, afsnit, pos) => {
+    if (!titler.includes(side)) return hel;
+    indsat.push({ side, afsnit, sektion: sektionVed(overs, pos).join(' › ') });
+    return afsnitFra(andreSider[side], side, afsnit, turnering);
+  });
+  const ubrugte = titler.filter((t) => !indsat.some((x) => x.side === t));
+  if (ubrugte.length) {
+    throw new Error(`${turnering}: ${ubrugte.map((t) => `«${t}»`).join(', ')} er givet med, men siden transkluderer `
+      + 'ikke et afsnit derfra ({{#section:Side|Afsnit}}). Er det den rigtige side? Intet er skrevet.');
+  }
+  return { tekst, indsat };
+}
+
+/** Teksten mellem <section begin="Afsnit" /> og <section end="Afsnit" /> — præcis én gang. */
+function afsnitFra(andenTekst, side, afsnit, turnering) {
+  const t = fjernKommentarer(andenTekst);
+  const navn = `\\s*=\\s*(["']?)${escRe(afsnit)}\\1\\s*\\/?>`;
+  const begynd = [...t.matchAll(new RegExp(`<section\\s+begin${navn}`, 'g'))];
+  const slut = [...t.matchAll(new RegExp(`<section\\s+end${navn}`, 'g'))];
+  const hvor = `${turnering}: afsnittet «${afsnit}» på «${side}»`;
+  if (begynd.length !== 1 || slut.length !== 1) {
+    throw new Error(`${hvor} står ${begynd.length} gang(e) som begyndelse og ${slut.length} som slutning — `
+      + 'præcis én af hver kræves. Intet er skrevet.');
+  }
+  const fra = begynd[0].index + begynd[0][0].length;
+  if (slut[0].index < fra) throw new Error(`${hvor} slutter, før det begynder. Intet er skrevet.`);
+  return t.slice(fra, slut[0].index);
 }
 
 /** Et resumé pr. turnering til udskriften og outputtet. */
@@ -176,9 +252,11 @@ export function sidensTidszone(wikitekst) {
  * kastes der, før noget læses (alt eller intet, som ved hentning).
  * @param {string[]} filnavne  mappens indhold
  * @param {string[]} noegler   de valgte turneringer
+ * @param {{valgfri?: boolean}} [o]  valgfri: en manglende fil er ikke en fejl
+ *   (de transkluderede sider: mangler den, afvises kampen som 'andenSide')
  * @returns {Record<string, string>} nøgle → filnavn
  */
-export function gemteFiler(filnavne, noegler) {
+export function gemteFiler(filnavne, noegler, { valgfri = false } = {}) {
   const ud = {};
   const mangler = [];
   for (const n of noegler) {
@@ -187,7 +265,7 @@ export function gemteFiler(filnavne, noegler) {
     if (!fundne.length) mangler.push(n);
     else ud[n] = fundne[0];
   }
-  if (mangler.length) {
+  if (mangler.length && !valgfri) {
     throw new Error(`mappen mangler ${mangler.map((n) => `${n}.json/.wikitext`).join(', ')}. Intet er læst. `
       + 'Hent dem, eller vælg færre med --turneringer.');
   }

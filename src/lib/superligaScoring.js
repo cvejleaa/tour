@@ -437,21 +437,26 @@ export const SPORT_PROFILER = {
 
   /**
    * HÅNDBOLD (herrer, VM/EM). Målt med scripts/maal-haandbold.mjs på
-   * scripts/haandbold-historik.json: 677 kampe fra VM 2019 til EM 2026, på
+   * scripts/haandbold-historik.json: 678 kampe fra VM 2019 til EM 2026, på
    * stillingen EFTER 60 MIN (det, der tippes på — også i knockout, §11.1).
    * Kampene køres kronologisk med spillets egen updateElo/outcomeProbabilities;
-   * log-loss over de 516 kampe fra VM 2021 og frem (VM 2019 + EM 2020 er
+   * log-loss over de 517 kampe fra VM 2021 og frem (VM 2019 + EM 2020 er
    * opvarmning, for dér starter alle hold i 1500).
    *
    *     variant                     K     base    decay   log-loss   Brier
-   *     håndbold (denne profil)    120   0,157   0,55    0,7131    0,4066
-   *     fodboldens K                20   0,157   0,55    0,7568    0,4368
-   *     fodboldens uafgjort        120   0,305   0,55    0,7434    0,4204
-   *     fodbold (K, base, decay)    20   0,305   0,55    0,7888    0,4502
-   *     uden Elo (flad rate)         —   0,083      —    0,9355
+   *     håndbold (denne profil)    120   0,157   0,55    0,7125    0,4062
+   *     fodboldens K                20   0,157   0,55    0,7560    0,4363
+   *     fodboldens uafgjort        120   0,305   0,55    0,7430    0,4201
+   *     fodbold (K, base, decay)    20   0,305   0,55    0,7881    0,4497
+   *     uden Elo (flad rate)         —   0,083      —    0,9352
    *
-   * UAFGJORT efter 60 min er 8,3 % (56 af 677) mod fodboldens 24,3 %
-   * (1.493 af 6.143, scripts/maal-uafgjort.mjs). I knockout 18,6 % (8 af 43).
+   * EM 2026-finalen (DEN–GER 34–27) er med siden 3/11 — den står på sin egen
+   * side og indsættes af scripts/haandbold-historik.mjs. Den flyttede ingen
+   * af profilens tal (K 120, base 0,157 som før med 677 kampe), kun
+   * Danmarks og Tysklands start-Elo.
+   *
+   * UAFGJORT efter 60 min er 8,3 % (56 af 678) mod fodboldens 24,3 %
+   * (1.493 af 6.143, scripts/maal-uafgjort.mjs). I knockout 18,2 % (8 af 44).
    *
    * K = 120 — seks gange fodboldens. 95 %-intervallet er 80-160, og
    * fodboldens 20 ligger 17,1 log-likelihood-enheder fra (grænsen er 1,92;
@@ -466,24 +471,24 @@ export const SPORT_PROFILER = {
    *
    * 120 ER ET KOMPROMIS MELLEM VM OG EM (afsnit 3b): målt på VM-kampene alene
    * er bedste K 180 (95 % 120-200+, base 0,147), på EM-kampene alene 70
-   * (40-110, base 0,178). K 120 koster 1,64 på VM og 1,94 på EM — lige uden
+   * (40-110, base 0,178). K 120 koster 1,64 på VM og 2,00 på EM — lige uden
    * for EM's interval. VM 2027 er et VM, så data peger snarere på en højere K
-   * og en lidt lavere base; profilen bruger det samlede fit (516 kampe mod
+   * og en lidt lavere base; profilen bruger det samlede fit (517 kampe mod
    * 322), og den levende Elo retter undervejs (§11.8).
    *
-   * DRAW_BASE = 0,157 (95 % 0,118-0,203 — fodboldens 0,305 ligger UDEN FOR).
+   * DRAW_BASE = 0,157 (95 % 0,118-0,202 — fodboldens 0,305 ligger UDEN FOR).
    *
    * DRAW_DECAY = 0,55 er LÅST, ikke målt. Med 47 uafgjorte i de målte kampe
    * er decay umålelig: et frit fit giver 0,44 med 95 %-interval 0-0,88, altså
    * både "ingen afhængighed af styrkeforskel" og fodboldens form. Låsen er
    * fodboldens målte 0,55 (begrundelsen står ved DECAY_LAAS i
    * scripts/lib/haandboldMaaling.mjs), og kun base er fittet. Låst giver den
-   * 46,8 forventede uafgjorte mod 47 faktiske; fodboldens uafgjort-model
-   * (base 0,305) giver 91,0 på de samme K 120-ratings (92,0 med K 20).
+   * 46,9 forventede uafgjorte mod 47 faktiske; fodboldens uafgjort-model
+   * (base 0,305) giver 91,2 på de samme K 120-ratings (92,2 med K 20).
    *
    * HFA = 0: VM spilles på neutral bane (planen B5). Værtsfordelen er målt
-   * separat: punktestimat 25-30 Elo-point, men 95 %-intervallet er 0-140, og
-   * 0 koster kun ΔNLL 0,24 — data kan ikke skelne den fra 0. Den ligger som
+   * separat: punktestimat 25-35 Elo-point, men 95 %-intervallet er 0-140, og
+   * 0 koster kun ΔNLL 0,25 — data kan ikke skelne den fra 0. Den ligger som
    * et VALG (+25, planen B5) i Tysklands START-Elo i
    * src/data/haandboldVm2027Hold.js, ikke her; ejeren beslutter, om den skal
    * med (priserne med og uden: scripts/maal-haandbold.mjs afsnit 8b).

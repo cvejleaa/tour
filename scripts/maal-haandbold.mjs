@@ -2,7 +2,7 @@
 // scripts/maal-haandbold.mjs — håndboldprofilen MÅLT (D4).
 //
 // Kører Elo kronologisk over scripts/haandbold-historik.json (VM/EM 2019-2026,
-// 677 kampe, stillingen EFTER 60 MIN) og vælger K, DRAW_BASE og startstyrker
+// 678 kampe inkl. EM 2026-finalen, stillingen EFTER 60 MIN) og vælger K, DRAW_BASE og startstyrker
 // ved log-loss over hver enkelt kamp — samme metode som fodboldens
 // (scripts/maal-uafgjort.mjs). Alle tal i kommentaren ved
 // SPORT_PROFILER.haandbold (src/lib/superligaScoring.js) og i
@@ -245,7 +245,7 @@ log(`  ${'uden Elo (flad rate)'.padEnd(26)}   —   ${tal(alle.andel)}      — 
 // --- 7. Startstyrkerne ---------------------------------------------------------
 log('');
 linje();
-log('7. STARTSTYRKER 2027 — Elo efter alle 677 kampe, med de valgte parametre');
+log(`7. STARTSTYRKER 2027 — Elo efter alle ${HISTORIK.kampe.length} kampe, med de valgte parametre`);
 linje();
 const hold = holdStartElo(HISTORIK, HAANDBOLD_VM2027_HOLD, R.elo).sort((a, b) => b.elo - a.elo);
 log('   #  kode  hold              elo   kampe  sidst     note');
@@ -274,34 +274,18 @@ hold.forEach((h, i) => {
   log(`      Grundlaget er de ${nyeHold.size} hold, der dukker op første gang efter ${R.kampe[0].turnering}.`);
 }
 
-// 7c. EM 2026-FINALEN mangler (transkluderet fra en anden side, ikke hentet —
-// kilder[].afviste). Finalisterne er semifinalevinderne i historikken; selve
-// udfaldet står IKKE i data. Elo bruger kun udfaldet efter 60 min (1/½/0),
-// ikke scoren, så der er præcis tre muligheder — her er hver af dem.
-const finaleScenarier = (() => {
-  const semi = HISTORIK.kampe.filter((m) => m.turnering === 'em2026' && /Semi-?finals$/.test(m.sektion || ''));
-  const vinder = (m) => (m.slut.h > m.slut.u ? m.hjemme : m.ude);
-  if (semi.length !== 2) { log(`\n  7c. EM 2026-finalen: ${semi.length} semifinaler i historikken — kan ikke udlede finalisterne.`); return null; }
-  const [a, b] = semi.map(vinder);
-  const sidste = HISTORIK.kampe.filter((m) => m.turnering === 'em2026').map((m) => m.dato).sort().at(-1);
-  log('');
-  log(`  7c. EM 2026-finalen ${a}–${b} mangler i historikken. Udfaldet står ikke i data; Elo bruger kun 1/X/2 efter 60 min, så:`);
-  const ud = [];
-  for (const [navn, h, u] of [[`${a} vinder`, 1, 0], ['uafgjort efter 60 min', 1, 1], [`${b} vinder`, 0, 1]]) {
-    const ekstra = { ...HISTORIK, kampe: [...HISTORIK.kampe, { turnering: 'em2026', dato: sidste, tid: '23:59', sektion: 'Knockout stage › Final', hjemme: a, ude: b, efter60: { h, u }, slut: { h, u }, afgjort: null }] };
-    const r = holdStartElo(ekstra, HAANDBOLD_VM2027_HOLD, R.elo);
-    const ra = r.find((x) => x.kode === a);
-    const rb = r.find((x) => x.kode === b);
-    ud.push({ navn, [a]: ra.elo, [b]: rb.elo, hold: r });
-  }
-  const nu = holdStartElo(HISTORIK, HAANDBOLD_VM2027_HOLD, R.elo);
-  const nuA = nu.find((x) => x.kode === a).elo;
-  const nuB = nu.find((x) => x.kode === b).elo;
-  log(`      uden finalen (holdfilen):   ${a} ${nuA}   ${b} ${nuB}`);
-  for (const sc of ud) log(`      ${sc.navn.padEnd(27)} ${a} ${sc[a]} (${sc[a] - nuA >= 0 ? '+' : ''}${sc[a] - nuA})   ${b} ${sc[b]} (${sc[b] - nuB >= 0 ? '+' : ''}${sc[b] - nuB})`);
-  log('      (start-Elo som holdfilen skriver den, inkl. en eventuel værtsfordel; priserne står i afsnit 8b)');
-  return { a, b, nuA, nuB, ud };
-})();
+// 7c. KAMPE FRA EN ANDEN SIDE. EM 2026-finalen står på sin egen side og er
+// indsat af scripts/haandbold-historik.mjs (kilder[].transkluderet). En
+// transkluderet kamp, der IKKE kom med, står under kilder[].afviste med art
+// 'andenSide' — så mangler den i målingen, og det skal siges højt her.
+const transkluderet = HISTORIK.kilder.flatMap((k) => (k.transkluderet ?? []).map((x) => ({ turnering: k.noegle, ...x })));
+const manglerAndenSide = HISTORIK.kilder.flatMap((k) => k.afviste.filter((a) => a.art === 'andenSide').map((a) => ({ turnering: k.noegle, sektion: a.sektion })));
+log('');
+for (const x of transkluderet) {
+  const fra = HISTORIK.kampe.filter((m) => m.turnering === x.turnering && m.sektion === x.sektion);
+  log(`  7c. ${x.turnering}: afsnittet «${x.afsnit}» er indsat fra «${x.side}» (${x.fil})${fra.map((m) => ` — ${m.hjemme}–${m.ude} ${m.efter60.h}–${m.efter60.u} efter 60 min`).join('')}.`);
+}
+for (const a of manglerAndenSide) log(`  ⚠️  ${a.turnering} › ${a.sektion}: transkluderet fra en anden side, der IKKE er givet med — kampen mangler i målingen.`);
 
 // --- 7b. Det fælles koreanske hold ------------------------------------------
 // ELO_SAMME er tom med vilje (scripts/lib/haandboldMaaling.mjs). Her er
@@ -384,9 +368,9 @@ if (!profil) {
   const histKo = R.obs.filter(erKnockout).map((o) => Math.round(100 / sandsynligheder(o, { ...drawModel, medVaert: false }).X) / 100).sort((a, b) => a - b);
   log(`  De ${histKo.length} målte knockout-kampe (VM 2021-EM 2026), som modellen så dem: X-odds median ${tal(median(histKo), 2)}, over 10: ${histKo.filter((x) => x > 10).length}.`);
 
-  // 8b. FØLSOMHED: de to valg, ejeren skal se priserne for — værtsfordelen
-  // (+vært i Tysklands start-Elo, afsnit 5) og den manglende EM-finale (7c).
-  // Samme buildMatches og profil; kun holdenes elo byttes.
+  // 8b. FØLSOMHED: valget, ejeren skal se priserne for — værtsfordelen
+  // (+vært i Tysklands start-Elo, afsnit 5). Samme buildMatches og profil;
+  // kun holdenes elo byttes.
   const pris = (holdListe, home, away, u) => {
     const m = buildMatches(PROGRAM.fixtures, holdListe, sportProfil({ sport: 'haandbold' })).find((x) => x.home === home && x.away === away);
     return m ? m.odds[u] : null;
@@ -399,13 +383,8 @@ if (!profil) {
   const udenVaert = HAANDBOLD_VM2027_HOLD.map((t) => (VAERT_2027.includes(t.hbKode) ? { ...t, elo: t.elo - R.elo.vaert } : t));
   const tjek = [['Uruguay', 'Tyskland', '1'], ['Tyskland', 'Serbien', '2'], ['Angola', 'Danmark', '1'], ['Tyskland', 'Tunesien', '2']];
   log('');
-  log(`  8b. Følsomhed — samme kampe med (i) ${vaertNavne.join('/')} UDEN +${R.elo.vaert} som vært, (ii) EM 2026-finalen lagt til:`);
+  log(`  8b. Følsomhed — samme kampe med ${vaertNavne.join('/')} UDEN +${R.elo.vaert} som vært:`);
   const kol = [['holdfilen', HAANDBOLD_VM2027_HOLD], [`uden +${R.elo.vaert}`, udenVaert]];
-  if (finaleScenarier) {
-    for (const sc of finaleScenarier.ud) {
-      kol.push([sc.navn, HAANDBOLD_VM2027_HOLD.map((t) => ({ ...t, elo: sc.hold.find((x) => x.kode === t.hbKode).elo }))]);
-    }
-  }
   log(`      ${'kamp'.padEnd(26)}${kol.map(([k]) => k.padStart(22)).join('')}`);
   const foelsomhed = [];
   for (const [h, a, u] of tjek) {
@@ -437,7 +416,7 @@ if (JSON_UD) {
     kInterval: [kInden[0], kInden.at(-1)], baseInterval: baseIv, vaert: { bedst: vBedst.vaert, interval: [vInden[0], vInden.at(-1)] },
     uafgjort: { alle, knockout: ko, fodbold: FODBOLD_UAFGJORT },
     kPrType: kTyper, opvarmning: { hold: erf.length, under7: tynd }, flestKampe: flest,
-    finale: finaleScenarier && { a: finaleScenarier.a, b: finaleScenarier.b, uden: [finaleScenarier.nuA, finaleScenarier.nuB], scenarier: finaleScenarier.ud.map((sc) => Object.fromEntries(Object.entries(sc).filter(([k]) => k !== 'hold'))) },
+    transkluderet: transkluderet.map(({ turnering, side, afsnit, sektion, fil }) => ({ turnering, side, afsnit, sektion, fil })), manglerAndenSide,
     hold: hold.map(({ kode, navn, elo, kampe: k, sidst, harHistorik }) => ({ kode, navn, elo, kampe: k, sidst, harHistorik })),
     odds: oddsUd,
   }, null, 1));

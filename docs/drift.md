@@ -214,7 +214,7 @@ igen, så slet dens fil i cachen. Fejler én side, skrives der **intet**. En
 måling på 7 af 8 turneringer må ikke ligne en på 8. Kampe, der ikke kan læses,
 står med grund og `art` under `kilder[].afviste` og i udskriften: `walkover`
 (tildelt ved bordet, ikke spillet), `andenSide` (kampen er transkluderet fra en
-anden side, der ikke er hentet) eller `ulaeselig` (en ny form — læs siden).
+anden side, der ikke er givet med — se nødvejen herunder) eller `ulaeselig` (en ny form — læs siden).
 **Regnskabet:** læste + afviste kampe (uden walkovers) skal give præcis sidens
 eget tal (infoboksens `matches=`, gemt som `kilder[].infoboksKampe`). Går det
 ikke op, stopper scriptet og skriver intet — så kan en kamp ikke forsvinde i
@@ -242,10 +242,30 @@ Filnavnene er nøglerne (`vm2019`, `em2020`, `vm2021`, `em2022`, `vm2023`,
 scriptet, før noget læses. Kilden får `vej: "fil"`, filnavnet og filens tid
 som `hentet`, så ingen tror, at scriptet selv har hentet siden.
 
+**Transkluderede sider** (EM 2026-finalen). Står en kamp kun som
+`{{#section:Side|Afsnit}}` på turneringssiden, så læg den anden side i samme
+mappe under filnøglen fra `TURNERINGER[].transklusioner` i
+`scripts/lib/haandboldHistorik.mjs` — i dag kun `em2026-finale.wikitext` for
+«2026 European Men's Handball Championship final»:
+
+```
+#   https://en.wikipedia.org/w/index.php?title=2026_European_Men%27s_Handball_Championship_final&action=raw
+```
+
+Præcis det navngivne afsnit (`<section begin="Final" />` … `<section end="Final" />`)
+indsættes, hvor transklusionen stod, før kampene læses; kilden får
+`transkluderet` med den sides fil og tid, og udskriften siger «↳ afsnittet
+«Final» indsat fra …». Mangler filen, afvises kampen som `andenSide` (som før,
+synligt i udskriften). Mangler afsnittet på siden, står det to gange, eller
+ligger der en fil for en side, turneringen ikke transkluderer, stopper
+scriptet. API-vejen henter ingen anden side.
+
 > **Status 3/11 2026:** `scripts/haandbold-historik.json` rummer **alle otte**
-> turneringer: 677 kampe. Siderne er hentet 3/11 som rå wikitekst
+> turneringer: 678 kampe, **inkl. EM 2026-finalen**. Siderne — de otte
+> turneringssider og finalesiden — er hentet 3/11 som rå wikitekst
 > (`index.php?action=raw`, ét kald pr. side) og læst med `--filer` — derfor
-> `vej: "fil"`, `fil: "<nøgle>.wikitext"` og `revid: null` i hver kilde.
+> `vej: "fil"`, `fil: "<nøgle>.wikitext"` og `revid: null` i hver kilde (og i
+> EM 2026's `transkluderet`).
 > `action=raw` bærer ingen revision, så null er sandt. Skal revisionen med, så
 > gem API-svaret (`.json`) i stedet. Scriptets egen API-vej (Node `fetch`)
 > fik HTTP 429 fra byggemiljøet 2/11 og er ikke prøvet igen. Kun de 26 kampe i
@@ -256,9 +276,14 @@ som `hentet`, så ingen tror, at scriptet selv har hentet siden.
 > - **VM 2021: 6 walkovers.** Kap Verde trak sig midt i turneringen (COVID),
 >   og de resterende seks kampe står som 0–10/10–0 uden tid og pausestilling.
 >   De er ikke spillet, og infoboksen tæller dem heller ikke (102 kampe).
-> - **EM 2026: finalen** (DEN–GER). Den står ikke på turneringssiden, men
->   transkluderes fra «2026 European Men's Handball Championship final»
->   (`{{#section:…}}`). Den side er ikke hentet. EM 2026 har derfor 64 af 65.
+> - ~~EM 2026: finalen~~ — **er med siden 3/11.** Den står ikke på
+>   turneringssiden, men transkluderes fra «2026 European Men's Handball
+>   Championship final» (`{{#section:…|Final}}`). Finalesiden ligger i mappen
+>   som `em2026-finale.wikitext`, og afsnittet indsættes (se
+>   «Transkluderede sider» ovenfor): DEN–GER 34–27 efter 60 min, ingen
+>   forlængelse. EM 2026 har 65 af 65. Den flyttede Danmarks start-Elo fra
+>   2055 til 2086 og Tysklands fra 1925 til 1894 (inkl. +25 som vært), men
+>   ingen af profilens tal (K 120, `DRAW_BASE` 0,157).
 >
 > **Lært af parseren 3/11:** det fælles koreanske hold på VM 2019
 > (`{{hb|Korea|unification}}`) får koden **COR** (ikke KOR, som er Sydkorea);

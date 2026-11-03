@@ -115,7 +115,7 @@ export function overskrifter(tekst) {
 }
 
 /** Sektionsstien for en position: ['Main round', 'Group I']. Niveau 2 først. */
-function sektionVed(overs, pos) {
+export function sektionVed(overs, pos) {
   const sti = [];
   for (const o of overs) {
     if (o.pos > pos) break;

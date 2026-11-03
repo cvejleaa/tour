@@ -111,12 +111,12 @@ describe('koerElo', () => {
       expect(() => koerElo(kronologisk(mini([god, ond])), { k: 20 }), JSON.stringify(efter60)).toThrow(/uden gyldig stilling efter 60 min: vm2019 2019-01-11 C-D/);
     }
     // …og den rigtige historik har ingen sådan kamp (ellers kastede OBS ovenfor).
-    expect(koerElo(KAMPE, VALGT).obs).toHaveLength(677);
+    expect(koerElo(KAMPE, VALGT).obs).toHaveLength(678);
   });
 
   it('kun kampene efter opvarmningen tæller i målingen', () => {
     expect(OPVARMNING).toEqual(['vm2019', 'em2020']);
-    expect(OBS).toHaveLength(677 - 96 - 65);
+    expect(OBS).toHaveLength(678 - 96 - 65);
     expect(OBS.some((o) => OPVARMNING.includes(o.turnering))).toBe(false);
   });
 });
@@ -166,15 +166,16 @@ describe('erKnockout — præcis de sektioner, der er med i spillet', () => {
       expect(erKnockout({ sektion: s }), String(s)).toBe(false);
     }
   });
-  it('43 knockout-kampe i historikken, 8 af dem uafgjort efter 60 min', () => {
-    expect(uafgjortAndel(HISTORIK.kampe.filter(erKnockout))).toMatchObject({ uafgjort: 8, kampe: 43 });
+  // 44 med EM 2026-finalen (indsat fra sin egen side); før var det 43.
+  it('44 knockout-kampe i historikken, 8 af dem uafgjort efter 60 min', () => {
+    expect(uafgjortAndel(HISTORIK.kampe.filter(erKnockout))).toMatchObject({ uafgjort: 8, kampe: 44 });
   });
 });
 
 describe('uafgjort-andelen efter 60 min', () => {
-  it('8,3 % (56 af 677) — fodbold har 24,3 % (1.493 af 6.143)', () => {
+  it('8,3 % (56 af 678) — fodbold har 24,3 % (1.493 af 6.143)', () => {
     const a = uafgjortAndel(HISTORIK.kampe);
-    expect(a).toMatchObject({ uafgjort: 56, kampe: 677 });
+    expect(a).toMatchObject({ uafgjort: 56, kampe: 678 });
     // BÅNDET er RØDT for fodbold: 0,243 ligger langt over 0,11.
     expect(a.andel).toBeGreaterThan(0.06);
     expect(a.andel).toBeLessThan(0.11);
@@ -225,7 +226,7 @@ describe('profilen ER målingen (SPORT_PROFILER.haandbold)', () => {
   it('DRAW_BASE: 0,157 er fittet med decay låst — fodboldens 0,305 ligger UDEN FOR intervallet', () => {
     expect(basePaa(OBS)).toBe(PROFIL.elo.DRAW_BASE);
     const [lav, hoej] = baseInterval(OBS, DECAY_LAAS);
-    // BÅND rødt for fodbold: [0,118; 0,203] rummer 0,157, ikke 0,305.
+    // BÅND rødt for fodbold: [0,118; 0,202] rummer 0,157, ikke 0,305.
     expect(lav).toBeGreaterThan(0.10);
     expect(hoej).toBeLessThan(0.22);
     expect(PROFIL.elo.DRAW_BASE).toBeGreaterThanOrEqual(lav);
@@ -250,28 +251,31 @@ describe('profilen ER målingen (SPORT_PROFILER.haandbold)', () => {
     const forv = (b, d) => OBS.reduce((a, o) => a + b * Math.exp(-d * skew(o) * 2), 0);
     const faktisk = OBS.filter((o) => o.udfald === OUTCOME.DRAW).length;
     expect(faktisk).toBe(47);
-    // Håndbold 46,8 mod 47; fodboldens model 91,0. Båndet ±3 er rødt for fodbold.
+    // Håndbold 46,9 mod 47; fodboldens model 91,2. Båndet ±3 er rødt for fodbold.
     expect(Math.abs(forv(PROFIL.elo.DRAW_BASE, PROFIL.elo.DRAW_DECAY) - faktisk)).toBeLessThan(3);
     expect(Math.abs(forv(ELO.DRAW_BASE, ELO.DRAW_DECAY) - faktisk)).toBeGreaterThan(3);
   });
 
-  it('håndboldprofilen slår fodboldens tal på log-loss og Brier (0,7131 mod 0,7888)', () => {
+  // Fire decimaler: med 677 kampe (uden EM 2026-finalen) var tallene 0,7131 /
+  // 0,4066 / 0,7888 / 0,4502. Med tre decimaler ville 0,4066 og 0,4502 stadig
+  // passere mod de nye 0,4062 og 0,4497 — båndet skal være rødt af det gamle.
+  it('håndboldprofilen slår fodboldens tal på log-loss og Brier (0,7125 mod 0,7881)', () => {
     const h = score(OBS, MODEL);
     const fodObs = maaltePaa(koerElo(KAMPE, { ...VALGT, k: ELO.K }).obs);
     const f = score(fodObs, { drawBase: ELO.DRAW_BASE, drawDecay: ELO.DRAW_DECAY });
     expect(h.logLoss).toBeLessThan(f.logLoss);
     expect(h.brier).toBeLessThan(f.brier);
-    expect(h.logLoss).toBeCloseTo(0.7131, 3);
-    expect(h.brier).toBeCloseTo(0.4066, 3);
-    expect(f.logLoss).toBeCloseTo(0.7888, 3);
-    expect(f.brier).toBeCloseTo(0.4502, 3);
+    expect(h.logLoss).toBeCloseTo(0.7125, 4);
+    expect(h.brier).toBeCloseTo(0.4062, 4);
+    expect(f.logLoss).toBeCloseTo(0.7881, 4);
+    expect(f.brier).toBeCloseTo(0.4497, 4);
   });
 
   it('HFA er 0 (neutral bane); værtsfordelen ligger i STARTMETODE, ikke i profilen — og den er SVAGT bestemt', () => {
     expect(PROFIL.elo.HFA).toBe(0);
     expect(STARTMETODE.vaert).toBeGreaterThan(0);
     // At 25 er gitterets punktestimat, beviser lokalt-minimum-testen ovenfor.
-    // Her: det er KUN et punktestimat. Vært 0 koster ΔNLL ≈ 0,24 — under
+    // Her: det er KUN et punktestimat. Vært 0 koster ΔNLL ≈ 0,25 — under
     // grænsen 1,92 — så data kan ikke skelne 25 fra 0, og +25 i Tysklands
     // 2027-rating er et VALG (VAERT_2027). Gør flere data en dag 0 målbart
     // dårligere, bliver testen rød, og kommentarerne skal skrives om.
@@ -282,7 +286,7 @@ describe('profilen ER målingen (SPORT_PROFILER.haandbold)', () => {
   });
 
   it('carry = 1 er et ÆGTE minimum, ikke bare gitterets loft: 1,05 er dårligere', () => {
-    // ΔNLL 1,44 (scripts/maal-haandbold.mjs afsnit 2). vedKant undtager carry = 1
+    // ΔNLL 1,39 (scripts/maal-haandbold.mjs afsnit 2). vedKant undtager carry = 1
     // som naturlig grænse; uden denne test var undtagelsen en påstand.
     const nll = (carry) => score(maaltePaa(koerElo(KAMPE, { ...VALGT, carry }).obs), MODEL).logLoss * OBS.length;
     expect(VALGT.carry).toBe(1);

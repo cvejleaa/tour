@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // scripts/lib/haandboldMaaling.mjs — målingen bag håndboldprofilen (D4).
 //
-// Rene funktioner over scripts/haandbold-historik.json (677 kampe fra VM/EM
-// 2019-2026). scripts/maal-haandbold.mjs kører gitteret og skriver tabellerne;
+// Rene funktioner over scripts/haandbold-historik.json (678 kampe fra VM/EM
+// 2019-2026, inkl. EM 2026-finalen). scripts/maal-haandbold.mjs kører gitteret og skriver tabellerne;
 // testene (haandboldMaaling.test.mjs) efterprøver, at de committede konstanter
 // i SPORT_PROFILER.haandbold faktisk er det, målingen giver.
 //

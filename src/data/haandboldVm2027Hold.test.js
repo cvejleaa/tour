@@ -95,16 +95,17 @@ describe('elo: startstyrken er målt, aldrig en tavs fallback', () => {
     for (const h of maalt.filter((x) => x.harHistorik)) expect(h.kampe, h.kode).toBeGreaterThan(0);
   });
 
-  it('Tyskland (eneste vært 2027) har værtsfordelen lagt oveni: 1900 + 25 = 1925', () => {
+  it('Tyskland (eneste vært 2027) har værtsfordelen lagt oveni: 1869 + 25 = 1894', () => {
     const ger = maalt.find((h) => h.kode === 'GER');
     expect(ger.vaert).toBe(STARTMETODE.vaert);
-    expect(holdForKode('GER').elo).toBe(1925);
+    expect(holdForKode('GER').elo).toBe(1894);
+    expect(ger.elo - ger.vaert).toBe(1869);
     expect(maalt.filter((h) => h.vaert > 0).map((h) => h.kode)).toEqual(['GER']);
   });
 
   it('top-10, som ejeren så den (planen §11.8) — en ændring i målingen skal ses her', () => {
     const top = [...HAANDBOLD_VM2027_HOLD].sort((a, b) => b.elo - a.elo).slice(0, 10).map((t) => `${t.hbKode} ${t.elo}`);
-    expect(top).toEqual(['DEN 2055', 'GER 1925', 'CRO 1849', 'POR 1773', 'FRA 1749', 'ISL 1695', 'EGY 1681', 'NOR 1637', 'BRA 1635', 'SWE 1631']);
+    expect(top).toEqual(['DEN 2086', 'GER 1894', 'CRO 1849', 'POR 1773', 'FRA 1749', 'ISL 1695', 'EGY 1681', 'NOR 1637', 'BRA 1635', 'SWE 1631']);
   });
 });
 

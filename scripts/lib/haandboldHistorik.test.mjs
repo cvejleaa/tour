@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  udtraekKampe, resume, TURNERINGER, MIN_SPILLEDE, gemteFiler, sidensTidszone, SAMME_HOLD,
+  udtraekKampe, resume, TURNERINGER, MIN_SPILLEDE, gemteFiler, sidensTidszone, SAMME_HOLD, indsaetTransklusioner,
 } from './haandboldHistorik.mjs';
 
 const HER = dirname(fileURLToPath(import.meta.url));
@@ -174,8 +174,9 @@ describe('regnskabet mod infoboksens «matches=»', () => {
       sektion: 'Knockout stage › Final',
       art: 'andenSide',
       grund: "kampen står ikke på siden, men transkluderes fra «2026 European Men's Handball Championship final» "
-        + "({{#section:2026 European Men's Handball Championship final|Final}}) — den side er ikke hentet, så kampen er IKKE med",
+        + "({{#section:2026 European Men's Handball Championship final|Final}}) — den side er ikke givet med, så kampen er IKKE med",
     }]);
+    expect(x.transkluderet).toEqual([]);
   });
 
   // SIKKERHEDSNETTET. Står transklusionen i en niveau-2-sektion EFTER den
@@ -198,6 +199,118 @@ describe('regnskabet mod infoboksens «matches=»', () => {
       + `${kamp(2, '32–32', { team1: '{{hb-rt|BLR}}', team2: " [[Russia men's national handball team|Russian Handball Federation]]", HT: '15–15' })}`;
     const x = udtraekKampe(infoboks(2) + t, 'x', O);
     expect(x.kampe.map((k) => `${k.hjemme}–${k.ude}`)).toEqual(['COR–GER', 'BLR–RUS']);
+  });
+});
+
+// DEN TRANSKLUDEREDE SIDE GIVET MED. EM 2026's form, ordret (finalen står i
+// <section begin="Final" /> … <section end="Final" /> på sin egen side, og
+// siden har ANDRE kasser og transklusioner uden for afsnittet — som på
+// den rigtige finaleside, der bl.a. transkluderer grupperne tilbage).
+describe('en transkluderet side, der er givet med (andreSider)', () => {
+  const infoboks = (n) => `{{Infobox International Handball Competition\n| teams = 24\n| matches = ${n}\n}}\n`;
+  const kamp = (dag, score, ekstra = {}) => `{{handballbox\n${Object.entries({
+    date: `${dag} January 2026`, time: '18:00', team1: '{{hb-rt|DEN}}', score, team2: '{{hb|GER}}', ...ekstra,
+  }).map(([k, v]) => `|${k}=${v}`).join('\n')}\n}}\n`;
+  const FINALE = "2026 European Men's Handball Championship final";
+  const side = (transklusion = `{{#section:${FINALE}|Final}}`) => `${infoboks(4)}== Preliminary round ==\nAll times are local (UTC+1).\n`
+    + `${kamp(1, '30–29', { HT: '15–14' })}${kamp(2, '28–28', { HT: '14–14' })}`
+    + `== Knockout stage ==\n=== Third place game ===\n${kamp(3, '33–34', { HT: '14–17', team1: '{{hb-rt|ISL}}', team2: '{{hb|CRO}}' })}`
+    + `=== Final ===\n{{main|${FINALE}}}\n${transklusion}\n\n== Rankings ==\n`;
+  const finaleside = (afsnit = 'Final', aabn = `<section begin="${afsnit}" />`, luk = `<section end="${afsnit}" />`) => `{{Infobox handball match\n}}\n`
+    + `==Road to the final==\n{{:2026 European Men's Handball Championship|transcludesection=Group B}}\n${kamp(20, '40–20', { HT: '20–10', team1: '{{hb-rt|FRA}}', team2: '{{hb|ESP}}' })}`
+    + `==Match==\n${aabn}{{handballbox\n|bg=gold\n|date=1 February 2026\n|time=18:00\n|team1={{hb-rt|DEN}}\n|score=34–27\n|team2={{hb|GER}}\n|HT=18–16\n}}${luk}\n\nSources:\n`;
+  const O = (sider) => ({ minSpillede: 1, andreSider: sider });
+
+  it('afsnittet indsættes, hvor transklusionen stod: finalen er en kamp som alle andre, og regnskabet går op', () => {
+    const x = udtraekKampe(side(), 'em2026', O({ [FINALE]: finaleside() }));
+    expect(x.afviste).toEqual([]);
+    expect(x.kampe).toHaveLength(4);
+    expect(x.infoboksKampe).toBe(4);
+    expect(x.kampe.at(-1)).toEqual({
+      turnering: 'em2026', dato: '2026-02-01', tid: '18:00', sektion: 'Knockout stage › Final',
+      hjemme: 'DEN', ude: 'GER', efter60: { h: 34, u: 27 }, slut: { h: 34, u: 27 }, afgjort: null,
+    });
+    expect(x.transkluderet).toEqual([{ side: FINALE, afsnit: 'Final', sektion: 'Knockout stage › Final' }]);
+    // KUN afsnittet: FRA–ESP står på finalesiden, men uden for «Final».
+    expect(x.kampe.some((k) => k.hjemme === 'FRA')).toBe(false);
+    expect(x.ukendteFelter).toEqual({ bg: 1 });
+  });
+
+  it('uden siden (eller med en anden sides navn) er kampen afvist som «andenSide» — som før', () => {
+    const uden = udtraekKampe(side(), 'em2026', { minSpillede: 1 });
+    expect(uden.kampe).toHaveLength(3);
+    expect(uden.afviste.map((a) => [a.art, a.sektion])).toEqual([['andenSide', 'Knockout stage › Final']]);
+    expect(uden.transkluderet).toEqual([]);
+    expect(udtraekKampe(side(), 'em2026', O({})).afviste.map((a) => a.art)).toEqual(['andenSide']);
+  });
+
+  // Afsnittets navn er TEKST, ikke et mønster: «Final (DEN)» må ikke matche «Final DEN».
+  it('et afsnitsnavn med parenteser findes ordret — og kun ordret', () => {
+    const navn = 'Final (DEN)';
+    const t = side(`{{#section:${FINALE}|${navn}}}`);
+    expect(udtraekKampe(t, 'em2026', O({ [FINALE]: finaleside(navn) })).kampe).toHaveLength(4);
+    expect(() => udtraekKampe(t, 'em2026', O({ [FINALE]: finaleside('Final DEN') }))).toThrow('afsnittet «Final (DEN)»');
+  });
+
+  it('{{#lst:…}} er samme funktion og indsættes; uden anførselstegn om afsnittets navn også', () => {
+    const lst = udtraekKampe(side(`{{#lst:${FINALE}|Final}}`), 'em2026', O({ [FINALE]: finaleside() }));
+    expect(lst.kampe).toHaveLength(4);
+    const raa = finaleside('Final', '<section begin=Final/>', '<section end=Final/>');
+    expect(udtraekKampe(side(), 'em2026', O({ [FINALE]: raa })).kampe).toHaveLength(4);
+  });
+
+  // En form, vi ikke kender, indsættes IKKE — den afvises (og så kaster den
+  // givne, ubrugte side: ellers lå filen i mappen og lignede en kamp, der er med).
+  it.each([
+    ['{{#section-h:…}}', `{{#section-h:${FINALE}|Final}}`],
+    ['{{:Side}}', `{{:${FINALE}}}`],
+    ['en udkommenteret transklusion', `<!-- {{#section:${FINALE}|Final}} -->`],
+    ['et andet afsnitsnavn på samme side', `{{#section:${FINALE}|Finals}}`],
+  ])('%s indsættes ikke', (_, t) => {
+    const e = `em2026: «${FINALE}» er givet med, men siden transkluderer ikke et afsnit derfra ({{#section:Side|Afsnit}}). Er det den rigtige side? Intet er skrevet.`;
+    if (t.includes('Finals')) {
+      expect(() => udtraekKampe(side(t), 'em2026', O({ [FINALE]: finaleside() }))).toThrow('afsnittet «Finals»');
+    } else {
+      expect(() => udtraekKampe(side(t), 'em2026', O({ [FINALE]: finaleside() }))).toThrow(e);
+    }
+  });
+
+  it('KASTER, når afsnittet mangler, står to gange, eller slutter før det begynder', () => {
+    const hvor = `em2026: afsnittet «Final» på «${FINALE}»`;
+    expect(() => udtraekKampe(side(), 'em2026', O({ [FINALE]: finaleside('Andet') })))
+      .toThrow(`${hvor} står 0 gang(e) som begyndelse og 0 som slutning — præcis én af hver kræves. Intet er skrevet.`);
+    const to = finaleside() + '<section begin="Final" /><section end="Final" />';
+    expect(() => udtraekKampe(side(), 'em2026', O({ [FINALE]: to }))).toThrow(`${hvor} står 2 gang(e) som begyndelse og 2 som slutning`);
+    const kunBegynd = finaleside('Final', '<section begin="Final" />', '');
+    expect(() => udtraekKampe(side(), 'em2026', O({ [FINALE]: kunBegynd }))).toThrow(`${hvor} står 1 gang(e) som begyndelse og 0 som slutning`);
+    const kunSlut = finaleside('Final', '', '<section end="Final" />');
+    expect(() => udtraekKampe(side(), 'em2026', O({ [FINALE]: kunSlut }))).toThrow(`${hvor} står 0 gang(e) som begyndelse og 1 som slutning`);
+    const omvendt = finaleside('Final', '<section end="Final" />', '<section begin="Final" />');
+    expect(() => udtraekKampe(side(), 'em2026', O({ [FINALE]: omvendt }))).toThrow(`${hvor} slutter, før det begynder. Intet er skrevet.`);
+    // Uparrede anførselstegn er ikke et navn, vi kender — de tælles ikke.
+    const uparret = finaleside('Final', '<section begin="Final\' />', '<section end=Final" />');
+    expect(() => udtraekKampe(side(), 'em2026', O({ [FINALE]: uparret }))).toThrow(`${hvor} står 0 gang(e) som begyndelse og 0 som slutning`);
+    // Et udkommenteret afsnit tæller ikke (MediaWiki ser det heller ikke).
+    const kommenteret = finaleside('Final', '<!-- <section begin="Final" /> --><section begin="Final" />');
+    expect(udtraekKampe(side(), 'em2026', O({ [FINALE]: kommenteret })).kampe).toHaveLength(4);
+  });
+
+  it('indsaetTransklusioner rører intet uden givne sider — og en side, der ikke er givet, står urørt', () => {
+    // Ordret — også kommentarerne (uden givne sider er teksten den samme streng).
+    const t = `<!-- note -->${side()}`;
+    expect(indsaetTransklusioner(t, {}, 'em2026')).toEqual({ tekst: t, indsat: [] });
+    const anden = `{{#section:Anden side|Final}}\n${t}`;
+    const ud = indsaetTransklusioner(anden, { [FINALE]: finaleside() }, 'em2026');
+    expect(ud.tekst).toContain('{{#section:Anden side|Final}}');
+    expect(ud.tekst).not.toContain(`{{#section:${FINALE}|Final}}`);
+    expect(ud.tekst).toContain('|score=34–27');
+    expect(ud.tekst).not.toContain('<section');
+    expect(ud.indsat).toEqual([{ side: FINALE, afsnit: 'Final', sektion: 'Knockout stage › Final' }]);
+  });
+
+  it('EM 2026 i TURNERINGER: finalesiden har filnøglen em2026-finale — og kun EM 2026 har en transklusion', () => {
+    expect(TURNERINGER.filter((t) => t.transklusioner).map((t) => [t.noegle, t.transklusioner]))
+      .toEqual([['em2026', { [FINALE]: 'em2026-finale' }]]);
   });
 });
 
@@ -228,6 +341,17 @@ describe('nødvejen: gemte sider i en mappe (--filer)', () => {
 
   it('et navn, der kun ligner, tæller ikke (vm20250.json, xvm2025.json)', () => {
     expect(() => gemteFiler(['vm20250.json', 'xvm2025.json', 'vm2025.json.bak'], ['vm2025'])).toThrow(/mangler vm2025/);
+  });
+
+  // De transkluderede sider: en manglende fil er IKKE en fejl (kampen afvises
+  // som 'andenSide'), men to filer er stadig et valg, der ikke træffes.
+  it('valgfri: en manglende fil udelades; to filer kaster stadig; turneringens fil er ikke finalens', () => {
+    const mappe = ['em2026.wikitext', 'em2026-finale.wikitext'];
+    expect(gemteFiler(mappe, ['em2026-finale'], { valgfri: true })).toEqual({ 'em2026-finale': 'em2026-finale.wikitext' });
+    expect(gemteFiler(['em2026.wikitext'], ['em2026-finale'], { valgfri: true })).toEqual({});
+    expect(() => gemteFiler([...mappe, 'em2026-finale.json'], ['em2026-finale'], { valgfri: true })).toThrow('em2026-finale har 2 filer i mappen');
+    expect(gemteFiler(mappe, ['em2026'])).toEqual({ em2026: 'em2026.wikitext' });
+    expect(() => gemteFiler(['em2026-finale.wikitext'], ['em2026'])).toThrow(/mangler em2026\.json/);
   });
 });
 
@@ -273,6 +397,7 @@ describe('scripts/haandbold-historik.json', () => {
     }
     expect(FIL._note).toMatch(/CC BY-SA 4\.0/);
     expect(FIL._note).toMatch(/revid = null for en \.wikitext-fil, for action=raw bærer ingen revision/);
+    expect(FIL._note).toMatch(/kilder\[\]\.transkluderet = afsnit fra en anden side, indsat hvor siden transkluderer dem/);
   });
 
   it('alle otte turneringer, med de tal, siderne har', () => {
@@ -286,13 +411,13 @@ describe('scripts/haandbold-historik.json', () => {
       vm2023: [112, 112, ''],
       em2024: [65, 65, ''],
       vm2025: [108, 108, ''],
-      em2026: [64, 65, 'andenSide'],
+      em2026: [65, 65, ''],
     });
-    expect(FIL.kampe).toHaveLength(677);
+    expect(FIL.kampe).toHaveLength(678);
   });
 
   // DISPOSITIONERNE fra D3-opfølgningen, set i data.
-  it('COR, RHF som RUS, Færøerne som FRO, VM 2023-kvartfinalen med 20:54 — og EM 2026-finalen IKKE med', () => {
+  it('COR, RHF som RUS, Færøerne som FRO, VM 2023-kvartfinalen med 20:54 — og EM 2026-finalen MED', () => {
     const med = (t, a, b) => FIL.kampe.filter((k) => k.turnering === t && [k.hjemme, k.ude].includes(a) && (!b || [k.hjemme, k.ude].includes(b)));
     expect(med('vm2019', 'COR')).toHaveLength(7);
     expect(med('vm2021', 'RUS')).toHaveLength(6);
@@ -300,8 +425,28 @@ describe('scripts/haandbold-historik.json', () => {
     expect(FIL.kampe.filter((k) => k.hjemme === 'FAR' || k.ude === 'FAR')).toEqual([]);
     expect(med('em2026', 'FRO').length).toBeGreaterThan(0);
     expect(med('vm2023', 'FRA', 'GER')).toEqual([expect.objectContaining({ dato: '2023-01-25', tid: '20:54', efter60: { h: 35, u: 28 } })]);
-    expect(med('em2026', 'DEN', 'GER').map((k) => k.sektion)).not.toContain('Knockout stage › Final');
-    expect(FIL.kilder.find((k) => k.noegle === 'em2026').afviste[0]).toMatchObject({ nr: null, sektion: 'Knockout stage › Final', art: 'andenSide' });
+    // Finalen står på sin egen side og er indsat fra em2026-finale.wikitext
+    // (hentet 3/11, action=raw): 34–27 efter 60 min, ingen forlængelse.
+    expect(med('em2026', 'DEN', 'GER').filter((k) => k.sektion === 'Knockout stage › Final')).toEqual([{
+      turnering: 'em2026', dato: '2026-02-01', tid: '18:00', sektion: 'Knockout stage › Final',
+      hjemme: 'DEN', ude: 'GER', efter60: { h: 34, u: 27 }, slut: { h: 34, u: 27 }, afgjort: null,
+    }]);
+    const em = FIL.kilder.find((k) => k.noegle === 'em2026');
+    expect(em.afviste).toEqual([]);
+    expect(FIL.kilder.flatMap((k) => k.afviste).filter((a) => a.art === 'andenSide')).toEqual([]);
+    expect(em.transkluderet).toEqual([{
+      side: "2026 European Men's Handball Championship final",
+      afsnit: 'Final',
+      sektion: 'Knockout stage › Final',
+      url: "https://en.wikipedia.org/wiki/2026_European_Men's_Handball_Championship_final",
+      revid: null,
+      hentet: expect.stringMatching(/^2026-11-03T/),
+      vej: 'fil',
+      fil: 'em2026-finale.wikitext',
+    }]);
+    expect(em.transkluderet[0].hentet).not.toMatch(/:00\.000Z$/);
+    // Kun EM 2026 har en transkluderet side.
+    expect(FIL.kilder.filter((k) => k.transkluderet).map((k) => k.noegle)).toEqual(['em2026']);
     // Kap Verdes walkovers er ikke kampe.
     expect(med('vm2021', 'CPV').map((k) => `${k.efter60.h}–${k.efter60.u}`).every((s) => !['0–10', '10–0'].includes(s))).toBe(true);
   });

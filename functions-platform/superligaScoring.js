@@ -254,7 +254,7 @@ const SPORT_PROFILER = {
     elo: { ...ELO },
     odds: { min: ODDS.MIN },
   }),
-  // K 120 (95 % 80-160), DRAW_BASE 0,157 (95 % 0,118-0,203), DRAW_DECAY 0,55
+  // K 120 (95 % 80-160), DRAW_BASE 0,157 (95 % 0,118-0,202), DRAW_DECAY 0,55
   // LÅST (umålelig: 95 % 0-0,88), HFA 0 (neutral bane; værtsfordelen ligger
   // i værtens start-Elo), START 1500 (skalaens nulpunkt), gulv 1,01 (binder
   // aldrig: laveste odds er 1,06). Se src/lib/superligaScoring.js.
