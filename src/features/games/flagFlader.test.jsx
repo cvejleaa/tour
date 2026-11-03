@@ -30,7 +30,7 @@
 // hold) — med assertions på det, der IKKE må stå.
 // ---------------------------------------------------------------------------
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('../../firebase', () => ({ db: {}, functions: {} }));
@@ -285,8 +285,11 @@ describe('Mit hold — teksterne', () => {
     profil(HB, 'Danmark');
     const yndling = screen.getByTestId('yndlingshold-tekst').textContent.replace(/\s+/g, ' ');
     expect(yndling).toContain(ringOgTemaTekst(true));
-    expect(screen.getByTestId('tema-tekst').textContent.replace(/\s+/g, ' ').trim())
-      .toBe('Spillet tones i landets farve. Ringen om din avatar har samme farve.');
+    // RINGEN ER TOFARVET (rød yderst, hvid inderst — badges.js `sekundaerAf`),
+    // så «har samme farve.» alene var kun halvt sandt (QC på 3419ff6).
+    const tema = screen.getByTestId('tema-tekst').textContent.replace(/\s+/g, ' ').trim();
+    expect(tema).toBe('Spillet tones i landets farve. Ringen om din avatar har samme farve yderst og landets anden farve inderst.');
+    expect(tema).not.toMatch(/har samme farve\./);
     // Hele kortet — også TroejeOversigt og «Ingen af … tre trøjer».
     expect(document.body.textContent).not.toMatch(/trøje/i);
     expect(document.body.textContent).not.toMatch(/klubfarve/i);
@@ -298,8 +301,34 @@ describe('Mit hold — teksterne', () => {
   it('flag-spil: siger det, når ring og tema ikke er den samme farve', () => {
     profil({ ...HB, teamStyles: { Norge: { color: '#FFFFFF' } } }, 'Norge');
     const t = screen.getByTestId('tema-tekst').textContent.replace(/\s+/g, ' ').trim();
-    expect(t).toBe('Spillet tones i landets farve. Ringen om din avatar har holdets første farve — her er de to ikke den samme.');
-    expect(t).not.toMatch(/samme farve\./);
+    // Norge er stadig tofarvet: hvid yderst (rettelsen), blå inderst (awayColor).
+    expect(t).toBe('Spillet tones i landets farve. Ringen om din avatar har holdets første farve yderst og den anden inderst — her er temaet ikke ringens yderste farve.');
+    expect(t).not.toMatch(/samme farve/);
+    expect(t).not.toMatch(/de to ikke den samme/);
+  });
+
+  // ENSFARVET RING — udefarven rettet til hjemmefarven: så er der ingen anden
+  // farve, og teksten må ikke love en stribe.
+  it('flag-spil med ensfarvet ring: «samme farve» uden en anden farve', () => {
+    profil({ ...HB, teamStyles: { Danmark: { awayColor: '#C8102E' } } }, 'Danmark');
+    const t = screen.getByTestId('tema-tekst').textContent.replace(/\s+/g, ' ').trim();
+    expect(t).toBe('Spillet tones i landets farve. Ringen om din avatar har samme farve.');
+    expect(t).not.toMatch(/inderst/);
+  });
+
+  // RING UDEN TEMA: ingen af landets farver har kulør nok til et tema, men
+  // hjemmefarven giver stadig en ring — og her stod «holdets farve som
+  // ellers», ental, om en tofarvet ring.
+  it('flag-spil, ring men intet tema: siger landets to farver — eller én', () => {
+    profil({ ...HB, teamStyles: { Danmark: { color: '#FFFFFF', awayColor: '#111111', thirdColor: '#FFFFFF' } } }, 'Danmark');
+    let t = screen.getByTestId('tema-tekst').textContent.replace(/\s+/g, ' ').trim();
+    expect(t).toBe('Danmark har ingen farve med kulør nok til at tone en hel side, så spillet bliver stående i appens grønne. Ringen om din avatar får stadig landets to farver.');
+    expect(t).not.toMatch(/holdets farve som ellers/);
+    cleanup();
+    profil({ ...HB, teamStyles: { Danmark: { color: '#FFFFFF', awayColor: '#FFFFFF', thirdColor: '#FFFFFF' } } }, 'Danmark');
+    t = screen.getByTestId('tema-tekst').textContent.replace(/\s+/g, ' ').trim();
+    expect(t).toBe('Danmark har ingen farve med kulør nok til at tone en hel side, så spillet bliver stående i appens grønne. Ringen om din avatar får stadig landets farve.');
+    expect(t).not.toMatch(/to farver/);
   });
 
   it('flag-spil uden farver: intet tema, ingen ring — og teksten lover ingen', () => {

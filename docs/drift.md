@@ -699,7 +699,8 @@ med det samme, uden deploy og uden produktionsnøgle. Men den kan kun farver
 
 Hvert hold i `src/data/haandboldVm2027Hold.js` har en landekode (`iso2`, fx
 `'dk'`) og to landefarver (`color`, `awayColor`). Koden vælger flaget; farverne
-giver ringen om avataren og spillets tema. Flagene er de 32 svg-filer fra
+giver ringen om avataren (`color` yderst, `awayColor` som en stribe inderst) og
+spillets tema. Flagene er de 32 svg-filer fra
 `flag-icons` (MIT, licensen i `public/licenser.txt`), bundtet med appen — der
 hentes intet fra andre værter.
 

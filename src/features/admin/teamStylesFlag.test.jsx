@@ -51,7 +51,11 @@ describe('Hold-farver — teksten følger evnen', () => {
     const t = await vis(HB);
     expect(screen.getByTestId('teamstyles-flag-tekst')).toBeInTheDocument();
     expect(t).toContain('viser landeflag i stedet for trøjer');
-    expect(t).toContain('Hjemmefarven er ringen om spillernes avatar');
+    // Udefarven er ringens anden farve (badges.js `sekundaerAf`) — den gamle
+    // ordlyd, der gav hjemmefarven hele ringen, må ikke stå (QC på 3419ff6).
+    expect(t).toContain('Ringen om spillernes avatar har hjemmefarven yderst og udefarven som en stribe inderst (er de ens, er ringen ensfarvet)');
+    expect(t).not.toContain('Hjemmefarven er ringen');
+    expect(t).toContain('spillets tema bliver den første af de tre farver, der har kulør nok til at tone en side.');
     // «Ingen badge» skal have stedet med: Picker tegner STADIG en ClubBadge-
     // cirkel ved hver farve på denne flade, så en ubetinget «tegner ingen
     // badge» modsagde fladen lige under teksten (QC på koden, BØR RETTES).

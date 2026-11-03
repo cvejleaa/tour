@@ -118,8 +118,10 @@ export function matchBadges(teams, home, away, styles) {
  * @param {object} styles games/{id}.teamStyles
  * @param {string|null} holdnavn
  * I et flag-spil er sekundærfarven landets anden farve — se `sekundaerAf`.
+ * `landeflag` fortæller Avatar det, så den kan give den farve en bredde, der
+ * kan ses ved 22 px (Avatar.jsx `sekundaerBredde`). Samme evne som her.
  *
- * @returns {{primaer: string, sekundaer: string|null, navn: string}|null}
+ * @returns {{primaer: string, sekundaer: string|null, navn: string, landeflag: boolean}|null}
  */
 export function klubFarverAf(teams, styles, holdnavn) {
   if (!holdnavn) return null;
@@ -131,7 +133,12 @@ export function klubFarverAf(teams, styles, holdnavn) {
   // grå ring lige ved siden af et landeflag (QC på flagplanen, fund 1).
   if (!egenFarve(teams, holdnavn, styles, 'home')) return null;
   const b = badgeFor(teams, holdnavn, styles, 'home');
-  return { primaer: b.color, sekundaer: sekundaerAf(teams, styles, holdnavn, b), navn: b.navn };
+  return {
+    primaer: b.color,
+    sekundaer: sekundaerAf(teams, styles, holdnavn, b),
+    navn: b.navn,
+    landeflag: listeHarLandeflag(teams),
+  };
 }
 
 /**

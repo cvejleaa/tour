@@ -33,7 +33,7 @@ const SPIL = { id: 'sl', type: 'football', teams: HOLD };
 describe('klubFarverAf', () => {
   it('giver hjemmetrøjens primær- og sekundærfarve', () => {
     expect(klubFarverAf(HOLD, {}, 'Randers FC'))
-      .toEqual({ primaer: '#78C5ED', sekundaer: '#30374F', navn: 'Randers FC' });
+      .toEqual({ primaer: '#78C5ED', sekundaer: '#30374F', navn: 'Randers FC', landeflag: false });
   });
 
   it('giver null for sekundær, når holdet er ensfarvet', () => {
@@ -141,10 +141,10 @@ describe('klubFarverAf — flag-spil får landets anden farve i ringen', () => {
   const kald = (game, navn) => renderHook(() => useKlubFarver(game)).result.current(navn);
 
   it('Danmark, Norge, Tyskland og Sverige — gennem hook\'en, som stillingen bruger', () => {
-    expect(kald(HVM, 'Danmark')).toEqual({ primaer: '#C8102E', sekundaer: '#FFFFFF', navn: 'Danmark' });
-    expect(kald(HVM, 'Norge')).toEqual({ primaer: '#ED2939', sekundaer: '#002664', navn: 'Norge' });
-    expect(kald(HVM, 'Tyskland')).toEqual({ primaer: '#FF0000', sekundaer: '#FFCC00', navn: 'Tyskland' });
-    expect(kald(HVM, 'Sverige')).toEqual({ primaer: '#FECB00', sekundaer: '#005293', navn: 'Sverige' });
+    expect(kald(HVM, 'Danmark')).toEqual({ primaer: '#C8102E', sekundaer: '#FFFFFF', navn: 'Danmark', landeflag: true });
+    expect(kald(HVM, 'Norge')).toEqual({ primaer: '#ED2939', sekundaer: '#002664', navn: 'Norge', landeflag: true });
+    expect(kald(HVM, 'Tyskland')).toEqual({ primaer: '#FF0000', sekundaer: '#FFCC00', navn: 'Tyskland', landeflag: true });
+    expect(kald(HVM, 'Sverige')).toEqual({ primaer: '#FECB00', sekundaer: '#005293', navn: 'Sverige', landeflag: true });
   });
 
   // De to røde, der skulle kunne skelnes: forskellig sekundærfarve.
@@ -177,7 +177,7 @@ describe('klubFarverAf — flag-spil får landets anden farve i ringen', () => {
   // landefarve-stribe.
   it('håndboldspil, hvor ét hold mangler flag: ensfarvet ring som før', () => {
     const mangler = HAANDBOLD_VM2027_HOLD.map((t) => (t.name === 'Japan' ? { ...t, iso2: undefined } : t));
-    expect(kald({ ...HVM, teams: mangler }, 'Danmark')).toEqual({ primaer: '#C8102E', sekundaer: null, navn: 'Danmark' });
+    expect(kald({ ...HVM, teams: mangler }, 'Danmark')).toEqual({ primaer: '#C8102E', sekundaer: null, navn: 'Danmark', landeflag: false });
   });
 });
 
@@ -196,6 +196,9 @@ describe('klubFarverAf — klubspil uden flag er uændrede', () => {
     expect(ville.length).toBeGreaterThan(5);
     for (const t of liste) {
       expect(klubFarverAf(teams, {}, t.name).sekundaer, t.name).toBe(t.troejer?.hjemme?.sekundaer ?? null);
+      // …og ringen tegnes som før: `landeflag` er det, Avatar giver
+      // sekundærfarven en bredere stribe på (Avatar.jsx `sekundaerBredde`).
+      expect(klubFarverAf(teams, {}, t.name).landeflag, t.name).toBe(false);
     }
   });
 });

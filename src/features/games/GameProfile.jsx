@@ -170,15 +170,28 @@ export default function GameProfile({ game, me }) {
                   }}
                 />
                 Spillet tones i landets farve.
+                {/* RINGEN ER TOFARVET, når landet har en anden farve
+                    (`sekundaerAf` i badges.js): den første yderst, den anden
+                    som en stribe inderst. «Har samme farve» om en rød/hvid
+                    ring var kun halvt sandt — og det er den hvide stribe, der
+                    skiller Danmark fra Norge. */}
                 {ring && (ring.primaer.toUpperCase() === temafarve.farve.toUpperCase()
-                  ? ' Ringen om din avatar har samme farve.'
-                  : ' Ringen om din avatar har holdets første farve — her er de to ikke den samme.')}
+                  ? (ring.sekundaer
+                    ? ' Ringen om din avatar har samme farve yderst og landets anden farve inderst.'
+                    : ' Ringen om din avatar har samme farve.')
+                  : (ring.sekundaer
+                    ? ' Ringen om din avatar har holdets første farve yderst og den anden inderst — her er temaet ikke ringens yderste farve.'
+                    : ' Ringen om din avatar har holdets første farve — her er de to ikke den samme.'))}
               </>
             ) : (
               <>
                 {chosen.vis || chosen.name} har ingen farve med kulør nok til at tone en hel side, så
                 spillet bliver stående i appens grønne.
-                {ring ? ' Ringen om din avatar får holdets farve som ellers.' : ' Holdet har ingen farve, så din avatar får ingen ring.'}
+                {ring
+                  ? (ring.sekundaer
+                    ? ' Ringen om din avatar får stadig landets to farver.'
+                    : ' Ringen om din avatar får stadig landets farve.')
+                  : ' Holdet har ingen farve, så din avatar får ingen ring.'}
               </>
             )
           ) : temafarve ? (
