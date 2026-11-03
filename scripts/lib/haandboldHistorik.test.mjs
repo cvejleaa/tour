@@ -5,13 +5,16 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  udtraekKampe, resume, TURNERINGER, MIN_SPILLEDE, gemteFiler, sidensTidszone,
+  udtraekKampe, resume, TURNERINGER, MIN_SPILLEDE, gemteFiler, sidensTidszone, SAMME_HOLD,
 } from './haandboldHistorik.mjs';
 
 const HER = dirname(fileURLToPath(import.meta.url));
 const VM2025 = readFileSync(resolve(HER, '../testdata/wiki-vm2025-udsnit.wikitext'), 'utf8');
 const FIL = JSON.parse(readFileSync(resolve(HER, '../haandbold-historik.json'), 'utf8'));
-const r = udtraekKampe(VM2025, 'vm2025', { minSpillede: 1 });
+// Fixturen er beskåret: 26 kampe og ingen infoboks. Regnskabet mod
+// infoboksens «matches=» har sine egne tests herunder (med en infoboks).
+const UDSNIT = { minSpillede: 1, kraevKamptal: false };
+const r = udtraekKampe(VM2025, 'vm2025', UDSNIT);
 
 describe('udtræk af én side', () => {
   it('alle 26 kampe er spillede og læst — ingen afvist', () => {
@@ -67,10 +70,10 @@ describe('udtræk af én side', () => {
 
   it('en ulæselig kamp AFVISES med grund — den forsvinder ikke, og den vælter ikke siden', () => {
     const t = VM2025.replace('|score=31–30\n|team2={{hb|GER}}', '|score=31–30 (ET)\n|team2={{hb|GER}}');
-    const x = udtraekKampe(t, 'vm2025', { minSpillede: 1 });
+    const x = udtraekKampe(t, 'vm2025', UDSNIT);
     expect(x.kampe).toHaveLength(25);
     expect(x.afviste).toHaveLength(1);
-    expect(x.afviste[0]).toMatchObject({ sektion: 'Final round › Quarterfinals' });
+    expect(x.afviste[0]).toMatchObject({ sektion: 'Final round › Quarterfinals', art: 'ulaeselig' });
     expect(x.afviste[0].grund).toMatch(/stillingen «31–30 \(ET\)» er ikke «tal–tal»/);
   });
 
@@ -82,7 +85,7 @@ describe('udtræk af én side', () => {
   ])('en score med pladsholder som %shold afvises', (_, fra, til) => {
     const t = VM2025.replace(fra, til);
     expect(t).not.toBe(VM2025);
-    const x = udtraekKampe(t, 'vm2025', { minSpillede: 1 });
+    const x = udtraekKampe(t, 'vm2025', UDSNIT);
     expect(x.kampe).toHaveLength(25);
     expect(x.afviste.map((a) => a.grund)).toEqual(['kampen har en score, men et af holdene er ikke et land ({{hb|KODE}})']);
   });
@@ -90,7 +93,7 @@ describe('udtræk af én side', () => {
   it('en spillet kamp uden dato afvises med grund', () => {
     const t = VM2025.replace('|date=29 January 2025\n|time=20:30\n|team1={{hb-rt|POR}}', '|date=\n|time=20:30\n|team1={{hb-rt|POR}}');
     expect(t).not.toBe(VM2025);
-    const x = udtraekKampe(t, 'vm2025', { minSpillede: 1 });
+    const x = udtraekKampe(t, 'vm2025', UDSNIT);
     expect(x.kampe).toHaveLength(25);
     expect(x.afviste.map((a) => a.grund)).toEqual(['kampen har ingen dato']);
   });
@@ -98,7 +101,7 @@ describe('udtræk af én side', () => {
   it('en kamp uden score er «ikke spillet» — talt, ikke med', () => {
     const t = VM2025.replace('|score=31–30\n|team2={{hb|GER}}', '|score=\n|team2={{hb|GER}}')
       .replace('|FT=26–26\n|OT1=5–4\n', '');
-    const x = udtraekKampe(t, 'vm2025', { minSpillede: 1 });
+    const x = udtraekKampe(t, 'vm2025', UDSNIT);
     expect(x.kampe).toHaveLength(25);
     expect(x.ikkeSpillet).toBe(1);
   });
@@ -107,8 +110,94 @@ describe('udtræk af én side', () => {
   it('KASTER under gulvet — med standardgulvet på 60', () => {
     expect(MIN_SPILLEDE).toBe(60);
     expect(() => udtraekKampe(VM2025, 'vm2025')).toThrow('vm2025: kun 26 spillede kampe på siden (26 {{handballbox}}, 0 afvist) — under 60. Siden har skiftet form; intet er skrevet.');
-    expect(() => udtraekKampe(VM2025, 'vm2025', { minSpillede: 26 })).not.toThrow();
-    expect(() => udtraekKampe(VM2025, 'vm2025', { minSpillede: 27 })).toThrow(/under 27/);
+    expect(() => udtraekKampe(VM2025, 'vm2025', { minSpillede: 26, kraevKamptal: false })).not.toThrow();
+    expect(() => udtraekKampe(VM2025, 'vm2025', { minSpillede: 27, kraevKamptal: false })).toThrow(/under 27/);
+  });
+});
+
+// REGNSKABET. Siden siger selv, hvor mange kampe der blev spillet; læste +
+// afviste (uden walkovers) skal give præcis det tal. Fundet ved EM 2026: 64
+// kasser, men 65 kampe — finalen var transkluderet fra en anden side og
+// forsvandt i stilhed, for 64 er over gulvet på 60.
+describe('regnskabet mod infoboksens «matches=»', () => {
+  const infoboks = (n) => `{{Infobox International Handball Competition\n| teams = 24\n| matches = ${n}\n}}\n`;
+  const kamp = (dag, score, ekstra = {}) => `{{handballbox\n${Object.entries({
+    date: `${dag} January 2026`, time: '18:00', team1: '{{hb-rt|DEN}}', score, team2: '{{hb|GER}}', ...ekstra,
+  }).map(([k, v]) => `|${k}=${v}`).join('\n')}\n}}\n`;
+  const TRE = `== Preliminary round ==\nAll times are local (UTC+1).\n${kamp(1, '30–29', { HT: '15–14' })}${kamp(2, '28–28', { HT: '14–14' })}${kamp(3, '25–31', { HT: '12–15' })}`;
+  const O = { minSpillede: 1 };
+
+  it('går op: 3 kampe på siden, infoboksen siger 3 — og tallet står i resultatet', () => {
+    const x = udtraekKampe(infoboks(3) + TRE, 'em2026', O);
+    expect(x.kampe).toHaveLength(3);
+    expect(x.infoboksKampe).toBe(3);
+    expect(x.afviste).toEqual([]);
+  });
+
+  // Begge retninger: en kamp for lidt (tabt) og en for meget (talt to gange).
+  it.each([[4, 3], [2, 3]])('KASTER, når siden siger %i, men parseren gør rede for %i', (siger, gjort) => {
+    expect(() => udtraekKampe(infoboks(siger) + TRE, 'em2026', O)).toThrow(
+      `em2026: siden siger ${siger} kampe (infoboksens «matches=»), men parseren gør rede for ${gjort} (${gjort} læst + 0 afvist; walkovers tæller ikke). `
+      + 'En kamp er tabt eller talt to gange — find den, før noget bruges. Intet er skrevet.',
+    );
+  });
+
+  // VM 2021: 108 kasser, infoboksen siger 102 — de seks er Kap Verdes walkovers.
+  it('en walkover er afvist med art «walkover» og tæller IKKE som spillet', () => {
+    const t = TRE + kamp(4, '0–10{{refn|group=note|name=CPV}}');
+    const x = udtraekKampe(infoboks(3) + t, 'vm2021', O);
+    expect(x.kampe).toHaveLength(3);
+    expect(x.afviste).toEqual([{
+      nr: 4, sektion: 'Preliminary round', art: 'walkover',
+      grund: 'Kamp nr. 4 (Preliminary round): walkover (0–10 tildelt uden kamp, ingen pausestilling) — ikke en spillet kamp',
+    }]);
+    expect(() => udtraekKampe(infoboks(4) + t, 'vm2021', O)).toThrow(/siden siger 4 kampe .* gør rede for 3 \(3 læst \+ 0 afvist/);
+  });
+
+  it('en ulæselig kamp ER spillet og tæller med i regnskabet', () => {
+    const t = TRE + kamp(4, '31–30 (ET)');
+    const x = udtraekKampe(infoboks(4) + t, 'em2026', O);
+    expect(x.afviste.map((a) => a.art)).toEqual(['ulaeselig']);
+    expect(() => udtraekKampe(infoboks(3) + t, 'em2026', O)).toThrow(/gør rede for 4 \(3 læst \+ 1 afvist/);
+  });
+
+  // EM 2026's form, ordret: sektionen har ingen kasse, kun en transklusion.
+  // Som på siden: finalen står i SAMME niveau-2-sektion som bronzekampen.
+  it('en transkluderet kamp afvises med art «andenSide», side og sektion — og går op i regnskabet', () => {
+    const t = `${TRE}== Knockout stage ==\n=== Third place game ===\n${kamp(4, '33–34', { HT: '14–17' })}`
+      + "=== Final ===\n{{main|2026 European Men's Handball Championship final}}\n"
+      + "{{#section:2026 European Men's Handball Championship final|Final}}\n\n== Rankings ==\n";
+    const x = udtraekKampe(infoboks(5) + t, 'em2026', O);
+    expect(x.kampe).toHaveLength(4);
+    expect(x.afviste).toEqual([{
+      nr: null,
+      sektion: 'Knockout stage › Final',
+      art: 'andenSide',
+      grund: "kampen står ikke på siden, men transkluderes fra «2026 European Men's Handball Championship final» "
+        + "({{#section:2026 European Men's Handball Championship final|Final}}) — den side er ikke hentet, så kampen er IKKE med",
+    }]);
+  });
+
+  // SIKKERHEDSNETTET. Står transklusionen i en niveau-2-sektion EFTER den
+  // sidste kasse, ligger den uden for kampenes område og meldes ikke som
+  // afvist — men regnskabet ser hullet og kaster. Højt, ikke tavst.
+  it('en transklusion uden for kampenes område fanges af regnskabet', () => {
+    const t = `${TRE}== Knockout stage ==\n=== Final ===\n{{#section:X final|Final}}\n\n== Rankings ==\n`;
+    expect(() => udtraekKampe(infoboks(4) + t, 'em2026', O)).toThrow(/siden siger 4 kampe .* gør rede for 3/);
+  });
+
+  it('KASTER som standard, når siden ikke har et kamptal — så kan en tabt kamp ikke ses', () => {
+    expect(() => udtraekKampe(TRE, 'em2026', O)).toThrow('em2026: siden har ingen {{Infobox …}} — kampenes antal kan ikke efterprøves, og en tabt kamp ville ikke ses. Intet er skrevet.');
+    expect(() => udtraekKampe(infoboks('TBD') + TRE, 'em2026', O)).toThrow(/infoboksens «matches=TBD» er ikke et tal/);
+    expect(udtraekKampe(TRE, 'em2026', { ...O, kraevKamptal: false }).infoboksKampe).toBeNull();
+  });
+
+  // De to hold uden trebogstavskode kommer med som kampe — ikke som afviste.
+  it('COR (VM 2019) og RHF → RUS (VM 2021) er kampe med koden', () => {
+    const t = `== Preliminary round ==\n${kamp(1, '19–30', { team1: '{{hb-rt|Korea|unification}}', HT: '10–17' })}`
+      + `${kamp(2, '32–32', { team1: '{{hb-rt|BLR}}', team2: " [[Russia men's national handball team|Russian Handball Federation]]", HT: '15–15' })}`;
+    const x = udtraekKampe(infoboks(2) + t, 'x', O);
+    expect(x.kampe.map((k) => `${k.hjemme}–${k.ude}`)).toEqual(['COR–GER', 'BLR–RUS']);
   });
 });
 
@@ -152,10 +241,21 @@ describe('turneringslisten', () => {
   });
 });
 
+describe('ét hold, to koder (Færøerne)', () => {
+  const side = (h, u = 'SUI') => `{{Infobox X\n| matches = 1\n}}\n== Preliminary round ==\n{{handballbox\n|date=16 January 2026\n|time=18:00\n|team1={{hb-rt|${h}}}\n|score=30–28\n|team2={{hb|${u}}}\n|HT=15–14\n}}\n`;
+
+  it('FAR (EM 2026-siden) bliver FRO (EM 2024-siden og VM 2027-holdfilen) — på begge sider', () => {
+    expect(udtraekKampe(side('FAR'), 'em2026', { minSpillede: 1 }).kampe[0]).toMatchObject({ hjemme: 'FRO', ude: 'SUI' });
+    expect(udtraekKampe(side('SUI', 'FAR'), 'em2026', { minSpillede: 1 }).kampe[0]).toMatchObject({ hjemme: 'SUI', ude: 'FRO' });
+    expect(udtraekKampe(side('FRO'), 'em2024', { minSpillede: 1 }).kampe[0].hjemme).toBe('FRO');
+    expect([...SAMME_HOLD]).toEqual([['FAR', 'FRO']]);
+  });
+});
+
 // Den committede måledata-fil skal være bygget af modulet — og sige, hvilke
-// turneringer den rummer. Den rummer i dag KUN vm2025 (se docs/drift.md); en
-// fil, der lod som om den havde alle otte, ville give D4 en måling, der ser
-// rigtig ud.
+// turneringer den rummer. Siden 3/11 2026 rummer den alle otte, læst med
+// --filer fra den rå wikitekst (action=raw). En fil, der lod som om den havde
+// flere eller færre, ville give D4 en måling, der ser rigtig ud.
 describe('scripts/haandbold-historik.json', () => {
   it('siger selv, hvilke turneringer den rummer, og kampene passer til det', () => {
     expect(FIL.turneringer).toEqual(FIL.kilder.map((k) => k.noegle));
@@ -163,20 +263,69 @@ describe('scripts/haandbold-historik.json', () => {
     for (const k of FIL.kilder) {
       expect(FIL.kampe.filter((x) => x.turnering === k.noegle)).toHaveLength(k.kampe);
       expect(k.licens).toBe('CC BY-SA 4.0');
-      expect(Number.isInteger(k.revid), k.noegle).toBe(true);
+      // En revision kommer kun med API-svaret (.json). Den rå wikitekst
+      // (action=raw → .wikitext) bærer ingen — så null er SANDT, ikke et hul.
+      if (k.vej === 'api' || /\.json$/i.test(k.fil)) expect(Number.isInteger(k.revid), k.noegle).toBe(true);
+      else expect(k.revid, k.noegle).toBeNull();
       expect(['api', 'fil'], k.noegle).toContain(k.vej);
+      // Regnskabet står i filen: læste + afviste uden walkovers = sidens tal.
+      expect(k.kampe + k.afviste.filter((a) => a.art !== 'walkover').length, k.noegle).toBe(k.infoboksKampe);
     }
     expect(FIL._note).toMatch(/CC BY-SA 4\.0/);
+    expect(FIL._note).toMatch(/revid = null for en \.wikitext-fil, for action=raw bærer ingen revision/);
   });
 
-  // HVOR DATA KOM FRA. VM 2025 kom IKKE gennem scriptets eget kald (Wikipedia
-  // svarede 429 på Node), men fra API-svaret hentet med curl og læst med
-  // --filer. Filen skal sige det — ellers ligner den et scriptkald.
-  it('vm2025 står som læst fra en gemt fil, med filens tid og sidens tidszone', () => {
-    const k = FIL.kilder.find((x) => x.noegle === 'vm2025');
-    expect(k).toMatchObject({ vej: 'fil', fil: 'vm2025.json', revid: 1378613629, forskydningMin: 60, kampe: 108 });
-    expect(k.hentet).not.toMatch(/:00\.000Z$/);
-    expect(FIL._note).toMatch(/fil \(læst med --filer fra en gemt side; hentet = filens tid\)/);
+  it('alle otte turneringer, med de tal, siderne har', () => {
+    expect(FIL.turneringer).toEqual(TURNERINGER.map((t) => t.noegle));
+    const tal = Object.fromEntries(FIL.kilder.map((k) => [k.noegle, [k.kampe, k.infoboksKampe, k.afviste.map((a) => a.art).join(',')]]));
+    expect(tal).toEqual({
+      vm2019: [96, 96, ''],
+      em2020: [65, 65, ''],
+      vm2021: [102, 102, 'walkover,walkover,walkover,walkover,walkover,walkover'],
+      em2022: [65, 65, ''],
+      vm2023: [112, 112, ''],
+      em2024: [65, 65, ''],
+      vm2025: [108, 108, ''],
+      em2026: [64, 65, 'andenSide'],
+    });
+    expect(FIL.kampe).toHaveLength(677);
+  });
+
+  // DISPOSITIONERNE fra D3-opfølgningen, set i data.
+  it('COR, RHF som RUS, Færøerne som FRO, VM 2023-kvartfinalen med 20:54 — og EM 2026-finalen IKKE med', () => {
+    const med = (t, a, b) => FIL.kampe.filter((k) => k.turnering === t && [k.hjemme, k.ude].includes(a) && (!b || [k.hjemme, k.ude].includes(b)));
+    expect(med('vm2019', 'COR')).toHaveLength(7);
+    expect(med('vm2021', 'RUS')).toHaveLength(6);
+    expect(med('vm2021', 'BLR', 'RUS')[0]).toMatchObject({ efter60: { h: 32, u: 32 }, afgjort: null });
+    expect(FIL.kampe.filter((k) => k.hjemme === 'FAR' || k.ude === 'FAR')).toEqual([]);
+    expect(med('em2026', 'FRO').length).toBeGreaterThan(0);
+    expect(med('vm2023', 'FRA', 'GER')).toEqual([expect.objectContaining({ dato: '2023-01-25', tid: '20:54', efter60: { h: 35, u: 28 } })]);
+    expect(med('em2026', 'DEN', 'GER').map((k) => k.sektion)).not.toContain('Knockout stage › Final');
+    expect(FIL.kilder.find((k) => k.noegle === 'em2026').afviste[0]).toMatchObject({ nr: null, sektion: 'Knockout stage › Final', art: 'andenSide' });
+    // Kap Verdes walkovers er ikke kampe.
+    expect(med('vm2021', 'CPV').map((k) => `${k.efter60.h}–${k.efter60.u}`).every((s) => !['0–10', '10–0'].includes(s))).toBe(true);
+  });
+
+  it('EM 2022: tidszonen er null MED grunden, fordi siden skriver «UTC», men linker til CET', () => {
+    const k = FIL.kilder.find((x) => x.noegle === 'em2022');
+    expect(k.forskydningMin).toBeNull();
+    expect(k.forskydningGrund).toBe('Siden skriver «All times are local ([[Central European Time|UTC]]).» uden en forskydning efter UTC (fx UTC+1) — der gættes ikke.');
+    expect(FIL.kilder.filter((x) => x.forskydningMin === null).map((x) => x.noegle)).toEqual(['em2022']);
+    expect(FIL.kilder.find((x) => x.noegle === 'vm2021').forskydningMin).toBe(120);
+  });
+
+  // HVOR DATA KOM FRA. Alle otte er læst med --filer fra den rå wikitekst
+  // (action=raw, ét kald pr. side, 3/11 2026). Filen skal sige det — ellers
+  // ligner den et scriptkald. VM 2025's 108 kampe er de samme som i den
+  // forrige fil (revision 1378613629, læst fra API-svaret 2/11); efterprøv
+  // med `git show 1eba55f:scripts/haandbold-historik.json` mod denne fil.
+  it('hver kilde står som læst fra en gemt fil, med filens tid', () => {
+    for (const k of FIL.kilder) {
+      expect(k, k.noegle).toMatchObject({ vej: 'fil', fil: `${k.noegle}.wikitext`, revid: null });
+      expect(k.hentet, k.noegle).not.toMatch(/:00\.000Z$/);
+    }
+    expect(FIL.kilder.find((x) => x.noegle === 'vm2025')).toMatchObject({ forskydningMin: 60, kampe: 108 });
+    expect(FIL._note).toMatch(/fil \(læst med --filer fra en gemt side; hentet = filens tid;/);
   });
 
   it('fixturens 26 kampe står uændret i filen (samme parser, samme tal)', () => {

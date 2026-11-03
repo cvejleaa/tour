@@ -325,6 +325,19 @@ describe('strukturvagterne', () => {
     expect(() => byggProgram(t)).toThrow(`Kamp nr. 1 (Preliminary round › Group A) har felter, parseren ikke kender: ${navn}. Et ukendt felt kan flytte en tip-deadline`);
   });
 
+  // FODNOTER: parseren fjerner nu {{refn|…}} fra tid, dato og hold (så
+  // historikken kan læse VM 2023's «20:54{{refn|…}}»). I programmet er tiden
+  // en tip-deadline, og noten kan flytte den — så den stopper programmet,
+  // ligesom et ukendt felt. Uden vagten stod 17:30 med grøn kørsel.
+  it.each([
+    ['tid', '|time=17:30', '|time=17:30{{efn|Flyttet til 15:00 af hensyn til TV.}}', 'time'],
+    ['hold', '|team2={{hb|URU}}', '|team2={{hb|URU}}<ref>x</ref>', 'team2'],
+  ])('KASTER på en fodnote i %s i en medtaget kamp', (_, fra, til, felt) => {
+    const t = retKasse(SIDE, SRB_URU, (k) => k.replace(fra, til));
+    expect(t).not.toBe(SIDE);
+    expect(() => byggProgram(t)).toThrow(`Kamp nr. 1 (Preliminary round › Group A) har en fodnote i ${felt}. En note kan flytte en tip-deadline, så programmet bygges ikke.`);
+  });
+
   it('et ukendt felt i en FRAVALGT kamp er en advarsel med navnet — ikke en blokering', () => {
     const t = retKasse(SIDE, { team1: 'A4', team2: 'B4', dato: '20 January 2027' }, (k) => k.replace('|time=', '|status=postponed\n|time='));
     const p = byggProgram(t);

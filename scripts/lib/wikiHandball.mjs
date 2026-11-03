@@ -25,6 +25,11 @@
 //     dem og viser dem i udskriften (haandboldProgram.mjs / haandboldHistorik.mjs).
 //   - forlængelse/straffe uden stillingen efter 60 min (FT), eller FT uden
 //     forlængelse/straffe, eller felter der ikke summer til slutstillingen → kast
+//   - en walkover (10–0 uden pausestilling)             → kast med art 'walkover'
+//   - en fodnote ({{refn|…}}, <ref>) i dato/tid/hold     → fjernes, og feltet
+//     står i `fodnoter` på kampen. Programmet kaster på det i en medtaget
+//     kamp (noten kan flytte kickoff); historikken bruger kun tiden til
+//     rækkefølgen og ignorerer det.
 // Kalderen (program/historik) beslutter, om en kastet kamp vælter hele
 // kørslen (programmet: ja) eller tælles og vises som afvist (historikken).
 //
@@ -163,13 +168,35 @@ export function findHandballboxe(wikitekst) {
   return ud;
 }
 
+// HOLD UDEN EN TREBOGSTAVSKODE PÅ SIDEN. Hver form står ORDRET, som den står
+// i kasserne — intet mønster, for et mønster ville gætte på former, ingen har
+// set. En ny form kaster stadig (se parseHold).
+//   VM 2019: det fælles koreanske hold, {{hb|Korea|unification}} (og -rt).
+//     Koden COR er vores, ikke sidens: siden bruger KOR som nøgle i
+//     gruppetabellen (|name_KOR=…), men holdet er IKKE Sydkorea (det havde
+//     spillere fra både Syd- og Nordkorea), og KOR er Sydkoreas kode i VM
+//     2021 og 2023. Om COR skal kædes til KOR i Elo, afgør målingen (D4) —
+//     her får holdet bare en stabil kode, der ikke blander dem sammen.
+//   VM 2021: Rusland spillede som «Russian Handball Federation» (RHF), fordi
+//     WADA-sanktionen forbød navn og flag — ikke fordi det var et andet hold.
+//     Samme forbund, samme spillere, samme landshold (linket peger på
+//     «Russia men's national handball team»). Elo måler holdets styrke, så
+//     RHF er RUS. Kasserne skriver det som et link, ikke {{hb|RUS}}.
+const SAERLIGE_HOLD = new Map([
+  ['{{hb|Korea|unification}}', 'COR'],
+  ['{{hb-rt|Korea|unification}}', 'COR'],
+  ["[[Russia men's national handball team|Russian Handball Federation]]", 'RUS'],
+]);
+
 /**
  * Et hold-felt: {{hb|DEN}} / {{hb-rt|DEN}} → {kode:'DEN'}; en ren pladsholder
- * (A1, WQF1, LSF2 …) → {pladsholder:'A1'}; tomt → null. Alt andet kaster.
+ * (A1, WQF1, LSF2 …) → {pladsholder:'A1'}; en af SAERLIGE_HOLD → {kode}; tomt
+ * → null. Alt andet kaster.
  */
 export function parseHold(vaerdi, hvor = '') {
   const v = String(vaerdi ?? '').trim();
   if (!v) return null;
+  if (SAERLIGE_HOLD.has(v)) return { kode: SAERLIGE_HOLD.get(v) };
   const skab = /^\{\{\s*(hb|hb-rt|hbrt|hb-lt)\s*\|\s*([A-Z]{3})\s*(?:\|[^{}]*)?\}\}$/.exec(v);
   if (skab) return { kode: skab[2] };
   if (/^[A-Za-z0-9 ]{1,12}$/.test(v) && !/[{}[\]]/.test(v)) return { pladsholder: v };
@@ -283,6 +310,19 @@ export function facitFraBox(felter, hvor = '') {
   if (ht && (ht.h > efter60.h || ht.u > efter60.u)) {
     throw new Error(`${hvor}pausestillingen ${ht.h}–${ht.u} er større end stillingen efter 60 min ${efter60.h}–${efter60.u}`);
   }
+  // WALKOVER. Et hold, der ikke stiller op, taber 0–10 ved bordet. VM 2021:
+  // Kap Verde trak sig midt i turneringen (COVID), og dets seks resterende
+  // kampe står med score 0–10/10–0, uden tid, pausestilling og rapport.
+  // Det er ikke en spillet kamp og må ikke ind i en måling af spillede
+  // kampe — men den skal kunne kendes fra en ulæselig kamp. Formen er
+  // snæver: præcis 10–0 og INGEN pausestilling. En 10–0 med pausestilling
+  // er en ny form og falder igennem til vagten herunder. (FT behøver ingen
+  // vagt: med FT er efter60 = FT, og FT er altid uafgjort — aldrig 10–0.)
+  if (!ht && Math.max(efter60.h, efter60.u) === 10 && Math.min(efter60.h, efter60.u) === 0) {
+    const e = new Error(`${hvor}walkover (${slut.h}–${slut.u} tildelt uden kamp, ingen pausestilling) — ikke en spillet kamp`);
+    e.art = 'walkover';
+    throw e;
+  }
   for (const x of [efter60.h, efter60.u]) {
     if (x < 5 || x > 70) throw new Error(`${hvor}${x} mål efter 60 min er ikke en håndboldkamp — forkert felt?`);
   }
@@ -304,7 +344,17 @@ export function sidensForskydning(wikitekst) {
     const fortegn = m[1] === '+' ? 1 : -1;
     fundne.add(fortegn * (Number(m[2]) * 60 + Number(m[3] || 0)));
   }
-  if (fundne.size === 0) throw new Error('Siden siger ikke, hvilken tidszone tiderne står i («All times are local (UTC+1)») — der gættes ikke.');
+  if (fundne.size === 0) {
+    // Står sætningen der, men uden en forskydning, så sig hvad den siger. EM
+    // 2022: «All times are local ([[Central European Time|UTC]])» — teksten
+    // siger UTC, linket siger CET. Det er ikke entydigt, og der vælges ikke.
+    const linje = /All times are local[^\n]*/i.exec(tekst);
+    if (linje) {
+      const ord = udenFodnoter(linje[0]).replace(/'{2,}/g, '').trim().slice(0, 120);
+      throw new Error(`Siden skriver «${ord}» uden en forskydning efter UTC (fx UTC+1) — der gættes ikke.`);
+    }
+    throw new Error('Siden siger ikke, hvilken tidszone tiderne står i («All times are local (UTC+1)») — der gættes ikke.');
+  }
   if (fundne.size > 1) throw new Error(`Siden har flere tidszoner (${[...fundne].map((x) => x / 60).join(', ')}) — der gættes ikke.`);
   return [...fundne][0];
 }
@@ -318,6 +368,12 @@ export function sidensForskydning(wikitekst) {
  */
 export function beskaarTilKampe(wikitekst) {
   const tekst = String(wikitekst);
+  const { fra, til } = kampOmraade(tekst);
+  return tekst.slice(fra, til);
+}
+
+/** [fra, til) for beskaarTilKampe — og for transklusioner(). */
+function kampOmraade(tekst) {
   const re = /\{\{\s*handballbox\s*(?=[|}\n])/gi;
   const starter = [];
   let m;
@@ -328,7 +384,55 @@ export function beskaarTilKampe(wikitekst) {
   const n2 = overskrifter(tekst).filter((o) => o.niveau === 2);
   const fra = [...n2].reverse().find((o) => o.pos <= starter[0])?.pos ?? 0;
   const til = n2.find((o) => o.pos >= sidsteSlut)?.pos ?? tekst.length;
-  return tekst.slice(fra, til);
+  return { fra, til };
+}
+
+/**
+ * KAMPE PÅ EN ANDEN SIDE. EM 2026-siden har ingen {{handballbox}} for
+ * finalen; sektionen er «{{#section:2026 European Men's Handball
+ * Championship final|Final}}», og kassen hentes fra finalens egen side, når
+ * Wikipedia VISER siden. I wikiteksten står den ikke, og før denne funktion
+ * forsvandt finalen i stilhed (64 af 65 kampe — over gulvet på 60).
+ * Finder transklusioner ({{#section…:}}, {{#lst…:}}, {{:Side}}) i kampenes
+ * område (samme som beskaarTilKampe). De læses ikke — den anden side er ikke
+ * hentet — men de meldes, så kalderen kan afvise dem med grund.
+ * @returns {Array<{sektion: string[], side: string, skabelon: string}>}
+ */
+export function transklusioner(wikitekst) {
+  const tekst = fjernKommentarer(wikitekst);
+  const { fra, til } = kampOmraade(tekst);
+  const overs = overskrifter(tekst);
+  const ud = [];
+  const re = /\{\{\s*(?:#(?:section|section-h|lst|lsth|lstx)\s*:|:)\s*([^|{}]+?)\s*(?:\|[^{}]*)?\}\}/gi;
+  re.lastIndex = fra;
+  let m;
+  while ((m = re.exec(tekst)) && m.index < til) {
+    ud.push({ sektion: sektionVed(overs, m.index), side: m[1], skabelon: m[0].slice(0, 120) });
+  }
+  return ud;
+}
+
+/**
+ * Sidens eget kamptal: «| matches = 65» i {{Infobox …}} øverst. Det er
+ * sidens påstand om, hvor mange kampe der blev SPILLET (VM 2021: 102 — de 108
+ * kasser minus Kap Verdes seks walkovers), og historikken holder sig selv op
+ * mod den, så en kamp ikke kan forsvinde i stilhed.
+ * @returns {{antal: number|null, fejl: string|null}}
+ */
+export function infoboksKampe(wikitekst) {
+  const tekst = fjernKommentarer(wikitekst);
+  const m = /\{\{\s*infobox\b/i.exec(tekst);
+  if (!m) return { antal: null, fejl: 'siden har ingen {{Infobox …}}' };
+  const slut = skabelonSlut(tekst, m.index);
+  if (slut < 0) return { antal: null, fejl: 'infoboksen lukkes aldrig' };
+  const felt = delFelter(tekst.slice(m.index + 2, slut - 2)).slice(1)
+    .filter((l) => l.includes('='))
+    .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1)])
+    .find(([navn]) => navn === 'matches');
+  if (!felt) return { antal: null, fejl: 'infoboksen har intet «matches=»' };
+  const v = udenFodnoter(felt[1]);
+  if (!/^\d{1,4}$/.test(v)) return { antal: null, fejl: `infoboksens «matches=${v.slice(0, 30)}» er ikke et tal` };
+  return { antal: Number(v), fejl: null };
 }
 
 /** Lokal dato+tid med forskydning → UTC ISO ('2027-01-13T16:30:00Z'). */
@@ -346,15 +450,27 @@ export function utcIso(dato, tid, forskydningMin) {
  */
 export function laesBox(b) {
   const hvor = `Kamp nr. ${b.nr} (${b.sektion.join(' › ') || 'uden sektion'}): `;
+  // Fodnoter fjernes i ALLE de felter, der læses — ikke kun i scoren. VM 2023,
+  // kvartfinalen FRA–GER: «|time=20:54{{refn|…kampen var sat til 20:30…}}».
+  // Hvilke felter der havde en, står i `fodnoter`. Scorefelterne er ikke med:
+  // parseScore har altid fjernet dem, og en note dér flytter ingen deadline.
+  const fodnoter = [];
+  const felt = (navn) => {
+    const raa = String(b.felter[navn] ?? '').trim();
+    const ren = udenFodnoter(raa);
+    if (ren !== raa) fodnoter.push(navn);
+    return ren;
+  };
   return {
     nr: b.nr,
     sektion: b.sektion,
-    dato: parseDato(b.felter.date, hvor),
-    ...tidsfelter(parseTid(b.felter.time, hvor)),
-    hjemme: parseHold(b.felter.team1, hvor),
-    ude: parseHold(b.felter.team2, hvor),
+    dato: parseDato(felt('date'), hvor),
+    ...tidsfelter(parseTid(felt('time'), hvor)),
+    hjemme: parseHold(felt('team1'), hvor),
+    ude: parseHold(felt('team2'), hvor),
     facit: facitFraBox(b.felter, hvor),
     ukendte: b.ukendte,
+    fodnoter,
   };
 }
 

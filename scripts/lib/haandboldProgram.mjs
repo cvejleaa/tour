@@ -136,6 +136,14 @@ export function klassificeredeKampe(wikitekst) {
     }
     const kamp = laesBox(b);
     if (!kamp.dato) throw new Error(`Kamp nr. ${b.nr} (${b.sektion.join(' › ')}) har ingen dato — kalenderen kan ikke bygges.`);
+    // FODNOTER. Parseren fjerner {{refn|…}}/<ref> fra dato, tid og hold, så
+    // historikken kan læse «20:54{{refn|…}}». I programmet er tiden en
+    // tip-deadline, og noten kan sige netop det, der flytter den («flyttet
+    // til 18:00», «afventer TV»). Så samme regel som for ukendte felter.
+    if (kamp.fodnoter.length) {
+      throw new Error(`${hvor} har en fodnote i ${kamp.fodnoter.join(', ')}. En note kan flytte en tip-deadline, så `
+        + 'programmet bygges ikke. Læs noten på siden, og afgør tiden — der gættes ikke.');
+    }
     kampe.push({ ...kamp, ...k });
   }
   return { kampe, advarsler };

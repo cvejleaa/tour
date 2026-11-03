@@ -211,10 +211,16 @@ Hver side hentes **én gang** og gemmes i en cache (`<tmp>/vejleaa-wiki`,
 eller `--cache <mappe>`). Senere kørsler sender intet kald. Skal en side hentes
 igen, så slet dens fil i cachen. Fejler én side, skrives der **intet**. En
 måling på 7 af 8 turneringer må ikke ligne en på 8. Kampe, der ikke kan læses,
-står med grund under `kilder[].afviste` og i udskriften. `efter60` er
-stillingen efter ordinær tid, og det er den, der tippes på, også i knockout.
-`dato`/`tid` er turneringens **lokale** tid; forskydningen står pr. side i
-`kilder[].forskydningMin` (null, hvis siden ikke siger det).
+står med grund og `art` under `kilder[].afviste` og i udskriften: `walkover`
+(tildelt ved bordet, ikke spillet), `andenSide` (kampen er transkluderet fra en
+anden side, der ikke er hentet) eller `ulaeselig` (en ny form — læs siden).
+**Regnskabet:** læste + afviste kampe (uden walkovers) skal give præcis sidens
+eget tal (infoboksens `matches=`, gemt som `kilder[].infoboksKampe`). Går det
+ikke op, stopper scriptet og skriver intet — så kan en kamp ikke forsvinde i
+stilhed. `efter60` er stillingen efter ordinær tid, og det er den, der tippes
+på, også i knockout. `dato`/`tid` er turneringens **lokale** tid;
+forskydningen står pr. side i `kilder[].forskydningMin` (null med
+`forskydningGrund`, hvis siden ikke siger det entydigt).
 
 **Nødvejen ved 429: `--filer <mappe>`.** Historikken har **ikke** `--fil`
 (det har kun programmet). Gem i stedet én fil pr. turnering i en mappe og læs
@@ -235,15 +241,36 @@ Filnavnene er nøglerne (`vm2019`, `em2020`, `vm2021`, `em2022`, `vm2023`,
 scriptet, før noget læses. Kilden får `vej: "fil"`, filnavnet og filens tid
 som `hentet`, så ingen tror, at scriptet selv har hentet siden.
 
-> **Status 2/11 2026:** `scripts/haandbold-historik.json` rummer kun **VM 2025**.
-> Fra byggemiljøet svarede Wikipedia HTTP 429 på alle scriptets kald (Node
-> `fetch`). Et curl-kald til **samme** API-adresse gav 200; det svar blev gemt
-> og læst med `--filer` (derfor `vej: "fil"` i filen). De andre syv sider er
-> ikke hentet. Af de 108 kampe kan kun de 26 i fixturen
-> `scripts/testdata/wiki-vm2025-udsnit.wikitext` genskabes fra repoet.
-> Kør scriptet for alle otte før D4 måler — først uden `--filer`; svarer det
-> 429, så med `--filer`. Fra Google Cloud Shell er kun `index.php?action=raw`
-> målt (200, 2/11); scriptets API-vej er ikke prøvet dér.
+> **Status 3/11 2026:** `scripts/haandbold-historik.json` rummer **alle otte**
+> turneringer: 677 kampe. Siderne er hentet 3/11 som rå wikitekst
+> (`index.php?action=raw`, ét kald pr. side) og læst med `--filer` — derfor
+> `vej: "fil"`, `fil: "<nøgle>.wikitext"` og `revid: null` i hver kilde.
+> `action=raw` bærer ingen revision, så null er sandt. Skal revisionen med, så
+> gem API-svaret (`.json`) i stedet. Scriptets egen API-vej (Node `fetch`)
+> fik HTTP 429 fra byggemiljøet 2/11 og er ikke prøvet igen. Kun de 26 kampe i
+> fixturen `scripts/testdata/wiki-vm2025-udsnit.wikitext` kan genskabes fra
+> repoet alene.
+>
+> **Hvad der IKKE er med, og hvorfor** (står også under `kilder[].afviste`):
+> - **VM 2021: 6 walkovers.** Kap Verde trak sig midt i turneringen (COVID),
+>   og de resterende seks kampe står som 0–10/10–0 uden tid og pausestilling.
+>   De er ikke spillet, og infoboksen tæller dem heller ikke (102 kampe).
+> - **EM 2026: finalen** (DEN–GER). Den står ikke på turneringssiden, men
+>   transkluderes fra «2026 European Men's Handball Championship final»
+>   (`{{#section:…}}`). Den side er ikke hentet. EM 2026 har derfor 64 af 65.
+>
+> **Lært af parseren 3/11:** det fælles koreanske hold på VM 2019
+> (`{{hb|Korea|unification}}`) får koden **COR** (ikke KOR, som er Sydkorea);
+> «Russian Handball Federation» på VM 2021 er **RUS** (samme landshold under
+> WADA-sanktionen); Færøerne er **FRO** overalt (EM 2026-siden skriver FAR);
+> fodnoter (`{{refn|…}}`, `<ref>`) fjernes fra dato, tid og hold (VM 2023's
+> kvartfinale «20:54{{refn|…}}»). I **programmet** stopper en fodnote i en
+> medtaget kamp kørslen, for dér er tiden en tip-deadline.
+>
+> **EM 2022's tidszone er null.** Siden skriver «All times are local
+> ([[Central European Time|UTC]])»: teksten siger UTC, linket siger CET. Det
+> er ikke entydigt, og der gættes ikke. Tiden bruges kun til rækkefølgen inden
+> for en dag.
 
 **Wikimedias regler.** Begge scripts bruger MediaWiki API'et med User-Agenten
 `VejleaaTip-program/1.0 (+https://github.com/cvejleaa/tour)` (ikke ejerens

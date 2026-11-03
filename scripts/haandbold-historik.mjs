@@ -91,11 +91,14 @@ async function main() {
     const r = udtraekKampe(side.wikitekst, t.noegle);
     const res = resume(r.kampe);
     const tz = sidensTidszone(side.wikitekst);
-    if (tz.fejl) console.log(`   (tidszone ukendt — tid er lokal uden forskydning: ${tz.fejl})`);
     console.log(`${t.noegle}: ${res.kampe} spillede · ${res.uafgjortEfter60} uafgjort efter 60 min · `
       + `${res.forlaenget} forlænget · ${res.straffe} straffekast · ${res.maalPrKamp60} mål/kamp`
-      + `${r.ikkeSpillet ? ` · ${r.ikkeSpillet} uden score` : ''}`);
-    for (const a of r.afviste) console.log(`   ⚠️  AFVIST ${a.sektion} nr. ${a.nr}: ${a.grund}`);
+      + `${r.ikkeSpillet ? ` · ${r.ikkeSpillet} uden score` : ''} · siden siger ${r.infoboksKampe} kampe`);
+    // Tidszonen står UNDER turneringens linje — før stod den over, og så lignede
+    // den en note til turneringen ovenfor.
+    if (tz.fejl) console.log(`   (tidszone ukendt — tid er lokal uden forskydning: ${tz.fejl})`);
+    const ART = { walkover: 'WALKOVER', andenSide: 'AFVIST (anden side)', ulaeselig: 'AFVIST' };
+    for (const a of r.afviste) console.log(`   ⚠️  ${ART[a.art]} ${a.sektion}${a.nr ? ` nr. ${a.nr}` : ''}: ${a.grund}`);
     if (Object.keys(r.ukendteFelter).length) console.log(`   (ukendte felter, ikke resultat-lignende: ${Object.entries(r.ukendteFelter).map(([k, n]) => `${k}×${n}`).join(', ')})`);
     kilder.push({
       noegle: t.noegle,
@@ -106,16 +109,21 @@ async function main() {
       vej: side.vej,
       ...(side.fil ? { fil: side.fil } : {}),
       forskydningMin: tz.forskydningMin,
+      ...(tz.fejl ? { forskydningGrund: tz.fejl } : {}),
       licens: 'CC BY-SA 4.0',
       ...res,
+      infoboksKampe: r.infoboksKampe,
       ikkeSpillet: r.ikkeSpillet,
       afviste: r.afviste,
     });
     kampe.push(...r.kampe);
   }
 
-  const afviste = kilder.reduce((s, k) => s + k.afviste.length, 0);
-  console.log(`\nI alt ${kampe.length} kampe fra ${kilder.length} turneringer${afviste ? ` · ${afviste} AFVIST (se ovenfor)` : ''}.`);
+  const alleAfviste = kilder.flatMap((k) => k.afviste);
+  const walkovers = alleAfviste.filter((a) => a.art === 'walkover').length;
+  const afviste = alleAfviste.length - walkovers;
+  console.log(`\nI alt ${kampe.length} kampe fra ${kilder.length} turneringer`
+    + `${afviste ? ` · ${afviste} AFVIST (se ovenfor)` : ''}${walkovers ? ` · ${walkovers} walkover (ikke spillet)` : ''}.`);
   if (!args.flag.has('skriv')) {
     console.log('Tør-kørsel — intet skrevet. Kør med --skriv for at skrive scripts/haandbold-historik.json.\n');
     return;
@@ -123,10 +131,15 @@ async function main() {
   const fil = {
     _note: `Færdige kampe fra ${kilder.map((k) => k.noegle).join(', ')} (herrer), bygget af scripts/haandbold-historik.mjs fra Wikipedia; `
       + 'indholdet er CC BY-SA 4.0 (kilder med revision nedenfor). efter60 = stillingen efter ordinær tid (det, der tippes på); '
-      + 'slut = inkl. forlængelse/straffekast; afgjort = null | forlaenget | straffe. Holdene er Wikipedias koder. '
-      + 'dato/tid er turneringens lokale tid (kilder[].forskydningMin). kilder[].vej = api (hentet af scriptet) eller '
-      + 'fil (læst med --filer fra en gemt side; hentet = filens tid). '
-      + 'Afviste kampe står under kilder[].afviste med grund. RET ALDRIG I HÅNDEN: kør scriptet igen.',
+      + 'slut = inkl. forlængelse/straffekast; afgjort = null | forlaenget | straffe. Holdene er Wikipedias koder, '
+      + 'undtagen COR (det fælles koreanske hold, VM 2019) og RUS for «Russian Handball Federation» (VM 2021), '
+      + 'og Færøerne er FRO overalt (EM 2026-siden skriver FAR; scripts/lib/haandboldHistorik.mjs SAMME_HOLD). '
+      + 'dato/tid er turneringens lokale tid (kilder[].forskydningMin; null med forskydningGrund, når siden ikke siger det entydigt). '
+      + 'kilder[].vej = api (hentet af scriptet) eller fil (læst med --filer fra en gemt side; hentet = filens tid; '
+      + 'revid = null for en .wikitext-fil, for action=raw bærer ingen revision). '
+      + 'Afviste kampe står under kilder[].afviste med grund og art (walkover | andenSide | ulaeselig); '
+      + 'kilder[].infoboksKampe er sidens eget kamptal, og læste + afviste (uden walkovers) giver præcis det. '
+      + 'RET ALDRIG I HÅNDEN: kør scriptet igen.',
     turneringer: kilder.map((k) => k.noegle),
     kilder,
     kampe,
