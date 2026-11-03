@@ -877,7 +877,7 @@ ligner hinanden, men den ene kan ikke rette det, den anden retter.
 | `game.startRound` LØSNET (fx 3 → 2) | **`rescoreGameBets`** — ikke Genberegn point | Kampe, hvis facit faldt, MENS de var gatet, står med `points: 0`. `recomputeGameMatchCore` returnerer tidligt for en gatet kamp og skriver aldrig et point på den, så der er intet at lægge sammen. Stillingen ville vise for lave tal uden en eneste fejlbesked |
 | En LIGAS `startRound` (sat/ændret af ejeren) | Ingenting | Ligaens total regnes i fladen af `players.perRound` — der er intet server-tal at genberegne. MEN: spillere, der aldrig er genberegnet efter udrulningen af `perRound`, mangler vektoren og vises som "ikke klar" — kør 🔄 **Genberegn point** for spillet én gang efter udrulning. Regnskabet («Hvor kommer pointene fra?») viser «–» for de samme spillere |
 | **Nyt felt `players.opdelingPerRunde`** (20/10 2026: ligaens regnskab pr. runde) | 🔄 **Genberegn point** — pr. spil, ÉN gang efter udrulning af functions (tørkørsel af `rescore-bets.yml` før og efter: «INGEN OPDELING PR. RUNDE» skal gå til 0) | Feltet skrives af alle genberegninger, men ved en afgjort kamp kun for de berørte spillere — indtil Genberegn er kørt, er feltet derfor blandet, og ligaens regnskab viser «–» i rubrikkerne for dem, der mangler det (I alt er stadig ligaens tal). Det gælder OGSÅ ligaer med startrunde 1, der før viste spillets tal: kør Genberegn, FØR hosting udrulles |
-| **Betydningen af `players.perRound`** — fx at et afgjort forbier skriver nøglen med 0 (12/10 2026) | 🔄 **Genberegn point** — pr. spil (knappen er pr. fodboldspil: PL og Superligaen hver for sig) | Vektoren genskrives ellers kun, når noget andet alligevel skriver den: for de spillere, der har et bet på den næste afgjorte kamp (`berorteUids`), for alle pulje-tippere ved en facit-ændring efter grundspillet, og for alle ved `rescoreGameBets` uden tør-kørsel. Indtil da er feltet blandet: nyt tal hos dem, en kamp har genberegnet, gammel vektor hos resten — og fladen viser «–», hvor der burde stå 0 |
+| **Betydningen af `players.perRound`** — fx at et afgjort forbier skriver nøglen med 0 (12/10 2026) | 🔄 **Genberegn point** — pr. spil (knappen er pr. fodboldspil: PL og Superligaen hver for sig) | Vektoren genskrives ellers kun, når noget andet alligevel skriver den: for de spillere, der har et bet i runden for den næste afgjorte kamp (`kampeTriggerenLaeser` — før task #14 kun et bet på selve kampen), for alle pulje-tippere ved en facit-ændring efter grundspillet, og for alle ved `rescoreGameBets` uden tør-kørsel. Indtil da er feltet blandet: nyt tal hos dem, en kamp har genberegnet, gammel vektor hos resten — og fladen viser «–», hvor der burde stå 0 |
 | **Selve pointreglen** i `superligaScoring.js` — fx træf-bonussen eller combi-formlen | **`rescoreGameBets`** | `bets.points` er kilden til totalen, og de står med det GAMLE tal |
 | **Odds-modellen** — `ELO.DRAW_BASE`, `DRAW_DECAY`, `ODDS.MIN`, seed-Elo | 💰 **Ompris kampene** (`repriceGameOdds`) | Odds er frosne på kamp-dokumentet. Hverken de to andre knapper eller et deploy rører dem — se nedenfor |
 
@@ -928,7 +928,7 @@ lyse, hvis pointene bevægede sig opad. Vi gætter ikke på retningen.
 Kørslens eget svar siger kun, hvad den *mente* den gjorde. Derfor kører
 `scripts/verificer-totaler.mjs` som sidste trin og læser, hvad serveren
 **faktisk har gemt** på hver spiller (`players/{uid}.totalPoints` og
-`.opdeling`). Den er læs-only og prøver fire ting, der ellers går galt uden en
+`.opdeling`). Den er læs-only og prøver fem ting, der ellers går galt uden en
 fejlbesked:
 
 1. **Rubrikkerne skal summe til totalen** — inden for afrundingen (0,25: fire
@@ -955,6 +955,25 @@ fejlbesked:
    med begrundelsen «en kamp ikke kunne læses» — det er forkert; den rigtige
    er, at feltet er forældet. Kør 🔄 Genberegn point, når de nye functions er
    ude igen.
+5. **Den gemte total skal være den, en genberegning forfra giver** (task #14).
+   De fire første tjek ser kun, om spilleren er enig med sig selv — og en
+   spiller, der aldrig blev genberegnet, ER enig med sig selv (total 6 =
+   rubrikker 6, combi'en mangler bare). Derfor regnes hver spiller også forfra
+   af sine tips og spillets kampe, med serverens eget regnestykke
+   (`opdelPoint`) og spillets startrunde-gate, og `perRound` sammenlignes
+   **runde for runde** — ikke kun totalen, for en combi for lidt i én runde og
+   en for meget i en anden går ud med hinanden. Afviger noget, står der
+   «FORÆLDET: total gemt X, genberegnet Y; runde k: a → b (combi +c; intet tip
+   på n af kuponens m)» med ALLE afvigende runder, og under tabellen en blok
+   **FORÆLDET PR. RUNDE**: hvem, gemt → genberegnet, og hvor meget combi de
+   har til gode (negativ = for meget). «intet tip på n af kuponens m» skiller
+   combi-hullet (spilleren missede en kuponkamp) fra andre årsager (fx en kamp,
+   der er flyttet ind på eller ud af kuponen). Er det gemte combi-tal ukendt
+   (spilleren mangler `opdelingPerRunde`), står der «combi ?». Svaret er 🔄
+   **Genberegn point** — se «Combi til gode» nedenfor, for det kræver ejerens ja.
+
+   Bemærk: genberegningen bruger de GEMTE `bets.points`. Står bet-pointene
+   med en gammel regel, er det punkt 2 (og `rescoreGameBets`), ikke punkt 5.
 
 **Ved tør-kørsel er trinnet informativt** (`continue-on-error`): det viser
 tilstanden FØR skrivningen, og den uenighed, det finder, er den, skrivningen
@@ -966,6 +985,47 @@ springes trinnet over. Lokalt:
 ```bash
 SPIL_SA=<sa.json> GAME_ID=superliga2627 node scripts/verificer-totaler.mjs
 ```
+
+### Combi til gode — måling og bagfyldning efter combi-hullet (task #14)
+
+**Hullet.** Indtil rettelsen (11/2026) genberegnede triggeren
+`recomputeGameMatch` kun spillerne med et tip på den afgjorte kamp. Combi har
+intet kuponkrav, så den, der glemte rundens sidste kamp, men havde mindst to
+træf på resten, fik sin combi først, når noget andet genberegnede ham (et facit
+på et af hans egne tips, puljeafregningen, 🔄 eller en genscoring). Frafaldne
+spillere står forkert for altid, og rundens rang-snapshot og Runde-Bottens
+opslag fra den runde kan ikke rettes bagefter. Nu genberegner triggeren alle
+med tip i kampens runde.
+
+**Målingen (D0) er læs-only og kan køres når som helst.** Actions →
+«Genscor bets efter regelændring» → feltet `skriv` TOMT (tør-kørsel; intet
+skrives — heller ikke af genscoringstrinnet) → `gameId` = `superliga2627`, og
+derefter én kørsel til med `pl2627-efteraar`. Læs trinnet «Verificér totaler
+(læs-only)» — det er gult/informativt ved tør-kørsel — og blokken **FORÆLDET
+PR. RUNDE**. Det er listen, ejeren afgør bagfyldningen på: pr. spil og pr.
+runde, hvilke spillere der står forkert, og hvor meget combi de har til gode.
+Kør den gerne FØR rettelsen er udrullet: det er beviset for hullet.
+
+**Bagfyldningen (D2) skriver i produktionsdata og kræver ejerens ja.** Først
+når rettelsen (functions) er ude — ellers kommer nye huller til:
+
+1. Kør målingen for SL og PL og vis ejeren listen (antal spillere, største
+   beløb, hvem der rykker).
+2. Ejerens ja → Admin → 🗓️ Spil-tidsplan → vælg spillet → **🔄 Genberegn point
+   efter start-ændring** — SL og PL hver for sig. Knappen lægger kun totalerne
+   sammen forfra; den rører ikke bet-pointene.
+3. Kør målingen igen: FORÆLDET PR. RUNDE skal sige «ingen».
+
+`hvm2027` har ingen tips før 13/1 2027 og skal ikke bagfyldes.
+`recomputeGameScores` har ingen `timeoutSeconds` (60 s) mod klientens 120 s —
+får knappen en timeout på et stort spil, så kør målingen og se, om den nåede
+igennem, før du trykker igen.
+
+**Udrulningen af rettelsen er ÉN kørsel af «Deploy platform» med
+functions-fluebenet SAT.** Workflowet lægger altid hosting ud først og functions
+bagefter i samme job. En kørsel med KUN hosting er den farlige: fladen holder
+op med at advare om «combi senere» og siger, at combi regnes for hele runden,
+mens serveren stadig kun genberegner kampens tippere.
 
 **Tripwiren ser kun på summen.** Havde halvdelen af tippene flyttet sig −2 og
 den anden halvdel 0, ville totalen stadig se rigtig ud. Brug derfor

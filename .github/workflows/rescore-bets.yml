@@ -3,7 +3,9 @@ name: Genscor bets efter regelændring (spil-89af9)
 # Manuel udløsning: GitHub → Actions → denne workflow → Run workflow.
 #
 # Kun nødvendig når selve POINTREGLEN har ændret sig. Se docs/drift.md,
-# afsnittet "To slags genberegning".
+# afsnittet "To slags genberegning". Som TØR-KØRSEL er den også målingen af
+# forældede totaler (trinnet «Verificér totaler», blokken FORÆLDET PR. RUNDE):
+# docs/drift.md, «Combi til gode».
 #
 # TØR-KØRSEL ER DEFAULT. Feltet `skriv` skal sættes til præcis "SKRIV" for at
 # der røres noget — et flueben er for nemt at komme til.
@@ -90,7 +92,9 @@ jobs:
 
       # Kontrollen kører til sidst og læser, hvad serveren FAKTISK har gemt:
       # rubrikkerne skal summe til totalen, og Chancen må kun være negativ for
-      # den, der faktisk har tabt en indsats. Ved TØR-KØRSEL viser den
+      # den, der faktisk har tabt en indsats — og hver spiller regnes forfra af
+      # tips og kampe, så en FORÆLDET total står pr. runde med den combi, han
+      # har til gode (task #14; docs/drift.md «Combi til gode»). Ved TØR-KØRSEL viser den
       # tilstanden FØR skrivningen — dér må den ikke farve kørslen rød, for den
       # uenighed, den finder, er netop den, skrivningen skal rette. Efter en
       # SKRIVNING er den blokerende: rød kørsel = totalerne er stadig forkerte.

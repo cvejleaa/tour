@@ -247,6 +247,191 @@ describe('vurder + tabel', () => {
 
   it('et spil uden spillere er ikke en fejl', () => {
     const v = vurder([], []);
-    expect(v).toEqual({ rows: [], fejl: 0, rester: 0, iAlt: 0 });
+    expect(v).toEqual({ rows: [], fejl: 0, rester: 0, iAlt: 0, foraeldede: 0 });
+  });
+});
+
+// FORÆLDET (task #14, D0): hvem står med en total, en genberegning forfra
+// ikke giver — og hvor meget combi har de til gode? Fixturet er combi-hullets
+// eget (functions-platform/gameScoring.test.js): d ramte k2 og k3, tippede
+// IKKE k1, og stod efter k1's facit med 6 uden combi. Forfra er han 11,7.
+describe('vurder med kampene — FORÆLDET pr. runde', () => {
+  const O = { 1: 2.0, X: 3.5, 2: 4.0 };
+  const kampe = [
+    { id: 'k1', round: 1, result: '1', odds: O, kickoff: 1 },
+    { id: 'k2', round: 1, result: '1', odds: O, kickoff: 1 },
+    { id: 'k3', round: 1, result: '2', odds: O, kickoff: 1 },
+  ];
+  const bets = [
+    { uid: 'd', matchId: 'k2', pick: '1', points: 2 },
+    { uid: 'd', matchId: 'k3', pick: '2', points: 4 },
+    { uid: 'e', matchId: 'k1', pick: '1', points: 2 },
+    { uid: 'e', matchId: 'k2', pick: '1', points: 2 },
+  ];
+  const kilde = { kampe, game: { name: 'SL' } };
+  // d som han stod efter hullet: konsistent (6 = 6), men uden combi.
+  const dGammel = { uid: 'd', totalPoints: 6, opdeling: { p1x2: 6, chance: 0, combi: 0, pulje: 0 },
+    perRound: { 1: 6 }, opdelingPerRunde: { 1: { p1x2: 6, chance: 0, combi: 0 } } };
+  // e frisk: 2 + 2 + combi 4 = 8.
+  const eFrisk = { uid: 'e', totalPoints: 8, opdeling: { p1x2: 4, chance: 0, combi: 4, pulje: 0 },
+    perRound: { 1: 8 }, opdelingPerRunde: { 1: { p1x2: 4, chance: 0, combi: 4 } } };
+
+  it('den interne kontrol ser IKKE hullet — d er enig med sig selv (derfor D0)', () => {
+    const v = vurder([dGammel], bets);
+    expect(v.fejl).toBe(0);
+    expect(v.rows[0].foraeldet).toBeNull();
+    expect(v).not.toHaveProperty('foraeldetPrRunde');
+  });
+
+  it('med kampene: d er FORÆLDET 6 → 11,7 med combi +5,7 til gode — og noten siger hvorfor', () => {
+    const v = vurder([dGammel, eFrisk], bets, kilde);
+    const d = v.rows.find((r) => r.uid === 'd');
+    expect(d.noter).toEqual(['FORÆLDET: total gemt 6, genberegnet 11.7; runde 1: 6 → 11.7 (combi +5.7; intet tip på 1 af kuponens 3) — kør Genberegn point for spillet']);
+    expect(d.foraeldet.runder).toEqual([{ runde: '1', gemt: 6, ny: 11.7, combiGemt: 0, combiNy: 5.7, udenTip: 1, kupon: 3 }]);
+    expect(v.foraeldede).toBe(1);
+    expect(v.fejl).toBe(1);
+    expect(v.foraeldetPrRunde).toEqual([{ runde: '1', combiIAlt: 5.7, combiUkendt: 0,
+      spillere: [{ uid: 'd', gemt: 6, ny: 11.7, combi: 5.7, udenTip: 1, kupon: 3 }] }]);
+  });
+
+  // Fraværs-assertion: en frisk spiller må ALDRIG meldes forældet — ellers er
+  // listen, ejeren afgør genberegningen på, fuld af falske navne.
+  it('en frisk spiller er IKKE forældet', () => {
+    const v = vurder([eFrisk], bets, kilde);
+    expect(v.rows[0].noter).toEqual([]);
+    expect(v.rows[0].foraeldet).toBeNull();
+    expect(v.foraeldede).toBe(0);
+    expect(v.foraeldetPrRunde).toEqual([]);
+  });
+
+  it('gulvet ved 0 er ikke forældet: rå −5 gemt som total 0 er det, serveren skriver', () => {
+    const tab = [{ uid: 't', matchId: 'k1', pick: '2', points: -5, chanceStake: 5 }];
+    const t = { uid: 't', totalPoints: 0, opdeling: { p1x2: 0, chance: -5, combi: 0, pulje: 0 },
+      perRound: { 1: -5 }, opdelingPerRunde: { 1: { p1x2: 0, chance: -5, combi: 0 } } };
+    const v = vurder([t], tab, kilde);
+    expect(v.rows[0].noter).toEqual([]);
+    expect(v.foraeldede).toBe(0);
+  });
+
+  // QC: totalen alene kan gå i nul. En combi for lidt i én runde og en for
+  // meget i en anden giver samme total — vektoren gør ikke.
+  it('totalen stemmer, men vektoren gør ikke: FORÆLDET, og ALLE afvigende runder står der', () => {
+    const skjult = { uid: 'd', totalPoints: 11.7, opdeling: { p1x2: 6, chance: 0, combi: 5.7, pulje: 0 },
+      perRound: { 1: 6, 2: 5.7 }, opdelingPerRunde: { 1: { p1x2: 6, chance: 0, combi: 0 }, 2: { p1x2: 0, chance: 0, combi: 5.7 } } };
+    const v = vurder([skjult], bets, kilde);
+    expect(v.rows[0].noter).toEqual(['FORÆLDET: total gemt 11.7, genberegnet 11.7; runde 1: 6 → 11.7 (combi +5.7; intet tip på 1 af kuponens 3), runde 2: 5.7 → – (combi -5.7) — kør Genberegn point for spillet']);
+    expect(v.foraeldetPrRunde.map((r) => [r.runde, r.combiIAlt])).toEqual([['1', 5.7], ['2', -5.7]]);
+  });
+
+  // Den omvendte vej: facit fjernet igen, men d beholdt sin combi.
+  it('en combi for MEGET er negativ til gode', () => {
+    const uden = kampe.map((m) => (m.id === 'k1' ? { ...m, result: null } : m));
+    const dForMeget = { uid: 'd', totalPoints: 11.7, opdeling: { p1x2: 6, chance: 0, combi: 5.7, pulje: 0 },
+      perRound: { 1: 11.7 }, opdelingPerRunde: { 1: { p1x2: 6, chance: 0, combi: 5.7 } } };
+    const v = vurder([dForMeget], bets, { kampe: uden, game: null });
+    expect(v.rows[0].foraeldet.runder).toEqual([{ runde: '1', gemt: 11.7, ny: 6, combiGemt: 5.7, combiNy: 0, udenTip: 1, kupon: 3 }]);
+    expect(v.foraeldetPrRunde[0].combiIAlt).toBe(-5.7);
+  });
+
+  // Nøglen 0 betyder «mindst ét afgjort tip» (12/10 2026). Mangler den, er
+  // vektoren forældet, selv om tallet er det samme — og combien er ikke del af
+  // forskellen, så noten nævner ingen combi.
+  it('en manglende rundenøgle mod genberegnet 0 er en afvigelse — uden combi i noten', () => {
+    const nul = [{ uid: 'n', matchId: 'k1', pick: '2', points: 0 }];
+    const n = { uid: 'n', totalPoints: 0, opdeling: { p1x2: 0, chance: 0, combi: 0, pulje: 0 }, perRound: {}, opdelingPerRunde: {} };
+    const v = vurder([n], nul, kilde);
+    expect(v.rows[0].noter).toEqual(['FORÆLDET: total gemt 0, genberegnet 0; runde 1: – → 0 (intet tip på 2 af kuponens 3) — kør Genberegn point for spillet']);
+  });
+
+  it('ukendt gemt combi (ingen opdelingPerRunde) siges som ukendt — ikke som 0', () => {
+    const gammel = { uid: 'd', totalPoints: 6, opdeling: { p1x2: 6, chance: 0, combi: 0, pulje: 0 }, perRound: { 1: 6 } };
+    const v = vurder([gammel], bets, kilde);
+    expect(v.rows[0].foraeldet.runder[0].combiGemt).toBeNull();
+    expect(v.rows[0].noter.join()).toContain('runde 1: 6 → 11.7 (combi ? → 5.7; intet tip på 1 af kuponens 3)');
+    expect(v.foraeldetPrRunde[0]).toMatchObject({ combiIAlt: 0, combiUkendt: 1 });
+  });
+
+  // SPILLETS GATE. Serveren regner kun fra startrunden (gameScoring.gatedIds).
+  // Uden gaten her fik g et for højt tal forfra, og forskellen blev læst som
+  // «forældet» — den forkerte vej. Mutation: fjern bets-filtret på gaten → rød.
+  // (At bygge roundCtx af ALLE kampe i stedet for de ikke-gatede er
+  // ækvivalent: gaten er hele runder, og en gatet runde uden bets giver ingen
+  // combi og ingen nøgle. Den mutation må overleve.)
+  it('tips i en gatet runde tæller ikke forfra — som på serveren', () => {
+    const toRunder = [...kampe, { id: 'r2', round: 2, result: '1', odds: O, kickoff: 2 }];
+    const g = { uid: 'g', totalPoints: 2, opdeling: { p1x2: 2, chance: 0, combi: 0, pulje: 0 },
+      perRound: { 2: 2 }, opdelingPerRunde: { 2: { p1x2: 2, chance: 0, combi: 0 } } };
+    const gBets = [
+      { uid: 'g', matchId: 'k2', pick: '1', points: 2 },
+      { uid: 'g', matchId: 'k3', pick: '2', points: 4 },
+      { uid: 'g', matchId: 'r2', pick: '1', points: 2 },
+    ];
+    const v = vurder([g], gBets, { kampe: toRunder, game: { startRound: 2 } });
+    expect(v.rows[0].noter).toEqual([]);
+    // …og uden gaten ER runde 1 med (beviset for, at fixturet kan skelne).
+    const uden = vurder([g], gBets, { kampe: toRunder, game: {} });
+    expect(uden.rows[0].noter.join()).toMatch(/FORÆLDET.*runde 1: – → 11\.7/);
+  });
+
+  // «kuponens» kampe er kuponens — ikke rundens. Alle fixtures ovenfor har
+  // kickoff 1 og ligger på kuponen; her ligger k4 en måned senere (udsat, UDEN
+  // FOR kuponen) og er ikke tippet. Den må hverken tælle i kuponen eller som
+  // «intet tip», ellers peger noten på combi-hullet, hvor der ikke er et.
+  it('en udsat kamp uden for kuponen tæller ikke i «intet tip på n af kuponens m»', () => {
+    const uge = Date.UTC(2026, 7, 8, 15);
+    const medUdsat = [
+      { id: 'k1', round: 1, result: '1', odds: O, kickoff: uge },
+      { id: 'k2', round: 1, result: '1', odds: O, kickoff: uge + 3_600_000 },
+      { id: 'k3', round: 1, result: '2', odds: O, kickoff: uge + 7_200_000 },
+      { id: 'k4', round: 1, result: '1', odds: O, kickoff: Date.UTC(2026, 8, 9, 15) },
+    ];
+    const v = vurder([dGammel], bets, { kampe: medUdsat, game: null });
+    expect(v.rows[0].foraeldet.runder[0]).toMatchObject({ udenTip: 1, kupon: 3 });
+  });
+
+  it('pulje-bonussen lægges med forfra — en afregnet pulje er ikke «forældet»', () => {
+    const p = { ...eFrisk, totalPoints: 18, bonusPoints: 10, opdeling: { p1x2: 4, chance: 0, combi: 4, pulje: 10 } };
+    expect(vurder([p], bets, kilde).rows[0].noter).toEqual([]);
+    // …og uden bonusPoints er det samme dokument forældet (pulje-leddet er bundet).
+    const udenBonus = { ...p, bonusPoints: undefined };
+    expect(vurder([udenBonus], bets, kilde).rows[0].noter.join()).toMatch(/FORÆLDET: total gemt 18, genberegnet 8/);
+  });
+
+  it('tabellen viser FORÆLDET PR. RUNDE med navne og combi til gode — og ⚠️-linjen', () => {
+    const v = vurder([dGammel, eFrisk], bets, kilde);
+    const t = tabel(v, new Map([['d', 'Søren'], ['e', 'Mads']]), 'superliga2627').join('\n');
+    expect(t).toContain('FORÆLDET PR. RUNDE (gemt → genberegnet forfra af tips og kampe)');
+    expect(t).toMatch(/^ {2}runde 1: 1 spiller\(e\), combi til gode i alt \+5\.7$/m);
+    expect(t).toMatch(/^ {4}Søren +6 → +11\.7 {3}combi \+5\.7 {3}intet tip på 1 af kuponens 3$/m);
+    expect(t).not.toMatch(/^ {4}Mads/m);
+    expect(t).toContain('⚠️  1 spiller(e) har en FORÆLDET total — svaret er 🔄 Genberegn point for spillet, men kun med ejerens ja (det flytter stillingen).');
+    expect(t).toContain('LÆS-ONLY — der er ikke skrevet noget.');
+  });
+
+  it('uden forældede: «ingen»-linjen og ingen ⚠️ om forældet', () => {
+    const t = tabel(vurder([eFrisk], bets, kilde), new Map(), 'pl').join('\n');
+    expect(t).toContain('  ingen — alle gemte totaler stemmer med en genberegning');
+    expect(t).not.toMatch(/FORÆLDET total/);
+    expect(t).toContain('✓ Ingen fejl fundet.');
+  });
+
+  it('uden kampene står afsnittet slet ikke (den gamle kontrol, uændret)', () => {
+    const t = tabel(vurder([dGammel], bets), new Map(), 'x').join('\n');
+    expect(t).not.toMatch(/FORÆLDET/);
+  });
+
+  // Security-mønstret: navne og rundenøgler i forældet-blokken er data fra
+  // dokumentet og skal renses som i resten af tabellen.
+  it('et fjendtligt navn eller en fjendtlig rundenøgle kan ikke skrive sin egen linje i forældet-blokken', () => {
+    const gift = '\n::error::FALSK';
+    const d = { ...dGammel, totalPoints: 7, perRound: { 1: 6, [gift]: 1 },
+      opdelingPerRunde: { ...dGammel.opdelingPerRunde, [gift]: { p1x2: 1, chance: 0, combi: 0 } } };
+    const linjer = tabel(vurder([d], bets, kilde), new Map([['d', '\n✓ Ingen fejl fundet.']]), 'x');
+    for (const l of linjer) {
+      expect(l).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/); // eslint-disable-line no-control-regex
+      expect(l).not.toMatch(/^:/);
+    }
+    expect(linjer.filter((l) => l.startsWith('✓')).length).toBe(0);
+    expect(linjer.join('\n')).toMatch(/^ {2}runde {2}::error::FALSK: 1 spiller/m);
   });
 });

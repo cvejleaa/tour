@@ -51,6 +51,16 @@ Release Manager ser deployet — ikke ugerne efter. Undersøg:
   Kommer den ikke, er kæden alarm → postbud → mail i stykker — postbudets kort
   siger hvor. Tjek samtidig, at Cloud Monitoring-alerten (docs/drift.md,
   «vagten uden for huset») stadig findes i konsollen.
+- **Forældede totaler**: står spillernes gemte point stadig, som en
+  genberegning forfra giver? Kør Actions → «Genscor bets efter regelændring»
+  som **tør-kørsel** (feltet `skriv` tomt) for hvert kampspil med tips —
+  `superliga2627`, `pl2627-efteraar` og `hvm2027`, når det er i gang — og læs
+  trinnet «Verificér totaler»: blokken **FORÆLDET PR. RUNDE** skal sige
+  «ingen». Står der spillere, er der en genberegning, ingen trigger har lavet
+  (combi-hullet, task #14, var en sådan; en kickoff-flytning, der flytter en
+  kamp ind på eller ud af kuponen, er en anden). Ret ved 🔄 Genberegn point
+  — men kun med ejerens ja, for det flytter stillingen (docs/drift.md,
+  «Combi til gode»).
 
 ### 3. Bundle og indlæsningstid
 
