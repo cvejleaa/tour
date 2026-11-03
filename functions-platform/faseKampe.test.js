@@ -287,6 +287,58 @@ describe('advarslerne — det, ejeren skal vide, før han trykker', () => {
     expect(p.puljeAfgoeres).toBe(false);
     expect(p.advarsler.join('\n')).not.toMatch(/afgøres/);
   });
+
+  // Test Manager (d9puls, BØR 2): advarslernes NEGATIVE grene var ubundne —
+  // hver betingelse kunne fjernes, og advarslen kom så også, hvor den lyver.
+  const HR_DAG1 = [
+    ['14:00', 'Tyskland', 'Danmark'], ['15:30', 'Frankrig', 'Serbien'], ['17:00', 'Norge', 'Sverige'],
+    ['18:00', 'Spanien', 'Kroatien'], ['19:30', 'Egypten', 'Island'], ['20:30', 'Portugal', 'Slovenien'],
+  ].map(([tid, h, u]) => k('2027-01-20', tid, h, u));
+
+  it('en HEL dag giver ingen «x af 6»-advarsel — og en dag, oprettelsen ikke rører, heller ikke', () => {
+    const p = planFaseKampe(g, indledende(), HR_DAG1, NU);
+    expect(p.fejl).toEqual([]);
+    expect(p.nye).toHaveLength(6);
+    // Dag 1 er hel (6 af 6), dag 2-6 har 0 af 6 — men er ikke rørt af kaldet.
+    expect(p.advarsler.join('\n')).not.toMatch(/kampe efter denne oprettelse/);
+    expect(p.advarsler.join('\n')).not.toMatch(/dag \d \(/);
+    // Pulslinjen for fasen står der stadig (6 af 36) — kontrollen, at listen ikke bare er tom.
+    expect(p.advarsler).toContain('Hovedrunde: 6 af 36 efter denne oprettelse. «Stadig med»-linjen i puljen og Runde-Botten fortæller først, hvilke pulje-hold der er ude, når alle 36 er lagt ind.');
+  });
+
+  it('«stadig med»-advarslen kommer kun for en runde-pulje', () => {
+    const officiel = spil({ pulje: { ...g.pulje, facitKilde: 'officiel' } });
+    const p = planFaseKampe(officiel, indledende(), [k('2027-01-20', '18:00', 'Danmark', 'Norge')], NU);
+    expect(p.fejl).toEqual([]);
+    // Dags-advarslen kommer stadig — kun pulslinjen forsvinder.
+    expect(p.advarsler).toContain('Hovedrunde · dag 1 (ons 20/1): 1 af 6 kampe efter denne oprettelse. Læg helst hele dagen ind ad gangen — Tip-siden ser færdig ud med en halv dag.');
+    expect(p.advarsler.join('\n')).not.toMatch(/Stadig med/);
+  });
+
+  it('«stadig med»-advarslen kommer ikke, når fasen bliver HEL — og ikke for puljens egen facit-fase', () => {
+    const hr = hovedrunde({ facit: false });
+    const sidste = hr[hr.length - 1];
+    const hel = planFaseKampe(g, [...indledende({ facit: true }), ...hr.slice(0, -1)], [k('2027-01-25', '21:00', sidste.home, sidste.away)], dk('2027-01-19', '23:00'));
+    expect(hel.fejl).toEqual([]);
+    expect(hel.advarsler.join('\n')).not.toMatch(/Stadig med/);
+    // Facit-fasen (semifinalerne): én af to — puljen afgøres ikke, men den
+    // fortæller ikke om «stadig med», for dér er puljen selve facit.
+    expect(g.pulje.facitFase).toBe('Semifinaler');
+    const enSf = planFaseKampe(g, KV, [k('2027-01-29', '17:30', 'Tyskland', 'Danmark')], NU_KO);
+    expect(enSf.fejl).toEqual([]);
+    expect(enSf.advarsler.join('\n')).not.toMatch(/Stadig med/);
+  });
+
+  it('puljeAfgoeres: false, når puljen allerede KUNNE afgøres før oprettelsen', () => {
+    const sf = [
+      { id: 'r16-ger-den', round: 16, home: 'Tyskland', away: 'Danmark', kickoff: dk('2027-01-29', '17:30'), result: '2', homeGoals: 29, awayGoals: 33 },
+      { id: 'r16-swe-esp', round: 16, home: 'Sverige', away: 'Spanien', kickoff: dk('2027-01-29', '20:30'), result: '1', homeGoals: 30, awayGoals: 28 },
+    ];
+    const p = planFaseKampe(g, [...KV, ...sf], [k('2027-01-31', '14:30', 'Tyskland', 'Spanien'), k('2027-01-31', '17:30', 'Danmark', 'Sverige')], dk('2027-01-30', '12:00'));
+    expect(p.fejl).toEqual([]);
+    expect(p.puljeAfgoeres).toBe(false);
+    expect(p.advarsler.join('\n')).not.toMatch(/afgøres/);
+  });
 });
 
 // Knockout-faserne — det, der kun kan bevises i unit-tests før januar.
@@ -762,7 +814,27 @@ describe('index.js: ledningen til de to callables', () => {
     .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
   const krop = (navn) => (kilde.split(`exports.${navn} = `)[1] || '').split('\nexports.')[0];
 
+  // Test Manager (d9puls, BØR 1): `kampe: d.kampe` kunne fjernes med grøn
+  // suite — kernen fik så `undefined` og afviste alt, men kun i produktion.
+  // Hver callables EGNE felter bindes derfor også, og argument-objektet skal
+  // have præcis disse nøgler (en fejlstavet eller manglende nøgle er rød).
+  const egneFelter = {
+    opretFaseKampe: ['gameId: d.gameId,', 'kampe: d.kampe,'],
+    retFaseKampKickoff: ['gameId: d.gameId,', 'matchId: d.matchId,', 'tid: d.tid,'],
+  };
   for (const [navn, kerne] of [['opretFaseKampe', 'opretFaseKampeCore'], ['retFaseKampKickoff', 'retKickoffCore']]) {
+    it(`${navn}: argumenterne til ${kerne} er præcis ${egneFelter[navn].join(' ')} + de fælles`, () => {
+      const k = krop(navn);
+      const arg = (k.match(new RegExp(`await ${kerne}\\(db, FieldValue, \\{\\n([\\s\\S]*?)\\n\\s+\\}\\);`)) || [])[1];
+      expect(arg).toBeTruthy();
+      expect(arg.split('\n').map((l) => l.trim())).toEqual([
+        ...egneFelter[navn],
+        'aftryk: d.aftryk ?? null,',
+        'dryRun,',
+        'tilTimestamp: (ms) => Timestamp.fromMillis(ms),',
+      ]);
+    });
+
     it(`${navn}: 120 s, requireAdmin FØR ${kerne}, dryRunFraKald videresendt, aftryk, tidspunkt og fejl-oversættelsen`, () => {
       const k = krop(navn);
       expect(k.length).toBeGreaterThan(200);

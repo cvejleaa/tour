@@ -123,7 +123,8 @@ kun nye kampe (create-only — en eksisterende kamp overskrives aldrig), priser
 dem af den levende Elo med sportens loft, kræver at holdene var med i fasen
 før (og ved knockout: at de vandt), og afregner puljen med det samme, når
 semifinalerne bliver hele. Glemmes en dag, melder Drift-alarmen
-**«Kampe mangler i næste fase»** sig kl. 12 dagen før (se nedenfor).
+**«Kampe mangler i næste fase»** sig kl. 12 dagen før — en fases første dag
+dog først, når fasen før er afgjort (se nedenfor).
 
 **Nødvejen, hvis knappen ikke kan bruges** (fx functions er nede): skriv
 kampene i en JSON-fil i programmets form (`{ "fixtures": [{ "id", "round",

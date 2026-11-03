@@ -1178,6 +1178,35 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     // kvartfinalehold (Danmark) er med. Han er ikke i kvartfinale-historien.
     expect(f.puljeUde.spillere.map((x) => x.name)).not.toContain('Bo');
   });
+  // Test Manager (d9puls, BØR 3): to grene i puljeUdeFakta var ubundne.
+  it('et hold, der var ude FØR forrige fase, tælles ikke som udskilt igen — hverken i ude, enegængere eller favoritter', async () => {
+    const { kald, anth } = optag();
+    const kv = KVART27.map((m) => ({ ...m, odds: { 1: 2, X: 9, 2: 2 } }));
+    const db = makeDb(fix({ game: { puljeUdeFortalt: ['Hovedrunde'] }, matches: [...medFacit, ...HOVED, ...kv] }));
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
+    const pu = JSON.parse(kald[0].messages[0].content).puljeUde;
+    // Uruguay, Angola og Kuwait røg ud i HOVEDRUNDEN (Bo og Carla) — den
+    // historie er fortalt. Kvartfinalernes eneste nye udskilte pulje-hold er Annas Sverige.
+    expect(pu).toEqual({
+      fase: 'kvartfinalerne',
+      spillere: [{ name: 'Anna', ude: ['Sverige'], tilbage: 3, af: 4 }],
+      enegaengere: [{ hold: 'Sverige', name: 'Anna' }],
+      favoritter: [],
+      alleTilbage: [],
+    });
+    expect(JSON.stringify(pu)).not.toMatch(/Uruguay|Angola|Kuwait/);
+  });
+
+  it('mistede INGEN et hold, findes puljeUde ikke — heller ikke med en tom spillerliste', async () => {
+    const { kald, anth } = optag();
+    // Anna (alle fire med i hovedrunden) og Dan (ufuldstændigt tip, tæller ikke):
+    // ét komplet tip, og ingen mistede noget.
+    const db = makeDb(fix({ leagues: [{ name: 'Anna og Dan', memberUids: ['A', 'D'] }] }));
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 7, { nowMs: NU });
+    expect(JSON.parse(kald[0].messages[0].content)).not.toHaveProperty('puljeUde');
+    // Kontrol: puljeBets BLEV læst — det er fakta-grenen, ikke læse-vagten, der siger nej.
+    expect(db._laest.puljeBets).toBe(1);
+  });
 
   // Pulsen fejler lukket — og så fortæller botten INTET (heller ikke den
   // sidste gode fase): en datafejl må ikke ende på en væg.
