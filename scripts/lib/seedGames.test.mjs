@@ -250,6 +250,72 @@ describe('planLinjer — teksten operatøren læser', () => {
     ]);
   });
 
+  // Q10: hvm2027 findes i produktionen UDEN grupper. Tør-kørslen, ejeren skal
+  // sige ja til, er netop denne — og den skal kunne læses gruppe for gruppe,
+  // ikke som én JSON-linje på ~1 KB.
+  const GRUPPE_LINJER = [
+    '          point: {"sejr":2,"uafgjort":1}',
+    '          faser:',
+    '            - fase: "Indledende runde", videre: 3',
+    '              grupper:',
+    '                {"navn":"A","hold":["Serbien","Uruguay","Tyskland","Tunesien"]}',
+    '                {"navn":"B","hold":["Italien","Saudi-Arabien","Egypten","Kap Verde"]}',
+    '                {"navn":"C","hold":["Spanien","Tyrkiet","Kroatien","Chile"]}',
+    '                {"navn":"D","hold":["Argentina","Brasilien","Frankrig","Kuwait"]}',
+    '                {"navn":"E","hold":["Sverige","Grækenland","Norge","Qatar"]}',
+    '                {"navn":"F","hold":["Færøerne","Algeriet","Portugal","Polen"]}',
+    '                {"navn":"G","hold":["Slovenien","Angola","Danmark","USA"]}',
+    '                {"navn":"H","hold":["Nordmakedonien","Japan","Island","Bahrain"]}',
+    '            - fase: "Hovedrunde", videre: 2',
+    '              grupper:',
+    '                {"navn":"I","fra":["A","B"]}',
+    '                {"navn":"II","fra":["C","D"]}',
+    '                {"navn":"III","fra":["E","F"]}',
+    '                {"navn":"IV","fra":["G","H"]}',
+  ];
+
+  it('grupper, der mangler i databasen: ÉT ændret felt, én gruppe pr. linje', () => {
+    const { grupper, ...data } = utenId(HVM);
+    expect(grupper).toBeDefined();
+    const l = planLinjer(spilPlan(HVM, { exists: true, data: { ...data, joinable: false } }, NU));
+    expect(l).toEqual([
+      '  • hvm2027 — Håndbold-VM 2027: 1 felt ændres',
+      '      grupper:',
+      '        fra: (findes ikke)',
+      '        til:',
+      ...GRUPPE_LINJER,
+      '      admin-ejet, bevares: status = "open"',
+      '      admin-ejet, bevares: joinable = false',
+    ]);
+    // Ingen linje er hele strukturen som én JSON-klump.
+    expect(l.every((x) => x.length < 100)).toBe(true);
+  });
+
+  it('et nyt spil: grupperne står også én gruppe pr. linje', () => {
+    const l = planLinjer(spilPlan(HVM, { exists: false }, NU));
+    const i = l.indexOf('      grupper:');
+    expect(i).toBeGreaterThan(0);
+    expect(l.slice(i + 1, i + 1 + GRUPPE_LINJER.length)).toEqual(GRUPPE_LINJER.map((x) => x.slice(2)));
+  });
+
+  // En ændring i en liste af objekter (grupper.faser) viser fra og til hver
+  // for sig, udfoldet; et blad (grupper.point.sejr) står stadig på én linje.
+  it('en ændret gruppeliste: fra og til udfoldet — et ændret blad på én linje', () => {
+    const data = utenId(HVM);
+    const gammel = structuredClone(data.grupper);
+    gammel.faser[1].grupper[0].fra = ['A', 'C'];
+    gammel.point.sejr = 3;
+    const l = planLinjer(spilPlan(HVM, { exists: true, data: { ...data, grupper: gammel } }, NU));
+    expect(l[0]).toBe('  • hvm2027 — Håndbold-VM 2027: 2 felter ændres');
+    expect(l[1]).toBe('      grupper.point.sejr: 3 → 2');
+    expect(l[2]).toBe('      grupper.faser:');
+    expect(l[3]).toBe('        fra:');
+    const til = l.indexOf('        til:');
+    expect(l.slice(4, til)).toContain('              {"navn":"I","fra":["A","C"]}');
+    expect(l.slice(til)).toContain('              {"navn":"I","fra":["A","B"]}');
+    expect(l.slice(til)).not.toContain('              {"navn":"I","fra":["A","C"]}');
+  });
+
   it('et uændret spil siger det — og intet om ændringer', () => {
     const data = utenId(HVM);
     const l = planLinjer(spilPlan(HVM, { exists: true, data: { ...data } }, NU));

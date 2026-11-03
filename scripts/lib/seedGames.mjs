@@ -124,6 +124,37 @@ export function spilPlan(spil, dok, now) {
 
 const vis = (v) => (v === undefined ? '(findes ikke)' : JSON.stringify(v));
 
+/** Rummer værdien et sted en liste af objekter (faser, grupper)? Så er den for stor til én linje. */
+function erStor(v) {
+  if (Array.isArray(v)) return v.some(erMap) || v.some(erStor);
+  return erMap(v) && Object.values(v).some(erStor);
+}
+
+/**
+ * Et felt som linjer, der kan læses: en lille værdi på én linje; en map med
+ * en liste af objekter indeni én nøgle pr. linje; en liste af objekter én
+ * post pr. linje — ned i dybden. En fasekalender står dag for dag, og
+ * `grupper` står med én gruppe pr. linje (den var ellers én JSON-linje på
+ * ~1 KB, som ingen læser igennem, før de siger ja).
+ */
+function feltLinjer(navn, v, ind) {
+  if (!erStor(v)) return [`${ind}${navn}: ${vis(v)}`];
+  if (Array.isArray(v)) return [`${ind}${navn}:`, ...v.flatMap((x) => postLinjer(x, `${ind}  `))];
+  return [`${ind}${navn}:`, ...Object.entries(v).flatMap(([k, x]) => feltLinjer(k, x, `${ind}  `))];
+}
+
+/** Én post i en liste: på én linje — eller, rummer den selv lister af objekter, de små felter først og de store under. */
+function postLinjer(x, ind) {
+  if (!erStor(x)) return [`${ind}${vis(x)}`];
+  if (!erMap(x)) return [`${ind}-`, ...x.flatMap((y) => postLinjer(y, `${ind}  `))];
+  const smaa = Object.entries(x).filter(([, y]) => !erStor(y));
+  const store = Object.entries(x).filter(([, y]) => erStor(y));
+  return [
+    `${ind}- ${smaa.map(([k, y]) => `${k}: ${vis(y)}`).join(', ')}`,
+    ...store.flatMap(([k, y]) => feltLinjer(k, y, `${ind}  `)),
+  ];
+}
+
 /** Tør-kørslens linjer for ét spil — ALLE felter, intet loft. */
 export function planLinjer(p) {
   const l = [];
@@ -132,13 +163,8 @@ export function planLinjer(p) {
     for (const [k, v] of Object.entries(p.payload)) {
       if (TIDSFELTER.includes(k)) continue;
       // En liste af objekter (faser) står én post pr. linje, så kalenderen
-      // kan læses dag for dag.
-      if (Array.isArray(v) && v.some(erMap)) {
-        l.push(`      ${k}:`);
-        for (const x of v) l.push(`        ${vis(x)}`);
-      } else {
-        l.push(`      ${k}: ${vis(v)}`);
-      }
+      // kan læses dag for dag; grupperne én gruppe pr. linje.
+      l.push(...feltLinjer(k, v, '      '));
     }
     l.push(`      (${ADMIN_OWNED.join(' og ')} skrives fra listen nu — derefter ejer admin dem)`);
     return l;
@@ -146,7 +172,14 @@ export function planLinjer(p) {
   l.push(p.handling === 'uaendret'
     ? `  • ${p.id} — ${p.navn}: uændret — skrives ikke`
     : `  • ${p.id} — ${p.navn}: ${p.aendringer.length} ${p.aendringer.length === 1 ? 'felt ændres' : 'felter ændres'}`);
-  for (const a of p.aendringer) l.push(`      ${a.felt}: ${vis(a.fra)} → ${vis(a.til)}`);
+  for (const a of p.aendringer) {
+    if (erStor(a.fra) || erStor(a.til)) {
+      // For stor til «fra → til» på én linje: fra og til hver for sig, udfoldet.
+      l.push(`      ${a.felt}:`, ...feltLinjer('fra', a.fra, '        '), ...feltLinjer('til', a.til, '        '));
+    } else {
+      l.push(`      ${a.felt}: ${vis(a.fra)} → ${vis(a.til)}`);
+    }
+  }
   for (const b of p.adminBevaret) {
     const forskel = ens(b.db, b.liste) ? '' : ` (listen siger ${vis(b.liste)})`;
     l.push(`      admin-ejet, bevares: ${b.felt} = ${vis(b.db)}${forskel}`);
