@@ -31,7 +31,7 @@ on:
       seedSuperliga:
         # Labelen er det ENESTE, operatøren ser i klik-øjeblikket — YAML-
         # kommentarer er usynlige i Actions-UI'et. Derfor står forbeholdet her.
-        description: 'Seed Superliga-kampprogrammet og SKRIV straks (kampe, der allerede har odds, springes over; holdliste og eloCurrent skrives kun, hvis spillet ikke har dem). Vil du se tør-kørslen først, så brug seedKampe. Skal tidspunkter rettes, så brug seedKickoffs — skal kun trøjefarver/stadion rettes, så brug seedTeams.'
+        description: 'Seed Superliga-kampprogrammet og SKRIV straks (kampe, der allerede har odds, springes over; holdliste og eloCurrent skrives kun, hvis spillet ikke har dem). Vil du se tør-kørslen først, så brug seedKampe. Skal tidspunkter rettes, så brug seedKickoffs — skal kun trøjefarver, landekoder/landefarver eller stadion rettes, så brug seedTeams.'
         type: boolean
         default: false
       seedSpil:
@@ -71,7 +71,7 @@ on:
         # Egen knap, fordi holdlisten er det ENESTE, der skal rettes, når en
         # trøjefarve er forældet. Et gen-seed (seedSuperliga/seedKampe) skriver
         # ikke holdlisten, når spillet har en.
-        description: 'Ret KUN holdlisten for spillet i seedSpil (trøjefarver, stadion) — rører hverken kampe, odds, Elo eller resultater, og afviser ændret elo, kortkode eller antal hold'
+        description: 'Ret KUN holdlisten for spillet i seedSpil (trøjefarver, landekoder og landefarver, stadion) — rører hverken kampe, odds, Elo eller resultater, og afviser ændret elo, kortkode eller antal hold'
         type: boolean
         default: false
       seedTeamsSkriv:

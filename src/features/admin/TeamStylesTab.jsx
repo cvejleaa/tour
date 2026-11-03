@@ -180,11 +180,16 @@ export default function TeamStylesTab() {
       {/* ET FLAG-SPIL TEGNER INGEN TRØJER. Reglen om hjemme-/udefarve på
           kampkortet og henvisningen til trøjerne under Mit hold er falske dér
           (badgen er landeflaget, og TroejeOversigt er skjult) — og det er
-          netop her, ejeren sidder og retter farverne. Samme evne som badgen. */}
+          netop her, ejeren sidder og retter farverne. Samme evne som badgen.
+          «Ingen badge» skal have stedet med: `Picker` herunder tegner STADIG en
+          lille ClubBadge-cirkel ved hver farve (den sender bevidst ikke `flag`),
+          og en ubetinget «tegner ingen badge» modsagde de 96 cirkler lige
+          under den. */}
       {game && harLandeflag(game) && (
         <p style={{ color: 'var(--c-muted)', marginTop: 0 }} data-testid="teamstyles-flag-tekst">
           <strong>{game.name}</strong> viser <strong>landeflag</strong> i stedet for trøjer, så farverne
-          {' '}her tegner ingen badge. <strong>Hjemmefarven</strong> er ringen om spillernes avatar, og
+          {' '}her tegner ingen badge på kampkortet — cirklerne ved siden af hver farve viser blot farven.
+          {' '}<strong>Hjemmefarven</strong> er ringen om spillernes avatar, og
           {' '}spillets tema bliver den første af de tre farver, der har kulør nok til at tone en side.
           {' '}Under <strong>Vises som</strong> kan du give holdet et kortere navn til skærmen. Holdets
           {' '}rigtige navn står som overskrift og kan ikke ændres: det er nøglen, resultater og Elo

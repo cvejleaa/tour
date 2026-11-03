@@ -398,6 +398,9 @@ describe('ClubBadge — landeflag', () => {
     const img = render(<ClubBadge flag={URL} />).container.querySelector('img');
     expect(img.style.boxShadow).toBe('0 0 0 1px rgba(0,0,0,.32)');
     expect(img.getAttribute('loading')).toBe('lazy');
+    // Puljen tegner alle 32 flag på én gang; afkodningen må ikke blokere
+    // render (Test Manager: attributten kunne fjernes med grøn suite).
+    expect(img.getAttribute('decoding')).toBe('async');
   });
 
   // Uden flag er alt som før — de to former ovenfor er uændrede.

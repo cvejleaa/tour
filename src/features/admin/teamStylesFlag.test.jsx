@@ -13,7 +13,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { HAANDBOLD_VM2027_HOLD } from '../../data/haandboldVm2027Hold';
 
 vi.mock('../../firebase', () => ({ db: {} }));
-vi.mock('../../components/ClubBadge', () => ({ default: () => <span /> }));
+// Mocken registrerer, HVAD der tegnes: teksten i et flag-spil siger, at
+// cirklerne ved farverne blot viser farven, og det skal være sandt.
+vi.mock('../../components/ClubBadge', () => ({
+  default: ({ flag, variant }) => (
+    <span data-testid="clubbadge" data-flag={flag ? 'ja' : 'nej'} data-variant={variant ?? 'cirkel'} />
+  ),
+}));
 vi.mock('firebase/firestore', () => ({
   doc: () => ({}),
   getDoc: () => Promise.resolve({ exists: () => true, data: () => ({ teamStyles: {} }) }),
@@ -46,6 +52,18 @@ describe('Hold-farver — teksten følger evnen', () => {
     expect(screen.getByTestId('teamstyles-flag-tekst')).toBeInTheDocument();
     expect(t).toContain('viser landeflag i stedet for trøjer');
     expect(t).toContain('Hjemmefarven er ringen om spillernes avatar');
+    // «Ingen badge» skal have stedet med: Picker tegner STADIG en ClubBadge-
+    // cirkel ved hver farve på denne flade, så en ubetinget «tegner ingen
+    // badge» modsagde fladen lige under teksten (QC på koden, BØR RETTES).
+    expect(t).toContain('tegner ingen badge på kampkortet — cirklerne ved siden af hver farve viser blot farven.');
+    expect(t).not.toMatch(/tegner ingen badge\. /);
+    // …og naboen tegner faktisk cirkler, uden flag: 3 hold × 3 farver.
+    const cirkler = await screen.findAllByTestId('clubbadge');
+    expect(cirkler).toHaveLength(9);
+    for (const c of cirkler) {
+      expect(c.dataset.flag).toBe('nej');
+      expect(c.dataset.variant).toBe('cirkel');
+    }
     // Det, der IKKE må stå: reglen om ude/3. farve og henvisningen til Mit hold.
     expect(t).not.toMatch(/udeholdet i udefarve/);
     expect(t).not.toMatch(/de to badges ligner/);

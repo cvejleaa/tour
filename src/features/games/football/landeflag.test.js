@@ -12,6 +12,8 @@
 //      vilkårlig vært.
 // ---------------------------------------------------------------------------
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { LANDEFLAG, flagSrc, medLandeflag } from './landeflag';
 import { LANDEFLAG_KODER, harFlagKode, antalMedLandeflag, alleHarLandeflag } from './landeflagKoder';
 import { teamsOf, harLandeflag, teamInfo } from './teamInfo';
@@ -42,6 +44,46 @@ describe('bundtet og evnen er samme liste', () => {
   it('er frosset', () => {
     expect(Object.isFrozen(LANDEFLAG)).toBe(true);
     expect(Object.isFrozen(LANDEFLAG_KODER)).toBe(true);
+  });
+});
+
+// SVG-FILERNE ER DOKUMENTER PÅ VORES EGET DOMÆNE (Security på koden).
+// <img> stopper script inde i siden, men et direkte link til
+// /assets/<hash>.svg åbner filen som dokument på tip.vejleaa.dk, og
+// firebase.json har ingen CSP. I dag er alle 32 rene — men ingen test så
+// efter, og et udvidet flagsæt eller en ny pakkeversion ville gå tavst
+// igennem. Scanningen læser de PRÆCISE filer, landeflag.js importerer.
+const FARLIGT = /<script|\son[a-z]+\s*=|foreignObject|<image|<style|data:|javascript:|href\s*=\s*"[^#]/i;
+
+describe('flagfilerne indeholder intet aktivt', () => {
+  const kilde = readFileSync(resolve(process.cwd(), 'src/features/games/football/landeflag.js'), 'utf8');
+  const stier = [...kilde.matchAll(/^import \w+ from '(flag-icons\/[^']+\.svg)';$/gm)].map((m) => m[1]);
+
+  it('scanner netop de 32 importerede filer', () => {
+    expect(stier).toHaveLength(32);
+    expect(stier.map((s) => s.match(/\/(\w+)\.svg$/)[1]).sort()).toEqual([...LANDEFLAG_KODER].sort());
+  });
+
+  // Kontrol: mønsteret kan faktisk se de former, det skal fange — ellers
+  // er «ingen fund» nedenfor intet bevis.
+  it.each([
+    '<script>alert(1)</script>', '<svg onload="x()">', '<foreignObject>', '<image href="x"/>',
+    '<style>@import</style>', 'href="data:text/html,x"', '<a href="https://ond.example">',
+    '<a xlink:href="javascript:x">',
+  ])('mønsteret fanger %p', (ond) => {
+    expect(ond).toMatch(FARLIGT);
+  });
+
+  it('mønsteret lader flagenes egne interne henvisninger være', () => {
+    expect('<use xlink:href="#a"/><path fill="url(#b)"/>').not.toMatch(FARLIGT);
+  });
+
+  it('ingen fil har script, hændelser, fremmedobjekter eller eksterne henvisninger', () => {
+    for (const sti of stier) {
+      const svg = readFileSync(resolve(process.cwd(), 'node_modules', sti), 'utf8');
+      expect(svg.startsWith('<svg'), sti).toBe(true);
+      expect(svg, sti).not.toMatch(FARLIGT);
+    }
   });
 });
 
