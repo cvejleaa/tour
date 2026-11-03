@@ -179,6 +179,36 @@ describe('knockout-visningen: «30-30 · 35-34 e.f.»', () => {
   });
 });
 
+describe('kampVinder — hvem gik videre (D9.1)', () => {
+  const { kampVinder } = server;
+  const k = (homeGoals, awayGoals, slut) => ({ home: 'Danmark', away: 'Norge', homeGoals, awayGoals, ...(slut ? { slut } : {}) });
+  it('vinderen efter ordinær tid — begge veje (en vendt sammenligning bliver rød)', () => {
+    expect(kampVinder(k(31, 30))).toBe('Danmark');
+    expect(kampVinder(k(29, 30))).toBe('Norge');
+    // Mål som tekst (synken) tæller som tal.
+    expect(kampVinder(k('2', '1'))).toBe('Danmark');
+  });
+  it('uafgjort efter ordinær tid: slutresultatets vinder — begge veje', () => {
+    expect(kampVinder(k(30, 30, { home: 35, away: 34, afgjort: 'forlaenget' }))).toBe('Danmark');
+    expect(kampVinder(k(28, 28, { home: 31, away: 33, afgjort: 'straffe' }))).toBe('Norge');
+  });
+  it('ingen vinder: uafgjort uden slut, et slut der modsiger stillingen, ingen mål', () => {
+    expect(kampVinder(k(30, 30))).toBeNull();
+    expect(kampVinder(k(30, 30, { home: 35, away: 35, afgjort: 'straffe' }))).toBeNull();
+    expect(kampVinder(k(null, 1))).toBeNull();
+    expect(kampVinder(k('', ''))).toBeNull();
+    expect(kampVinder(null)).toBeNull();
+    expect(kampVinder({})).toBeNull();
+  });
+  it('spejlet giver samme vinder på hver vektor', async () => {
+    const src = await import('../src/lib/facit.js');
+    for (const v of VIS_VEKTORER) {
+      const kamp = v ? { home: 'A', away: 'B', ...v } : v;
+      expect(src.kampVinder(kamp), JSON.stringify(kamp)).toBe(server.kampVinder(kamp));
+    }
+  });
+});
+
 describe('uenigTekst — én uenig kamp som tekst (knappen og Drift-kortet)', () => {
   it('holdnavne og begge stillinger — ikke id\'et', () => {
     const t = server.uenigTekst({ id: 'r5-agf-ob', home: 'AGF', away: 'OB', haand: { home: 1, away: 1 }, kilde: { home: 2, away: 1 } });

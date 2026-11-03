@@ -16,7 +16,7 @@ const { outcomePoints, sportOrd, SPORT_ORD } = require('./superligaScoring');
 const {
   harFaseKalender, harKnockout, faseKalenderAdvarsel, rundeEtiket, naesteKalenderRunde, faseFor, fmtFaseStart,
 } = require('./faser');
-const { kampSlut, AFGJORT_NAVN } = require('./facit');
+const { kampSlut, kampVinder, AFGJORT_NAVN } = require('./facit');
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const {
   ligaPoint, harRundeVektor, vektorStemmer, puljeMaksStartRunde,
@@ -325,7 +325,7 @@ function buildRoundRecapFacts({
         ...(slut ? {
           slut: `${slut.home}-${slut.away}`,
           afgjort: AFGJORT_NAVN[slut.afgjort],
-          vinder: slut.home > slut.away ? m.home : m.away,
+          vinder: kampVinder(m),
           ramteX,
         } : {}),
       };
