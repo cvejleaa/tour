@@ -932,7 +932,7 @@ export default function FootballTip({ game, me, matches }) {
                 <ClubBadge
                   variant="troeje" code={h.code} color={h.color} size={34}
                   color2={h.color2} moenster={h.moenster} aerme={h.aerme}
-                  title={m.home}
+                  flag={h.flag} title={m.home}
                 />
                 {/* KUN NAVNET. Kortet viste før kortkoden på smal skærm, men
                     spillerne ved ikke, hvad forkortelserne betyder — "SJF" og
@@ -1026,7 +1026,7 @@ export default function FootballTip({ game, me, matches }) {
                 <ClubBadge
                   variant="troeje" code={a.code} color={a.color} size={34}
                   color2={a.color2} moenster={a.moenster} aerme={a.aerme}
-                  title={m.away}
+                  flag={a.flag} title={m.away}
                 />
                 {/* KUN NAVNET. Kortet viste før kortkoden på smal skærm, men
                     spillerne ved ikke, hvad forkortelserne betyder — "SJF" og

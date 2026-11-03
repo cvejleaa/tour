@@ -277,8 +277,17 @@ describe('spilprofilens hjælpetekst', () => {
     // nævnes begge steder, ellers ligner den ene af dem en fejl.
     const SAETNING = 'avatar får trøjens farve som ring om sig i stillingen og i dine ligaer,'
       + ' og hele spillet toner over i klubbens farve';
-    expect(kilde('./GameProfile.jsx')).toContain(SAETNING);
-    expect(kilde('./football/FootballHelp.jsx')).toContain(SAETNING);
+    // Sætningen står nu ÉT sted (yndlingsholdTekst.js), og begge flader
+    // henter den derfra — med en anden ordlyd for flag-spil. En afskrift i
+    // en af filerne ville være præcis den drift, testen findes for.
+    expect(kilde('./football/yndlingsholdTekst.js')).toContain(SAETNING);
+    for (const f of ['./GameProfile.jsx', './football/FootballHelp.jsx']) {
+      expect(kilde(f), f).toContain('ringOgTemaTekst(');
+      expect(kilde(f), f).not.toContain(SAETNING);
+    }
+    // …og det, brugeren ser på Mit hold, er den samme sætning.
+    const { getByTestId } = render(<GameProfile game={SPIL} me={{}} />);
+    expect(getByTestId('yndlingshold-tekst').textContent.replace(/\s+/g, ' ')).toContain(SAETNING);
   });
 
   // …OG DET SKAL VÆRE DET, BRUGEREN SER. Kilde-sammenligningen alene er ikke

@@ -197,7 +197,7 @@ export default function PuljeAfsloering({
                     <ClubBadge
                       variant="troeje" code={t.short} color={t.color} size={20}
                       color2={t.troejer?.hjemme?.sekundaer} moenster={t.troejer?.hjemme?.moenster}
-                      aerme={t.troejer?.hjemme?.aerme} title={t.name}
+                      aerme={t.troejer?.hjemme?.aerme} flag={t.flag} title={t.name}
                     />
                   )}
                   {' '}{ude ? <><s>{navn}</s><span className="sr-only"> (ude)</span></> : navn}

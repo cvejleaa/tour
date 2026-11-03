@@ -319,7 +319,7 @@ export default function PuljeTip({ game, matches }) {
                 <ClubBadge
                   variant="troeje" code={t.short} color={t.color} size={26}
                   color2={t.troejer?.hjemme?.sekundaer} moenster={t.troejer?.hjemme?.moenster}
-                  aerme={t.troejer?.hjemme?.aerme} title={t.name}
+                  aerme={t.troejer?.hjemme?.aerme} flag={t.flag} title={t.name}
                 />
                 <span className="pulje-team__name">{t.vis || t.name}</span>
                 {isChosen && <span className="pulje-team__check">✓</span>}

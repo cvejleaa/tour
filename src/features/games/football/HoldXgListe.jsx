@@ -73,7 +73,7 @@ export default function HoldXgListe({ game, matches: alleKampe }) {
                         variant="troeje" code={info?.short} color={info?.color} size={20}
                         color2={info?.troejer?.hjemme?.sekundaer}
                         moenster={info?.troejer?.hjemme?.moenster}
-                        aerme={info?.troejer?.hjemme?.aerme} title={r.navn}
+                        aerme={info?.troejer?.hjemme?.aerme} flag={info?.flag} title={r.navn}
                       />
                       {/* Samme indgang til holdsiden som i Elo-tabellen: kun
                           med kortkode, ellers er der ingen URL-nøgle. */}

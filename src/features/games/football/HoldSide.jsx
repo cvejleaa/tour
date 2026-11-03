@@ -129,7 +129,7 @@ export default function HoldSide({ game, matches: alleKampe, short, onLuk }) {
           <ClubBadge
             variant="troeje" code={hold.short} color={hold.color || info?.color} size={34}
             color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
-            title={vis}
+            flag={hold.flag} title={vis}
           />
           <h3 className="card__title" style={{ margin: 0 }}>{vis}</h3>
           {onLuk && (

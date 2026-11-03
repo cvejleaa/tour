@@ -34,7 +34,7 @@ function Row({ r, teams }) {
           <ClubBadge
             variant="troeje" code={r.teamShortName || info?.short} color={info?.color} size={22}
             color2={info?.troejer?.hjemme?.sekundaer} moenster={info?.troejer?.hjemme?.moenster}
-            aerme={info?.troejer?.hjemme?.aerme} title={r.teamName}
+            aerme={info?.troejer?.hjemme?.aerme} flag={info?.flag} title={r.teamName}
           />
           {/* Tabelrækken er den mest naturlige indgang til en holdside.
               Kortkoden kommer fra HOLDLISTEN (info.short), ikke fra API'ets
