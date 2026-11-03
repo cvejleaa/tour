@@ -217,8 +217,12 @@ function taeller(info) {
  * firestore.rules. Et ulæseligt kickoff må derfor betyde "vis ikke", ikke "vis
  * alligevel" — ellers ville et tip blive udstillet før kampstart i samme
  * øjeblik, adgangen udvides.
+ *
+ * Eksporteret, fordi verificer-totaler (scripts/lib/verificerTotaler.mjs)
+ * skriver i en OFFENTLIG Actions-log, om en navngiven spiller har tippet en
+ * kamp: også dér er det denne regel, der afgør, hvad andre må se (Security).
  */
-function maaVises(info, nowMs) {
+export function maaVises(info, nowMs) {
   if (!taeller(info)) return false;
   return Number.isFinite(info.kickoff) && info.kickoff <= nowMs;
 }

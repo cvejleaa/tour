@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   opdelPoint, combiBonus, buildRoundContext, ugeNoegle, rundensUge, puljeLockFraRunde,
-  rubrikkerPerRunde, REST_AFRUNDING,
+  rubrikkerPerRunde, REST_AFRUNDING, maaVises,
 } from './pointOpdeling.js';
 
 // Ét regnestykke for "hvor kommer pointene fra". Det fandtes før to steder ad
@@ -926,6 +926,26 @@ describe('spejling mod src/lib', () => {
       5: { p1x2: 2.5, chance: 2.5, combi: 0 },
     };
     expect(src.rubrikkerPerRunde(perRunde, rubrikker)).toEqual(rubrikkerPerRunde(perRunde, rubrikker));
+  });
+
+  // maaVises er eksporteret til verificer-totaler (offentlig Actions-log). Den
+  // afgør, om et andet menneskes tip må nævnes — samme regel i begge ender, og
+  // begge sider af hver grænse: facit, kickoff før/efter/lig nu, ulæseligt kickoff.
+  it('maaVises er ens i src/lib — og kræver både facit og et kickoff, der er passeret', async () => {
+    const src = await import('../src/lib/pointOpdeling.js');
+    const tabel = [
+      [{ result: '1', kickoff: NU - 1 }, true],
+      [{ result: '1', kickoff: NU }, true],
+      [{ result: '1', kickoff: NU + 1 }, false],
+      [{ result: '1', kickoff: null }, false],
+      [{ result: '1', kickoff: NaN }, false],
+      [{ result: null, kickoff: NU - 1 }, false],
+      [null, false],
+    ];
+    for (const [info, forventet] of tabel) {
+      expect(maaVises(info, NU)).toBe(forventet);
+      expect(src.maaVises(info, NU)).toBe(forventet);
+    }
   });
 
   for (const [navn, { matches, bets, puljeBonus = 0 }] of tilfaelde) {

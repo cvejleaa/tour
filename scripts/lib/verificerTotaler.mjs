@@ -24,7 +24,7 @@
 // går ellers ud med hinanden (QC). Noten nævner ALLE afvigende runder og,
 // hvor combi er en del af forskellen, hvor meget combi spilleren har til gode.
 
-import { buildRoundContext, opdelPoint } from '../../src/lib/pointOpdeling.js';
+import { buildRoundContext, opdelPoint, maaVises } from '../../src/lib/pointOpdeling.js';
 import { startRundeFor, gatedeKampe } from '../../src/lib/startGate.js';
 
 /**
@@ -74,11 +74,12 @@ export function harIndsatsAf(bets) {
  * forkerte vej (samme fælde som audit-spiller-point.mjs beskriver).
  * @param {Array<object>} kampe  HELE kamplisten (med `id`)
  * @param {object|null} game     spil-dokumentet
+ * @param {number} [nu]          tidspunktet, «intet tip»-tællingen måles mod
  */
-export function facitKontekst(kampe, game) {
+export function facitKontekst(kampe, game, nu = Date.now()) {
   const alle = Array.isArray(kampe) ? kampe : [];
   const gated = gatedeKampe(alle, startRundeFor(game || null, alle));
-  return { roundCtx: buildRoundContext(alle.filter((m) => !gated.has(m.id))), gated };
+  return { roundCtx: buildRoundContext(alle.filter((m) => !gated.has(m.id))), gated, nu };
 }
 
 /** Rundenøglerne i talorden, `uden` sidst — så tabellen læses som sæsonen. */
@@ -99,9 +100,16 @@ export function sorterRunder(noegler) {
  * er det, der skiller «combi-hullet» (missede en kuponkamp) fra andre årsager
  * (fx en kamp, der er flyttet ind på eller ud af kuponen).
  *
+ * «Intet tip» tælles KUN på kampe, hvis tips andre må se (maaVises: facit OG
+ * kickoff passeret). Tabellen står i en OFFENTLIG Actions-log med navne; en
+ * runde i gang, der afviger af en anden grund, ville ellers sige, om en
+ * navngiven spiller har tippet en kamp, der ikke er startet — det skjuler
+ * firestore.rules ellers (Security). Combi-hullet findes kun, når HELE
+ * kuponen er afgjort, så det, målingen er til for, mister intet.
+ *
  * @param {{uid:string, totalPoints?:unknown, perRound?:object, opdelingPerRunde?:object, bonusPoints?:unknown}} p
  * @param {Array<object>} egneBets  spillerens bets (alle — gaten lægges her)
- * @param {{roundCtx:object, gated:Set<string>}} ktx  fra facitKontekst
+ * @param {{roundCtx:object, gated:Set<string>, nu?:number}} ktx  fra facitKontekst
  * @returns {{totalGemt:number, totalNy:number, runder:Array<{runde:string, gemt:number|null, ny:number|null, combiGemt:number|null, combiNy:number, udenTip:number, kupon:number}>}}
  */
 export function kontrollerForaeldet(p, egneBets, ktx) {
@@ -110,6 +118,7 @@ export function kontrollerForaeldet(p, egneBets, ktx) {
   const gemtVektor = (p.perRound && typeof p.perRound === 'object') ? p.perRound : {};
   const gemtOpr = (p.opdelingPerRunde && typeof p.opdelingPerRunde === 'object') ? p.opdelingPerRunde : null;
   const tippet = new Set(bets.map((b) => b.matchId));
+  const nu = Number.isFinite(ktx.nu) ? ktx.nu : Date.now();
   const runder = [];
   for (const k of sorterRunder(new Set([...Object.keys(gemtVektor), ...Object.keys(ny.perRunde)]))) {
     const gemt = k in gemtVektor ? r1(gemtVektor[k]) : null;
@@ -125,7 +134,7 @@ export function kontrollerForaeldet(p, egneBets, ktx) {
     for (const [id, info] of Object.entries(ktx.roundCtx.byMatch)) {
       if (String(info.round) !== k || !info.iVindue) continue;
       kupon += 1;
-      if (!tippet.has(id)) udenTip += 1;
+      if (!tippet.has(id) && maaVises(info, nu)) udenTip += 1;
     }
     runder.push({ runde: k, gemt, ny: nyV, combiGemt, combiNy, udenTip, kupon });
   }
@@ -230,16 +239,16 @@ export function kontrollerSpiller(p, harIndsats, facit = null) {
  * Efterprøv alle spillere. Rækkerne sorteres som stillingen (total faldende).
  * @param {Array<object>} spillere
  * @param {Array<object>} bets  ALLE spillets bets
- * @param {{kampe:Array<object>, game:object|null}} [kilde]  Med kampene og
+ * @param {{kampe:Array<object>, game:object|null, nu?:number}} [kilde]  Med kampene og
  *   spil-dokumentet regnes hver spiller også forfra (FORÆLDET). Uden: kun den
- *   interne konsistens, som før.
+ *   interne konsistens, som før. `nu` (standard Date.now()) er til testene.
  * @returns {{ rows: Array, fejl: number, rester: number, iAlt: number, foraeldede: number, foraeldetPrRunde?: Array }}
  */
 export function vurder(spillere, bets, kilde = null) {
   const harIndsats = harIndsatsAf(bets);
   let facitFor = () => null;
   if (kilde) {
-    const ktx = facitKontekst(kilde.kampe, kilde.game);
+    const ktx = facitKontekst(kilde.kampe, kilde.game, kilde.nu);
     const perUid = new Map();
     for (const b of bets) {
       if (!b || !b.uid) continue;
@@ -283,6 +292,28 @@ export function foraeldetPrRunde(rows) {
       combiUkendt: spillere.filter((s) => s.combi == null).length,
     };
   });
+}
+
+/** Et tal, som spillerne skriver det: decimalkomma. */
+const komma = (n) => String(n).replace('.', ',');
+
+/**
+ * Én færdig sætning til ligaens væg om en runde, hvor combi manglede — så en
+ * bagfyldning bliver noget at snakke om og ikke en tavs ændring af stillingen
+ * (Spilfører). Ejeren kopierer den og skriver den som sig selv; der sendes
+ * ingen mail. Kun spillere med combi TIL GODE (> 0) nævnes: en combi for
+ * meget eller en ukendt er ikke en nyhed, man lægger på væggen. null = ingen
+ * sætning.
+ * @param {{runde:string, spillere:Array<{uid:string, combi:number|null}>}} r  én række fra foraeldetPrRunde
+ * @param {(uid:string) => string} navnAf  visningsnavn — sætningen renses af tabel()
+ */
+export function vaegSaetning(r, navnAf) {
+  const plus = r.spillere.filter((s) => s.combi != null && s.combi > 0);
+  if (!plus.length) return null;
+  const stoerst = plus.reduce((a, s) => (s.combi > a.combi ? s : a));
+  const hvem = plus.length === 1 ? '1 spiller' : `${plus.length} spillere`;
+  return `Rettelse: combi'en fra runde ${r.runde} manglede hos ${hvem} og er nu lagt til. `
+    + `Største: ${navnAf(stoerst.uid)} +${komma(stoerst.combi)}.`;
 }
 
 /**
@@ -338,6 +369,10 @@ export function tabel(v, navn, gameId) {
           + `   combi ${s.combi == null ? '?' : fortegn(s.combi)}`
           + (s.kupon > 0 && s.udenTip > 0 ? `   intet tip på ${s.udenTip} af kuponens ${s.kupon}` : ''));
       }
+      const v = vaegSaetning(r, (uid) => navn.get(uid) || uid);
+      // Navnet og rundenøglen er data fra dokumentet — HELE sætningen renses
+      // ét sted (en ekstra rensning af navnet alene var en overlevende mutant).
+      if (v) linjer.push(`    til væggen efter 🔄: «${rent(v)}»`);
     }
   }
   linjer.push('');
