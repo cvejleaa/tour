@@ -19,9 +19,12 @@ const {
 const { kampSlut, kampVinder, AFGJORT_NAVN } = require('./facit');
 const { gatedeKampe, startRundeFor } = require('./startGate');
 const {
-  ligaPoint, harRundeVektor, vektorStemmer, puljeMaksStartRunde,
+  ligaPoint, harRundeVektor, vektorStemmer, puljeMaksStartRunde, puljenTaeller,
 } = require('./ligaPoint');
 const { aktiveSpillere } = require('./forladSpil');
+const { stadigMed, pulsFor, facitFase } = require('./puljeFacit');
+const { puljeKonfig } = require('./superligaScoring');
+const { puljeTipKomplet } = require('./gameScoring');
 
 // 'in' tager højst 30 værdier pr. forespørgsel.
 const IN_CHUNK = 30;
@@ -144,6 +147,16 @@ const KALENDER_UDSKIFTNING = [
   ['("8 point i runden", "i alt 31 point")', '("8 point på dagen", "i alt 31 point")'],
 ];
 
+// «STADIG MED» I PULJEN (planens P3). Hægtes på ankeret nedenfor — KUN for et
+// spil med runde-pulje (evnen facitKilde: 'runde', ikke sporten), så SL og PL
+// får RECAP_SYSTEM byte for byte (hash-vagten i gameRecap.test.js).
+// Spilførerens rækkefølge: enegængeren, favorittens fald, den eneste med alle
+// tilbage — først derefter én med 0 tilbage, så det ikke altid rammer den, der
+// allerede ligger sidst. «Det giver IKKE point» er sandt, fordi feltet kun
+// findes for faser FØR facit-fasen (QC på pulsen, B2).
+const PULJE_UDE_ANKER = '- "naesteRundeNavn": hvad næste spilledag hedder. "naesteRundeStart": datoen for første kamp, når næste dag begynder en ny fase.';
+const PULJE_UDE_FORKLARING = '- "puljeUde" (kan mangle): ligaens pulje-tip om, hvilke hold der når længst. Feltet findes kun, når en ny fase netop er blevet hel, og hold, nogen i ligaen har tippet, ikke er med i den. "fase" er fasen (fx "hovedrunden"): holdene i "spillere[].ude" nåede ikke den — skriv fx "nåede ikke hovedrunden" eller "røg ud inden hovedrunden", aldrig "i dag" og aldrig "lagt ind". "tilbage" er, hvor mange af spillerens "af" hold der stadig er med. Det giver IKKE point — skriv aldrig, at nogen mistede eller fik point af det. Fortæl højst ÉN pulje-historie, valgt i denne rækkefølge: (a) "enegaengere": et udskilt hold, kun ét medlem tippede ("Bo var den eneste, der troede på Norge"); (b) "favoritter": et udskilt hold, flertallet tippede; (c) "alleTilbage" med præcis ét navn: den eneste, der har alle sine hold tilbage. Kun hvis ingen af dem findes, må du nævne én fra "spillere" med 0 tilbage — og så venligt.';
+
 // Ankeret, knockout-forklaringen hægtes på: kampenes linje, som den står
 // EFTER kalender-udskiftningen (knockout findes kun med en kalender).
 const KNOCKOUT_ANKER = '- "matches": dagens kampe PÅ KUPONEN — dem der blev spillet på spilledagen.';
@@ -178,6 +191,9 @@ function recapSystem(game) {
   // ville botten kalde 30-30 uafgjort om en kamp, alle så Danmark vinde, eller
   // — værre — kalde vinderen i forlængelsen for rundens rigtige tip.
   if (harKnockout(game)) s = erstat(s, KNOCKOUT_ANKER, knockoutForklaring(ord));
+  if (kalender && puljeKonfig(game)?.facitKilde === 'runde') {
+    s = erstat(s, PULJE_UDE_ANKER, `${PULJE_UDE_ANKER}\n${PULJE_UDE_FORKLARING}`);
+  }
   return s;
 }
 
@@ -359,6 +375,64 @@ function buildRoundRecapFacts({
 }
 
 /**
+ * Hvilken fase-overgang skal pulje-fortællingen handle om — eller ingen?
+ * Ren. Kun for en runde-pulje uden konfigurationsfejl, når en fase EFTER den
+ * første og FØR facit-fasen (QC B2: på facit-fasen er «ikke point» usandt —
+ * dér afregnes puljen) er HEL, pulsen ikke fejler, og fasen ikke er fortalt
+ * før (`puljeUdeFortalt` på spil-dokumentet, QC B3b — så fortællingen også
+ * kommer, når fasen lægges ind over flere aftener, i stedet for kun på fasens
+ * første dag). `foer` er pulsen til og med fasen før.
+ * @returns {{foer:object, efter:object}|null}
+ */
+function puljeUdeOvergang(game, alleKampe) {
+  const konfig = puljeKonfig(game);
+  if (konfig?.facitKilde !== 'runde') return null;
+  const efter = stadigMed(game, alleKampe);
+  if (!efter?.fase || efter.fejl) return null;
+  const slut = facitFase(game, konfig.facitFase);
+  if (efter.fase.fra >= slut.fra || efter.fase.fra === game.faser[0].fra) return null;
+  const fortalt = Array.isArray(game.puljeUdeFortalt) ? game.puljeUdeFortalt : [];
+  if (fortalt.includes(efter.fase.navn)) return null;
+  const foer = stadigMed(game, alleKampe, { tilRunde: efter.fase.fra - 1 });
+  if (!foer || foer.fejl) return null;
+  return { foer, efter };
+}
+
+/**
+ * Pulje-fakta for ÉN liga — eller null (så får fakta ingen ny nøgle). Ren.
+ * Kun ligaens egne medlemmer med et KOMPLET tip (puljeTipKomplet) tæller;
+ * navnene renses (sanitizeName). Holdene står i tippets rækkefølge.
+ * @param {Array<{uid:string, name:string}>} medlemmer
+ * @param {Map<string, object>} tipAf  uid → pulje-tip
+ */
+function puljeUdeFakta({ overgang, medlemmer, tipAf, konfig }) {
+  if (!overgang) return null;
+  const { foer, efter } = overgang;
+  const med = medlemmer
+    .map((p) => ({ p, bet: tipAf.get(p.uid) }))
+    .filter(({ bet }) => puljeTipKomplet(bet, konfig));
+  if (!med.length) return null;
+  const spillere = [];
+  const tippet = new Map(); // udskilt hold → navne
+  for (const { p, bet } of med) {
+    const f = pulsFor(bet.championship, foer);
+    const e = pulsFor(bet.championship, efter);
+    const ude = bet.championship.filter((h) => foer.hold.has(h) && !efter.hold.has(h));
+    for (const h of ude) tippet.set(h, [...(tippet.get(h) || []), sanitizeName(p.name)]);
+    if (e.med < f.med) spillere.push({ name: sanitizeName(p.name), ude, tilbage: e.med, af: e.af });
+  }
+  if (!spillere.length) return null;
+  const b = efter.fase.bestemt || efter.fase.navn;
+  return {
+    fase: `${b.charAt(0).toLowerCase()}${b.slice(1)}`,
+    spillere,
+    enegaengere: [...tippet].filter(([, navne]) => navne.length === 1).map(([hold, navne]) => ({ hold, name: navne[0] })),
+    favoritter: [...tippet].filter(([, navne]) => navne.length * 2 > med.length).map(([hold, navne]) => ({ hold, tippetAf: navne.length, af: med.length })),
+    alleTilbage: med.filter(({ bet }) => pulsFor(bet.championship, efter).ude.length === 0).map(({ p }) => sanitizeName(p.name)),
+  };
+}
+
+/**
  * Kald Claude med retries ved midlertidige fejl (samme mønster som Tour-botten).
  * `system` kan overstyres, så liga-spørgsmålenes afsløring (leagueQuestionRecap)
  * genbruger samme retry og model-kald med sin egen prompt — ét kaldested.
@@ -398,7 +472,7 @@ async function generateRecapText(anthropic, facts, system = RECAP_SYSTEM) {
  * @param {number|null} roundNo runde at skrive om; null = seneste helt afgjorte runde
  * @param {{dryRun?: boolean, now?: Date}} [opts]
  */
-async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = null, { dryRun = false } = {}) {
+async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = null, { dryRun = false, nowMs = Date.now() } = {}) {
   const gameRef = db.collection('games').doc(gameId);
   const gameSnap = await gameRef.get();
   if (!gameSnap.exists) return { posted: 0, reason: 'no-game' };
@@ -497,6 +571,27 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
   const kalender = kalenderFakta(game, round, roundMatches, new Set(byRound.keys()));
   const system = recapSystem(game);
 
+  // «STADIG MED» (P3). Admin-SDK'et går uden om reglerne, så serveren
+  // håndhæver selv det, reglen (firestore.rules: andres pulje-tip kun efter
+  // deadline) ville have gjort — og læser først HER, efter vagterne for en
+  // uafgjort runde, en allerede postet runde og for få spillere ovenfor, så
+  // en afvist kørsel aldrig læser andres tip:
+  //   (1) puljeBets læses KUN efter puljeLockAt — og kun når en fase-overgang
+  //       faktisk er ny (puljeUdeOvergang), ellers slet ikke,
+  //   (2) kun ligaens egne medlemmer (liga-løkken nedenfor),
+  //   (3) kun i ligaer, hvor puljen tæller (puljenTaeller),
+  //   (4) kun spillere med et komplet tip (puljeUdeFakta).
+  // Pulsen regnes på HELE kamplisten (alleKampe), ikke på de gatede — samme
+  // mængde som afregningen.
+  const overgang = puljeUdeOvergang(game, alleKampe);
+  const lockMs = kickoffMs(game.puljeLockAt);
+  let tipAf = null;
+  if (overgang && lockMs != null && nowMs >= lockMs) {
+    const snap = await gameRef.collection('puljeBets').get();
+    tipAf = new Map(snap.docs.map((d) => [d.id, d.data()]));
+  }
+  let puljeUdeFortalt = false;
+
   // ÉT OPSLAG PR. LIGA — ikke ét pr. spil.
   //
   // Før byggede vi fakta af HELE spillets spillere, kaldte modellen én gang og
@@ -580,6 +675,13 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
       udsatte,
       kalender,
     });
+    // Kun når puljen TÆLLER i ligaen (Spilfører: dér er den ikke en del af
+    // ligaens historie) — og nøglen udelades helt uden en historie, så fakta
+    // for SL/PL og for en dag uden fase-skift har de samme nøgler som før.
+    const puljeUde = tipAf && puljenTaeller(ligaStart, puljeMaks)
+      ? puljeUdeFakta({ overgang, medlemmer: rawMedlemmer, tipAf, konfig: puljeKonfig(game) })
+      : null;
+    if (puljeUde) facts.puljeUde = puljeUde;
     const text = await generateRecapText(anthropic, facts, system);
     if (!text) continue;
 
@@ -587,6 +689,7 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
       udkast.push({ leagueId: ld.id, navn: ld.data().name || ld.id, medlemmer: medlemmer.length, text });
       continue;
     }
+    if (tipAf) puljeUdeFortalt = true;
     await ld.ref.collection('messages').add({
       uid: 'runde-bot',
       displayName: 'Runde-Botten',
@@ -604,11 +707,18 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
     posted += 1;
   }
   if (dryRun) return { posted: 0, dryRun: true, round, udkast };
-  await gameRef.set({ recappedRounds: FieldValue.arrayUnion(round) }, { merge: true });
+  // `puljeUdeFortalt` (QC B3b): fasen er fortalt — eller overvejet uden en
+  // historie — i et postet opslag, og gentages ikke. Samme skrivning og samme
+  // idiom som recappedRounds; tør-kørslen er returneret ovenfor.
+  await gameRef.set({
+    recappedRounds: FieldValue.arrayUnion(round),
+    ...(puljeUdeFortalt ? { puljeUdeFortalt: FieldValue.arrayUnion(overgang.efter.fase.navn) } : {}),
+  }, { merge: true });
   return { posted, round };
 }
 
 module.exports = {
   RECAP_SYSTEM, sanitizeName, isSurprise, buildRoundRecapFacts, generateRecapText, runGameRoundRecap,
   recapSystem, kalenderFakta, KALENDER_UDSKIFTNING, KNOCKOUT_ANKER,
+  PULJE_UDE_ANKER, PULJE_UDE_FORKLARING, puljeUdeOvergang, puljeUdeFakta,
 };
