@@ -51,5 +51,22 @@ export function sportLinje({ sportRaa, profil }) {
   const kilde = sportRaa === undefined || sportRaa === null
     ? `intet sport-felt på spillet → ${profil.sport}`
     : `game.sport = ${JSON.stringify(sportRaa)}`;
-  return `Sport: ${profil.sport} (${kilde}; hjemmebane ${profil.elo.HFA}, odds-gulv ${profil.odds.min}).`;
+  // Loftet som det RÅ felt: null står som «intet (null)», et tal som tallet —
+  // og en manglende nøgle som «undefined», så den ikke ligner et bevidst nej.
+  const loft = profil.odds.max === null ? 'intet (null)' : String(profil.odds.max);
+  return `Sport: ${profil.sport} (${kilde}; hjemmebane ${profil.elo.HFA}, odds-gulv ${profil.odds.min}, odds-loft ${loft}).`;
+}
+
+/**
+ * Hvad loftet gør ved DE KAMPE, der skal skrives: antal udfald og kampe, der
+ * står præcis til loftet. null for en sport uden loft (fodbold) — så siger
+ * tør-kørslen intet nyt for Superligaen og Premier League.
+ */
+export function loftLinje({ profil, matches }) {
+  const max = profil.odds.max;
+  if (max === null || max === undefined) return null;
+  const ramte = (matches || []).map((m) => Object.values(m.odds || {}).filter((o) => o === max).length);
+  const udfald = ramte.reduce((a, n) => a + n, 0);
+  const kampe = ramte.filter((n) => n > 0).length;
+  return `Odds-loft ${max}: ${udfald} udfald i ${kampe} af ${ramte.length} kampe står til loftet (fair pris over ${max}).`;
 }

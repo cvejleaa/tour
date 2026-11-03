@@ -16,7 +16,7 @@ import { fmtDec } from '../../../lib/daNum';
 // denne fils formål er at undgå.
 import { harXg, harKampdetaljer, harLiveStilling } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
-import { sportOrd, harHjemmebane } from '../../../lib/superligaScoring';
+import { sportOrd, harHjemmebane, oddsLoft } from '../../../lib/superligaScoring';
 import {
   harFaseKalender, harKnockout, rundeKort, rundeOrd, rundeOrdene, sidsteKalenderRunde,
 } from '../../../lib/faser';
@@ -86,6 +86,16 @@ export default function FootballHelp({ game }) {
   // 1,01 ville ellers stå som "1,0", altså under indsatsen. Fodboldens 1,1
   // står som altid.
   const oddsGulv = String(profil.odds.min).replace('.', ',');
+  // LOFTET er profilens værdi gennem den delte helper (oddsLoft) — ikke en
+  // nabo-egenskab. `loftHistorie` (= ingen fasekalender) styrer KUN den
+  // historiske sætning om loftet, der blev fjernet; om der ER et loft, står
+  // her. null = intet loft (fodbold).
+  const loft = oddsLoft(game);
+  const loftTekst = loft === null ? null : String(loft).replace('.', ',');
+  // Under denne sandsynlighed står et udfald til loftet (1/loft). NEDrundet
+  // til hele procent, så sætningen altid er sand: ved loft 15 er grænsen
+  // 6,67 %, og «under 7 %» ville omfatte udfald (6,8 %), der IKKE klippes.
+  const loftPct = loft === null ? null : Math.floor(100 / loft);
   // Sportens ord ("Dagens konge" i håndbold) — fra registret, ikke en if.
   const ord = sportOrd(game);
   // EVNERNE, guiden gater på. Uden fasekalender, med hjemmebane, med
@@ -237,6 +247,7 @@ export default function FootballHelp({ game }) {
         <strong>{(1.3 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>; rammer du en
         overraskelse til odds 4,5, giver det{' '}
         <strong>{(4.5 + TRAEF_BONUS).toFixed(1).replace('.', ',')} point</strong>. Forkert tip giver 0.
+        {loft === null ? (
         <p style={{ margin: '0.5rem 0 0' }}>
           Oddsene er <strong>1 delt med sandsynligheden</strong> — mindst{' '}
           <strong>{oddsGulv}</strong>, og ellers uden loft. Det betyder, at ethvert
@@ -244,7 +255,23 @@ export default function FootballHelp({ game }) {
           overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre valg altså
           lige gode.
         </p>
-        {loftHistorie ? (
+        ) : (
+        <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-odds-fair-under-loft">
+          Oddsene er <strong>1 delt med sandsynligheden</strong> — mindst{' '}
+          <strong>{oddsGulv}</strong> og højst <strong>{loftTekst}</strong>. Under loftet betyder det,
+          at ethvert enkelt tip er lige meget værd i det lange løb: en sikker favorit giver få point
+          ofte, en overraskelse giver mange point sjældent. På den <em>enkelte</em> kamp er de tre
+          valg altså lige gode — medmindre et af dem står til loftet.
+        </p>
+        )}
+        {loft !== null ? (
+        <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-odds-loft">
+          <strong>Oddsene har et loft på {loftTekst}.</strong> Et udfald, modellen giver under{' '}
+          {loftPct} % chance, står til {loftTekst} — mindre end det er værd. Det rammer kun de
+          skæveste kampe, og det er med vilje: uden loftet kunne ét ramt langskud afgøre hele
+          konkurrencen. Til gengæld er et tip til loftet et dårligere valg end favoritten i samme kamp.
+        </p>
+        ) : loftHistorie ? (
         <p style={{ margin: '0.5rem 0 0' }}>
           <strong>Der er ikke længere et loft over oddsene.</strong> Tidligere blev alt over 6,00
           skåret ned til 6,00, og det gjorde tre ting: de vildeste langskud var underbetalte, to
@@ -272,9 +299,12 @@ export default function FootballHelp({ game }) {
           giver den <strong>{fmtDec(roundComboBonus([1.6, 1.6, 1.6, 1.6, 1.6], 5))}</strong>.
           {/* «nu … stadig» henviser til loftets historie — uden den
               (en turnering) er det bare et loft. */}
-          {loftHistorie
-            ? <> Den er nu det eneste sted i spillet, der stadig har et loft — på{' '}</>
-            : <> Den er det eneste sted i spillet, der har et loft — på{' '}</>}
+          {/* Med et odds-loft er combi IKKE det eneste loft — så siges det ikke. */}
+          {loft !== null
+            ? <> Den har sit eget loft — på{' '}</>
+            : loftHistorie
+              ? <> Den er nu det eneste sted i spillet, der stadig har et loft — på{' '}</>
+              : <> Den er det eneste sted i spillet, der har et loft — på{' '}</>}
           <strong>{COMBI.LOFT}</strong>.
         </p>
       </Section>
@@ -287,7 +317,20 @@ export default function FootballHelp({ game }) {
         {Math.round(CHANCE.CAP_FRACTION * 100)} % af din saldo — så du kan aldrig gå i minus. Indsatsen
         tages fra dine <strong>optjente point</strong>, så du kan først bruge Chancen, når du har samlet
         nogle point.
-        {loftHistorie && (
+        {loft !== null && (
+        <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-chance-loft">
+          Chancen bruger de samme odds, så loftet gælder også her: fuld indsats kan højst give{' '}
+          <strong>{CHANCE.MAX_ABS} × ({loftTekst} − 1) = {String(Math.round(CHANCE.MAX_ABS * (loft - 1) * 100) / 100).replace('.', ',')} point</strong> oveni.
+          {/* Prisen, ikke kun opsiden (QC, D4): Chancen er kun neutral ved fair
+              odds. På et klippet udfald er forventningen indsats × (loft·p − 1)
+              — målt i scripts/maal-haandbold.mjs afsnit 8d: −0,03 til −7,57
+              pr. Chance på 8, de to skæveste over 90 % af indsatsen. */}
+          {' '}Ved fair odds er en Chance hverken et godt eller et dårligt køb i det lange løb. Men på
+          et udfald, der står til loftet, er <strong>Chancen et tab i det lange løb</strong> — på
+          de skæveste kampe næsten hele indsatsen.
+        </p>
+        )}
+        {loftHistorie && loft === null && (
         <p style={{ margin: '0.5rem 0 0' }}>
           Fordi oddsene ikke længere har et loft, er det her, ændringen mærkes mest. Fuld indsats
           på et udfald til odds 8 giver <strong>56 point</strong>; i Premier League kan en enkelt
@@ -582,7 +625,15 @@ export default function FootballHelp({ game }) {
           <li><strong>Holdene starter ikke alle på {START}.</strong> {START} er blot det neutrale
             nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra holdets
             resultater ved de seneste slutrunder — så en favorit starter <em>over</em> {START} og en
-            outsider <em>under</em>. Derfor er favoritter og outsidere forskellige allerede fra første kamp.</li>
+            outsider <em>under</em>. Derfor er favoritter og outsidere forskellige allerede fra første kamp.
+            {/* To undtagelser fra «beregnet ud fra resultaterne» (D4, holdfilen):
+                et hold uden slutrunder bag sig og værtens fordel. Teksten siger
+                «kan», fordi den gælder enhver turnering — om der er et nyt hold
+                eller en vært, står i holdenes data, ikke her. */}
+            {' '}<span data-testid="hjaelp-start-undtagelser">Et hold <strong>uden slutrunder</strong> bag sig
+            får en fast start-rating under {START}, for nye hold klarer sig typisk dårligere end nulpunktet.
+            Og spiller en <strong>værtsnation</strong> hjemme, kan der være lagt en værtsfordel ind i
+            dens start-rating.</span></li>
           ) : (
           <li><strong>Holdene starter ikke alle på {START}.</strong> {START} er blot det neutrale
             nulpunkt. Hvert hold får en <strong>start-rating</strong>, vi har beregnet ud fra de
@@ -599,8 +650,10 @@ export default function FootballHelp({ game }) {
             ikke 50/50 — hjemmeholdet forventes at tage omkring {hjemmeLige} % takket være hjemmebanen.</li>
           ) : (
           <li data-testid="hjaelp-neutral-bane">Før en kamp regnes en <strong>forventning</strong> ud fra
-            forskellen i rating — og kun den: der regnes ingen hjemmebanefordel. To hold med samme
-            rating står altså lige.</li>
+            forskellen i rating — og kun den: der lægges ingen hjemmebanefordel oven i den enkelte
+            kamp. To hold med samme rating står altså lige.{/* En vært findes kun i en
+            turnering (samme gate som start-rating-teksten ovenfor). */}{kal && <> En eventuel værtsfordel ligger allerede i
+            værtens start-rating og regnes ikke med igen.</>}</li>
           )}
           <li>Efter kampen flyttes rating mod resultatet: <em>ny rating = gammel + {K} ×
             (resultat − forventning)</em>, hvor resultat er 1 (sejr), ½ (uafgjort) eller 0 (nederlag).

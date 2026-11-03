@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import {
   findHandballboxe, delFelter, overskrifter, parseHold, parseDato, parseTid, parseScore,
   facitFraBox, sidensForskydning, utcIso, laesKampe, beskaarTilKampe, fjernKommentarer, laesBox,
+  transklusioner, infoboksKampe,
 } from './wikiHandball.mjs';
 import { holdForIhfNavn } from '../../src/data/haandboldVm2027Hold.js';
 
@@ -322,5 +323,155 @@ describe('beskæring', () => {
 
   it('kaster på en side uden kampe', () => {
     expect(() => beskaarTilKampe('== Intro ==')).toThrow(/ingen \{\{handballbox\}\}/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D3-opfølgningen: de former, de otte turneringssider havde (hentet 3/11 2026
+// med action=raw). Hver form er skrevet ordret af fra siden.
+// ---------------------------------------------------------------------------
+
+describe('hold uden trebogstavskode (VM 2019 og VM 2021)', () => {
+  it('det fælles koreanske hold er COR i begge former — IKKE KOR (Sydkorea)', () => {
+    expect(parseHold('{{hb|Korea|unification}}')).toEqual({ kode: 'COR' });
+    expect(parseHold('{{hb-rt|Korea|unification}}')).toEqual({ kode: 'COR' });
+  });
+
+  it('«Russian Handball Federation» er RUS, også med mellemrum om (|team2= [[…]] på siden)', () => {
+    expect(parseHold(" [[Russia men's national handball team|Russian Handball Federation]] ")).toEqual({ kode: 'RUS' });
+  });
+
+  // Ordret, ikke et mønster: en form, ingen har set, kaster stadig.
+  it.each([
+    '{{hb|Korea}}',
+    '{{hb|Korea|unification|name=Unified Korea}}',
+    '{{hb|korea|unification}}',
+    "[[Russia men's national handball team|Russia]]",
+    "[[Russia men's national handball team]]",
+    "[[Belarus men's national handball team|Belarus Handball Federation]]",
+  ])('kaster stadig på %s', (v) => {
+    expect(() => parseHold(v)).toThrow(/er hverken \{\{hb\|KODE\}\} eller en pladsholder/);
+  });
+
+  it('kampen læses hele vejen fra kassen (VM 2019 kamp 1, ordret)', () => {
+    const [k] = laesKampe(box({
+      date: '10 January 2019', time: '18:15', team1: '{{hb-rt|Korea|unification}}', score: '19–30', team2: '{{hb|GER}}', HT: '10–17',
+    }));
+    expect([k.hjemme, k.ude, k.facit.efter60]).toEqual([{ kode: 'COR' }, { kode: 'GER' }, { h: 19, u: 30 }]);
+  });
+});
+
+describe('walkover (VM 2021: Kap Verde)', () => {
+  // Ordret fra siden: score med fodnote, ingen tid, ingen pausestilling.
+  it.each([
+    ['0–10{{refn|group=note|name=CPV}}', '0–10'],
+    ['10–0{{refn|group=note|name=CPV}}', '10–0'],
+    ['0–10', '0–10'],
+  ])('%s er en walkover med art og tydelig grund', (score, vist) => {
+    let fejl;
+    try { facitFraBox({ score, HT: '' }, 'K: '); } catch (e) { fejl = e; }
+    expect(fejl?.art).toBe('walkover');
+    expect(fejl.message).toBe(`K: walkover (${vist} tildelt uden kamp, ingen pausestilling) — ikke en spillet kamp`);
+  });
+
+  // Formen er snæver. Hver af disse er en ny form og skal falde igennem til
+  // plausibilitetsvagten — UDEN art, så den står som ulæselig, ikke walkover.
+  it.each([
+    [{ score: '10–0', HT: '6–0' }, /0 mål efter 60 min/],
+    [{ score: '11–0' }, /0 mål efter 60 min/],
+    [{ score: '9–0' }, /0 mål efter 60 min/],
+    [{ score: '10–1' }, /1 mål efter 60 min/],
+    [{ score: '0–0' }, /0 mål efter 60 min/],
+  ])('%o er IKKE en walkover', (felter, besked) => {
+    let fejl;
+    try { facitFraBox(felter); } catch (e) { fejl = e; }
+    expect(fejl?.message).toMatch(besked);
+    expect(fejl.message).not.toMatch(/walkover/);
+    expect(fejl.art).toBeUndefined();
+  });
+});
+
+describe('fodnoter i dato, tid og hold (VM 2023 kamp 104)', () => {
+  const REFN = '{{refn|group=note|name=Delayed|The match was scheduled for 20:30, but started about 24 minutes later.<ref>{{cite news|url=https://x.example/a|title=A}}</ref><ref>{{cite news|url=https://x.example/b|title=B}}</ref>}}';
+
+  it('«20:54{{refn|…}}» læses som 20:54, og feltet står i fodnoter', () => {
+    const [k] = laesKampe(box({
+      date: '25 January 2023', time: `20:54${REFN}`, team1: '{{hb-rt|FRA}}', score: '35–28', team2: '{{hb|GER}}', HT: '16–16',
+    }));
+    expect(k).toMatchObject({ tid: '20:54', tidSenest: null, hjemme: { kode: 'FRA' }, ude: { kode: 'GER' }, fodnoter: ['time'] });
+  });
+
+  it('generelt — også i dato og hold, og <ref> lige så vel som {{efn}}', () => {
+    const [k] = laesKampe(box({
+      date: '25 January 2023{{efn|x}}', time: '20:30', team1: '{{hb-rt|FRA}}<ref name=a/>', score: '35–28', team2: '{{hb|GER}}<ref>x</ref>',
+    }));
+    expect(k).toMatchObject({ dato: '2023-01-25', hjemme: { kode: 'FRA' }, ude: { kode: 'GER' }, fodnoter: ['date', 'team1', 'team2'] });
+  });
+
+  it('uden fodnote er listen tom — og en note i scoren tæller ikke med', () => {
+    const [k] = laesKampe(box({ date: '25 January 2023', time: '20:30', team1: '{{hb|FRA}}', score: '35–28{{efn|x}}', team2: '{{hb|GER}}' }));
+    expect(k.fodnoter).toEqual([]);
+    expect(k.facit.slut).toEqual({ h: 35, u: 28 });
+  });
+
+  // Kun FODNOTE-skabeloner fjernes; en anden skabelon kan bære betydning.
+  it('en anden skabelon i tiden kaster stadig', () => {
+    expect(() => laesKampe(box({ date: '25 January 2023', time: '{{nowrap|20:30}}' }))).toThrow(/tidspunktet «\{\{nowrap\|20:30\}\}» har en ukendt form/);
+  });
+});
+
+describe('tidszonen, når sætningen står der uden forskydning (EM 2022)', () => {
+  it('siger, hvad siden skriver — uden fodnoten — og gætter ikke', () => {
+    const em2022 = "''All times are local ([[Central European Time|UTC]]).''<ref>{{cite web|title=Match times|url=https://x.example}}</ref>\n";
+    expect(() => sidensForskydning(em2022)).toThrow(
+      'Siden skriver «All times are local ([[Central European Time|UTC]]).» uden en forskydning efter UTC (fx UTC+1) — der gættes ikke.',
+    );
+    // Uden sætningen er beskeden den gamle.
+    expect(() => sidensForskydning('== Main round ==')).toThrow('Siden siger ikke, hvilken tidszone tiderne står i');
+  });
+});
+
+describe('kampe på en anden side (EM 2026: finalen)', () => {
+  const SIDE = [
+    '== Qualification ==', "{{#lst:2026 European Men's Handball Championship qualification|Q}}",
+    '== Knockout stage ==', '=== Third place game ===',
+    box({ date: '1 February 2026', team1: '{{hb-rt|ISL}}', score: '33–34', team2: '{{hb|CRO}}' }),
+    '=== Final ===', "{{main|2026 European Men's Handball Championship final}}",
+    "{{#section:2026 European Men's Handball Championship final|Final}}",
+    '<!-- {{#section:Udkommenteret|Final}} -->',
+    '== Rankings ==', '{{#lst:Noget andet|X}}',
+  ].join('\n');
+
+  it('finder transklusionen i kampenes område med sektion og side — og kun dér', () => {
+    expect(transklusioner(SIDE)).toEqual([{
+      sektion: ['Knockout stage', 'Final'],
+      side: "2026 European Men's Handball Championship final",
+      skabelon: "{{#section:2026 European Men's Handball Championship final|Final}}",
+    }]);
+  });
+
+  it.each(['{{#section-h:X|Final}}', '{{#lst:X|Final}}', '{{#lsth:X|Final}}', '{{ :X }}'])('%s er også en transklusion', (s) => {
+    const t = `== Knockout stage ==\n${box({ date: '1 February 2026' })}=== Final ===\n${s}\n== Rankings ==`;
+    expect(transklusioner(t).map((x) => x.side)).toEqual(['X']);
+  });
+
+  it('{{main|…}} og {{#invoke:RoundN|…}} er ikke transklusioner', () => {
+    const t = `== Knockout stage ==\n{{#invoke:RoundN|N4|x}}\n${box({ date: '1 February 2026' })}{{main|X}}\n== Rankings ==`;
+    expect(transklusioner(t)).toEqual([]);
+  });
+});
+
+describe('infoboksens kamptal', () => {
+  it('læser «| matches = 65» — også med mellemrum og fodnote', () => {
+    expect(infoboksKampe('{{Infobox International Handball Competition\n| teams = 24\n| matches = 65\n}}')).toEqual({ antal: 65, fejl: null });
+    expect(infoboksKampe('{{Infobox international handball competition\n| matches        = 102<ref>x</ref>\n}}').antal).toBe(102);
+  });
+
+  it('null + grund, når tallet mangler eller ikke er et tal', () => {
+    expect(infoboksKampe('== Intro ==')).toEqual({ antal: null, fejl: 'siden har ingen {{Infobox …}}' });
+    expect(infoboksKampe('{{Infobox X\n| teams = 24\n}}')).toEqual({ antal: null, fejl: 'infoboksen har intet «matches=»' });
+    expect(infoboksKampe('{{Infobox X\n| matches = TBD\n}}')).toEqual({ antal: null, fejl: 'infoboksens «matches=TBD» er ikke et tal' });
+    // «matches_played» er et andet felt.
+    expect(infoboksKampe('{{Infobox X\n| matches_played = 65\n}}').antal).toBeNull();
   });
 });

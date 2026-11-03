@@ -281,7 +281,10 @@ export function outcomeProbabilities({
 }
 
 /**
- * Grænser for odds. Der er ikke længere et LOFT — kun et gulv.
+ * Grænser for odds. I FODBOLD er der ikke længere et LOFT — kun et gulv.
+ * (Håndbold har et loft på 25 som profilværdi, `profil.odds.max` — et andet
+ * valg på et andet grundlag; se SPORT_PROFILER.haandbold og
+ * docs/spilbalance.md. Alt herunder handler om fodbold.)
  *
  * MAX var 6,0, blev foreslået hævet til 8,0, og er nu fjernet. Begrundelsen er
  * målt, og den er skarpere end de to tidligere forsøg:
@@ -346,7 +349,8 @@ export function outcomeProbabilities({
  * src/lib/sportProfil.test.js, "odds-gulvet er en profilværdi"). Dér binder
  * 1,1 og giver favorittippet positiv forventning. Derfor er gulvet en
  * profilværdi (`profil.odds.min`, se sportProfil), og MIN her er kun
- * fodboldens.
+ * fodboldens. Den MÅLTE håndboldprofil når p ≈ 0,948 (laveste odds 1,06) —
+ * her ville 1,1 binde, og derfor har den gulvet 1,01 (SPORT_PROFILER.haandbold).
  *
  * Måles med scripts/maal-chancen.mjs (tabellen ovenfor) og
  * scripts/maal-spilbalance.mjs (1X2 og combi). Se docs/spilbalance.md.
@@ -360,36 +364,46 @@ export const ODDS = {
 };
 
 /**
- * Fair (EV-neutral) decimal-odds for en sandsynlighed. Kun et GULV — intet
- * loft. Afrundes til 2 decimaler. p ≤ 0 eller ugyldigt giver UGYLDIG.
+ * Fair (EV-neutral) decimal-odds for en sandsynlighed. Et GULV og — kun hvis
+ * sportsprofilen har et — et LOFT. Afrundes til 2 decimaler. p ≤ 0 eller
+ * ugyldigt giver UGYLDIG (højst loftet).
  *
  * Gulvet er ODDS.MIN, medmindre et andet gives. Det andet kommer fra
  * sportsprofilen (`profil.odds.min`), ikke fra en ny global konstant: et
  * gulv, der ikke binder i fodbold, kan binde i en sport med få uafgjorte —
  * og så giver det favorittippet positiv forventning. Se sportProfil.
+ *
+ * Loftet er `profil.odds.max` (null/udeladt = intet loft, som i fodbold).
+ * Det er ejerens valg for håndbold (25, se SPORT_PROFILER.haandbold): et
+ * klippet udfald betaler MINDRE end fair, og det er prisen for, at ét
+ * langskud ikke kan afgøre konkurrencen.
  */
-export function fairOdds(p, min = ODDS.MIN) {
+export function fairOdds(p, min = ODDS.MIN, max = null) {
   const prob = Number(p);
-  // Et umuligt eller ugyldigt udfald har ingen fair pris. Før faldt det
-  // tilbage på loftet; nu findes der ikke et. UGYLDIG er derfor et bevidst
-  // valgt tal, ikke en grænse for rigtige odds — modellen giver aldrig p ≤ 0.
-  if (!Number.isFinite(prob) || prob <= 0) return ODDS.UGYLDIG;
-  const raw = Math.max(min, 1 / prob);
+  const loft = (o) => (max === null || max === undefined ? o : Math.min(max, o));
+  // Et umuligt eller ugyldigt udfald har ingen fair pris. UGYLDIG er et
+  // bevidst valgt tal, ikke en grænse for rigtige odds — modellen giver
+  // aldrig p ≤ 0. Har sporten et loft, gælder det også her: ingen pris over
+  // loftet, heller ikke en ugyldig.
+  if (!Number.isFinite(prob) || prob <= 0) return loft(ODDS.UGYLDIG);
+  const raw = loft(Math.max(min, 1 / prob));
   return Math.round(raw * 100) / 100;
 }
 
 /**
  * Fair odds for hvert 1X2-udfald ud fra Elo-ratings. Tager de samme felter
- * som outcomeProbabilities plus `oddsMin` (gulvet) — dvs. præcis det,
- * `oddsParametre(profil)` giver. Mangler et felt, gælder fodbold-værdien.
+ * som outcomeProbabilities plus `oddsMin` (gulvet) og `oddsMax` (loftet,
+ * null = intet) — dvs. præcis det, `oddsParametre(profil)` giver. Mangler
+ * et felt, gælder fodbold-værdien (intet loft).
  */
 export function outcomeOdds(eloArgs) {
   const p = outcomeProbabilities(eloArgs);
   const min = eloArgs?.oddsMin;
+  const max = eloArgs?.oddsMax ?? null;
   return {
-    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min),
-    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min),
-    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min),
+    [OUTCOME.HOME]: fairOdds(p[OUTCOME.HOME], min, max),
+    [OUTCOME.DRAW]: fairOdds(p[OUTCOME.DRAW], min, max),
+    [OUTCOME.AWAY]: fairOdds(p[OUTCOME.AWAY], min, max),
   };
 }
 
@@ -419,19 +433,110 @@ function frys(o) {
  * kan ELO og profilen ikke drive fra hinanden, og en model-ændring i ELO
  * (målt med scripts/maal-uafgjort.mjs) slår igennem begge steder.
  *
- * Der er bevidst INGEN håndboldprofil endnu: dens tal skal måles først
- * (harness i scripts/, ikke tal uden kode — se CLAUDE.md).
+ * Håndbold er MÅLT (se kommentaren ved profilen nedenfor) og skrevet som
+ * literaler: dens tal må ikke flytte sig, fordi fodboldens gør.
  *
  * Selve REGISTRET er ikke frosset, kun profilerne i det. Testene lægger en
  * prøvesport ind for at bevise, at hvert kaldested faktisk bruger SPILLETS
- * profil — så længe fodbold er den eneste profil, er en fjernet profil i et
- * kald ellers usynlig, fordi standardværdierne er de samme tal.
+ * profil — standardværdierne er fodboldens, så kun en profil med andre tal
+ * end fodboldens kan afsløre et kald, der har tabt profilen.
  */
 export const SPORT_PROFILER = {
+  // odds.max: null er et BEVIDST «intet loft» (loftet på 6 blev fjernet, se
+  // ODDS) — ikke en glemt nøgle. Formtesten kræver nøglen i hver profil.
   fodbold: frys({
     sport: 'fodbold',
     elo: { ...ELO },
-    odds: { min: ODDS.MIN },
+    odds: { min: ODDS.MIN, max: null },
+  }),
+
+  /**
+   * HÅNDBOLD (herrer, VM/EM). Målt med scripts/maal-haandbold.mjs på
+   * scripts/haandbold-historik.json: 678 kampe fra VM 2019 til EM 2026, på
+   * stillingen EFTER 60 MIN (det, der tippes på — også i knockout, §11.1).
+   * Kampene køres kronologisk med spillets egen updateElo/outcomeProbabilities;
+   * log-loss over de 517 kampe fra VM 2021 og frem (VM 2019 + EM 2020 er
+   * opvarmning, for dér starter alle hold i 1500).
+   *
+   *     variant                     K     base    decay   log-loss   Brier
+   *     håndbold (denne profil)    120   0,157   0,55    0,7125    0,4062
+   *     fodboldens K                20   0,157   0,55    0,7560    0,4363
+   *     fodboldens uafgjort        120   0,305   0,55    0,7430    0,4201
+   *     fodbold (K, base, decay)    20   0,305   0,55    0,7881    0,4497
+   *     uden Elo (flad rate)         —   0,083      —    0,9352
+   *
+   * EM 2026-finalen (DEN–GER 34–27) er med siden 3/11 — den står på sin egen
+   * side og indsættes af scripts/haandbold-historik.mjs. Den flyttede ingen
+   * af profilens tal (K 120, base 0,157 som før med 677 kampe), kun
+   * Danmarks og Tysklands start-Elo.
+   *
+   * UAFGJORT efter 60 min er 8,3 % (56 af 678) mod fodboldens 24,3 %
+   * (1.493 af 6.143, scripts/maal-uafgjort.mjs). I knockout 18,2 % (8 af 44).
+   *
+   * K = 120 — seks gange fodboldens. 95 %-intervallet er 80-160, og
+   * fodboldens 20 ligger 17,1 log-likelihood-enheder fra (grænsen er 1,92;
+   * 17,0, hvis base også genfittes for K 20).
+   * Det er ikke et udslag af indsvingningen: opvarmningen har sin egen K (150,
+   * se scripts/lib/haandboldMaaling.mjs), og K her er den, der forudsiger bedst
+   * BAGEFTER. Håndbold har få kampe pr. hold (højst 10 pr. turnering i
+   * historikken — VM 2019 — og 9 i de øvrige; scripts/maal-haandbold.mjs
+   * afsnit 1) og store styrkeforskelle, så hver kamp skal flytte meget.
+   * Prisen: den levende Elo svinger mere i løbet af turneringen end i fodbold
+   * (op til ±120 pr. kamp).
+   *
+   * 120 ER ET KOMPROMIS MELLEM VM OG EM (afsnit 3b): målt på VM-kampene alene
+   * er bedste K 180 (95 % 120-200+, base 0,147), på EM-kampene alene 70
+   * (40-110, base 0,178). K 120 koster 1,64 på VM og 2,00 på EM — lige uden
+   * for EM's interval. VM 2027 er et VM, så data peger snarere på en højere K
+   * og en lidt lavere base; profilen bruger det samlede fit (517 kampe mod
+   * 322), og den levende Elo retter undervejs (§11.8).
+   *
+   * DRAW_BASE = 0,157 (95 % 0,118-0,202 — fodboldens 0,305 ligger UDEN FOR).
+   *
+   * DRAW_DECAY = 0,55 er LÅST, ikke målt. Med 47 uafgjorte i de målte kampe
+   * er decay umålelig: et frit fit giver 0,44 med 95 %-interval 0-0,88, altså
+   * både "ingen afhængighed af styrkeforskel" og fodboldens form. Låsen er
+   * fodboldens målte 0,55 (begrundelsen står ved DECAY_LAAS i
+   * scripts/lib/haandboldMaaling.mjs), og kun base er fittet. Låst giver den
+   * 46,9 forventede uafgjorte mod 47 faktiske; fodboldens uafgjort-model
+   * (base 0,305) giver 91,2 på de samme K 120-ratings (92,2 med K 20).
+   *
+   * HFA = 0: VM spilles på neutral bane (planen B5). Værtsfordelen er målt
+   * separat: punktestimat 25-35 Elo-point, men 95 %-intervallet er 0-140, og
+   * 0 koster kun ΔNLL 0,25 — data kan ikke skelne den fra 0. Den ligger som
+   * et VALG (+25, planen B5) i Tysklands START-Elo i
+   * src/data/haandboldVm2027Hold.js, ikke her; ejeren beslutter, om den skal
+   * med (priserne med og uden: scripts/maal-haandbold.mjs afsnit 8b).
+   *
+   * START = 1500: skalaens nulpunkt — målingen starter alle hold dér i VM
+   * 2019 (MIDTE i scripts/lib/haandboldMaaling.mjs), præcis som fodbold. Det
+   * er IKKE ratingen for et hold uden historik: den er målt til 1150
+   * (STARTMETODE.nyStart) og står eksplicit i holdfilen (Tyrkiet). START er
+   * kun teamElo's fallback, og seedet advarer i tør-kørslen og afviser med
+   * --skriv både et ukendt holdnavn og et hold uden elo
+   * (scripts/lib/fuldtSeed.mjs), så den når ikke et håndboldodds ad den vej.
+   *
+   * ODDS-GULVET 1,01 (§11.5, Spilfører): det må aldrig binde. Den højeste
+   * sandsynlighed modellen kan give er 1 − 0,157·e^(−1,1) ≈ 0,948 → laveste
+   * odds 1,06. Fodboldens gulv 1,1 ville binde over p = 0,909 og give
+   * favorittippet positiv forventning; 1,01 kan ikke nås.
+   *
+   * ODDS-LOFTET 25 er EJERENS VALG (§11-tillæg 4), ikke en måling. Uden loft
+   * gav et ramt tip på Uruguay–Tyskland «1» 461,77 point og en Chance på 8
+   * 3.686 — ét langskud ville afgøre konkurrencen. Fodboldens højeste odds
+   * nogensinde er 24,39; 25 klipper i den indledende runde 11 af 144 udfald
+   * i 11 kampe (alle under 4 % chance), aldrig et X (højst 19,04). PRISEN:
+   * et klippet udfald betaler under fair — et tip på Uruguay (fair 461,77) er
+   * 0,054 point værd mod ~1 for et fair udfald, og underhund-strategien
+   * forventer 42,96 point over de 48 kampe mod 48,00 uden loft (favorit
+   * 48,17 og X 48,00 urørt). Tallene: scripts/maal-haandbold.mjs afsnit 8c.
+   * Loftet ligger i PRISNINGEN (oddsParametre → outcomeOdds), så seed,
+   * levende odds og Ompris arver det, og de viste odds er de afregnede.
+   */
+  haandbold: frys({
+    sport: 'haandbold',
+    elo: { START: 1500, HFA: 0, K: 120, DRAW_BASE: 0.157, DRAW_DECAY: 0.55 },
+    odds: { min: 1.01, max: 25 },
   }),
 };
 
@@ -469,7 +574,7 @@ export function ukendtSport(game) {
 // --- Sportens ORD: hvad tingene hedder, uafhængigt af Elo-tallene ----------
 //
 // EN EGEN DEL, IKKE ET FELT PÅ PROFILEN. Ordene for håndbold er besluttet af
-// ejeren (§11.2: "Dagens konge"), men håndboldens Elo-tal er ikke målt endnu
+// ejeren (§11.2: "Dagens konge"), og de kom FØR håndboldens Elo-tal var målt
 // (delopgave 4). Lå ordene på profilen, krævede de en håndboldprofil — og en
 // håndboldprofil med fodboldens tal ville gøre 'haandbold' til en KENDT sport
 // for ukendtSport, så seed og Ompris prissatte med umålte tal uden at sige fra.
@@ -516,8 +621,8 @@ export function sportOrd(game) {
 //
 // Et TREDJE register, ved siden af profilen og ordene, af samme grund som
 // ordene: en evne som "spilles der på hjemmebane" er et faktum om sporten
-// (håndbold-VM spilles på neutral bane), ikke et målt tal — og den skal kunne
-// komme før håndboldprofilen (delopgave 4). Ordene er tekster, evnerne er
+// (håndbold-VM spilles på neutral bane), ikke et målt tal — og den kom før
+// håndboldprofilen (delopgave 4). Ordene er tekster, evnerne er
 // sandt/falsk; de blandes ikke, så formtesten for ordene stadig kan kræve
 // ikke-tomme tekster.
 //
@@ -544,12 +649,10 @@ export function sportEvner(game) {
  * Guiden må hverken sige "takket være hjemmebanen" om en model uden
  * hjemmebanefordel (en profil med HFA 0) eller om en sport på neutral bane.
  * Og at de to ikke modsiger hinanden for en sport med begge dele, vogtes af
- * en test over begge registre (sportProfil.test.js) — måler delopgave 4 en
- * hjemmebanefordel for håndbold, bliver den rød og kræver en beslutning.
- *
- * Indtil håndboldprofilen findes, prissættes et håndboldspil slet ikke:
- * seed og Ompris afviser sporten (ukendtSport). Der kan altså ikke stå
- * fodboldens hjemmebane-odds på et spil, hvis tekster siger neutral bane.
+ * en test over begge registre (sportProfil.test.js) — får håndboldprofilen
+ * en dag en hjemmebanefordel (HFA > 0), bliver den rød og kræver en
+ * beslutning. Den målte værtsfordel ligger i værtens start-Elo, ikke i HFA
+ * (se SPORT_PROFILER.haandbold), så de to er enige: neutral bane, HFA 0.
  */
 export function harHjemmebane(game) {
   return sportEvner(game).hjemmebane === true && sportProfil(game).elo.HFA > 0;
@@ -574,18 +677,39 @@ export function visSport(vaerdi) {
  * `odds: {minimum: 1.01}`) gav fodboldens 1,1, et `null` gav slet intet gulv
  * (Math.max(null, x) = x), og NaN gav NaN-odds. Profilerne er kode, ikke data
  * — en forkert profil er en programfejl og skal være højlydt.
+ *
+ * Det samme for LOFTET: nøglen `odds.max` skal STÅ i profilen, og den er
+ * enten null (bevidst intet loft) eller et endeligt tal over gulvet. En
+ * manglende nøgle (fx `{maks: 25}`) ville ellers tavst give intet loft.
  */
 export function oddsParametre(profil = sportProfil()) {
   const min = profil.odds?.min;
   if (!(Number.isFinite(min) && min > 1)) {
     throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-gulv (odds.min = ${String(min)}).`);
   }
+  const harMax = Object.prototype.hasOwnProperty.call(profil.odds, 'max');
+  const max = harMax ? profil.odds.max : undefined;
+  if (!(max === null || (Number.isFinite(max) && max > min))) {
+    throw new Error(`Sportsprofilen "${profil.sport}" har intet gyldigt odds-loft (odds.max = ${harMax ? String(max) : 'mangler'}; null = intet loft).`);
+  }
   return {
     hfa: profil.elo.HFA,
     drawBase: profil.elo.DRAW_BASE,
     drawDecay: profil.elo.DRAW_DECAY,
     oddsMin: min,
+    oddsMax: max,
   };
+}
+
+/**
+ * Spillets odds-loft: et tal, eller null for intet loft. DEN delte helper for
+ * alt, der skal SIGE noget om loftet (hjælpesiden, invitationen) — gaten er
+ * profilværdien, ikke en nabo-egenskab som fasekalenderen. Går gennem
+ * oddsParametre, så en forkert profil kaster her som i prisningen.
+ * Spejlet i functions-platform/superligaScoring.js.
+ */
+export function oddsLoft(game) {
+  return oddsParametre(sportProfil(game)).oddsMax;
 }
 
 /** Profilens Elo-opdatering i den form, updateElo tager. */

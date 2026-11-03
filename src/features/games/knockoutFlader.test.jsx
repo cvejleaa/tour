@@ -282,8 +282,37 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
     expect(t).toContain('fra dit daglige flow');
     expect(t).toContain('Sådan forløber en dag');
     expect(t).toContain('1 (det første hold på kampkortet vinder)');
-    expect(screen.getByTestId('hjaelp-neutral-bane').textContent).toContain('der regnes ingen hjemmebanefordel');
-    expect(screen.getByTestId('hjaelp-intet-loft')).toBeInTheDocument();
+    // Neutral bane — men værtens fordel findes (D4: Tyskland +25 i start-Elo),
+    // så teksten må ikke påstå, at der slet ingen er (modstanderen, D4).
+    const neutral = screen.getByTestId('hjaelp-neutral-bane').textContent.replace(/\s+/g, ' ');
+    expect(neutral).toContain('der lægges ingen hjemmebanefordel oven i den enkelte kamp. To hold med samme rating står altså lige.');
+    expect(neutral).toContain('En eventuel værtsfordel ligger allerede i værtens start-rating og regnes ikke med igen.');
+    expect(neutral).not.toContain('der regnes ingen hjemmebanefordel.');
+    // Start-ratingen er ikke «beregnet ud fra resultaterne» for ALLE: et hold
+    // uden historik (Tyrkiet, 1150) og værten er undtagelserne.
+    const undt = screen.getByTestId('hjaelp-start-undtagelser').textContent.replace(/\s+/g, ' ');
+    expect(undt).toBe('Et hold uden slutrunder bag sig får en fast start-rating under 1500, for nye hold klarer sig typisk dårligere end nulpunktet. Og spiller en værtsnation hjemme, kan der være lagt en værtsfordel ind i dens start-rating.');
+    // VENDT (odds-loftet 25, §11-tillæg 4): her stod, at «intet loft»-sætningen
+    // fandtes for håndbold. Gaten er nu profilværdien (oddsLoft), ikke
+    // fasekalenderen — og teksten siger loftet og dets pris, ordret.
+    expect(screen.queryByTestId('hjaelp-intet-loft')).toBeNull();
+    expect(screen.getByTestId('hjaelp-odds-loft').textContent.replace(/\s+/g, ' ')).toBe(
+      'Oddsene har et loft på 25. Et udfald, modellen giver under 4 % chance, står til 25 — mindre end det er værd. '
+      + 'Det rammer kun de skæveste kampe, og det er med vilje: uden loftet kunne ét ramt langskud afgøre hele konkurrencen. '
+      + 'Til gengæld er et tip til loftet et dårligere valg end favoritten i samme kamp.',
+    );
+    // «1 delt med sandsynligheden» og «de tre valg lige gode» er kun sande
+    // UNDER loftet — og siger det.
+    expect(screen.getByTestId('hjaelp-odds-fair-under-loft').textContent.replace(/\s+/g, ' ')).toBe(
+      'Oddsene er 1 delt med sandsynligheden — mindst 1,01 og højst 25. Under loftet betyder det, at ethvert enkelt tip '
+      + 'er lige meget værd i det lange løb: en sikker favorit giver få point ofte, en overraskelse giver mange point '
+      + 'sjældent. På den enkelte kamp er de tre valg altså lige gode — medmindre et af dem står til loftet.',
+    );
+    // Chancen arver loftet: 8 × (25 − 1) = 192.
+    expect(screen.getByTestId('hjaelp-chance-loft').textContent.replace(/\s+/g, ' '))
+      .toBe('Chancen bruger de samme odds, så loftet gælder også her: fuld indsats kan højst give 8 × (25 − 1) = 192 point oveni. '
+        + 'Ved fair odds er en Chance hverken et godt eller et dårligt køb i det lange løb. Men på et udfald, der står til loftet, '
+        + 'er Chancen et tab i det lange løb — på de skæveste kampe næsten hele indsatsen.');
     expect(screen.getByTestId('hjaelp-uden-live')).toBeInTheDocument();
     expect(t).toContain('Combi-bonus pr. dag');
     expect(t).toContain('holdets resultater ved de seneste slutrunder');
@@ -295,6 +324,9 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
       // Loftets historie er ligaens (TM-D12 F18): en turnering har aldrig haft
       // et loft at fjerne, så hverken ændringen eller PL-eksemplet må stå.
       'Fordi oddsene ikke længere', 'Premier League kan en enkelt',
+      // Med et loft må ingen sætning sige, at der intet er (QC, odds-halen).
+      'ellers uden loft', 'intet loft over oddsene', 'også det vildeste langskud', 'eneste sted i spillet',
+      'ikke længere et loft',
     ]) {
       expect(t, forbudt).not.toContain(forbudt);
     }
@@ -331,10 +363,18 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
   });
 
   // «nu … stadig» henviser til loftets historie, som kun ligaen får.
-  it('combi-loftet: «nu … stadig» kun med loftets historie', () => {
-    expect(vis(HB)).toContain('Den er det eneste sted i spillet, der har et loft — på');
-    expect(vis(HB)).not.toMatch(/nu det eneste sted|stadig har et loft/);
+  // VENDT (odds-loftet): her stod, at håndbolds combi var «det eneste sted i
+  // spillet, der har et loft». Med odds-loftet 25 er det usandt; combi har
+  // sit EGET loft. Uden odds-loft (en turnering i fodbold) gælder den gamle sætning.
+  it('combi-loftet: «eneste sted» kun uden odds-loft, «nu … stadig» kun med loftets historie', () => {
+    expect(vis(HB)).toContain('Den har sit eget loft — på');
+    expect(vis(HB)).not.toMatch(/eneste sted i spillet|nu det eneste sted|stadig har et loft/);
     expect(vis(SL)).toContain('Den er nu det eneste sted i spillet, der stadig har et loft — på');
+    expect(vis(SL)).not.toContain('Den har sit eget loft');
+    // En turnering UDEN odds-loft (kalender, men fodbold): den gamle sætning.
+    const fodboldTurnering = { ...HB, sport: undefined };
+    expect(vis(fodboldTurnering)).toContain('Den er det eneste sted i spillet, der har et loft — på');
+    expect(screen.getAllByTestId('hjaelp-intet-loft').length).toBeGreaterThan(0);
   });
 
   it('en kalender uden knockout-faser: ingen knockout-afsnit', () => {
@@ -346,6 +386,8 @@ describe('Guiden for en turnering med knockout (håndbold-VM)', () => {
     const t = vis(SL);
     expect(screen.queryByTestId('hjaelp-knockout')).toBeNull();
     expect(screen.queryByTestId('hjaelp-neutral-bane')).toBeNull();
+    expect(screen.queryByTestId('hjaelp-start-undtagelser')).toBeNull();
+    expect(t).not.toMatch(/værtsfordel|uden slutrunder/);
     expect(screen.queryByTestId('hjaelp-intet-loft')).toBeNull();
     expect(screen.queryByTestId('hjaelp-uden-live')).toBeNull();
     expect(t).toContain('1 (hjemmesejr)');

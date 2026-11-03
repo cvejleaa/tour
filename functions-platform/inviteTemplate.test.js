@@ -317,6 +317,8 @@ describe('invitationsHtml — en turnering med fasekalender', () => {
     expect(html).toContain('<b>Knockout: vi tipper stillingen efter 60 min. Uafgjort er X, også når nogen vinder i forlængelsen.</b>');
     expect(html).toContain('Efter dagens sidste kamp');
     expect(html).toContain('🤾');
+    // Odds-loftet 25 (ejerens valg) står ved pointene — gatet på profilværdien.
+    expect(html).toContain('Du f&aring;r <b>point svarende til oddsene</b> (h&oslash;jst 25): rammer du storfavoritten');
   });
 
   it('og INTET af ligaens: runde, sæson, fodbold, hjemmebane, en tabel spillet ikke har — eller ⚽', () => {
@@ -339,6 +341,9 @@ describe('invitationsHtml — en turnering med fasekalender', () => {
     expect(fodboldTurnering).toContain('Hver dag sætter du hjemmesejr, uafgjort eller udesejr');
     expect(fodboldTurnering).toContain('nul fodboldforstand');
     expect(fodboldTurnering).toContain('stillingen efter 90 min');
+    // Fodbold har intet loft: ingen «højst» — samme kalender, anden sport.
+    expect(fodboldTurnering).toContain('Du f&aring;r <b>point svarende til oddsene</b>: rammer du storfavoritten');
+    expect(fodboldTurnering).not.toContain('oddsene</b> (h&oslash;jst');
   });
 
   it('Superligaen og Premier League: byte for byte den mail, de altid har fået', () => {

@@ -25,6 +25,8 @@ import golden from '../../functions-platform/testdata/sportprofil-golden.json';
 import slProgram from '../../scripts/superliga-fixtures.json';
 import plProgram from '../../scripts/premier-league-fixtures-2627.json';
 import { goldenKampe } from '../../scripts/lib/sportprofilGolden.mjs';
+import hbProgram from '../../scripts/haandbold-vm2027-program.json';
+import { HAANDBOLD_VM2027_HOLD } from '../data/haandboldVm2027Hold';
 import { PROEVE, medProeveSport } from '../test/proeveSport';
 
 const program = (d) => (Array.isArray(d) ? d : d.fixtures);
@@ -41,18 +43,21 @@ function somFacit(kampe) {
 }
 
 describe('sportProfil — hvilken profil et spil får', () => {
-  it('fodbold er standarden, og den er den eneste profil (endnu)', () => {
+  it('fodbold er standarden; håndbold er den eneste anden profil', () => {
     expect(STANDARD_SPORT).toBe('fodbold');
-    // FRAVÆRS-ASSERTION MED VILJE. Håndboldprofilen kommer i delopgave 4,
-    // når dens tal er målt — og så SKAL denne linje vendes i samme PR.
-    expect(Object.keys(SPORT_PROFILER)).toEqual(['fodbold']);
+    // VENDT I D4: her stod en fraværs-assertion (['fodbold']), indtil
+    // håndboldens tal var målt (scripts/maal-haandbold.mjs).
+    expect(Object.keys(SPORT_PROFILER)).toEqual(['fodbold', 'haandbold']);
+    expect(sportProfil({ sport: 'haandbold' })).toBe(SPORT_PROFILER.haandbold);
+    expect(sportProfil({ sport: 'haandbold' })).not.toBe(SPORT_PROFILER.fodbold);
   });
 
   it('manglende, ukendt eller ugyldig sport giver fodbold', () => {
     const fodbold = SPORT_PROFILER.fodbold;
     for (const game of [
       undefined, null, {}, { sport: undefined }, { sport: null }, { sport: '' },
-      { sport: 'curling' },        // ukendt — må ikke give en tom profil (ikke 'haandbold': det navn får sin profil i delopgave 4)
+      { sport: 'curling' },        // ukendt — må ikke give en tom profil
+      { sport: 'handbold' }, { sport: 'Haandbold' }, { sport: 'håndbold' }, // næsten-håndbold er IKKE håndbold
       { sport: 'Fodbold' },        // store bogstaver er en anden nøgle
       { sport: 123 }, { sport: ['fodbold'] }, { sport: { fodbold: true } },
       // Navne, der findes på ETHVERT objekt. Et naivt `SPORT_PROFILER[sport]`
@@ -67,7 +72,7 @@ describe('sportProfil — hvilken profil et spil får', () => {
 
   it('fodbold er bygget AF ELO og ODDS — og har dagens tal', () => {
     const p = sportProfil();
-    expect(p).toEqual({ sport: 'fodbold', elo: { ...ELO }, odds: { min: ODDS.MIN } });
+    expect(p).toEqual({ sport: 'fodbold', elo: { ...ELO }, odds: { min: ODDS.MIN, max: null } });
     // En KOPI: profilen fryses hele vejen ned, og delte den objekt med ELO,
     // blev konstanten selv frosset — og scripts/maal-*.mjs, der læser den, med.
     expect(p.elo).not.toBe(ELO);
@@ -75,7 +80,12 @@ describe('sportProfil — hvilken profil et spil får', () => {
     // Literaler: profilen må ikke kunne flytte sig sammen med konstanterne,
     // uden at noget bliver rødt. Ændres modellen med vilje, ændres de her.
     expect(p.elo).toEqual({ START: 1500, HFA: 60, K: 20, DRAW_BASE: 0.305, DRAW_DECAY: 0.55 });
-    expect(p.odds).toEqual({ min: 1.1 });
+    // max: null = BEVIDST intet loft (loftet på 6 blev fjernet). NØGLEN skal
+    // stå — toEqual skelner ikke en manglende nøgle fra undefined, så det
+    // kræves for sig.
+    expect(p.odds).toEqual({ min: 1.1, max: null });
+    expect(Object.prototype.hasOwnProperty.call(p.odds, 'max')).toBe(true);
+    expect(p.odds.max).toBeNull();
   });
 
   it('profilen er frosset hele vejen ned', () => {
@@ -91,13 +101,13 @@ describe('sportProfil — hvilken profil et spil får', () => {
   });
 
   it('oversætter profilen til de parametre, odds og Elo tager', () => {
-    expect(oddsParametre(sportProfil())).toEqual({ hfa: 60, drawBase: 0.305, drawDecay: 0.55, oddsMin: 1.1 });
+    expect(oddsParametre(sportProfil())).toEqual({ hfa: 60, drawBase: 0.305, drawDecay: 0.55, oddsMin: 1.1, oddsMax: null });
     expect(eloParametre(sportProfil())).toEqual({ hfa: 60, k: 20 });
     expect(oddsParametre()).toEqual(oddsParametre(sportProfil()));
     expect(eloParametre()).toEqual(eloParametre(sportProfil()));
     // HVERT felt skal komme fra profilen — med en profil, hvor alle tal er
     // andre, så et byttet eller hardkodet felt ikke kan gemme sig.
-    expect(oddsParametre(PROEVE)).toEqual({ hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01 });
+    expect(oddsParametre(PROEVE)).toEqual({ hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01, oddsMax: 20 });
     expect(eloParametre(PROEVE)).toEqual({ hfa: 0, k: 40 });
   });
 });
@@ -116,9 +126,13 @@ describe('ukendtSport — sat, men ikke i registret', () => {
   });
 
   it('en tastefejl, et forkert bogstav, en tom streng og ikke-strenge ER ukendte', () => {
-    for (const sport of ['handbold', 'haandbold', 'Fodbold', '', ' fodbold', 0, 123, false, ['fodbold'], { fodbold: true }]) {
+    for (const sport of ['handbold', 'Haandbold', 'håndbold', 'Fodbold', '', ' fodbold', 0, 123, false, ['fodbold'], ['haandbold'], { fodbold: true }]) {
       expect(ukendtSport({ sport }), JSON.stringify(sport)).toBe(true);
     }
+  });
+
+  it('haandbold er KENDT, siden profilen blev målt (D4) — seed og Ompris afviser den ikke længere', () => {
+    expect(ukendtSport({ sport: 'haandbold' })).toBe(false);
   });
 
   it('prototype-navne er ukendte — de findes på ethvert objekt, ikke i registret', () => {
@@ -156,9 +170,14 @@ function profilFormFejl(navn, p) {
   for (const k of Object.keys(ELO)) {
     if (!Number.isFinite(p.elo?.[k])) fejl.push(`elo.${k} ${String(p.elo?.[k])}`);
   }
-  const oddsNoegler = Object.keys(p.odds || {});
-  if (JSON.stringify(oddsNoegler) !== JSON.stringify(['min'])) fejl.push(`odds-nøgler ${oddsNoegler}`);
+  // VENDT (odds-loftet, §11-tillæg 4): her stod præcis ['min']. Nu skal BEGGE
+  // nøgler stå — også i fodbold, hvor max er null. En manglende max-nøgle er
+  // en stavefejl (samme fælde som {minimum}), ikke «intet loft».
+  const oddsNoegler = Object.keys(p.odds || {}).sort();
+  if (JSON.stringify(oddsNoegler) !== JSON.stringify(['max', 'min'])) fejl.push(`odds-nøgler ${oddsNoegler}`);
   if (!(Number.isFinite(p.odds?.min) && p.odds.min > 1)) fejl.push(`odds.min ${String(p.odds?.min)}`);
+  const max = p.odds?.max;
+  if (!(max === null || (Number.isFinite(max) && max > p.odds?.min))) fejl.push(`odds.max ${String(max)}`);
   return fejl;
 }
 
@@ -173,15 +192,26 @@ describe('hver sportsprofil har præcis den forventede form', () => {
   });
 
   it('formkontrollen fanger de stavefejl, den er skrevet til (ellers beviser den ikke noget)', () => {
-    const god = { sport: 'x', elo: { ...ELO }, odds: { min: 1.01 } };
+    const god = { sport: 'x', elo: { ...ELO }, odds: { min: 1.01, max: null } };
     expect(profilFormFejl('x', god)).toEqual([]);
+    // Et loft er gyldigt — VENDT: { min: 1.01, max: 6 } stod nedenfor som «en
+    // ekstra nøgle, ingen kode læser». Nu læser prisningen den.
+    expect(profilFormFejl('x', { ...god, odds: { min: 1.01, max: 6 } })).toEqual([]);
+    expect(profilFormFejl('x', { ...god, odds: { min: 1.01, max: 25 } })).toEqual([]);
     const daarlige = [
-      { ...god, odds: { minimum: 1.01 } },          // stavefejl — gav tavst fodboldens 1,1
-      { ...god, odds: { min: null } },
-      { ...god, odds: { min: NaN } },
-      { ...god, odds: { min: 1 } },                 // et ramt tip må ikke kunne betale indsatsen
-      { ...god, odds: { min: '1.01' } },
-      { ...god, odds: { min: 1.01, max: 6 } },      // en ekstra nøgle, ingen kode læser
+      { ...god, odds: { minimum: 1.01, max: null } }, // stavefejl — gav tavst fodboldens 1,1
+      { ...god, odds: { min: null, max: null } },
+      { ...god, odds: { min: NaN, max: null } },
+      { ...god, odds: { min: 1, max: null } },        // et ramt tip må ikke kunne betale indsatsen
+      { ...god, odds: { min: '1.01', max: null } },
+      { ...god, odds: { min: 1.01 } },                // max-nøglen mangler: ikke «intet loft», en glemt nøgle
+      { ...god, odds: { min: 1.01, maks: 25 } },      // stavefejl — ville tavst give intet loft
+      { ...god, odds: { min: 1.01, max: undefined } },
+      { ...god, odds: { min: 1.01, max: NaN } },
+      { ...god, odds: { min: 1.01, max: '25' } },
+      { ...god, odds: { min: 1.01, max: 1.01 } },     // loft = gulv: alle udfald samme pris
+      { ...god, odds: { min: 1.01, max: Infinity } }, // «intet loft» staves null
+      { ...god, odds: { min: 1.01, max: null, ekstra: 1 } },
       { ...god, elo: { ...ELO, HFA: undefined } },
       { ...god, elo: { START: 1500, HFA: 0, K: 20, DRAW_BASE: 0.1 } }, // DRAW_DECAY mangler → fodboldens
       { ...god, elo: { ...ELO, hfa: 0 } },          // lille h: en ny nøgle, HFA står stadig på 60
@@ -210,8 +240,27 @@ describe('hver sportsprofil har præcis den forventede form', () => {
     expect(() => oddsParametre({ sport: 'x', elo, odds: { min: 1 } }))
       .toThrow('(odds.min = 1).');
     // Det, der skal virke, virker — også lige over 1.
-    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.01 } }).oddsMin).toBe(1.01);
-    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.0001 } }).oddsMin).toBe(1.0001);
+    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.01, max: null } }).oddsMin).toBe(1.01);
+    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.0001, max: null } }).oddsMin).toBe(1.0001);
+  });
+
+  // LOFTET. Samme vagt: en manglende nøgle eller et forkert tal giver ellers
+  // TAVST intet loft (outcomeOdds læser oddsMax ?? null).
+  it('oddsParametre AFVISER et loft, der hverken er null eller et endeligt tal over gulvet', () => {
+    const elo = { ...ELO };
+    for (const odds of [{ min: 1.01 }, { min: 1.01, maks: 25 }, { min: 1.01, max: undefined }, { min: 1.01, max: NaN },
+      { min: 1.01, max: Infinity }, { min: 1.01, max: '25' }, { min: 1.01, max: 1.01 }, { min: 1.1, max: 1.05 }, { min: 1.01, max: 0 }]) {
+      expect(() => oddsParametre({ sport: 'x', elo, odds }), JSON.stringify(odds)).toThrow(/odds-loft/);
+    }
+    expect(() => oddsParametre({ sport: 'haandbold', elo, odds: { min: 1.01 } }))
+      .toThrow('Sportsprofilen "haandbold" har intet gyldigt odds-loft (odds.max = mangler; null = intet loft).');
+    expect(() => oddsParametre({ sport: 'x', elo, odds: { min: 1.01, max: undefined } }))
+      .toThrow('Sportsprofilen "x" har intet gyldigt odds-loft (odds.max = undefined; null = intet loft).');
+    expect(() => oddsParametre({ sport: 'x', elo, odds: { min: 1.01, max: 1.01 } })).toThrow('(odds.max = 1.01;');
+    // Det gyldige: null (intet loft) og et tal lige over gulvet.
+    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.01, max: null } }).oddsMax).toBeNull();
+    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.01, max: 1.02 } }).oddsMax).toBe(1.02);
+    expect(oddsParametre({ sport: 'x', elo, odds: { min: 1.01, max: 25 } }).oddsMax).toBe(25);
   });
 });
 
@@ -290,6 +339,22 @@ describe('odds-gulvet er en profilværdi', () => {
     expect(fairOdds(0.99)).toBe(1.1);
     expect(fairOdds(0, 1.01)).toBe(ODDS.UGYLDIG);
   });
+
+  // Klientens EGEN test af loftet i UGYLDIG-grenen. Serverens paritetstest
+  // (functions-platform/superligaScoring.test.js) sammenligner med src, men
+  // kører i en anden suite: en mutant `return ODDS.UGYLDIG` (uden loft) her
+  // overlevede hele frontend-kørslen. Et spejlet loft skal bevises i begge ender.
+  it('fairOdds klipper også UGYLDIG til loftet — og kun når der ER et loft', () => {
+    expect(ODDS.UGYLDIG).toBeGreaterThan(25); // ellers beviser 25 nedenfor intet
+    expect(fairOdds(0, 1.01, 25)).toBe(25);
+    expect(fairOdds(-1, 1.01, 25)).toBe(25);
+    expect(fairOdds('x', 1.01, 25)).toBe(25);
+    expect(fairOdds(0, 1.01, null)).toBe(ODDS.UGYLDIG);
+    expect(fairOdds(0, 1.01, undefined)).toBe(ODDS.UGYLDIG);
+    // Det almindelige klip, for sammenhængens skyld: 1/0,01 = 100 → 25.
+    expect(fairOdds(0.01, 1.01, 25)).toBe(25);
+    expect(fairOdds(0.041, 1.01, 25)).toBe(24.39);
+  });
 });
 
 // --- 1. Ingenting flytter sig: facit fra koden FØR profilen --------------------
@@ -327,13 +392,108 @@ describe('SL og PL er byte-identiske med koden før sportsprofilen', () => {
   }
 });
 
+// --- Håndboldprofilen (D4): målt, ikke skrevet af ---------------------------
+// Tallene og deres begrundelse står ved SPORT_PROFILER.haandbold; at de ER
+// målingens, efterprøves i scripts/lib/haandboldMaaling.test.mjs. Her: at
+// profilen når frem gennem sportProfil for et spil med sport:'haandbold', og
+// hvad den gør ved oddsene. BÅNDENE er røde for fodboldens værdier.
+describe('håndboldprofilen — gennem sportProfil for et spil med sport:\'haandbold\'', () => {
+  const HB = { id: 'hvm2027', type: 'football', sport: 'haandbold' };
+  const p = sportProfil(HB);
+
+  it('literalerne, frosset hele vejen ned', () => {
+    // odds.max 25: ejerens valg (§11-tillæg 4).
+    expect(p).toEqual({ sport: 'haandbold', elo: { START: 1500, HFA: 0, K: 120, DRAW_BASE: 0.157, DRAW_DECAY: 0.55 }, odds: { min: 1.01, max: 25 } });
+    expect(Object.isFrozen(p) && Object.isFrozen(p.elo) && Object.isFrozen(p.odds)).toBe(true);
+    expect(() => { p.elo.K = 20; }).toThrow(TypeError);
+  });
+
+  it('K og DRAW_BASE ligger i målingens 95 %-intervaller — og fodboldens tal gør IKKE', () => {
+    // K: interval 80-160 (scripts/maal-haandbold.mjs afsnit 3). Håndbold 120, fodbold 20.
+    expect(p.elo.K).toBeGreaterThanOrEqual(80);
+    expect(p.elo.K).toBeLessThanOrEqual(160);
+    expect(ELO.K).toBeLessThan(80);
+    // DRAW_BASE: interval 0,118-0,203 (afsnit 4). Håndbold 0,157, fodbold 0,305.
+    expect(p.elo.DRAW_BASE).toBeGreaterThanOrEqual(0.118);
+    expect(p.elo.DRAW_BASE).toBeLessThanOrEqual(0.203);
+    expect(ELO.DRAW_BASE).toBeGreaterThan(0.203);
+    // DRAW_DECAY er LÅST på fodboldens 0,55 — med vilje, fordi den er
+    // umålelig (95 % 0-0,88). Et bånd kan ikke være rødt for fodbold her;
+    // låsen og dens begrundelse testes i haandboldMaaling.test.mjs.
+    expect(p.elo.DRAW_DECAY).toBe(ELO.DRAW_DECAY);
+  });
+
+  it('oddsParametre og eloParametre giver håndboldens tal — ikke fodboldens', () => {
+    expect(oddsParametre(p)).toEqual({ hfa: 0, drawBase: 0.157, drawDecay: 0.55, oddsMin: 1.01, oddsMax: 25 });
+    expect(eloParametre(p)).toEqual({ hfa: 0, k: 120 });
+  });
+
+  it('lige hold på neutral bane: 1 = 2 = 2,37 og X = 6,37 (fodbold med hjemmebane: 2,46 / 3,28 / 3,47)', () => {
+    const lige = [{ name: 'A', elo: 1500 }, { name: 'B', elo: 1500 }];
+    expect(buildMatch({ round: 1, home: 'A', away: 'B' }, lige, p).odds).toEqual({ 1: 2.37, X: 6.37, 2: 2.37 });
+    expect(buildMatch({ round: 1, home: 'A', away: 'B' }, lige).odds).toEqual({ 1: 2.46, X: 3.28, 2: 3.47 });
+  });
+
+  it('gulvet 1,01 binder ALDRIG: højeste p er 1 − 0,157·e^(−1,1) ≈ 0,948 → laveste odds 1,06', () => {
+    const pMax = 1 - p.elo.DRAW_BASE * Math.exp(-2 * p.elo.DRAW_DECAY);
+    expect(pMax).toBeCloseTo(0.9477, 4);
+    expect(1 / pMax).toBeGreaterThan(p.odds.min);
+    // Det mest ensidige, modellen overhovedet kan møde (3000 Elo-point), giver 1,06 …
+    const ekstrem = { eloHome: 3500, eloAway: 500, ...oddsParametre(p) };
+    expect(outcomeOdds(ekstrem)['1']).toBe(1.06);
+    // … og fodboldens gulv på 1,1 VILLE binde dér — derfor er gulvet en profilværdi.
+    expect(outcomeOdds({ ...ekstrem, oddsMin: ODDS.MIN })['1']).toBe(1.1);
+  });
+
+  // ODDS-LOFTET 25 (ejerens valg) på det RIGTIGE program og den committede
+  // holdfil — samme kald som seedet. Tallene er scripts/maal-haandbold.mjs
+  // afsnit 8/8c: uden loft står 11 udfald over 25 (Uruguay–Tyskland «1»
+  // 461,77 højest), med loftet står præcis de 11 til 25, og intet andet
+  // flytter sig — heller ikke Japan–Island «1» 24,54 lige under.
+  it('loftet 25 klipper præcis de 11 udfald over 25 i den indledende runde — og intet andet', () => {
+    const fair = buildMatches(hbProgram.fixtures, HAANDBOLD_VM2027_HOLD, { ...p, odds: { min: 1.01, max: null } });
+    const seedet = buildMatches(hbProgram.fixtures, HAANDBOLD_VM2027_HOLD, p);
+    expect(seedet).toHaveLength(48);
+    const uru = (k) => k.find((m) => m.home === 'Uruguay' && m.away === 'Tyskland').odds['1'];
+    expect(uru(fair)).toBe(461.77);
+    expect(uru(seedet)).toBe(25);
+    const jap = (k) => k.find((m) => m.home === 'Japan' && m.away === 'Island').odds['1'];
+    expect(jap(seedet)).toBe(24.54);
+    expect(jap(seedet)).toBe(jap(fair));
+    let klippet = 0;
+    seedet.forEach((m, i) => {
+      for (const u of ['1', 'X', '2']) {
+        if (fair[i].odds[u] > 25) { klippet += 1; expect(m.odds[u], `${m.id} ${u}`).toBe(25); } else expect(m.odds[u], `${m.id} ${u}`).toBe(fair[i].odds[u]);
+      }
+    });
+    expect(klippet).toBe(11);
+    expect(Math.max(...seedet.flatMap((m) => Object.values(m.odds)))).toBe(25);
+    // X klippes aldrig (højst 19,04).
+    expect(Math.max(...seedet.map((m) => m.odds.X))).toBe(19.04);
+  });
+
+  it('SL og PL er UÆNDREDE med håndbold i registret — og håndboldprofilen giver andre odds på samme program', () => {
+    for (const [liga, { fixtures, teams }] of Object.entries(LIGAER)) {
+      expect(somFacit(buildMatches(fixtures, teams, sportProfil({}))), liga).toEqual(golden[liga].seedet);
+      expect(somFacit(buildMatches(fixtures, teams, p)), liga).not.toEqual(golden[liga].seedet);
+    }
+  });
+
+  it('Elo: K 120 — en sejr mellem lige hold flytter 60 hver vej (fodbold ≈ 8,3 for en hjemmesejr)', () => {
+    expect(updateElo(1500, 1500, 1, eloParametre(p))).toEqual({ home: 1560, away: 1440 });
+    const f = updateElo(1500, 1500, 1, eloParametre(sportProfil()));
+    expect(f.home - 1500).toBeCloseTo(20 * (1 - 1 / (1 + 10 ** (-60 / 400))), 10);
+    expect(f.home - 1500).toBeLessThan(10);
+  });
+});
+
 // --- 3. Hvert kaldested bruger spillets profil -------------------------------
 describe('kaldestederne bruger SPILLETS profil (prøvesport)', () => {
   medProeveSport();
   const TEAMS = [{ name: 'Stærk', elo: 1900 }, { name: 'Svag', elo: 1300 }];
   // Prøvesportens odds skrevet HELT ud — ikke via oddsParametre, så en fejl
   // i oversættelsen også bliver rød her.
-  const PROEVE_ARGS = { hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01 };
+  const PROEVE_ARGS = { hfa: 0, drawBase: 0.05, drawDecay: 0.2, oddsMin: 1.01, oddsMax: 20 };
 
   it('registret finder prøvesporten', () => {
     expect(sportProfil({ sport: 'proeve' })).toBe(PROEVE);
@@ -351,9 +511,11 @@ describe('kaldestederne bruger SPILLETS profil (prøvesport)', () => {
   it('buildMatch prissætter med profilen', () => {
     const m = buildMatch({ round: 1, home: 'Stærk', away: 'Svag' }, TEAMS, sportProfil({ sport: 'proeve' }));
     expect(m.odds).toEqual(outcomeOdds({ eloHome: 1900, eloAway: 1300, ...PROEVE_ARGS }));
-    // Gulvet, hjemmebanen og uafgjort-modellen slår alle igennem: fodbold
-    // giver 1,15 / 9,21 / 51,23 her.
-    expect(m.odds).toEqual({ 1: 1.07, X: 29.11, 2: 33.78 });
+    // Gulvet, LOFTET, hjemmebanen og uafgjort-modellen slår alle igennem:
+    // fodbold giver 1,15 / 9,21 / 51,23 her. Uden prøvesportens loft på 20
+    // stod X 29,11 og 2 33,78 — loftet klipper begge.
+    expect(m.odds).toEqual({ 1: 1.07, X: 20, 2: 20 });
+    expect(m.odds).not.toEqual(buildMatch({ round: 1, home: 'Stærk', away: 'Svag' }, TEAMS, { ...PROEVE, odds: { min: 1.01, max: null } }).odds);
     expect(m.odds).not.toEqual(buildMatch({ round: 1, home: 'Stærk', away: 'Svag' }, TEAMS).odds);
   });
 
@@ -361,7 +523,7 @@ describe('kaldestederne bruger SPILLETS profil (prøvesport)', () => {
     // Spejlet af kampen ovenfor (neutral bane): 2 får gulvet 1,01 → 1,07.
     // Fodboldens gulv ville give 1,1.
     const m = buildMatch({ round: 1, home: 'Svag', away: 'Stærk' }, TEAMS, PROEVE);
-    expect(m.odds).toEqual({ 1: 33.78, X: 29.11, 2: 1.07 });
+    expect(m.odds).toEqual({ 1: 20, X: 20, 2: 1.07 });
   });
 
   it('buildMatch giver et ukendt hold SPORTENS neutrale rating', () => {
@@ -381,7 +543,7 @@ describe('kaldestederne bruger SPILLETS profil (prøvesport)', () => {
 
   it('buildMatches sender profilen videre til hver kamp', () => {
     const [m] = buildMatches([{ round: 1, home: 'Stærk', away: 'Svag' }], TEAMS, PROEVE);
-    expect(m.odds).toEqual({ 1: 1.07, X: 29.11, 2: 33.78 });
+    expect(m.odds).toEqual({ 1: 1.07, X: 20, 2: 20 });
   });
 
   it('pointModForventning regner med profilen', () => {
@@ -433,15 +595,15 @@ describe('sportOrd — hvad tingene hedder i sporten', () => {
     });
   });
 
-  it('håndbold: "Dagens konge" (ejerens beslutning) — UDEN en håndboldprofil', () => {
+  it('håndbold: "Dagens konge" (ejerens beslutning) — ordene og profilen er hver sit register', () => {
     expect(sportOrd({ sport: 'haandbold' })).toEqual({
       sport: 'håndbold', rundeKonge: 'Dagens konge', rundeSejr: 'dagssejr', rundeSejre: 'dagssejre',
       ordinaerTid: '60 min', emoji: '🤾',
     });
-    // Ordene gør IKKE håndbold til en kendt sport for Elo og seed: den må
-    // stadig afvises, indtil profilen er målt (delopgave 4).
-    expect(ukendtSport({ sport: 'haandbold' })).toBe(true);
-    expect(sportProfil({ sport: 'haandbold' })).toBe(SPORT_PROFILER.fodbold);
+    // Ordene kom før tallene. Nu er profilen målt (D4) — og den er håndboldens
+    // egen, ikke fodboldens.
+    expect(ukendtSport({ sport: 'haandbold' })).toBe(false);
+    expect(sportProfil({ sport: 'haandbold' })).toBe(SPORT_PROFILER.haandbold);
   });
 
   it('manglende, ukendt eller ugyldig sport giver fodboldens ord — også prototype-navne', () => {
@@ -476,9 +638,10 @@ describe('harHjemmebane — sporten og modellen skal begge sige ja', () => {
       expect(harHjemmebane(g), JSON.stringify(g)).toBe(true);
     }
   });
-  it('håndbold: nej — neutral bane, også før håndboldprofilen findes', () => {
+  it('håndbold: nej — neutral bane i sporten OG HFA 0 i den målte profil', () => {
     expect(sportEvner({ sport: 'haandbold' })).toEqual({ hjemmebane: false });
     expect(harHjemmebane({ sport: 'haandbold' })).toBe(false);
+    expect(sportProfil({ sport: 'haandbold' }).elo.HFA).toBe(0);
   });
   it('ukendt og prototype-navne giver fodboldens evner', () => {
     for (const sport of ['curling', 'toString', '__proto__', ['haandbold']]) {
@@ -493,8 +656,9 @@ describe('harHjemmebane — sporten og modellen skal begge sige ja', () => {
     });
   });
   it('registrene modsiger ikke hinanden: har en sport begge, er evnen = HFA > 0', () => {
-    // Måler delopgave 4 en hjemmebanefordel for håndbold, bliver denne rød
-    // og kræver en beslutning: enten er banen ikke neutral, eller tallet er forkert.
+    // Får håndboldprofilen en dag HFA > 0, bliver denne rød og kræver en
+    // beslutning: enten er banen ikke neutral, eller tallet er forkert. (D4
+    // målte værtsfordelen og lagde den i værtens start-Elo, ikke i HFA.)
     for (const navn of Object.keys(SPORT_PROFILER).filter((s) => s in SPORT_EVNER)) {
       expect(SPORT_EVNER[navn].hjemmebane, navn).toBe(SPORT_PROFILER[navn].elo.HFA > 0);
     }

@@ -22,16 +22,41 @@
 //
 // BRUG:
 //   node scripts/haandbold-historik.mjs                       # alle 8, vis; skriv intet
-//   node scripts/haandbold-historik.mjs --skriv               # skriv scripts/haandbold-historik.json
-//   node scripts/haandbold-historik.mjs --turneringer vm2025,em2026
+//   node scripts/haandbold-historik.mjs --skriv --filer /sti   # skriv scripts/haandbold-historik.json
+//        (alle 8; mappen skal have em2026-finale.wikitext — uden den, eller via
+//        API'et, nægter --skriv, se ERKLÆREDE SIDER)
+//   node scripts/haandbold-historik.mjs --turneringer vm2025,em2026   # vis; med --skriv kræves --ud
 //   node scripts/haandbold-historik.mjs --cache /sti/til/mappe   # standard: <tmp>/vejleaa-wiki
 //   node scripts/haandbold-historik.mjs --filer /sti/til/mappe   # NØDVEJ: gemte sider, intet kald
+//   node scripts/haandbold-historik.mjs --skriv --ud /tmp/x.json # skriv et andet sted (testene)
+//   node scripts/haandbold-historik.mjs --skriv --tillad-anden-side   # se ERKLÆREDE SIDER nedenfor
 //
 // NØDVEJEN (--filer). Svarer Wikipedia 429, så gem siderne selv og læs dem
 // herfra — der sendes da intet kald. Mappen har én fil pr. turnering:
 // `vm2019.json` (API-svaret: åbn wikiUrl(titel) i browseren og gem) eller
 // `vm2019.wikitext` (rå wikitekst). Kilden får `vej: 'fil'` og filens tid som
 // `hentet`, så ingen tror, at scriptet selv har hentet den. Se docs/drift.md.
+//
+// TRANSKLUDEREDE SIDER. Mappen må OGSÅ have en fil for en side, som en
+// turnering transkluderer (TURNERINGER[].transklusioner, fx
+// `em2026-finale.wikitext` for EM 2026-finalen). Så indsættes afsnittet, før
+// kampene læses, og kilden får `transkluderet` med den sides fil og tid.
+// Mangler filen, afvises kampen som 'andenSide' — og regnskabet går op med
+// den afviste, ikke i stilhed. API-vejen henter ingen anden side.
+//
+// ERKLÆREDE SIDER. En side i TURNERINGER[].transklusioner er KENDT: dens kamp
+// skal med. Ender en kamp alligevel som 'andenSide' (API-vejen, filen mangler
+// i mappen, eller siden er ny eller stavet om på Wikipedia), NÆGTER --skriv
+// at skrive — ellers tabte hver opfriskning finalen med rc 0. Det gælder
+// ENHVER 'andenSide', erklæret eller ej; titlerne sammenlignes som MediaWiki
+// gør (normTitel: `_` = mellemrum). Tør-kørslen siger det. Er det meningen
+// (fx en hurtig opfriskning, hvor finalen bevidst står som afvist), så
+// --tillad-anden-side.
+//
+// MAPPEN SKAL GÅ OP. Ligger der en fil i --filer-mappen, som ingen turnering
+// eller erklæret side hedder (en stavefejl som `em2026-final.wikitext`),
+// stopper scriptet, før noget læses. Filer for turneringer, der ikke er valgt
+// med --turneringer, springes over og nævnes. Skjulte filer tæller ikke.
 //
 // Bag en proxy: Node 22's fetch bruger først HTTPS_PROXY med NODE_USE_ENV_PROXY=1.
 // ---------------------------------------------------------------------------
@@ -42,7 +67,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { lavWikiHenter, parseScriptArgs, laesGemtSide } from './lib/wikiHent.mjs';
 import {
-  TURNERINGER, udtraekKampe, resume, gemteFiler, sidensTidszone,
+  TURNERINGER, udtraekKampe, resume, gemteFiler, sidensTidszone, ubrugteFiler, andenSideAfvisninger,
 } from './lib/haandboldHistorik.mjs';
 import { wikiSideUrl } from './lib/haandboldProgram.mjs';
 
@@ -50,7 +75,14 @@ const ROD = join(dirname(fileURLToPath(import.meta.url)), '..');
 const UD = join(ROD, 'scripts', 'haandbold-historik.json');
 
 async function main() {
-  const args = parseScriptArgs(process.argv.slice(2), { vaerdier: ['turneringer', 'cache', 'filer'], flag: ['skriv'] });
+  const args = parseScriptArgs(process.argv.slice(2), { vaerdier: ['turneringer', 'cache', 'filer', 'ud'], flag: ['skriv', 'tillad-anden-side'] });
+  const ud = args.ud ? resolve(process.cwd(), args.ud) : UD;
+  // En delmængde må ikke overskrive den committede historik (QC, D4): CI's
+  // test af FIL.turneringer ville fange det, men først efter skrivningen.
+  if (args.flag.has('skriv') && args.turneringer && !args.ud) {
+    throw new Error('--skriv med --turneringer ville overskrive scripts/haandbold-historik.json med en delmængde. '
+      + 'Giv --ud <fil> — eller drop --turneringer for at skrive alle otte. Intet er skrevet.');
+  }
   if (args.filer && args.cache) throw new Error('--filer og --cache udelukker hinanden: --filer læser kun mappen og henter intet.');
   let valgte = TURNERINGER;
   if (args.turneringer) {
@@ -60,22 +92,39 @@ async function main() {
     valgte = TURNERINGER.filter((t) => ønskede.includes(t.noegle));
   }
   let hent;
+  // De transkluderede sider (TURNERINGER[].transklusioner): kun fra --filer-
+  // mappen. Mangler filen — eller køres der mod API'et — gives siden ikke med,
+  // og kampen afvises som 'andenSide' (synligt, som før).
+  let andreSider = () => ({});
   if (args.filer) {
     const mappe = resolve(process.cwd(), args.filer);
-    const filer = gemteFiler(readdirSync(mappe), valgte.map((t) => t.noegle));
+    const indhold = readdirSync(mappe);
+    const { ukendte, ikkeValgte } = ubrugteFiler(indhold, valgte);
+    if (ukendte.length) {
+      throw new Error(`mappen har ${ukendte.length === 1 ? 'en fil' : `${ukendte.length} filer`}, som ingen turnering eller erklæret side hedder: `
+        + `${ukendte.join(', ')}. Kendte navne: ${TURNERINGER.flatMap((t) => [t.noegle, ...Object.values(t.transklusioner ?? {})]).join(', ')} `
+        + '(.json/.wikitext/.txt). Er det en stavefejl, så ret navnet — ellers fjern filen. Intet er læst.');
+    }
+    const filer = gemteFiler(indhold, valgte.map((t) => t.noegle));
     console.log(`Gemte sider: ${mappe} (der sendes intet kald)\n`);
-    hent = async (titel) => {
-      const t = valgte.find((x) => x.titel === titel);
-      const sti = join(mappe, filer[t.noegle]);
-      const side = laesGemtSide(readFileSync(sti, 'utf8'), filer[t.noegle]);
+    if (ikkeValgte.length) console.log(`   (springes over — ikke valgt med --turneringer: ${ikkeValgte.join(', ')})\n`);
+    const laes = (navn, titel) => {
+      const sti = join(mappe, navn);
+      const side = laesGemtSide(readFileSync(sti, 'utf8'), navn);
       return {
         ...side,
         titel: side.titel ?? titel,
         // Filens tid er det bedste, vi har — og kilden siger, at det er den.
         hentet: side.hentet ?? statSync(sti).mtime.toISOString(),
         vej: 'fil',
-        fil: filer[t.noegle],
+        fil: navn,
       };
+    };
+    hent = async (titel) => laes(filer[valgte.find((x) => x.titel === titel).noegle], titel);
+    andreSider = (t) => {
+      const par = Object.entries(t.transklusioner ?? {});
+      const fundne = gemteFiler(indhold, par.map(([, n]) => n), { valgfri: true });
+      return Object.fromEntries(par.filter(([, n]) => fundne[n]).map(([titel, n]) => [titel, laes(fundne[n], titel)]));
     };
   } else {
     const cacheDir = resolve(process.cwd(), args.cache || join(tmpdir(), 'vejleaa-wiki'));
@@ -86,16 +135,30 @@ async function main() {
 
   const kilder = [];
   const kampe = [];
+  const mangler = [];
   for (const t of valgte) {
     const side = await hent(t.titel);
-    const r = udtraekKampe(side.wikitekst, t.noegle);
+    const andre = andreSider(t);
+    const r = udtraekKampe(side.wikitekst, t.noegle, {
+      andreSider: Object.fromEntries(Object.entries(andre).map(([titel, a]) => [titel, a.wikitekst])),
+    });
     const res = resume(r.kampe);
     const tz = sidensTidszone(side.wikitekst);
-    if (tz.fejl) console.log(`   (tidszone ukendt — tid er lokal uden forskydning: ${tz.fejl})`);
     console.log(`${t.noegle}: ${res.kampe} spillede · ${res.uafgjortEfter60} uafgjort efter 60 min · `
       + `${res.forlaenget} forlænget · ${res.straffe} straffekast · ${res.maalPrKamp60} mål/kamp`
-      + `${r.ikkeSpillet ? ` · ${r.ikkeSpillet} uden score` : ''}`);
-    for (const a of r.afviste) console.log(`   ⚠️  AFVIST ${a.sektion} nr. ${a.nr}: ${a.grund}`);
+      + `${r.ikkeSpillet ? ` · ${r.ikkeSpillet} uden score` : ''} · siden siger ${r.infoboksKampe} kampe`);
+    // Tidszonen står UNDER turneringens linje — før stod den over, og så lignede
+    // den en note til turneringen ovenfor.
+    if (tz.fejl) console.log(`   (tidszone ukendt — tid er lokal uden forskydning: ${tz.fejl})`);
+    for (const x of r.transkluderet) console.log(`   ↳ afsnittet «${x.afsnit}» indsat fra «${x.side}» (${andre[x.side].fil})`);
+    const ART = { walkover: 'WALKOVER', andenSide: 'AFVIST (anden side)', ulaeselig: 'AFVIST' };
+    for (const a of r.afviste) console.log(`   ⚠️  ${ART[a.art]} ${a.sektion}${a.nr ? ` nr. ${a.nr}` : ''}: ${a.grund}`);
+    for (const m of andenSideAfvisninger(t, r.afviste)) {
+      mangler.push({ turnering: t.noegle, ...m });
+      console.log(m.erklaeret
+        ? `   ⚠️  «${m.side}» er ERKLÆRET (TURNERINGER.transklusioner) — læg ${m.fil}.wikitext/.json i --filer-mappen; ellers nægter --skriv`
+        : `   ⚠️  «${m.side}» er IKKE erklæret (TURNERINGER.transklusioner) — erklær siden og læg filen i --filer-mappen; ellers nægter --skriv`);
+    }
     if (Object.keys(r.ukendteFelter).length) console.log(`   (ukendte felter, ikke resultat-lignende: ${Object.entries(r.ukendteFelter).map(([k, n]) => `${k}×${n}`).join(', ')})`);
     kilder.push({
       noegle: t.noegle,
@@ -106,33 +169,67 @@ async function main() {
       vej: side.vej,
       ...(side.fil ? { fil: side.fil } : {}),
       forskydningMin: tz.forskydningMin,
+      ...(tz.fejl ? { forskydningGrund: tz.fejl } : {}),
       licens: 'CC BY-SA 4.0',
       ...res,
+      infoboksKampe: r.infoboksKampe,
+      ...(r.transkluderet.length ? {
+        transkluderet: r.transkluderet.map((x) => ({
+          side: andre[x.side].titel,
+          afsnit: x.afsnit,
+          sektion: x.sektion,
+          url: wikiSideUrl(andre[x.side].titel),
+          revid: andre[x.side].revid,
+          hentet: andre[x.side].hentet,
+          vej: andre[x.side].vej,
+          fil: andre[x.side].fil,
+        })),
+      } : {}),
       ikkeSpillet: r.ikkeSpillet,
       afviste: r.afviste,
     });
     kampe.push(...r.kampe);
   }
 
-  const afviste = kilder.reduce((s, k) => s + k.afviste.length, 0);
-  console.log(`\nI alt ${kampe.length} kampe fra ${kilder.length} turneringer${afviste ? ` · ${afviste} AFVIST (se ovenfor)` : ''}.`);
+  const alleAfviste = kilder.flatMap((k) => k.afviste);
+  const walkovers = alleAfviste.filter((a) => a.art === 'walkover').length;
+  const afviste = alleAfviste.length - walkovers;
+  console.log(`\nI alt ${kampe.length} kampe fra ${kilder.length} turneringer`
+    + `${afviste ? ` · ${afviste} AFVIST (se ovenfor)` : ''}${walkovers ? ` · ${walkovers} walkover (ikke spillet)` : ''}.`);
   if (!args.flag.has('skriv')) {
     console.log('Tør-kørsel — intet skrevet. Kør med --skriv for at skrive scripts/haandbold-historik.json.\n');
     return;
   }
+  // ÉN vagt for «en kamp står på en anden side»: her, lige før skrivningen —
+  // for ENHVER andenSide, ikke kun de erklærede (Security, D4: en titel, der
+  // var stavet om på Wikipedia, gled forbi en tegn-for-tegn-sammenligning).
+  if (mangler.length && !args.flag.has('tillad-anden-side')) {
+    const filer = mangler.filter((m) => m.erklaeret).map((m) => `${m.fil}.wikitext`);
+    throw new Error(`${mangler.map((m) => `${m.turnering}: «${m.side}» (${m.sektion}${m.erklaeret ? '' : ', IKKE erklæret'})`).join('; ')} `
+      + 'er ikke givet med — kampen derfra ville mangle i historikken. '
+      + (filer.length ? `Kør med --filer og ${filer.join(', ')} i mappen` : 'Erklær siden i TURNERINGER[].transklusioner og læg filen i --filer-mappen')
+      + ', eller med --tillad-anden-side, hvis kampen bevidst skal stå som afvist. Intet er skrevet.');
+  }
   const fil = {
     _note: `Færdige kampe fra ${kilder.map((k) => k.noegle).join(', ')} (herrer), bygget af scripts/haandbold-historik.mjs fra Wikipedia; `
       + 'indholdet er CC BY-SA 4.0 (kilder med revision nedenfor). efter60 = stillingen efter ordinær tid (det, der tippes på); '
-      + 'slut = inkl. forlængelse/straffekast; afgjort = null | forlaenget | straffe. Holdene er Wikipedias koder. '
-      + 'dato/tid er turneringens lokale tid (kilder[].forskydningMin). kilder[].vej = api (hentet af scriptet) eller '
-      + 'fil (læst med --filer fra en gemt side; hentet = filens tid). '
-      + 'Afviste kampe står under kilder[].afviste med grund. RET ALDRIG I HÅNDEN: kør scriptet igen.',
+      + 'slut = inkl. forlængelse/straffekast; afgjort = null | forlaenget | straffe. Holdene er Wikipedias koder, '
+      + 'undtagen COR (det fælles koreanske hold, VM 2019) og RUS for «Russian Handball Federation» (VM 2021), '
+      + 'og Færøerne er FRO overalt (EM 2026-siden skriver FAR; scripts/lib/haandboldHistorik.mjs SAMME_HOLD). '
+      + 'dato/tid er turneringens lokale tid (kilder[].forskydningMin; null med forskydningGrund, når siden ikke siger det entydigt). '
+      + 'kilder[].vej = api (hentet af scriptet) eller fil (læst med --filer fra en gemt side; hentet = filens tid; '
+      + 'revid = null for en .wikitext-fil, for action=raw bærer ingen revision). '
+      + 'kilder[].transkluderet = afsnit fra en anden side, indsat hvor siden transkluderer dem ({{#section:Side|Afsnit}}; EM 2026-finalen), '
+      + 'med den sides egen fil og tid — kampene derfra står i turneringen som alle andre. '
+      + 'Afviste kampe står under kilder[].afviste med grund og art (walkover | andenSide | ulaeselig); '
+      + 'kilder[].infoboksKampe er sidens eget kamptal, og læste + afviste (uden walkovers) giver præcis det. '
+      + 'RET ALDRIG I HÅNDEN: kør scriptet igen.',
     turneringer: kilder.map((k) => k.noegle),
     kilder,
     kampe,
   };
-  writeFileSync(UD, `${JSON.stringify(fil, null, 0).replace(/\},\{"turnering"/g, '},\n{"turnering"')}\n`);
-  console.log(`✅ skrev ${UD}\n`);
+  writeFileSync(ud, `${JSON.stringify(fil, null, 0).replace(/\},\{"turnering"/g, '},\n{"turnering"')}\n`);
+  console.log(`✅ skrev ${ud}\n`);
 }
 
 main().catch((e) => { console.error(`\n⚠️  ${e.message}\n   Intet er skrevet.\n`); process.exit(1); });

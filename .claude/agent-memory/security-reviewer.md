@@ -959,6 +959,20 @@
   `createdAt == request.time`. (c) kræver klientvagt (`Array.isArray(uids)`); (d) kræver at
   væggen henter navnet fra profilen og kun låner dokumentets ved `c.system === true`.
 
+- **haandbold-historik.mjs: erklæret-side-vagten matcher titlen BYTE-EKSAKT (BEKRÆFTET 6bd7380,
+  2026-11-03, sec-d4c/poc.mjs).** `manglendeErklaerede` (haandboldHistorik.mjs:268) og
+  `indsaetTransklusioner` sammenligner wikitekstens titel rå med `TURNERINGER[].transklusioner`.
+  `{{#section:2026_European_Men's_Handball_Championship_final|Final}}` (underscore) eller et
+  dobbelt mellemrum — på Wikipedia SAMME side — giver på API-vejen/uden fil: rc 0, 61 kampe
+  skrevet, finalen kun som 'andenSide' uden ERKLÆRET-nægtelse. Med filen i mappen: højlydt
+  (ubrugte-kastet). Kontrol: eksakt titel, `{{:Side}}`, `#section-h` → rc 1. Kun måledata,
+  menneske+commit imellem → ære-neutralt. Fix: normalisér titler (`_`→mellemrum, kollaps
+  whitespace, stort forbogstav) begge steder, eller nægt --skriv på ENHVER andenSide.
+- **Odds-loftet bor KUN i prisningen, ikke i afregningen.** `scoreBet` bruger kampens frosne
+  `odds` (lagret 400 + Chance 8 → 3592 point, kørt). Ufarligt så længe kun isGlobalAdmin
+  skriver `games/{g}/matches` (rules L907-911) og intet hvm2027-spil er seedet før loftet
+  (scripts/seed-filer.mjs har ingen post, 2026-11-03). Tjek ved seed-PR'en: ingen gamle odds.
+
 ## Angrebsveje der IKKE virker (afprøvet, gentag ikke)
 
 - **IHF-parseren efter omskrivningen (PR #240, 205fa54, 2026-11-01) — BEKRÆFTET lukket:**
@@ -1808,6 +1822,15 @@
   ud-stier, ingen workflow/server kalder den; holdkoder bindes til holdfilen (kast ved
   ukendt). Data når kun prod via commit + SEED_FILER-post + workflow-flueben.
   (e) firestore.rules uændret, ingen ny klientskrivning (kun et httpsCallable).
+- **Håndbold odds-loft 25 (D4, 6bd7380, 2026-11-03) — RENT, gentag ikke:** 320.000 paritets-
+  checks (sec-d4c/paritet.mjs: server ⇄ src efter, og fodbold før ⇄ efter i begge ender, 8
+  game.sport-giftværdier) → 0 afvigelser; kun `{sport:'haandbold'}` giver loft (25/25), alt
+  andet null. Golden (`npx vite-node scripts/sportprofil-golden.mjs`) = testdata-filen, og
+  testdata-filen uændret mod main. Kaldesteder for prisning: kun superligaSeed.buildMatch og
+  gameScoring.js:272, begge via oddsParametre. Invitationens loft-tekst er kode-tal gennem
+  esc(). historik-scriptets filnavne kommer fra kode (gemteFiler-regex på readdir), wikitekstens
+  afsnitsnavn går gennem escRe, `titler.includes` (ikke objektopslag) → ingen __proto__-vej;
+  `--ud` er operatørens sti; intet workflow kalder scriptet; parseScriptArgs afviser ukendte flag.
 
 ### E2E mod emulatorer (destilleret sep 2026 fra to sag-afsnit)
 - **Emulator-fixturen kan ikke nå produktion — målt, ikke læst.** `.env.e2e`

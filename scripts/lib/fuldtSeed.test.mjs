@@ -69,6 +69,23 @@ const koer = (db, o = {}) => {
   }).then((r) => ({ ...r, log: log.join('\n') }));
 };
 
+// Tør-kørslen viser LOFTET: det rå felt i sportlinjen og, for en sport med
+// loft, hvor mange udfald der står til det. Superligaen og PL får ingen ny linje.
+describe('koerFuldtSeed — odds-loftet i tør-kørslen', () => {
+  it('håndbold: loftet i sportlinjen og antallet af udfald til loftet', async () => {
+    const r = await koer(fakeDb({ name: 'HVM', sport: 'haandbold' }), { skriv: false });
+    expect(r.log).toContain('odds-gulv 1.01, odds-loft 25).');
+    // Stærk 1900 mod Svag 1300 på neutral bane: Svags fair pris er ~34 → 25, i begge kampe.
+    expect(r.log).toContain('Odds-loft 25: 2 udfald i 2 af 2 kampe står til loftet (fair pris over 25).');
+  });
+
+  it('fodbold: «intet (null)» i sportlinjen — og ingen loft-linje', async () => {
+    const r = await koer(fakeDb({ name: 'SL' }), { skriv: false });
+    expect(r.log).toContain('odds-gulv 1.1, odds-loft intet (null)).');
+    expect(r.log).not.toMatch(/Odds-loft \d/);
+  });
+});
+
 describe('koerFuldtSeed — spil-dokumentet', () => {
   it('FØRSTE SEED (spillet har hverken teams eller eloCurrent) skriver begge fra holdlisten', async () => {
     const db = fakeDb({ name: 'Nyt spil' });

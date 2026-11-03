@@ -232,10 +232,83 @@ Og uafgjorte sæsoner talte som tab for alle tolv, så summen ikke kunne give
 **Om usikkerhed:** ved 8.000 sæsoner er standardfejlen ca. 0,5 procentpoint.
 Forskelle under ~1,5 pp skal ikke tolkes.
 
+## Håndbold — et odds-loft på 25, med vilje
+
+Alt ovenfor er fodbold, og fodbold har **intet** odds-loft (`odds.max: null` i
+`SPORT_PROFILER.fodbold`). Håndbold-VM 2027 har et loft på **25**
+(`SPORT_PROFILER.haandbold.odds.max`) — ejerens valg, ikke en måling. Tallene
+herunder reproduceres med
+
+```bash
+node scripts/maal-haandbold.mjs                    # afsnit 8 (odds), 8c (loft-følsomhed), 8d (Chancen ved loftet)
+```
+
+**Fodboldens argument gælder — men kun for 11 udfald.** Loftet på 6, der blev
+fjernet, klippede udfald med op til ca. 17 % chance — dét gjorde Chancen til
+et tab og skabte skævheden mod favorit-spilleren. Samme mekanisme virker her:
+på et klippet udfald er Chancen et tab i forventning (se 8d nedenfor). Forskellen
+er omfanget: et loft på 25 klipper kun udfald under 4 % chance, 11 af 144 i den
+indledende runde. Og alternativet er værre end i fodbold: med K 120 og få
+uafgjorte giver håndboldmodellen priser langt over fodboldens højeste (24,39) —
+uden loft stod Uruguay–Tyskland «1» til **461,77**, så ét ramt tip gav 461,8
+point og en Chance på 8 gav 3.686, og konkurrencen ville være afgjort af ét
+langskud. Ejeren har valgt den pris; den står her, så den ikke er skjult.
+
+**Hvad loftet koster — målt på de 48 kampe i den indledende runde** (seedet
+med holdfilen; forventede point over alle 48 kampe, hvis man tipper samme slags
+udfald hver gang):
+
+| Loft | Udfald klippet | X klippet | Højeste tip | Højeste Chance (8) | Favorit | Underhund | X | Uruguay «1» |
+|---|---|---|---|---|---|---|---|---|
+| intet | 0 | 0 | 461,8 | 3.686 | 48,17 | 48,00 | 48,00 | 1,000 |
+| 15 | 46 | 26 | 15,0 | 112 | 48,17 | 37,69 | 44,69 | 0,032 |
+| **25** | **11** | **0** | **25,0** | **192** | **48,17** | **42,96** | **48,00** | **0,054** |
+| 40 | 6 | 0 | 40,0 | 312 | 48,17 | 44,20 | 48,00 | 0,087 |
+
+- Loftet rører **aldrig** et X (højst 19,04) og ingen tæt knockout-kamp.
+- Prisen er reel: et klippet udfald betaler **under fair**. Et tip på Uruguay
+  er 0,054 point værd mod ~1 for et fair udfald, og den, der altid tipper
+  underhunden, forventer 42,96 point mod 48,00 uden loft. Hjælpesiden siger
+  det: «et tip til loftet er et dårligere valg end favoritten i samme kamp».
+- Chancen for, at mindst ét af de 11 klippede udfald går ind i den indledende
+  runde, er 21,5 % — de 12 langskud over 24,39 har 24,7 % (0,279 forventet).
+  Det betyder kun noget, hvis nogen har tippet udfaldet.
+- Favorit-tallet over 48 er afrundingen af pointene til én decimal (1,06 → 1,1),
+  ikke loftet.
+
+**Hvad loftet koster Chancen** (afsnit 8d; fuld indsats 8, modellens
+sandsynlighed og spillets egen afregning `settleChance`). Ved fair odds er en
+Chance EV-neutral — på de klippede udfald er den et tab:
+
+| Udfald | Chance | Fair odds | Forventet pr. Chance (8) |
+|---|---|---|---|
+| Uruguay–Tyskland «1» | 0,22 % | 461,77 | −7,57 |
+| Angola–Danmark «1» | 0,27 % | 364,94 | −7,45 |
+| Algeriet–Portugal «1» | 0,73 % | 136,33 | −6,53 |
+| Danmark–USA «2» | 1,01 % | 98,53 | −5,97 |
+| Tyskland–Tunesien «2» | 1,60 % | 62,61 | −4,81 |
+| Tyrkiet–Kroatien «1» | 1,66 % | 60,18 | −4,68 |
+| Kroatien–Chile «2» | 2,77 % | 36,13 | −2,46 |
+| Egypten–Kap Verde «2» | 3,73 % | 26,79 | −0,54 |
+| Norge–Grækenland «2» | 3,86 % | 25,92 | −0,29 |
+| Island–Bahrain «2» | 3,96 % | 25,22 | −0,07 |
+| Sverige–Grækenland «2» | 3,99 % | 25,09 | −0,03 |
+
+6 af de 11 taber mindst halvdelen af indsatsen i forventning, de 2 skæveste
+over 90 %. Hjælpesiden siger det i Chance-afsnittet: «på et udfald, der står
+til loftet, er Chancen et tab i det lange løb».
+
+Loftet ligger i **prisningen** (`oddsParametre` → `outcomeOdds`), så seedet,
+de levende odds (`recomputeSeasonElo`) og Ompris-knappen arver det, og de
+viste odds er de afregnede. Afregning, combi og Chancen læser kampens frosne
+odds og er ikke ændret. Tallene gælder den indledende runde på seed-Elo;
+hovedrunden og knockout prises af den levende Elo og er ikke målt for
+langskud.
+
 ## Hvad der stadig er åbent
 
 - **Combi-skævheden.** `COMBI.LOFT` på 25 er nu det **eneste** loft tilbage i
-  pointreglen. Det binder oftere for underhund-spilleren (17,3 % af runderne i
+  pointreglen i fodbold (håndbold har også odds-loftet, se ovenfor). Det binder oftere for underhund-spilleren (17,3 % af runderne i
   Premier League) end for favoritten (4,8 %), så skævheden er reel — men den
   **fandtes allerede**, og fjernelsen af odds-loftet flyttede den knap nok:
   16,9 % → 17,3 %, combi pr. runde 11,02 → 11,12. I Superligaen ~2,7 % begge

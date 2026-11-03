@@ -13,8 +13,12 @@ funktionerne `eloExpectedHome`, `outcomeProbabilities`, `fairOdds`, `outcomeOdds
 `sportProfil(game)`, der læser `game.sport` og giver fodbold, når feltet
 mangler — som det gør for Superligaen og Premier League. Fodboldprofilen er
 bygget af `ELO` og `ODDS.MIN` og er altså de samme tal. En anden sport får sin
-egen profil (hjemmebane, uafgjort-model, K, start-rating og odds-gulv), når dens
-tal er målt — ikke før.
+egen profil (hjemmebane, uafgjort-model, K, start-rating, odds-gulv og
+odds-loft), når dens tal er målt — ikke før. Håndbold er målt (D4): K 120,
+`DRAW_BASE` 0,157, `DRAW_DECAY` 0,55, ingen hjemmebane, odds-gulv 1,01 og — som
+ejerens valg, ikke en måling — odds-loft 25. Målingen er
+`scripts/maal-haandbold.mjs`; loftets pris står i
+[docs/spilbalance.md](spilbalance.md#håndbold--et-odds-loft-på-25-med-vilje).
 
 Et `game.sport`, der er **sat, men ukendt** (fx tastefejlen `'handbold'`), giver
 også fodbold — serveren må ikke gå i stå i drift — men ikke tavst:
@@ -35,10 +39,23 @@ fodboldens hjemmebane, K og uafgjort-model, uanset spillet:
 `maal-favoritfordeling.mjs`, `calibrate-superliga-elo.mjs`,
 `calibrate-premier-league-elo.mjs`, `compute-superliga-elo.mjs` samt
 testfixturerne `e2e/fixtures/seed-e2e.mjs` og `src/test/scenarie/superliga.js`.
-Det er korrekt for Superligaen og Premier League. Før en måling bruges til en
-anden sport, skal scriptet gøres profil-bevidst (tage profilen som argument) —
-det hører til **delopgave 4** (håndboldprofilen målt). Et tal, et fodbold-låst
+Det er korrekt for Superligaen og Premier League. Et tal, et fodbold-låst
 script har givet, gælder ikke for håndbold.
+
+**Håndbold har sin egen måling:** `node scripts/maal-haandbold.mjs` (≈ 1 min,
+intet netværk) kører Elo kronologisk over `scripts/haandbold-historik.json`
+(VM/EM 2019-2026, 678 kampe, stillingen efter 60 min) med spillets egne
+`updateElo`/`outcomeProbabilities` og vælger K, `DRAW_BASE` og startstyrkerne
+ved log-loss. Resultatet står i `SPORT_PROFILER.haandbold`
+(`src/lib/superligaScoring.js`, med tabellen i kommentaren) og i `elo`-feltet i
+`src/data/haandboldVm2027Hold.js`. `scripts/lib/haandboldMaaling.test.mjs` og
+holdfilens test regner tallene efter, så en håndrettet værdi bliver rød.
+`DRAW_DECAY` er **låst** på 0,55 (umålelig med 47 uafgjorte), og `HFA` er 0:
+værtsfordelen ligger i værtens start-Elo, ikke i profilen. Den er lige så
+svagt bestemt som decay (0 koster kun ΔNLL 0,25), så de +25 til Tyskland er et
+**valg**, ejeren tager stilling til — scriptets afsnit 8b viser priserne med og
+uden. EM 2026-finalen står på sin egen side og er indsat i historikken
+(afsnit 7c siger hvorfra).
 
 ## Formål (hvorfor modellen ser ud som den gør)
 Elo bruges til to ting i tippespillet:
@@ -188,12 +205,15 @@ proportionalt over de tre udfald, **overdriver langskuddene systematisk**.
 Markedet så fladt ud, fordi metoden gjorde det fladt. 0,25 ville have overprist
 uafgjort i de skæve kampe med 49 %. Brug facit, ikke priser.
 
-## Odds-loftet hørte ikke til her — og findes ikke længere
+## Odds-loftet hørte ikke til her — og findes ikke længere i fodbold
 
 `ODDS.MAX` lignede en Elo-parameter, men var det ikke: den rørte ikke modellen,
 kun hvad et udfald *betalte*. Loftet var en balanceskrue på pointreglen, og
-skruen er nu fjernet helt — der er kun et **gulv** tilbage (`ODDS.MIN` = 1,10),
-så et udfald altid betaler mere end indsatsen.
+i fodbold er skruen nu fjernet helt — der er kun et **gulv** tilbage
+(`ODDS.MIN` = 1,10), så et udfald altid betaler mere end indsatsen. Håndbold har
+et loft på 25 (`SPORT_PROFILER.haandbold.odds.max`), fordi dens model ellers
+priser langskud til flere hundrede; det er en profilværdi, ikke en
+Elo-parameter, og prisen for det står i [docs/spilbalance.md](spilbalance.md).
 
 Kort sagt hvorfor: et loft klipper kun gevinsten, aldrig indsatsen, så en
 Chance på høje odds fik negativ forventning. Den fulde måling står i

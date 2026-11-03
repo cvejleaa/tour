@@ -396,6 +396,23 @@ PR-teksten, ikke her.
   startrunde 1, viste før spillets tal korrekt; kræver nu det nye felt og
   viser streger indtil genberegn). Sig det til Release Manager som rækkefølge.
 
+- **Et loft/gulv, der indføres som profilværdi, bryder den fair-pris-invariant,
+  som andre flader hviler på.** Chancen er EV-neutral kun ved fair odds; ved et
+  loft har et klippet udfald EV = indsats × (loft·p − 1) (håndbold 25: −0,03 til
+  −7,6 pr. 8 point, målt med en engangsscript over de 11 klippede). Optæl hver
+  flade/tekst der siger «fair», «lige gode», «EV» — og kræv at målingen
+  (`maal-haandbold.mjs` 8c) viser Chancens pris, ikke kun tippets. En hjælpetekst
+  der kun nævner loftets OPSIDE («højst 192») lover mere end den giver.
+- **«Gatet på profilværdien» kan stadig ligge i en gren, der gates på en nabo:**
+  invitationens loft-led bor i `turneringsTekst`, som nås via `harFaseKalender`.
+  Spor hele vejen fra render-betingelsen, ikke kun den inderste ternary. Og en
+  procent udledt af et loft (`round(100/loft)`) er kun en gyldig «under X %»-
+  grænse, når loftet går op i 100 — brug floor.
+- **Differentiel rendering er beviset for «SL/PL/VM byte-uændrede»:** worktrees
+  af origin/main og HEAD (symlink node_modules), samme dump-test (FootballHelp +
+  EloTable for SL/PL/BARE/VM + alle GAMES), plus et node-script der dumper
+  outcomeOdds over et Elo-gitter fra klient OG server — diff JSON.
+
 ## Alarmer, postbud og pull→push
 
 - **Pull→push: optæl alle røde tilstande OG hvor de beregnes (klient/server).**

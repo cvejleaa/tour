@@ -199,7 +199,8 @@ describe('den indledende runde', () => {
     const ukendte = P.fixtures.flatMap((f) => [f.home, f.away]).filter((n) => !navne.has(n));
     expect(ukendte).toEqual([]);
     // buildMatches bevarer id'et — ellers skrev seedet til et andet dokument.
-    // Fodboldprofilen: håndboldens måles i D4. Her gælder det kun id'et.
+    // Her gælder det kun id'et — profilen er ligegyldig for det (håndboldens
+    // odds er testet i src/lib/sportProfil.test.js).
     const m = buildMatches(P.fixtures, HAANDBOLD_VM2027_HOLD, sportProfil());
     expect(m.map((x) => x.id)).toEqual(P.fixtures.map((f) => f.id));
   });
@@ -323,6 +324,19 @@ describe('strukturvagterne', () => {
   ])('KASTER på det ukendte felt %s i en medtaget kamp', (felt, navn) => {
     const t = retKasse(SIDE, SRB_URU, (k) => k.replace('|time=17:30', `|time=17:30\n${felt}`));
     expect(() => byggProgram(t)).toThrow(`Kamp nr. 1 (Preliminary round › Group A) har felter, parseren ikke kender: ${navn}. Et ukendt felt kan flytte en tip-deadline`);
+  });
+
+  // FODNOTER: parseren fjerner nu {{refn|…}} fra tid, dato og hold (så
+  // historikken kan læse VM 2023's «20:54{{refn|…}}»). I programmet er tiden
+  // en tip-deadline, og noten kan flytte den — så den stopper programmet,
+  // ligesom et ukendt felt. Uden vagten stod 17:30 med grøn kørsel.
+  it.each([
+    ['tid', '|time=17:30', '|time=17:30{{efn|Flyttet til 15:00 af hensyn til TV.}}', 'time'],
+    ['hold', '|team2={{hb|URU}}', '|team2={{hb|URU}}<ref>x</ref>', 'team2'],
+  ])('KASTER på en fodnote i %s i en medtaget kamp', (_, fra, til, felt) => {
+    const t = retKasse(SIDE, SRB_URU, (k) => k.replace(fra, til));
+    expect(t).not.toBe(SIDE);
+    expect(() => byggProgram(t)).toThrow(`Kamp nr. 1 (Preliminary round › Group A) har en fodnote i ${felt}. En note kan flytte en tip-deadline, så programmet bygges ikke.`);
   });
 
   it('et ukendt felt i en FRAVALGT kamp er en advarsel med navnet — ikke en blokering', () => {

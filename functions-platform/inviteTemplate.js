@@ -19,7 +19,7 @@
 
 const FONT = "Arial,Helvetica,'Segoe UI',sans-serif";
 
-const { sportOrd, harHjemmebane } = require('./superligaScoring');
+const { sportOrd, harHjemmebane, oddsLoft } = require('./superligaScoring');
 const { harFaseKalender, harKnockout, kbhDato, fmtFaseStart } = require('./faser');
 const { knockoutRegel } = require('./facit');
 
@@ -59,12 +59,16 @@ function turneringsTekst(game) {
   const hjemme = harHjemmebane(game);
   const ko = harKnockout(game) ? ` <b>${esc(knockoutRegel(game))}</b>` : '';
   const udfald = hjemme ? 'hjemmesejr, uafgjort eller udesejr' : '1, X eller 2';
+  // Odds-loftet (håndbold: 25) — gaten er profilværdien via den delte helper,
+  // ikke fasekalenderen. Uden loft (fodbold) står sætningen, som den altid har.
+  const loft = oddsLoft(game);
+  const loftTekst = loft === null ? '' : ` (h&oslash;jst ${esc(String(loft).replace('.', ','))})`;
   return {
     emoji: esc(ord.emoji),
     hero: `Dag for dag tipper du 1, X eller 2. Point f&oslash;lger oddsene, bonusserne bel&oslash;nner de modige, og mini-ligaen med vennerne holder gryden i kog hele turneringen. Alle starter p&aring; nul, og det kr&aelig;ver nul ${esc(ord.sport)}forstand.`,
     chip1: '&#9201; ~2 min pr. dag',
     kort1Titel: 'Tip dagens kampe &mdash; 1, X eller 2',
-    kort1Tekst: `Hver dag sætter du ${udfald} p&aring; kampene. Du f&aring;r <b>point svarende til oddsene</b>: rammer du storfavoritten, giver det lidt &mdash; rammer du overraskelsen, giver det stort. Du kan rette frit, indtil den enkelte kamp starter, og du kan bladre frem og tilbage mellem alle turneringens dage.${ko}`,
+    kort1Tekst: `Hver dag sætter du ${udfald} p&aring; kampene. Du f&aring;r <b>point svarende til oddsene</b>${loftTekst}: rammer du storfavoritten, giver det lidt &mdash; rammer du overraskelsen, giver det stort. Du kan rette frit, indtil den enkelte kamp starter, og du kan bladre frem og tilbage mellem alle turneringens dage.${ko}`,
     kort1Alt: 'Tip-fladen: dagens kampe med 1X2-knapper',
     bonus: 'Dagens bonus',
     puljeTitel: 'turneringens pulje',

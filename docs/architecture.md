@@ -177,7 +177,7 @@ spørgsmålet er lukket, og `useLeagueQuestions` forespørger tilsvarende.
 
 | Spil | Klient | Server | Regler |
 |---|---|---|---|
-| Superligaen | `src/lib/superligaScoring.js` | `functions-platform/superligaScoring.js` | 1X2-point = kampens odds, frosset ved kickoff (træf-bonussen er 0; odds har et GULV på 1,10 og **intet loft** — se [spilbalance.md](spilbalance.md)); combi-runde-bonus (2·√produkt af ramte odds, loft 25, kuponen er rundens kampe i samme uge); Chancen (indsats × odds−1, loft 8 og 15 % af saldo); pulje-tip (6 hold × 4 point + 10 i bonus); Elo-lite driver oddsene |
+| Superligaen | `src/lib/superligaScoring.js` | `functions-platform/superligaScoring.js` | 1X2-point = kampens odds, frosset ved kickoff (træf-bonussen er 0; gulv og loft er pr. sportsprofil, `SPORT_PROFILER[sport].odds`: fodbold har GULV 1,10 og **intet loft** (`max: null`), håndbold gulv 1,01 og loft 25 — se [spilbalance.md](spilbalance.md)); combi-runde-bonus (2·√produkt af ramte odds, loft 25, kuponen er rundens kampe i samme uge); Chancen (indsats × odds−1, loft 8 og 15 % af saldo); pulje-tip (6 hold × 4 point + 10 i bonus); Elo-lite driver oddsene |
 | Tour | `src/lib/tourScoring.js` | `functions/tourScoring.js` | etape-tips + klassementer |
 
 Afregningen sker i `functions-platform/gameScoring.js`: når en kamps `result`

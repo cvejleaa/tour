@@ -199,22 +199,29 @@ den gamle, se «Et rettet holdnavn eller en rettet runde» ovenfor.
 `--kickoffs-only` melder den som **IKKE SEEDET**. Den situation skal afgøres
 bevidst og må ikke køres igennem.
 
-**Historikken** (færdige kampe til målingen af håndboldprofilen, D4):
+**Historikken** (færdige kampe til målingen af håndboldprofilen, D4 — selve
+målingen er `node scripts/maal-haandbold.mjs`, se docs/elo-metodik.md):
 
 ```bash
 NODE_USE_ENV_PROXY=1 node scripts/haandbold-historik.mjs           # alle 8 turneringer, vis
-node scripts/haandbold-historik.mjs --skriv                        # skriv scripts/haandbold-historik.json
-node scripts/haandbold-historik.mjs --turneringer vm2025,em2026    # kun nogle
+node scripts/haandbold-historik.mjs --skriv --filer <mappe>       # skriv scripts/haandbold-historik.json (alle 8; mappen med em2026-finale.wikitext)
+node scripts/haandbold-historik.mjs --turneringer vm2025,em2026    # kun nogle, vis (med --skriv kræves --ud <fil>)
 ```
 
 Hver side hentes **én gang** og gemmes i en cache (`<tmp>/vejleaa-wiki`,
 eller `--cache <mappe>`). Senere kørsler sender intet kald. Skal en side hentes
 igen, så slet dens fil i cachen. Fejler én side, skrives der **intet**. En
 måling på 7 af 8 turneringer må ikke ligne en på 8. Kampe, der ikke kan læses,
-står med grund under `kilder[].afviste` og i udskriften. `efter60` er
-stillingen efter ordinær tid, og det er den, der tippes på, også i knockout.
-`dato`/`tid` er turneringens **lokale** tid; forskydningen står pr. side i
-`kilder[].forskydningMin` (null, hvis siden ikke siger det).
+står med grund og `art` under `kilder[].afviste` og i udskriften: `walkover`
+(tildelt ved bordet, ikke spillet), `andenSide` (kampen er transkluderet fra en
+anden side, der ikke er givet med — se nødvejen herunder) eller `ulaeselig` (en ny form — læs siden).
+**Regnskabet:** læste + afviste kampe (uden walkovers) skal give præcis sidens
+eget tal (infoboksens `matches=`, gemt som `kilder[].infoboksKampe`). Går det
+ikke op, stopper scriptet og skriver intet — så kan en kamp ikke forsvinde i
+stilhed. `efter60` er stillingen efter ordinær tid, og det er den, der tippes
+på, også i knockout. `dato`/`tid` er turneringens **lokale** tid;
+forskydningen står pr. side i `kilder[].forskydningMin` (null med
+`forskydningGrund`, hvis siden ikke siger det entydigt).
 
 **Nødvejen ved 429: `--filer <mappe>`.** Historikken har **ikke** `--fil`
 (det har kun programmet). Gem i stedet én fil pr. turnering i en mappe og læs
@@ -235,15 +242,78 @@ Filnavnene er nøglerne (`vm2019`, `em2020`, `vm2021`, `em2022`, `vm2023`,
 scriptet, før noget læses. Kilden får `vej: "fil"`, filnavnet og filens tid
 som `hentet`, så ingen tror, at scriptet selv har hentet siden.
 
-> **Status 2/11 2026:** `scripts/haandbold-historik.json` rummer kun **VM 2025**.
-> Fra byggemiljøet svarede Wikipedia HTTP 429 på alle scriptets kald (Node
-> `fetch`). Et curl-kald til **samme** API-adresse gav 200; det svar blev gemt
-> og læst med `--filer` (derfor `vej: "fil"` i filen). De andre syv sider er
-> ikke hentet. Af de 108 kampe kan kun de 26 i fixturen
-> `scripts/testdata/wiki-vm2025-udsnit.wikitext` genskabes fra repoet.
-> Kør scriptet for alle otte før D4 måler — først uden `--filer`; svarer det
-> 429, så med `--filer`. Fra Google Cloud Shell er kun `index.php?action=raw`
-> målt (200, 2/11); scriptets API-vej er ikke prøvet dér.
+**Transkluderede sider** (EM 2026-finalen). Står en kamp kun som
+`{{#section:Side|Afsnit}}` på turneringssiden, så læg den anden side i samme
+mappe under filnøglen fra `TURNERINGER[].transklusioner` i
+`scripts/lib/haandboldHistorik.mjs` — i dag kun `em2026-finale.wikitext` for
+«2026 European Men's Handball Championship final»:
+
+```
+#   https://en.wikipedia.org/w/index.php?title=2026_European_Men%27s_Handball_Championship_final&action=raw
+```
+
+Præcis det navngivne afsnit (`<section begin="Final" />` … `<section end="Final" />`)
+indsættes, hvor transklusionen stod, før kampene læses; kilden får
+`transkluderet` med den sides fil og tid, og udskriften siger «↳ afsnittet
+«Final» indsat fra …». Mangler filen, afvises kampen som `andenSide` — og så
+**nægter `--skriv` at skrive** (tør-kørslen siger det med ⚠️). Det gælder
+**enhver** `andenSide`, ikke kun den erklærede: også en side, der er ny eller
+stavet om på Wikipedia (titlerne sammenlignes som MediaWiki gør — `_` er
+mellemrum). Ellers ville hver opfriskning ad API-vejen, som aldrig henter en
+anden side, tabe finalen med rc 0. Det betyder, at **API-vejen ikke kan skrive
+alle otte** uden flaget. Skal kampen bevidst stå som afvist, så tilføj
+`--tillad-anden-side`.
+
+Scriptet stopper også, før noget skrives, når afsnittet mangler på siden eller
+står to gange, når afsnittet selv indeholder en overskrift (så ville kampene
+få en anden sektion end den, transklusionen står i), og når den konfigurerede
+fil (`em2026-finale.*`) ligger i mappen, men turneringen ikke transkluderer
+siden. **Mappen skal gå op:** ligger der en fil, som ingen turnering eller
+erklæret side hedder — en stavefejl som `em2026-final.wikitext` eller en
+`foo.wikitext` — stopper scriptet, før noget læses. Filer for turneringer, der
+ikke er valgt med `--turneringer`, springes over og nævnes i udskriften;
+skjulte filer (`.DS_Store`) tæller ikke. `--ud <fil>` skriver et andet sted
+end `scripts/haandbold-historik.json` (bruges af testene) — og **kræves**, når
+`--skriv` står sammen med `--turneringer`, så en delmængde aldrig overskriver
+den committede historik.
+
+> **Status 3/11 2026:** `scripts/haandbold-historik.json` rummer **alle otte**
+> turneringer: 678 kampe, **inkl. EM 2026-finalen**. Siderne — de otte
+> turneringssider og finalesiden — er hentet 3/11 som rå wikitekst
+> (`index.php?action=raw`, ét kald pr. side) og læst med `--filer` — derfor
+> `vej: "fil"`, `fil: "<nøgle>.wikitext"` og `revid: null` i hver kilde (og i
+> EM 2026's `transkluderet`).
+> `action=raw` bærer ingen revision, så null er sandt. Skal revisionen med, så
+> gem API-svaret (`.json`) i stedet. Scriptets egen API-vej (Node `fetch`)
+> fik HTTP 429 fra byggemiljøet 2/11 og er ikke prøvet igen. Kun de 26 kampe i
+> fixturen `scripts/testdata/wiki-vm2025-udsnit.wikitext` kan genskabes fra
+> repoet alene.
+>
+> **Hvad der IKKE er med, og hvorfor** (står også under `kilder[].afviste`):
+> - **VM 2021: 6 walkovers.** Kap Verde trak sig midt i turneringen (COVID),
+>   og de resterende seks kampe står som 0–10/10–0 uden tid og pausestilling.
+>   De er ikke spillet, og infoboksen tæller dem heller ikke (102 kampe).
+> - ~~EM 2026: finalen~~ — **er med siden 3/11.** Den står ikke på
+>   turneringssiden, men transkluderes fra «2026 European Men's Handball
+>   Championship final» (`{{#section:…|Final}}`). Finalesiden ligger i mappen
+>   som `em2026-finale.wikitext`, og afsnittet indsættes (se
+>   «Transkluderede sider» ovenfor): DEN–GER 34–27 efter 60 min, ingen
+>   forlængelse. EM 2026 har 65 af 65. Den flyttede Danmarks start-Elo fra
+>   2055 til 2086 og Tysklands fra 1925 til 1894 (inkl. +25 som vært), men
+>   ingen af profilens tal (K 120, `DRAW_BASE` 0,157).
+>
+> **Lært af parseren 3/11:** det fælles koreanske hold på VM 2019
+> (`{{hb|Korea|unification}}`) får koden **COR** (ikke KOR, som er Sydkorea);
+> «Russian Handball Federation» på VM 2021 er **RUS** (samme landshold under
+> WADA-sanktionen); Færøerne er **FRO** overalt (EM 2026-siden skriver FAR);
+> fodnoter (`{{refn|…}}`, `<ref>`) fjernes fra dato, tid og hold (VM 2023's
+> kvartfinale «20:54{{refn|…}}»). I **programmet** stopper en fodnote i en
+> medtaget kamp kørslen, for dér er tiden en tip-deadline.
+>
+> **EM 2022's tidszone er null.** Siden skriver «All times are local
+> ([[Central European Time|UTC]])»: teksten siger UTC, linket siger CET. Det
+> er ikke entydigt, og der gættes ikke. Tiden bruges kun til rækkefølgen inden
+> for en dag.
 
 **Wikimedias regler.** Begge scripts bruger MediaWiki API'et med User-Agenten
 `VejleaaTip-program/1.0 (+https://github.com/cvejleaa/tour)` (ikke ejerens

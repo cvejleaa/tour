@@ -44,7 +44,8 @@
  *       forventning" på skærmen — aldrig "oddsene".
  *
  * 4. INTET TAL OM "MARKEDET". `outcomeOdds` er FAIR odds af vores egen Elo —
- *    `fairOdds(p) = 1/p`, ingen vig, ingen bookmaker. Et kort om "markedets
+ *    `fairOdds(p) = 1/p` (inden for sportens gulv og eventuelle loft), ingen
+ *    vig, ingen bookmaker. Et kort om "markedets
  *    syn" ville være usandt på skærmen og ville i praksis rangere holdene som
  *    Elo-fanen ved siden af. Ordet bruges ikke i denne fil.
  */
