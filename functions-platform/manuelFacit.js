@@ -367,5 +367,5 @@ async function frigivFacitCore(db, FieldValue, { gameId, matchId, dryRun = true 
 }
 
 module.exports = {
-  saetFacitCore, frigivFacitCore, tilHttpsFejl, pointPrognose, kampAftryk,
+  saetFacitCore, frigivFacitCore, tilHttpsFejl, pointPrognose, kampAftryk, stabil,
 };

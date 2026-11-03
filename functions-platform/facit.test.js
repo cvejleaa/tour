@@ -259,6 +259,7 @@ describe('spejling mod src/lib/facit.js', () => {
     for (const g of SPIL) {
       expect(src.forventerFacit(g)).toBe(server.forventerFacit(g));
       expect(src.erKampspil(g)).toBe(server.erKampspil(g));
+      expect(src.forventerFaseKampe(g)).toBe(server.forventerFaseKampe(g));
     }
     for (const k of [null, {}, { resultatKilde: 'manuel' }, { resultatKilde: 'x' }]) {
       expect(src.erManuelFacit(k)).toBe(server.erManuelFacit(k));
@@ -272,6 +273,7 @@ describe('spejling mod src/lib/facit.js', () => {
     const krop = (sti) => readFileSync(new URL(sti, import.meta.url), 'utf8')
       .replace(/^\/\/[^\n]*\n/gm, '') // linjekommentarer (filhovedet varierer)
       .replace(/^(const|import) \{ outcomeFromScore, sportOrd \}[^\n]*\n/m, '')
+      .replace(/^(const|import) \{ harFaseKalender \}[^\n]*\n/m, '')
       .replace(/^export /gm, '')
       .replace(/\nmodule\.exports = \{[\s\S]*?\};\n?$/, '\n')
       .trim();

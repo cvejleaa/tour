@@ -32,6 +32,7 @@
 // ---------------------------------------------------------------------------
 
 import { outcomeFromScore, sportOrd } from './superligaScoring.js';
+import { harFaseKalender } from './faser.js';
 
 /** Mærket på en kamp, hvis facit er sat i hånden. Synken rører den så ikke. */
 export const RESULTAT_KILDE_MANUEL = 'manuel';
@@ -74,6 +75,19 @@ export function erKampspil(game) {
  */
 export function forventerFacit(game) {
   return erKampspil(game) && (game?.status === 'open' || game?.status === 'live');
+}
+
+/**
+ * FORVENTER SPILLET, AT NÆSTE FASES KAMPE LÆGGES IND? (D9, QC B4)
+ * Et kampspil, der forventer facit (åbent eller i gang), med en gyldig
+ * fasekalender — evnen «kalenderen ved, at en fase kommer». ÉN helper for
+ * knappen «📥 Læg næste fases kampe ind», callablen, Drift-kortet
+ * `fasekampe` og begge sweep-løkker (spil med og uden synk), så de fire
+ * flader ikke kan være uenige. Ikke sporten, ikke fravær af synk: Superligaen
+ * og Premier League har ingen kalender og får ingen af delene.
+ */
+export function forventerFaseKampe(game) {
+  return forventerFacit(game) && harFaseKalender(game);
 }
 
 function erMaal(v) {
