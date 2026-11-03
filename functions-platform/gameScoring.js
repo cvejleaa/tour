@@ -87,7 +87,7 @@ function ukendtSportFejl(gameId, vaerdi) {
   const e = new Error(
     `Spillet "${gameId}" har sport ${visSport(vaerdi)}, som ikke er en kendt sport (kendte: ${kendte}). `
     + 'Der er IKKE omprist noget — heller ikke i tør-kørslen, for den ville vise fodboldens odds, som om de var rigtige. '
-    + 'Står sport i scripts/games.mjs, så ret det dér og kør seedGames; skal feltet væk (fodbold), så fjern det i Firebase-konsollen — seedGames kan ikke fjerne et felt.',
+    + 'Står sport i scripts/games.mjs, så ret det dér og kør seedGames — først som tør-kørsel, så med seedGamesSkriv; skal feltet væk (fodbold), så fjern det i Firebase-konsollen — seedGames kan ikke fjerne et felt.',
   );
   e.kode = 'failed-precondition';
   return e;

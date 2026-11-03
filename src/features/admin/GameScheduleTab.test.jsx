@@ -883,7 +883,7 @@ describe('startrunde-vælgeren', () => {
     expect(linje.textContent).toBe('⚠️ Fasekalenderen er ugyldig: fase 1: første fase skal starte i runde 1 (ikke 2). '
       + 'Spillet vises med «Runde N» i stedet for dagens navn, Runde-Botten ser ikke de kommende faser, '
       + 'og ✍️ facit i hånden kender ingen knockout-kampe (intet slutresultat efter forlængelse). '
-      + 'Ret faser i scripts/games.mjs og kør Deploy platform med seedGames.');
+      + 'Ret faser i scripts/games.mjs og kør Deploy platform med seedGames — først som tør-kørsel, så med seedGamesSkriv.');
   });
 
   it('ingen kalender-linje for et spil uden faser — eller med en gyldig kalender', () => {
@@ -1300,7 +1300,7 @@ describe('pulje i en turnering', () => {
     mockGames.mockReturnValue({ games: [{ ...HVM, pulje: { ...HVM.pulje, facitFase: 'Ottendedele' } }], loading: false });
     render(<GameScheduleTab />);
     expect(screen.getByTestId('pulje-ugyldig').textContent).toBe('⚠️ Puljen kan ikke afgøres: fasen «Ottendedele» findes ikke i kalenderen. '
-      + 'Pulje-tippene bliver aldrig afregnet, før det er rettet. Ret pulje (og faser) i scripts/games.mjs og kør Deploy platform med seedGames.');
+      + 'Pulje-tippene bliver aldrig afregnet, før det er rettet. Ret pulje (og faser) i scripts/games.mjs og kør Deploy platform med seedGames — først som tør-kørsel, så med seedGamesSkriv.');
   });
 
   it('ingen pulje-linje for en gyldig runde-pulje, for Superligaen eller for et spil uden pulje', () => {
@@ -1573,5 +1573,127 @@ describe('turneringens ord — Superligaen uændret, håndbold uden «sæson»',
     expect(screen.getByTestId('pulje-runde-uden-synk').textContent).toContain('til dagens første kickoff');
     expect(hjaelp()).toContain('i turneringen');
     expect(document.body.textContent).not.toMatch(/sæson/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// HÅNDBOLD-VM 2027 SOM DET SEEDES (D6). Ikke en fixture, der ligner: posten
+// fra scripts/games.mjs gennem seedPayload, præcis som seedGames skriver den
+// på et nyt dokument. Klik-stien til at afsløre og gennemgå spillet skal være
+// sporet på DETTE spil — ikke på nabospillet PL (CLAUDE.md: klik-stier).
+// ---------------------------------------------------------------------------
+describe('Håndbold-VM 2027, som seedGames opretter det', async () => {
+  const { GAMES } = await import('../../../scripts/games.mjs');
+  const { seedPayload } = await import('../../../scripts/seed-payload.mjs');
+  const { id, ...data } = GAMES.find((g) => g.id === 'hvm2027');
+  const dok = seedPayload(data, { exists: false, now: null });
+  delete dok.createdAt;
+  delete dok.updatedAt;
+  const HVM2027 = { id, ...dok };
+
+  beforeEach(() => {
+    mockGames.mockReturnValue({ games: [HVM2027], loading: false });
+  });
+
+  it('står i Spil-tidsplan som SKJULT, med knappen, der afslører det', () => {
+    render(<GameScheduleTab />);
+    expect(screen.getByLabelText('Status for Håndbold-VM 2027').value).toBe('open');
+    expect(screen.getByText('Skjult')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Vis spillet/ })).toBeInTheDocument();
+    expect(screen.queryByText('Synligt for spillerne')).toBeNull();
+    // Vejen til selv at gennemgå kampene, med spillets egen adresse.
+    expect(screen.getByText(/åbn \/spil\/hvm2027 og tilmeld dig/)).toBeInTheDocument();
+  });
+
+  it('har facit i hånden, men ingen synk-knapper — spillet har ingen kilde endnu (D8)', () => {
+    render(<GameScheduleTab />);
+    expect(screen.getByRole('button', { name: /Sæt eller ret facit i hånden/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Synk resultater nu/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Synk kamptider nu/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Synk kampdetaljer nu/ })).toBeNull();
+  });
+
+  // Uden kickoff-synk udleder intet deadlinen — feltet skal kunne udfyldes,
+  // og teksten skal nævne kalenderens dag, ikke «Runde 1».
+  it('pulje-deadlinen sættes i hånden indtil kickoff-synken — med dagens navn', () => {
+    render(<GameScheduleTab />);
+    expect(screen.getByLabelText(/Bonus-\/pulje-deadline/)).toBeInTheDocument();
+    const tekst = screen.getByTestId('pulje-runde-uden-synk').textContent;
+    expect(tekst).toMatch(/^Pulje-deadlinen hører til Indledende runde · dag 1, men spillet har ingen kickoff-synk/);
+    expect(tekst).not.toMatch(/Runde 1|puljeLockRound/);
+    // Kalenderen og puljen er gyldige: ingen af de røde advarsler.
+    expect(screen.queryByText(/Puljen kan ikke afgøres/)).toBeNull();
+    expect(screen.queryByText(/Fasekalenderen er ugyldig/)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DEADLINE FØR SYNLIGHED (D6, alle fire roller). Uden puljeLockAt er pulje-
+// tippet lukket for evigt, og invitationen nævner ingen deadline. Rækkefølgen
+// «sæt deadline → Vis spillet → invitationer» stod kun i runbooken; her er
+// vagten ved knappen. Gaten er «deadlinen sættes i hånden og er ikke gemt» —
+// ikke håndbold: PL (udledt af synken) og spil uden pulje får den ikke.
+// ---------------------------------------------------------------------------
+describe('advarslen om manglende bonus-deadline ved Vis spillet', async () => {
+  const { GAMES } = await import('../../../scripts/games.mjs');
+  const { seedPayload } = await import('../../../scripts/seed-payload.mjs');
+  const { id, ...data } = GAMES.find((g) => g.id === 'hvm2027');
+  const dok = seedPayload(data, { exists: false, now: null });
+  delete dok.createdAt;
+  delete dok.updatedAt;
+  const HVM2027 = { id, ...dok };
+  const SKJULT_TEKST = '⚠️ Bonus-deadlinen er ikke sat. Uden den er pulje-tippet lukket («Endnu ikke åbnet»), '
+    + 'og en invitation nævner ingen deadline. Sæt deadlinen i feltet ovenfor og tryk Gem — FØR du viser spillet og sender invitationer.';
+  const SYNLIG_TEKST = '⚠️ Bonus-deadlinen er ikke sat. Spillet er synligt, men pulje-tippet er lukket («Endnu ikke åbnet»), '
+    + 'og en invitation nævner ingen deadline. Sæt deadlinen i feltet ovenfor og tryk Gem, før du sender invitationer.';
+  const vis = (game) => {
+    mockGames.mockReturnValue({ games: [game], loading: false });
+    return render(<GameScheduleTab />);
+  };
+
+  it('det seedede hvm2027 (skjult, ingen deadline) får advarslen — med ordlyden og rollen', () => {
+    vis(HVM2027);
+    const linje = screen.getByTestId('mangler-pulje-deadline');
+    expect(linje.textContent).toBe(SKJULT_TEKST);
+    expect(linje.getAttribute('role')).toBe('alert');
+    // Knappen står der stadig: det er en advarsel, ikke en spærring.
+    expect(screen.getByRole('button', { name: /Vis spillet/ })).toBeInTheDocument();
+  });
+
+  it('når spillet allerede er synligt, siger den IKKE «før du viser spillet»', () => {
+    vis({ ...HVM2027, joinable: true });
+    const tekst = screen.getByTestId('mangler-pulje-deadline').textContent;
+    expect(tekst).toBe(SYNLIG_TEKST);
+    expect(tekst).not.toMatch(/viser spillet/);
+  });
+
+  it('forsvinder, når deadlinen er GEMT på spillet', () => {
+    vis({ ...HVM2027, puljeLockAt: { toMillis: () => Date.parse('2027-01-13T16:30:00Z') } });
+    expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
+  });
+
+  it('et udfyldt, men ugemt felt fjerner den ikke', () => {
+    vis(HVM2027);
+    fireEvent.change(screen.getByLabelText(/Bonus-\/pulje-deadline/), { target: { value: '2027-01-13T17:30' } });
+    expect(screen.getByTestId('mangler-pulje-deadline')).toBeInTheDocument();
+  });
+
+  it('også et spil med fast deadline (ingen puljeLockRound), der mangler den', () => {
+    vis({ id: 'sl', name: 'SL', emoji: '⚽', type: 'football', status: 'open', sync: { provider: 'superliga' }, pulje: { poolSize: 6 } });
+    expect(screen.getByTestId('mangler-pulje-deadline').textContent).toBe(SKJULT_TEKST);
+  });
+
+  it('ikke for PL (deadlinen udledes af synken), et spil uden pulje eller et afsluttet spil', () => {
+    const { unmount } = vis({
+      id: 'pl', name: 'PL', emoji: '⚽', type: 'football', status: 'open',
+      sync: { provider: 'pulselive' }, pulje: { poolSize: 4, nedSize: 3 }, puljeLockRound: 3,
+    });
+    expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
+    unmount();
+    const { unmount: u2 } = vis({ id: 'x', name: 'X', emoji: '⚽', type: 'football', status: 'open' });
+    expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
+    u2();
+    vis({ ...HVM2027, status: 'finished' });
+    expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
   });
 });

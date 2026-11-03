@@ -30,15 +30,33 @@ bevarede kodeord.
 
 ## Rækkefølge ved en ny sæson / et nyt spil
 
-1. **Deploy platform** med `seedGames` (opretter/opdaterer spil-dokumenterne).
+**Rækkefølgen er `seedGames` → `seedKampe`, og begge tørkøres først.** Kampene
+prises af spillets sport, som står på spil-dokumentet, så dokumentet skal findes,
+før kampene seedes (seed-football afviser et spil uden dokument, også i
+tør-kørslen). Et nyt spils tør-kørsel af `seedKampe` kan derfor først køres,
+når `seedGames` er SKREVET. Vil du se kampene, holdenes start-Elo og de
+skæveste odds, FØR spil-dokumentet skrives, så kør
+`node scripts/toerkoersel-offline.mjs [prod-nu|tom] --game <id>` lokalt: samme
+forløb mod en database i hukommelsen, ingen forbindelse, ingen skrivning. Den
+antager, at de øvrige spil står præcis som listen — produktionens egen
+tør-kørsel er den, der viser databasens faktiske felter.
+
+1. **Deploy platform** med `seedGames`, UDEN `seedGamesSkriv` (tør-kørsel).
+   Loggen viser pr. spil: **OPRETTES** med hvert felt (fasekalenderen én fase
+   pr. linje), eller hvilke felter der **ændres** (`felt: fra → til`), hvilke
+   admin-ejede felter der **bevares** (`status`, `joinable` — med listens værdi
+   ved siden af, hvis de er forskellige), og hvilke felter i databasen listen
+   ikke nævner (de bliver stående; merge fjerner aldrig et felt). Et uændret
+   spil skrives ikke. Ser det rigtigt ud, så kør igen med `seedGamesSkriv`.
+   Lokalt: `node scripts/seed-games.mjs` (tør) og `… --skriv`.
 2. **Deploy platform** med `seedKampe` + spillets id i `seedSpil`, hvis
    kampprogrammet skal ind. Første kørsel UDEN `seedKampeSkriv` (tør-kørsel);
    læs loggen, og kør så igen med fluebenet. Hvilken holdliste og hvilket
    program spillet seedes fra, står i `scripts/seed-filer.mjs` — et nyt spil
    skal have en post dér (games.test.mjs kræver det), ikke en ændring i
    workflowet. Seedet afviser et spil, der ikke findes endnu, så trin 1 skal
-   være kørt først. (`seedSuperliga` gør det samme for Superligaen, men skriver
-   straks uden tør-kørsel.)
+   være SKREVET først. (`seedSuperliga` gør det samme for Superligaen, men
+   skriver straks uden tør-kørsel.)
 3. Sæt **startrunde** i Admin → Spil-tidsplan. Startrunden vælges fra en liste
    over spillets runder med datointerval; vælger man ingen, udledes den af den
    gamle startdato.
@@ -54,6 +72,14 @@ bevarede kodeord.
      `puljeLockRound` men **ingen kickoff-synk**, er feltet redigerbart med en
      forklaring ved siden af — så sættes deadlinen dér, til rundens første
      kickoff.
+   - **Deadline → Vis spillet → invitationer, i den rækkefølge.** Uden en
+     gemt deadline er pulje-tippet lukket («Endnu ikke åbnet»), og en
+     invitation nævner ingen deadline — og med grænsen ved dag 1
+     (håndbold-VM) er invitationen netop dér, folk skulle opdage den. Mangler
+     deadlinen på et spil, hvor den sættes i hånden, står der en rød advarsel
+     over **👁️ Vis spillet**. Den spærrer ikke knappen; den er påmindelsen.
+     Kommer kickoff-synken først efter rundens første kickoff, flytter den
+     ikke en passeret deadline — så trinnet kan ikke overlades til synken.
 4. Inviter spillere. Ligaer oprettes af spillerne selv; koden i invitationslinket
    tilmelder dem i ét klik.
 5. **Backfill liga-adgang** — kun nødvendig hvis liga-medlemskaber er kommet ind
@@ -772,7 +798,9 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 - `deployFunctions` (default **false**) — Cloud Functions udrulles **ikke** ved
   en almindelig deploy. Har du ændret noget i `functions-platform/`, skal det
   sættes til true, ellers kører den gamle backend videre.
-- `seedGames` (default false) — skriver spil-dokumenter i produktion.
+- `seedGames` (default false) — seeder spil-dokumenterne fra `scripts/games.mjs`.
+  **Tørkører**, indtil `seedGamesSkriv` (default false) også er sat: loggen
+  viser pr. spil, hvad der oprettes eller ændres, og der skrives intet.
   På spil, der **allerede findes**, springer seedet `status` og `joinable` over.
   De to felter ejes af Admin → 🗓️ Spil-tidsplan, og listen i scriptet er ældre
   end virkeligheden. Uden den undtagelse ville en seed-kørsel stille rulle et

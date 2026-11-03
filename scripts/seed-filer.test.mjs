@@ -15,6 +15,7 @@ import { pathToFileURL } from 'url';
 import { SEED_FILER, udfyldFraOpslag, opslagSlaaetFra } from './seed-filer.mjs';
 import { OVERSKRIV_VEJ } from '../src/lib/seedFootball.js';
 import { parseRunder, iInterval, ukendteHold, tjekDubletter } from '../src/lib/seedFootball.js';
+import { GAMES } from './games.mjs';
 
 // process.cwd() er projektroden i vitest (samme greb som games.test.mjs).
 const ROD = process.cwd();
@@ -48,6 +49,32 @@ describe('SEED_FILER — opslaget', () => {
       // ville et fuldt seed lægge alle 38 runder ind i det.
       runder: '1-18',
     });
+  });
+
+  // Håndbold-VM seedes KUN med den indledende runde herfra: intervallet er
+  // kalenderens første fase. Senere faser oprettes på serveren, når holdene
+  // kendes (planens D9) — et gen-seed herfra må ikke blive vejen til dem.
+  it('Håndbold-VM: holdlisten, programmet og den indledende runde som interval', () => {
+    expect(SEED_FILER.hvm2027).toEqual({
+      teams: 'src/data/haandboldVm2027Hold.js',
+      fixtures: 'scripts/haandbold-vm2027-program.json',
+      runder: '1-7',
+    });
+    const forste = GAMES.find((g) => g.id === 'hvm2027').faser[0];
+    expect(SEED_FILER.hvm2027.runder).toBe(`${forste.fra}-${forste.til}`);
+  });
+
+  // Intervallet må ikke TAVST tabe kampe: hver kamp i programfilen ligger i
+  // det, og antallet er fasens. Og ingen kamp uden kickoff (QC: strandede-
+  // alarmen melder kickoff:null med det samme, og kickoff ER deadlinen).
+  it('Håndbold-VM: hele programfilen er den indledende runde — 48 kampe, alle med kickoff', () => {
+    const forste = GAMES.find((g) => g.id === 'hvm2027').faser[0];
+    const alle = kampprogram(SEED_FILER.hvm2027.fixtures);
+    const i = iInterval(alle, parseRunder(SEED_FILER.hvm2027.runder));
+    expect(i).toHaveLength(alle.length);
+    expect(i).toHaveLength(forste.antalKampe);
+    expect(forste.antalKampe).toBe(48);
+    for (const f of i) expect(Number.isFinite(Date.parse(f.kickoff)), f.id).toBe(true);
   });
 
   // O11/O11b: begge frysnings-lag kunne fjernes med grøn suite. Opslaget er
@@ -101,8 +128,8 @@ describe('udfyldFraOpslag', () => {
   });
 
   it('et spil uden post afvises med listen over kendte — intet tavst valg af et andet spils filer', () => {
-    expect(() => udfyldFraOpslag({ game: 'hvm2027' }))
-      .toThrow(/"hvm2027" har ingen post i scripts\/seed-filer\.mjs\. Kendte: superliga2627, pl2627-efteraar/);
+    expect(() => udfyldFraOpslag({ game: 'em2028' }))
+      .toThrow(/"em2028" har ingen post i scripts\/seed-filer\.mjs\. Kendte: superliga2627, pl2627-efteraar, hvm2027\./);
     // Navne, der findes på ethvert objekt, er ikke spil.
     for (const game of ['__proto__', 'toString', 'constructor', 'hasOwnProperty']) {
       expect(() => udfyldFraOpslag({ game }), game).toThrow(/har ingen post/);
@@ -242,7 +269,7 @@ describe('deploy-platform.yml — seed-trinnene slår op, de vælger ikke selv',
     );
     const skriv = [...inputs.keys()].filter((n) => /Skriv$/.test(n)).sort();
     // Listen er FAST: et nyt skriv-flueben skal med her, ikke slippe udenom.
-    expect(skriv).toEqual(['seedKampeSkriv', 'seedKickoffsSkriv', 'seedTeamsSkriv']);
+    expect(skriv).toEqual(['seedGamesSkriv', 'seedKampeSkriv', 'seedKickoffsSkriv', 'seedTeamsSkriv']);
     for (const navn of [...skriv, 'seedKampe', 'seedKickoffs', 'seedTeams', 'seedSuperliga', 'seedGames']) {
       const felter = (inputs.get(navn) ?? '').split('\n').filter((l) => !l.trim().startsWith('#')).join('\n');
       expect(felter, navn).toMatch(/^ {8}type: boolean$/m);
@@ -260,11 +287,25 @@ describe('deploy-platform.yml — seed-trinnene slår op, de vælger ikke selv',
     }
     expect(efterHvis('seedTeams').run).toMatch(/--teams-only\b/);
     expect(efterHvis('seedKickoffs').run).toMatch(/--kickoffs-only\b/);
+    // seedGames: samme mønster, og trinnet kører kun seed-games.mjs.
+    const games = efterHvis('seedGames');
+    expect(games.run).toContain("${{ inputs.seedGamesSkriv && '--skriv' || '' }}");
+    expect(games.run.replace("${{ inputs.seedGamesSkriv && '--skriv' || '' }}", '')).not.toMatch(/--skriv\b/);
+    expect(games.run).toMatch(/^ {10}node scripts\/seed-games\.mjs \\$/m);
+    expect(games.kode).toMatch(/^ {10}GOOGLE_APPLICATION_CREDENTIALS: \$\{\{ runner\.temp \}\}\/sa\.json$/m);
     const kampe = efterHvis('seedKampe').run;
     expect(kampe).not.toMatch(/--(teams|kickoffs)-only|--overskriv-hold/);
     // Y9b: --overskriv-hold har med vilje intet workflow-input — heller ikke
     // på et af de andre trin (drift.md: det køres lokalt).
     for (const t of seedTrin) expect(t.run, t.navn).not.toMatch(/--overskriv-hold/);
+  });
+
+  // Rækkefølgen bærer en regel: kampene prises af spillets sport, som står på
+  // spil-dokumentet, så seedGames skal køre FØR seedKampe i samme kørsel.
+  it('seedGames-trinnet står før seedKampe-trinnet', () => {
+    const navne = TRIN.map((t) => t.hvis);
+    expect(navne.indexOf('${{ inputs.seedGames }}')).toBeGreaterThan(-1);
+    expect(navne.indexOf('${{ inputs.seedGames }}')).toBeLessThan(navne.indexOf('${{ inputs.seedKampe }}'));
   });
 
   it('seedSpil er en STRENG med Superligaen som default — ikke en fast liste, der skal spejle games.mjs', () => {

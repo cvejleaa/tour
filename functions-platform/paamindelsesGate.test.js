@@ -53,8 +53,13 @@ describe('spejl-paritet med src/features/games/spilEvner.js', () => {
     }
   });
 
-  it('præcis Superligaen og PL forventer påmindelser i den levende spilliste', () => {
+  // VENDT MED VILJE (D6): Håndbold-VM er et åbent kampspil og forventer
+  // påmindelser — også uden synk (gaten er bevidst ikke gated på provider:
+  // et håndseedet spil skal også rykke sine spillere). Skjult (joinable:
+  // false) har det ingen spillere, så jobbet sender intet, men Drift-kortet
+  // for 09-jobbet findes fra fødslen og kan ikke stå tavst.
+  it('præcis Superligaen, PL og Håndbold-VM forventer påmindelser i den levende spilliste', () => {
     const med = GAMES.filter((g) => forventerPaamindelser(g)).map((g) => g.id).sort();
-    expect(med).toEqual(['pl2627-efteraar', 'superliga2627']);
+    expect(med).toEqual(['hvm2027', 'pl2627-efteraar', 'superliga2627']);
   });
 });

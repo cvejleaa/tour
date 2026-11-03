@@ -413,6 +413,16 @@ PR-teksten, ikke her.
   EloTable for SL/PL/BARE/VM + alle GAMES), plus et node-script der dumper
   outcomeOdds over et Elo-gitter fra klient OG server — diff JSON.
 
+- **Skifter et skrivende script default fra SKRIV til TØR, ændrer hver
+  anvisning «kør X» betydning.** Grep ALLE forekomster (server- og klient-
+  fejltekster, guide, script-beskeder, kommentarer) — «ret det og kør seedGames»
+  giver nu en tør-kørsel, der ser ud som en rettelse, men ikke skrev noget.
+  Server-tekster kræver functions-deploy: sig det, i stedet for at lade dem stå.
+- **Et manuelt trin i en runbook, hvis fejlmåde er «fail-closed» (pulje «ikke
+  åbnet»), er sikkert men ikke opdageligt.** Rækkefølge (deadline → synlighed →
+  invitation) skal stå i RM-planen, og fladen kan få en advarsel dér, hvor
+  trinnet springes over (Vis spillet uden deadline).
+
 ## Alarmer, postbud og pull→push
 
 - **Pull→push: optæl alle røde tilstande OG hvor de beregnes (klient/server).**

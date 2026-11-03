@@ -1831,6 +1831,23 @@
   esc(). historik-scriptets filnavne kommer fra kode (gemteFiler-regex på readdir), wikitekstens
   afsnitsnavn går gennem escRe, `titler.includes` (ikke objektopslag) → ingen __proto__-vej;
   `--ud` er operatørens sti; intet workflow kalder scriptet; parseScriptArgs afviser ukendte flag.
+- **Håndbold-VM D6 (fb7072f, 2026-11-03: hvm2027 skjult + seedGames-tør-kørsel) — RENT, gentag ikke:**
+  (a) ÆGTE `scripts/seed-games.mjs` mod jar-emulatoren (sec-d6/prep.mjs seeder main's fire spil
+  + admin-valg; snap.mjs sammenligner data OG updateTime): uden argument → DB byte-identisk;
+  `--write`/`--skriv=true`/`--SKRIV`/`-skriv`/`--dry-run`/`--skriv x` → rc=1 før firebase-admin;
+  `--skriv` → kun hvm2027 oprettet (joinable:false, status open, ingen sync/season/puljeLockAt),
+  de fire andre identiske inkl. updateTime (uændret = skrives ikke). Spil-docs uden for listen
+  røres ikke (ingen sletning). Workflow-blokken renderet med shim (sec-d3/bin/node): false → argc 1,
+  true → `[--skriv]`; kun booleans i steppet, ingen streng-input → ingen injection-flade; eneste
+  kalder af seed-games.mjs er deploy-platform.yml:198. (b) seed-football `--game hvm2027` tør →
+  0 nye kampe, teams ikke skrevet. (c) Regler (firestore.rules uændret) mod skjult hvm2027,
+  28/28 (sec-d6/rules.sh): pulje-tip UDEN puljeLockAt → 403 (fejler lukket — glemt deadline =
+  pulje aldrig åben, ikke snyd); kontrol efter admin sætter deadline → 200; 3 hold/points/andens
+  tip/efter deadline → 403; kamp-tip efter kickoff/forkert doc-id/andres før kickoff → 403;
+  spiller sætter joinable/puljeLockAt/odds → 403; pending læser/tilmelder → 403. BEVIDST åbent:
+  approved læser spil-dok + kampe + odds og kan tilmelde sig det skjulte spil (se VIRKER,
+  deltager-gaten). Rest (ikke hul): ingen server-vagt binder admins håndsatte `puljeLockAt` ≤
+  første kickoff for et spil uden kickoff-synk — admin-tillid, skal stå i Release-planen.
 
 ### E2E mod emulatorer (destilleret sep 2026 fra to sag-afsnit)
 - **Emulator-fixturen kan ikke nå produktion — målt, ikke læst.** `.env.e2e`
@@ -2723,3 +2740,6 @@ Del 3 (D3/D6/D10/D11-12, bb9758a, 2026-11-02): RENT (se RENT). Seed af hvm2027 o
 `puljeLockRound:1`/`maksStartRunde:1` kommer i en senere PR — angrib dér: SEED_FILER-
 posten, at runde-puljens `puljeLockAt` står FØR runde 1 kamp 1, og at facit-fasens
 kampe kun kan skrives af admin. Firebase-CLI fandtes ikke i dag: brug jar'en direkte.
+D6 (fb7072f, 2026-11-03): seed + skjult spil RENT (se RENT). Næste angrebsflade er D8
+(provideren: punkt 1d-4 ovenfor) og D9 (senere faser oprettes på SERVEREN — hvem kan udløse det,
+og kan holdnavne fra kilden blive nøgler?).

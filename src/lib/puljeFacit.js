@@ -142,7 +142,7 @@ export function puljeKonfigFejl(game) {
  * Hvad der forhindrer et spil i at blive SEEDET med sin pulje: puljeKonfigFejl
  * plus kravet om en EKSPLICIT puljegrænse på en runde-pulje (ejeren 2/11:
  * «ingen ny tavs default» — standarden 3 er SL/PL's). Tom liste = må seedes.
- * Kaldes af scripts/seed-games.mjs, der afviser HELE kørslen ved en fejl,
+ * Kaldes af scripts/seed-games.mjs (via scripts/lib/seedGames.mjs), der afviser HELE kørslen ved en fejl,
  * og af scripts/games.test.mjs — vagten bor her, ikke i testen, så den også
  * gælder den kørsel, der skriver (seedet skriver med merge, og merge fjerner
  * aldrig et felt: den første kørsel er den eneste gode chance).
