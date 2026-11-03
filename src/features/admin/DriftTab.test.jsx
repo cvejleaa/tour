@@ -41,6 +41,7 @@ vi.mock('./adminActions', () => ({
 }));
 
 import DriftTab, { forventedeKoersler, globaleKoersler } from './DriftTab';
+import { HAANDBOLD_SPIL } from '../../test/faseKalender';
 
 const basis = { status: [], alarmer: [], loading: false, error: '' };
 
@@ -83,6 +84,33 @@ describe('forventedeKoersler — matrixen maskineri × spil', () => {
     const NYT = { id: 'hvm2027', name: 'Håndbold-VM 2027', type: 'football', status: 'open', sync: { provider: 'endnu-ikke-bygget' } };
     expect(typer(NYT)).toEqual(['reminder', 'facitvagt']);
     expect(typer(NYT)).not.toContain('sweep');
+  });
+
+  // D9.4: næste fases kampe. Et spil MED gyldig fasekalender, der er åbent
+  // eller i gang, får kortet `fasekampe` — med eller uden synk. Ligaerne har
+  // ingen kalender og intet kort (fraværet er vagten mod en proxy-gate).
+  it('et spil med fasekalender får fasekampe-kortet — ligaerne, et afsluttet spil og en ugyldig kalender gør ikke', () => {
+    const HVM = { ...HAANDBOLD_SPIL, id: 'hvm2027', status: 'open' };
+    expect(typer(HVM)).toEqual(['reminder', 'facitvagt', 'fasekampe']);
+    expect(typer({ ...HVM, sync: { provider: 'superliga' } })).toContain('fasekampe');
+    expect(typer({ ...HVM, status: 'finished' })).toEqual([]);
+    expect(typer({ ...HVM, faser: [{ ...HVM.faser[0], fra: 2 }] })).not.toContain('fasekampe');
+    expect(typer(SL)).not.toContain('fasekampe');
+    expect(typer({ id: 'hvm2027', name: 'Håndbold-VM 2027', type: 'football', status: 'open' })).not.toContain('fasekampe');
+  });
+
+  it('tegner fasekampe-kortet med det danske navn', () => {
+    mockDrift.mockReturnValue({
+      ...basis,
+      status: [{
+        id: 'fasekampe-hvm2027', type: 'fasekampe', gameId: 'hvm2027', gameNavn: 'Håndbold-VM 2027',
+        niveau: 'ok', besked: 'Hovedrunde: 0 af 36 kampe er lagt ind.', koertAt: Date.now(), naesteForventetFoer: Date.now() + 3600e3,
+      }],
+    });
+    render(<DriftTab />);
+    expect(screen.getByText(/Fasekampe-vagt \(næste fases kampe\) · Håndbold-VM 2027/)).toBeInTheDocument();
+    expect(screen.getByText('Hovedrunde: 0 af 36 kampe er lagt ind.')).toBeInTheDocument();
+    expect(screen.queryByText(/^fasekampe/)).toBeNull();
   });
 
   it('tegner facit-vagt-kortet med det danske navn', () => {

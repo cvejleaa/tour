@@ -131,6 +131,61 @@ function oddsEqual(a, b) {
 }
 
 /**
+ * DEN LEVENDE ELO — ren. Hvert holds rating regnet fra SEED-værdierne
+ * (game.teams) gennem alle spillede kampe i kronologisk rækkefølge, med et
+ * Elo-snapshot pr. HEL runde. UAFRUNDET: det er de tal, odds prises af.
+ *
+ * Trukket ud af recomputeSeasonElo (D9.1), så der kun er ÉN prisvej. Kernen,
+ * der opretter næste fases kampe (faseKampe.js), priser af den samme Map —
+ * ikke af game.eloCurrent, der gemmes AFRUNDET. Prisede den af det afrundede
+ * tal, ville næste facit ompris de nye kampe med småforskelle: to udledninger
+ * af samme tal.
+ *
+ * @param {Array<{name:string, elo:*}>} seedTeams  game.teams
+ * @param {Array<object>} matches  hele kamplisten (facit afgør, hvilke tæller)
+ * @param {object} profil  sportProfil(game)
+ * @returns {{elo:Map<string,number>, eloHistory:Array<{round:number, elo:object}>, get:(n:string)=>number}}
+ *   get(navn) giver profilens start-Elo for et navn, der ikke står i listen.
+ */
+function levendeElo(seedTeams, matches, profil) {
+  const start = profil.elo.START;
+  const elo = new Map((seedTeams || []).map((t) => [t.name, Number(t.elo) || start]));
+  const get = (n) => (elo.has(n) ? elo.get(n) : start);
+
+  // Kampe pr. runde (til Elo-historik-snapshot, når en hel runde er spillet).
+  const roundTotal = new Map();
+  for (const m of matches) {
+    if (m.round == null) continue;
+    roundTotal.set(m.round, (roundTotal.get(m.round) || 0) + 1);
+  }
+  const roundPlayed = new Map();
+  const eloHistory = []; // [{ round, elo: {name: rating} }] efter hver HELE runde
+
+  // Spillede kampe i kronologisk rækkefølge → opdatér Elo. Efter den kamp der
+  // fuldender en runde, gemmes et Elo-snapshot for den runde.
+  const played = matches
+    .filter((m) => matchOutcome(m))
+    .sort((a, b) => (kickoffMs(a) ?? 0) - (kickoffMs(b) ?? 0));
+  for (const m of played) {
+    const outcome = matchOutcome(m);
+    const { home, away } = updateElo(get(m.home), get(m.away), actualHomeFromOutcome(outcome), eloParametre(profil));
+    elo.set(m.home, home);
+    elo.set(m.away, away);
+    if (m.round != null) {
+      roundPlayed.set(m.round, (roundPlayed.get(m.round) || 0) + 1);
+      if (roundPlayed.get(m.round) === roundTotal.get(m.round)
+        && !eloHistory.some((h) => h.round === m.round)) {
+        const rowSnap = {};
+        for (const [n, r] of elo) rowSnap[n] = Math.round(r);
+        eloHistory.push({ round: m.round, elo: rowSnap });
+      }
+    }
+  }
+  eloHistory.sort((a, b) => a.round - b.round);
+  return { elo, eloHistory, get };
+}
+
+/**
  * "Levende" Elo: genberegn hvert holds rating fra SEED-værdierne (games/{id}.teams)
  * gennem alle spillede kampe i kronologisk rækkefølge, gem aktuel Elo på spillet,
  * og opdatér odds for FREMTIDIGE, ikke-låste kampe (kickoff i fremtiden, intet
@@ -194,43 +249,9 @@ async function recomputeSeasonElo(db, FieldValue, gameId, nowMs, opts = {}) {
   const seedTeams = game ? game.teams : null;
   if (!Array.isArray(seedTeams) || seedTeams.length === 0) return { updated: 0, aendringer: [] };
 
-  const start = profil.elo.START;
-  const elo = new Map(seedTeams.map((t) => [t.name, Number(t.elo) || start]));
-  const get = (n) => (elo.has(n) ? elo.get(n) : start);
-
   const snap = await gameRef.collection('matches').get();
   const matches = snap.docs.map((d) => ({ ...d.data(), id: d.id, ref: d.ref }));
-
-  // Kampe pr. runde (til Elo-historik-snapshot, når en hel runde er spillet).
-  const roundTotal = new Map();
-  for (const m of matches) {
-    if (m.round == null) continue;
-    roundTotal.set(m.round, (roundTotal.get(m.round) || 0) + 1);
-  }
-  const roundPlayed = new Map();
-  const eloHistory = []; // [{ round, elo: {name: rating} }] efter hver HELE runde
-
-  // Spillede kampe i kronologisk rækkefølge → opdatér Elo. Efter den kamp der
-  // fuldender en runde, gemmes et Elo-snapshot for den runde.
-  const played = matches
-    .filter((m) => matchOutcome(m))
-    .sort((a, b) => (kickoffMs(a) ?? 0) - (kickoffMs(b) ?? 0));
-  for (const m of played) {
-    const outcome = matchOutcome(m);
-    const { home, away } = updateElo(get(m.home), get(m.away), actualHomeFromOutcome(outcome), eloParametre(profil));
-    elo.set(m.home, home);
-    elo.set(m.away, away);
-    if (m.round != null) {
-      roundPlayed.set(m.round, (roundPlayed.get(m.round) || 0) + 1);
-      if (roundPlayed.get(m.round) === roundTotal.get(m.round)
-        && !eloHistory.some((h) => h.round === m.round)) {
-        const rowSnap = {};
-        for (const [n, r] of elo) rowSnap[n] = Math.round(r);
-        eloHistory.push({ round: m.round, elo: rowSnap });
-      }
-    }
-  }
-  eloHistory.sort((a, b) => a.round - b.round);
+  const { elo, eloHistory, get } = levendeElo(seedTeams, matches, profil);
 
   // Gem aktuel Elo + rundevis historik på spillet (til Elo-tabellen).
   const eloCurrent = {};
@@ -624,7 +645,7 @@ async function meldPuljeAlarm(db, FieldValue, {
     await meld(db, FieldValue, {
       type: 'puljeFacit', gameId, nowMs,
       besked: `Pulje-tippene i «${spil?.name || gameId}» kan ikke afregnes: ${tilstand.fejl.join('; ')}. `
-        + 'Ret fasens kampe (eller pulje/faser i scripts/games.mjs), og tryk så 🎖️ Afregn puljen under Spil-tidsplan.',
+        + 'Mangler fasens kampe, så læg dem ind med 📥 Læg næste fases kampe ind; er de lagt forkert ind (eller er pulje/faser i scripts/games.mjs forkerte), så ret dem. Tryk så 🎖️ Afregn puljen — begge under Admin → 🗓️ Spil-tidsplan.',
     });
     return 'meldt';
   }
@@ -1021,6 +1042,7 @@ async function rescoreAllBets(db, FieldValue, gameId, { dryRun = true } = {}) {
 }
 
 module.exports = {
+  levendeElo, LAAS_MARGIN_MS, oddsEqual,
   recalcPlayerTotal, recomputeGameMatchCore, recomputeSeasonElo, rescoreAllBets,
   dryRunFraKald, ukendtSportFejl, tilHttpsFejl, omprisFraKnap,
   computeRanks, snapshotRoundRanks,

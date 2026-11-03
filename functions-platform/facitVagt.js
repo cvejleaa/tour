@@ -32,15 +32,27 @@
 // aldrig se det (QC-fund). Derfor tjekkes hvert åbent eller igangværende spil
 // med runde-pulje her, i hver times-sweep, med SAMME tilstand og SAMME
 // melding som afregningen (gameScoring.rundePuljeTilstand/meldPuljeAlarm).
+//
+// NÆSTE FASES KAMPE (faseKampeVagt, D9.4). Ingen kilde lægger hovedrunden
+// eller knockout-faserne ind af sig selv — et menneske gør (📥 under
+// Spil-tidsplan). Glemmes en dag, er der ingen kamp og intet resultat, og
+// intet andet maskineri ser det. Derfor tjekkes hvert spil, der forventer
+// fasekampe (facit.forventerFaseKampe), i hver times-sweep — med eller uden
+// synk, så vagten overlever, at spillet en dag får en kilde (D8). Den deler
+// kamplisten med strandede-tjekket og har sit eget Drift-kort `fasekampe`.
 // ---------------------------------------------------------------------------
 
 const { strandedMatches, allMatches } = require('./superligaSync');
 const {
   meldAlarm, loesDriftAlarmer, strandetBesked, statusSamler,
 } = require('./driftlog');
-const { forventerFacit, erKampspil, uenigTekst } = require('./facit');
+const {
+  forventerFacit, forventerFaseKampe, erKampspil, uenigTekst,
+} = require('./facit');
+const { faseVagtTilstand } = require('./faseKampe');
 const { rundePuljeTilstand, meldPuljeAlarm } = require('./gameScoring');
 const { puljeKonfig } = require('./superligaScoring');
+const { stadigMed } = require('./puljeFacit');
 
 /** «1 kamp» / «2 kampe» — Drift-kortenes tekster bøjes, så de ikke siger «1 kampe». */
 function kampOrd(n) {
@@ -100,6 +112,77 @@ async function puljeVagt(db, FieldValue, {
     gameId: game.id, spil: game, tilstand, nowMs, ...(meld ? { meld } : {}), ...(loes ? { loes } : {}),
   });
   return tilstand;
+}
+
+/** «1 dag» / «2 dage». */
+function dagOrd(n) {
+  return n === 1 ? 'dag' : 'dage';
+}
+
+/**
+ * UDEBLIVELSES-VAGTEN for næste fases kampe — én kørsel = ét kort
+ * (`fasekampe-{gameId}`) og én alarm `faseKampe` pr. dag, der mangler kampe
+ * efter kl. 12 dagen før og stadig kan få dem (faseKampe.faseVagtTilstand).
+ * Alarmer for dage, der ikke længere mangler (eller ikke længere KAN få
+ * kampe — så står det som advarsel på kortet), lukkes.
+ *
+ * Kortet lukkes (naesteForventetFoer: null), når kalenderen er udtømt — ellers
+ * stod det RØDT «HAR IKKE KØRT» efter finalen.
+ *
+ * @param {{game:object, kampe:Array<{id:string,data:object}>, nowMs?:number,
+ *          naesteForventetFoerMs:Function|number|null, skriv:Function,
+ *          meld?:Function, loes?:Function}} args  game med id
+ * @returns {Promise<object>} tilstanden
+ */
+async function faseKampeVagt(db, FieldValue, {
+  game, kampe, nowMs = Date.now(), naesteForventetFoerMs, skriv, meld = meldAlarm, loes = loesDriftAlarmer,
+}) {
+  const st = statusSamler({ type: 'fasekampe', gameId: game.id, gameNavn: game.name });
+  let tilstand = null;
+  try {
+    const matches = (kampe || []).map((k) => ({ ...k.data, id: k.id }));
+    tilstand = faseVagtTilstand(game, matches, nowMs);
+    for (const a of tilstand.alarmer) {
+      await meld(db, FieldValue, {
+        type: 'faseKampe', gameId: game.id, kampId: a.kampId, besked: a.besked, nowMs,
+      });
+    }
+    await loes(db, FieldValue, {
+      type: 'faseKampe', gameId: game.id, aktuelleKampIds: tilstand.alarmer.map((a) => a.kampId), nowMs,
+    });
+    if (tilstand.alarmer.length) {
+      console.error(`faseKampeVagt(${game.id}): ${tilstand.alarmer.map((a) => a.kampId).join(', ')} mangler kampe.`);
+      st.fejl(`${tilstand.alarmer.length} ${dagOrd(tilstand.alarmer.length)} mangler kampe og skal lægges ind før første kamp: Admin → 🗓️ Spil-tidsplan → 📥 Læg næste fases kampe ind.`,
+        { mangler: tilstand.alarmer.length });
+    }
+    for (const adv of tilstand.advarsler) st.advarsel(adv);
+    for (const l of tilstand.linjer) st.ok(l);
+    // Pulsen hænger på DETTE kort, som findes for spillet med og uden synk —
+    // ikke på facit-vagtens, som et synket spil ikke har (QC på d9puls).
+    meldPulsFejl(st, game, kampe);
+  } catch (err) {
+    console.error(`faseKampeVagt(${game.id}) fejlede (ignoreret):`, err?.message || err);
+    st.fejl(`Fase-tjekket fejlede: ${err?.message || err}`);
+  }
+  await skriv(st, { naesteForventetFoerMs: tilstand?.udtoemt ? null : naesteForventetFoerMs });
+  return tilstand;
+}
+
+/**
+ * «STADIG MED»-PULSENS DATAFEJL på fasekampe-kortet (QC på pulsen, Bør 1;
+ * flyttet fra facit-vagtens kort af QC på d9puls: det kort har et synket
+ * spil ikke, og så var pulsen mørk uden signal, så snart D8 gav synk). Pulsen
+ * fejler lukket — et hold i en fase, der ikke var med før, eller en skæv
+ * fordeling (en forbytning), og så streges intet over. Men lukket må ikke
+ * være tavst: så var linjen bare mørk, og ingen vidste hvorfor. Egen tekst,
+ * ikke puljeFacit-alarmens «kan ikke afregnes» — afregningen er ikke blokeret.
+ * @returns {string|null} fejlen, eller null
+ */
+function meldPulsFejl(st, game, kampe) {
+  const puls = stadigMed(game, (kampe || []).map((k) => ({ ...k.data, id: k.id })));
+  if (!puls?.fejl) return null;
+  st.advarsel(`«Stadig med»-linjen i puljen er slukket: ${puls.fejl}. Afregningen er ikke berørt. Er kampene lagt forkert ind, så ret dem (konsollen med en udvikler) — linjen tænder af sig selv igen.`);
+  return puls.fejl;
 }
 
 /**
@@ -201,13 +284,32 @@ async function facitVagtUdenSynk(db, FieldValue, {
     }
   }
 
+  // FASEKAMPE-KORTET LUKKES, når spillet ikke længere forventer fasekampe
+  // (afsluttet, eller kalenderen er blevet ugyldig) — QC B5: ellers blev det
+  // forsinket, og postbudet meldte en kørsel, der med vilje er holdt op. Kun
+  // spil med et `faser`-felt kan have haft kortet; resten koster intet opslag.
+  for (const g of games.filter((x) => erKampspil(x) && Array.isArray(x.faser) && !forventerFaseKampe(x))) {
+    try {
+      const cur = await db.collection('driftlog').doc(`fasekampe-${g.id}`).get();
+      if (cur.exists && cur.data().naesteForventetFoer != null) {
+        const st = statusSamler({ type: 'fasekampe', gameId: g.id, gameNavn: g.name });
+        st.ok('Spillet forventer ikke flere kampe i nye faser (afsluttet, eller uden gyldig fasekalender) — vagten er slået fra.');
+        await (loes || loesDriftAlarmer)(db, FieldValue, { type: 'faseKampe', gameId: g.id, aktuelleKampIds: [], nowMs });
+        await skriv(st, { naesteForventetFoerMs: null });
+      }
+    } catch (err) {
+      console.error(`faseKampeVagt(${g.id}): kunne ikke lukke kortet (ignoreret):`, err?.message || err);
+    }
+  }
+
   const ud = [];
   for (const g of aktive) {
     const st = statusSamler({ type: 'facitvagt', gameId: g.id, gameNavn: g.name });
     let strandede = 0;
     let fejl = null;
+    let kampe = null;
     try {
-      const kampe = await allMatches(db, { gameId: g.id });
+      kampe = await allMatches(db, { gameId: g.id });
       const liste = await meldStrandede(db, FieldValue, {
         gameId: g.id, kampe, harSynk: false, nowMs, meld, loes,
       });
@@ -233,14 +335,39 @@ async function facitVagtUdenSynk(db, FieldValue, {
     }
     await skriv(st, { naesteForventetFoerMs });
     ud.push({ gameId: g.id, strandede, fejl });
+    // Næste fases kampe — samme kampliste, eget kort, skrevet EFTER
+    // facit-vagtens (faseKampeVagt fanger selv sine fejl og skriver dem på
+    // sit eget kort). Kunne kampene ikke hentes, har vagten intet grundlag —
+    // så står fejlen på facit-vagt-kortet ovenfor, og fase-kortet skrives ikke
+    // (det bliver forsinket og meldes af postbudet, i stedet for at lyve grønt).
+    if (kampe && forventerFaseKampe(g)) {
+      await faseKampeVagt(db, FieldValue, {
+        game: g, kampe, nowMs, naesteForventetFoerMs, skriv, ...(meld ? { meld } : {}), ...(loes ? { loes } : {}),
+      });
+    }
   }
 
-  // De synkede spil med runde-pulje (i dag ingen): samme vagt, eget opslag.
-  for (const g of lukkes.filter((x) => synkede.has(x.id) && forventerFacit(x) && harRundePulje(x))) {
+  // De synkede spil med runde-pulje eller fasekalender (i dag ingen): samme
+  // vagter, ét opslag af kampene pr. spil.
+  for (const g of lukkes.filter((x) => synkede.has(x.id) && forventerFacit(x) && (harRundePulje(x) || forventerFaseKampe(x)))) {
+    let kampe;
     try {
-      await puljeVagt(db, FieldValue, { game: g, kampe: await allMatches(db, { gameId: g.id }), nowMs, meld, loes });
+      kampe = await allMatches(db, { gameId: g.id });
     } catch (err) {
-      console.error(`puljeVagt(${g.id}) fejlede (ignoreret):`, err?.message || err);
+      console.error(`facitVagt(${g.id}): kampene kunne ikke hentes til pulje-/fase-tjekket (ignoreret):`, err?.message || err);
+      continue;
+    }
+    if (harRundePulje(g)) {
+      try {
+        await puljeVagt(db, FieldValue, { game: g, kampe, nowMs, meld, loes });
+      } catch (err) {
+        console.error(`puljeVagt(${g.id}) fejlede (ignoreret):`, err?.message || err);
+      }
+    }
+    if (forventerFaseKampe(g)) {
+      await faseKampeVagt(db, FieldValue, {
+        game: g, kampe, nowMs, naesteForventetFoerMs, skriv, ...(meld ? { meld } : {}), ...(loes ? { loes } : {}),
+      });
     }
   }
   return ud;
@@ -248,5 +375,5 @@ async function facitVagtUdenSynk(db, FieldValue, {
 
 module.exports = {
   kampOrd,
-  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige, puljeVagt,
+  meldStrandede, spilUdenSynk, facitVagtUdenSynk, meldManuelleUenige, puljeVagt, faseKampeVagt, meldPulsFejl,
 };

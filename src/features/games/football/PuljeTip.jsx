@@ -16,10 +16,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { puljenTaeller, puljeMaksStartRunde, PULJE_MAKS_STARTRUNDE } from '../../../lib/ligaPoint';
-import { puljeKanAfregnes, rundeFacit, rundePuljeTekster } from '../../../lib/puljeFacit';
+import {
+  puljeKanAfregnes, rundeFacit, rundePuljeTekster, stadigMed, pulsFor,
+} from '../../../lib/puljeFacit';
 import { useGameStandings } from '../useGameStandings';
 import PuljeAfsloering from './PuljeAfsloering';
-import { rundeAfventerTekst } from './puljeAfsloering';
+import { rundeAfventerTekst, stadigMedTekst } from './puljeAfsloering';
 import { useAuth } from '../../../context/AuthContext';
 import { COL } from '../../../lib/constants';
 import { teamsOf } from './teamInfo';
@@ -207,6 +209,19 @@ export default function PuljeTip({ game, matches }) {
       bund: konfig.nedSize > 0 ? new Set(bundTeams(spillede, konfig.nedSize)) : null,
     };
   }, [konfig, seasonDone, matches]);
+
+  // «STADIG MED»-PULSEN (runde-puljen). Udledt af de HELE faser i det
+  // spejlede modul (puljeFacit.stadigMed) — samme funktion som Runde-Bottens
+  // fakta. IKKE `ligeNu`: den driver 🏆 «Står der lige nu» og afsløringens
+  // rangliste, og 24 hold dér ville tænde 24 pokaler. Ingen ny læsning:
+  // kampene og spillet findes allerede her.
+  // Vises kun, når en fase EFTER den første er hel — før dét er alle med, og
+  // «4 af 4» fra 13/1 er støj (Spilfører).
+  const puls = useMemo(() => {
+    if (konfig?.facitKilde !== 'runde') return null;
+    const p = stadigMed(game, matches);
+    return p?.fase && p.fase.navn !== game.faser[0].navn ? p : null;
+  }, [konfig, game, matches]);
 
   if (!konfig) return null; // fanen er data-gated, men bæltet OG selerne
   // Uret gives KUN uden facit: er semifinalernes startdag passeret, og der
@@ -425,6 +440,15 @@ export default function PuljeTip({ game, matches }) {
         </p>
       )}
 
+      {/* «Stadig med» — kun efter deadline, med et gemt tip, uden facit (så
+          tager facit-kortet over). Aldrig ordet «point»: intet er afgjort. */}
+      {locked && !seasonDone && puls && bet && Array.isArray(bet.championship)
+        && bet.championship.length === konfig.poolSize && (
+        <p style={{ color: 'var(--c-muted)', fontSize: '0.9rem' }} data-testid="pulje-stadig-med">
+          {stadigMedTekst(pulsFor(bet.championship, puls), puls.fase)}
+        </p>
+      )}
+
       {msg && <p className="badge badge--green mb-2" style={{ display: 'block' }}>{msg}</p>}
       {err && <p className="badge badge--red mb-2">{err}</p>}
 
@@ -452,7 +476,7 @@ export default function PuljeTip({ game, matches }) {
         <PuljeAfsloering
           gameId={gameId} uid={uid} teams={teams} konfig={konfig}
           standings={standings} leagues={leagues} loading={stillingHenter}
-          facit={facit} ligeNu={ligeNu}
+          facit={facit} ligeNu={ligeNu} stadigMed={puls}
         />
       )}
 

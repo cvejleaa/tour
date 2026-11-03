@@ -111,10 +111,37 @@ kampe af spillets EGEN holdliste, og tør-kørslen siger «teams BEVARES» og
 drevet fra spillets.
 
 **Nye kampe prises af start-Elo, ikke af den levende Elo.** Seedet bruger
-`teams[].elo` (startværdierne), aldrig `eloCurrent`. Seedes en ny fase midt i
-sæsonen (fx næste fase seedet i hånden), står de nye kampe derfor med
-start-odds. De får levende odds ved næste facit — eller tryk **💰 Ompris**
+`teams[].elo` (startværdierne), aldrig `eloCurrent`. Seedes kampe midt i
+sæsonen, står de derfor med start-odds.
+De får levende odds ved næste facit — eller tryk **💰 Ompris**
 (Admin → 🗓️ Spil-tidsplan) og skriv ændringerne.
+
+**En turnerings næste fase seedes IKKE.** Hovedrunden og knockout-faserne
+lægges ind med **📥 Læg næste fases kampe ind** (Admin → 🗓️ Spil-tidsplan,
+lige efter ✍️ — se docs/admin-guide.md, *Næste fases kampe*). Den opretter
+kun nye kampe (create-only — en eksisterende kamp overskrives aldrig), priser
+dem af den levende Elo med sportens loft, kræver at holdene var med i fasen
+før (og ved knockout: at de vandt), og afregner puljen med det samme, når
+semifinalerne bliver hele. Glemmes en dag, melder Drift-alarmen
+**«Kampe mangler i næste fase»** sig kl. 12 dagen før — en fases første dag
+dog først, når fasen før er afgjort (se nedenfor).
+
+**Nødvejen, hvis knappen ikke kan bruges** (fx functions er nede): skriv
+kampene i en JSON-fil i programmets form (`{ "fixtures": [{ "id", "round",
+"home", "away", "kickoff" }] }`, kickoff med tidszone, id
+`r{dag}-{hbkode}-{hbkode}`) og kør lokalt med produktionsnøglen:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-football.mjs \
+  --game hvm2027 --teams src/data/haandboldVm2027Hold.js --fixtures /sti/hovedrunde.json --runder 8-13
+```
+
+Egne argumenter slår opslaget i `scripts/seed-filer.mjs` fra (dér er
+hvm2027 med vilje låst til den indledende runde, `1-7`). Tør-kørsel først og
+ejerens ja, før `--skriv` (det skriver i produktionsdata). Vejen har ikke
+knappens vagter: den skriver med merge (ikke create-only), priser af
+start-Elo (tryk **💰 Ompris** bagefter), tjekker ingen knockout-vindere og
+afregner ikke puljen (tryk **🎖️ Afregn puljen**).
 
 Skal holdlisten med elo eller antal hold virkelig overskrives, så kør med
 `--overskriv-hold` **lokalt**, med produktionsnøglen i
@@ -216,7 +243,8 @@ vindue, ved kun filen og scriptets udskrift.
 Det, scriptet **ikke** gør: seede (det gør `seed-football.mjs` med filen som
 `--fixtures` i delopgave D6, med tør-kørsel og ejerens ja), oprette
 hovedrunde- eller knockoutkampe (de har pladsholdere som `A1` og `WQF1` indtil
-holdene kendes, og de oprettes af D9) eller synke facit (D8). Det kører heller
+holdene kendes, og de lægges ind med **📥 Læg næste fases kampe ind** under
+Admin → 🗓️ Spil-tidsplan) eller synke facit (D8). Det kører heller
 aldrig af sig selv.
 
 **Flytter en kamp til en anden dag**, efter at den er seedet, får den et nyt id
@@ -373,6 +401,22 @@ vogtes af sweep'et via `functions-platform/facitVagt.js` og har deres eget kort,
 **Facit-vagt (spil uden synk)**. Deres alarm nævner ikke synk-knappen (den
 findes ikke for dem). En kamp uden læseligt kickoff meldes med det samme, med
 "ret kickoff" som remedie.
+
+En turnering med fasekalender (Håndbold-VM 2027), der er Åben eller I gang,
+har også kortet **Fasekampe-vagt (næste fases kampe)** — med eller uden synk.
+Det kører i samme Times-sweep (`facitVagt.faseKampeVagt`) og viser, hvor mange
+af fasens kampe der er lagt ind, og hvornår næste alarm går. Mangler en dag
+kampe efter kl. 12 dagen før (kampe pr. dag er fasens `antalKampe` delt med
+dens dage — 6 i hovedrunden, 2 i kvartfinalerne; i den indledende runde, hvor
+det ikke går op, mindst én og resten på sidste dag), og kan dagen stadig få
+dem, melder alarmen **«Kampe mangler i næste fase»** (type `faseKampe`, hast
+**haster**, én pr. dag) med remediet **📥 Læg næste fases kampe ind**. En
+fases første dag alarmerer først, når fasen før har facit på alle sine kampe
+(ved knockout: en vinder) — før det kendes holdene ikke, og kortet siger, at
+det venter. Mangler et facit længe, melder facit-vagten det selv. Er
+dagen gået i gang med for få kampe, er det en advarsel på kortet, ikke en
+alarm. Kortet lukkes, når kalenderens sidste dag er forbi, eller når spillet
+afsluttes.
 
 Er kilden **uenig med et facit sat i hånden**, står det som en ⚠-advarsel på
 spillets Times-sweep-kort med holdnavne og begge stillinger (i hånden / hos
@@ -861,7 +905,7 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 | Point mangler for tidlige runder | Samme gate. Efter et skift i `startRound`: tryk 🔄 **Genberegn point** |
 | En runde vises halvt | Kan ikke ske længere — gaten tæller hele runder. Sker det, er `m.round` ikke sat på nogle af kampene |
 | Point er forkerte efter en ændring af selve POINTREGLEN | 🔄 **Genberegn point** hjælper IKKE — se afsnittet nedenfor |
-| Pulje-tippene i en turnering (runde-pulje, «hvem når semifinalerne?») er ikke afregnet, selv om fasen er lagt ind | Triggeren afregner kun, når en kamps facit ændrer sig. Tryk 🎖️ **Afregn puljen** under Spil-tidsplan (tør-kørsel først, callablen `afregnPuljeNu`). Siger den «kan IKKE afgøres», står årsagen der og i drift-alarmen **«Puljen kan ikke afgøres»** (type `puljeFacit`) — ret fasens kampe (eller pulje/faser i `scripts/games.mjs`) og tryk igen. Alarmen tjekkes i hver Times-sweep (`facitVagt.puljeVagt`, for hvert åbent eller igangværende spil med runde-pulje, synket eller ej) og ved hvert nyt facit (`settlePuljeBets`). En konfigurationsfejl, for mange kampe eller et hold i to kampe meldes straks; for få kampe eller et manglende hold — også en fase, der aldrig blev lagt ind — fra dagen efter fasens startdag (dansk dato, dvs. sweep'et kl. 02:25). Den lukker selv, når puljen kan afgøres (også uden tip), men ikke blot fordi en forkert kamp er slettet. En konfigurationsfejl afregner intet, heller ikke med fasen rigtigt lagt ind. Fejler selve tjekket, står «Pulje-tjekket fejlede» på spillets *facitvagt*-kort (spil uden synk) eller i Cloud-loggen (synket spil); en alarm, der ikke kan skrives, stopper aldrig afregningen |
+| Pulje-tippene i en turnering (runde-pulje, «hvem når semifinalerne?») er ikke afregnet, selv om fasen er lagt ind | Triggeren afregner kun, når en kamps facit ændrer sig. Tryk 🎖️ **Afregn puljen** under Spil-tidsplan (tør-kørsel først, callablen `afregnPuljeNu`). Siger den «kan IKKE afgøres», står årsagen der og i drift-alarmen **«Puljen kan ikke afgøres»** (type `puljeFacit`) — mangler fasens kampe, så læg dem ind med 📥 **Læg næste fases kampe ind** (det afregner puljen med det samme, når semifinalerne bliver hele); er de lagt forkert ind, så ret dem (eller pulje/faser i `scripts/games.mjs`) og tryk igen. Alarmen tjekkes i hver Times-sweep (`facitVagt.puljeVagt`, for hvert åbent eller igangværende spil med runde-pulje, synket eller ej) og ved hvert nyt facit (`settlePuljeBets`). En konfigurationsfejl, for mange kampe eller et hold i to kampe meldes straks; for få kampe eller et manglende hold — også en fase, der aldrig blev lagt ind — fra dagen efter fasens startdag (dansk dato, dvs. sweep'et kl. 02:25). Den lukker selv, når puljen kan afgøres (også uden tip), men ikke blot fordi en forkert kamp er slettet. En konfigurationsfejl afregner intet, heller ikke med fasen rigtigt lagt ind. Fejler selve tjekket, står «Pulje-tjekket fejlede» på spillets *facitvagt*-kort (spil uden synk) eller i Cloud-loggen (synket spil); en alarm, der ikke kan skrives, stopper aldrig afregningen |
 | Ingen påmindelser sendt | Se **Admin → 🩺 Driftstatus** → *Daglig tip-påmindelse · <spil>*: spillet kan være sat **på pause** (⏸ under 🔔 Påmindelser), `SMTP_PASSWORD` kan mangle i `spil-89af9`, eller kampene ligger i en runde før `startRound`. Kortet siger hvilken |
 | Live-stillingen opdateres ikke ("⏸ Opdatering afbrudt" på kampkortene) | Se om der står en **livetavs-alarm** under 🩺 Driftstatus. **Gør der det**, er det serveren; alarmen bliver stående, til du kvitterer — også efter udfaldet er ovre, så et selv-helet udfald ikke sletter sit eget spor. Fejlteksten står på minut-kortet, mens udfaldet står på. **Gør der det IKKE**, er serverens puls frisk, og det er browserens forbindelse — genindlæs siden. Facit og point rammes ikke; de lander via sweep'et. Alarmen tæller kun kampe, der FAKTISK viser en levende stilling — en kamp markeret "Slut · afventer facit" eller en, live aldrig kom i gang for, udløser den ikke |
 | Runde-Botten poster ikke | `ANTHROPIC_API_KEY` mangler, ligaen har under 2 medlemmer, eller runden er allerede recappet (`game.recappedRounds`) |

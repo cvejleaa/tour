@@ -1043,6 +1043,9 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
 .pulje-team__actual { position: absolute; top: 4px; right: 6px; font-size: 0.8rem; }
 .pulje-team--hit { border-color: var(--c-ok); box-shadow: 0 0 0 1px var(--c-ok); }
 .pulje-team--miss { border-color: var(--c-err); }
+/* «Stadig med»: et hold, der er ude, i afsløringens holdtabel. Overstregningen
+   bæres af <s> (semantisk); her dæmpes kun rækken. */
+.pulje-hold--ude td { color: var(--c-muted); }
 @supports not (background: color-mix(in srgb, red, blue)) {
   .pulje-team--chosen { background: var(--c-surface-alt); }
 }

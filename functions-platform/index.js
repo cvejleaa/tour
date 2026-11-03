@@ -16,7 +16,7 @@ const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { getStorage } = require('firebase-admin/storage');
 const { initializeApp } = require('firebase-admin/app');
@@ -41,6 +41,7 @@ const {
 } = require('./driftlog');
 const { kampOrd, meldStrandede, facitVagtUdenSynk, meldManuelleUenige } = require('./facitVagt');
 const { saetFacitCore, frigivFacitCore, tilHttpsFejl: facitHttpsFejl } = require('./manuelFacit');
+const { opretFaseKampeCore, retKickoffCore } = require('./faseKampe');
 const { koerPostbud, testAlarmBesked, testAlarmTilladt } = require('./postbud');
 const {
   syncKampDetaljerCore, efterFacitDetaljer, sweepKampDetaljer,
@@ -1192,6 +1193,71 @@ exports.saetFacitManuelt = onCall({ region: REGION, timeoutSeconds: 120 }, async
     if (out.skrevet) {
       console.log(`saetFacitManuelt(${d.gameId}/${d.matchId}) af ${request.auth.uid}:`,
         JSON.stringify({ foer: out.foer, efter: out.efter, point: out.point, botPoster: out.botPoster }));
+    }
+    return out;
+  } catch (err) {
+    throw facitHttpsFejl(err, HttpsError);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// opretFaseKampe — 📥 LÆG NÆSTE FASES KAMPE IND (D9). Admin: opret kampe i et
+// spil med fasekalender (hovedrunden, kvartfinalerne …), når holdene kendes.
+// Kernen (alle regler V1-V12, prisen, create-only) bor i faseKampe.js, hvor
+// den er unit-testet — index.js kan ikke testes.
+//
+// TØR-KØRSEL ER STANDARD (dryRunFraKald). Skrive-kaldet kræver tør-kørslens
+// aftryk. Fuldender oprettelsen runde-puljens facit-fase, afregner kernen
+// puljen straks (QC B3).
+//
+// timeoutSeconds 120 = klientens timeout (adminActions.callOpretFaseKampe:
+// 120000 ms). Uenige timeouts er fundet forkert to gange før: brugeren ser en
+// fejl, mens serveren skriver videre (QC B11).
+// ---------------------------------------------------------------------------
+exports.opretFaseKampe = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const d = request.data || {};
+  const dryRun = dryRunFraKald(d);
+  try {
+    const out = await opretFaseKampeCore(db, FieldValue, {
+      gameId: d.gameId,
+      kampe: d.kampe,
+      aftryk: d.aftryk ?? null,
+      dryRun,
+      tilTimestamp: (ms) => Timestamp.fromMillis(ms),
+    });
+    if (out.skrevet) {
+      // Kvitteringen: der findes ingen historik over oprettede kampe.
+      console.log(`opretFaseKampe(${d.gameId}) af ${request.auth.uid}:`,
+        JSON.stringify({ ids: out.nye.map((n) => n.id), puljeAfregnet: out.puljeAfregnet ?? null }));
+    }
+    return out;
+  } catch (err) {
+    throw facitHttpsFejl(err, HttpsError);
+  }
+});
+
+// retFaseKampKickoff — ret kickoff på én kamp (QC B1): kun uden facit, før
+// kampen er gået i gang, og på samme dato. Tør-kørsel er standard; skrivningen
+// kræver aftrykket. Samme timeout som klienten (120 s).
+exports.retFaseKampKickoff = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
+  const db = getFirestore();
+  await requireAdmin(db, request);
+  const d = request.data || {};
+  const dryRun = dryRunFraKald(d);
+  try {
+    const out = await retKickoffCore(db, FieldValue, {
+      gameId: d.gameId,
+      matchId: d.matchId,
+      tid: d.tid,
+      aftryk: d.aftryk ?? null,
+      dryRun,
+      tilTimestamp: (ms) => Timestamp.fromMillis(ms),
+    });
+    if (out.skrevet) {
+      console.log(`retFaseKampKickoff(${d.gameId}/${d.matchId}) af ${request.auth.uid}:`,
+        JSON.stringify({ foer: out.foer, efter: out.efter }));
     }
     return out;
   } catch (err) {

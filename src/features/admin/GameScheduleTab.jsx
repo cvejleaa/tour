@@ -15,8 +15,9 @@ import { setGameSchedule, setGameStatus, setGameJoinable } from '../games/gameAc
 import { callRecomputeGameScores, callBackfillPlayerLeagues, callRepriceGameOdds,
   callSyncGameKickoffs, callSyncGameResults, callSyncGameKampdetaljer, callAfregnPuljeNu } from './adminActions';
 import { harKickoffSynk, harResultatSynk, harKampdetaljer } from '../games/spilEvner';
-import { erKampspil, uenigTekst } from '../../lib/facit';
+import { erKampspil, forventerFaseKampe, uenigTekst } from '../../lib/facit';
 import ManuelFacit from './ManuelFacit';
+import FaseKampe from './FaseKampe';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { rundeEtiket, rundeFlertal, rundeOrd, rundeOrdene, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
 import { puljeKonfigFejl } from '../../lib/puljeFacit';
@@ -880,6 +881,15 @@ function GameRow({ game }) {
           resultat-synk (harResultatSynk) — uden synk er der intet at give
           kampen tilbage til. */}
       {erKampspil(game) && <ManuelFacit game={game} harSynk={harResultatSynk(game)} />}
+
+      {/* 📥 Læg næste fases kampe ind (D9) — LIGE EFTER ✍️: natten efter en
+          fase er arbejdsgangen «sæt facit → læg næste fase ind», og det er
+          hertil udeblivelses-alarmen (Drift → faseKampe) sender ejeren (trin
+          0b). Gate't på evnen forventerFaseKampe (åbent/igangværende kampspil
+          med gyldig fasekalender) — samme helper som callablen, Drift-kortet
+          og sweep'et. Superligaen og Premier League har ingen kalender og får
+          den ikke. */}
+      {forventerFaseKampe(game) && <FaseKampe game={game} />}
 
       {/* ⚽ Synk kampdetaljer nu — halvleg, målscorere og tilskuertal, og
           live-målene for kampe i gang.

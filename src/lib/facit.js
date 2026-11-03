@@ -32,6 +32,7 @@
 // ---------------------------------------------------------------------------
 
 import { outcomeFromScore, sportOrd } from './superligaScoring.js';
+import { harFaseKalender } from './faser.js';
 
 /** Mærket på en kamp, hvis facit er sat i hånden. Synken rører den så ikke. */
 export const RESULTAT_KILDE_MANUEL = 'manuel';
@@ -74,6 +75,19 @@ export function erKampspil(game) {
  */
 export function forventerFacit(game) {
   return erKampspil(game) && (game?.status === 'open' || game?.status === 'live');
+}
+
+/**
+ * FORVENTER SPILLET, AT NÆSTE FASES KAMPE LÆGGES IND? (D9, QC B4)
+ * Et kampspil, der forventer facit (åbent eller i gang), med en gyldig
+ * fasekalender — evnen «kalenderen ved, at en fase kommer». ÉN helper for
+ * knappen «📥 Læg næste fases kampe ind», callablen, Drift-kortet
+ * `fasekampe` og begge sweep-løkker (spil med og uden synk), så de fire
+ * flader ikke kan være uenige. Ikke sporten, ikke fravær af synk: Superligaen
+ * og Premier League har ingen kalender og får ingen af delene.
+ */
+export function forventerFaseKampe(game) {
+  return forventerFacit(game) && harFaseKalender(game);
 }
 
 function erMaal(v) {
@@ -163,6 +177,30 @@ export function kampSlut(kamp) {
   if (slut == null) return null;
   if (facitFejl({ home: kamp.homeGoals, away: kamp.awayGoals, slut }, { knockout: true }) != null) return null;
   return { home: slut.home, away: slut.away, afgjort: slut.afgjort };
+}
+
+/**
+ * HVEM GIK VIDERE? Vinderen efter ordinær tid — og i en kamp, der stod lige
+ * efter ordinær tid, vinderen af det gyldige slutresultat (kampSlut). null,
+ * når kampen ikke har mål, eller når den stod lige uden et gyldigt slut
+ * (en ligakamp, der endte uafgjort, har ingen vinder).
+ *
+ * ÉN regel, to brugere: Runde-Botten («vinder» i en kamp, der gik i
+ * forlængelse) og kernen, der lægger næste fases kampe ind (faseKampe.js —
+ * semifinalerne må kun bestå af kvartfinalernes vindere). Stod den inline to
+ * steder, kunne de to blive uenige om, hvem der gik videre.
+ * @returns {string|null} holdnavnet
+ */
+export function kampVinder(kamp) {
+  const tal = (g) => (g == null || g === '' ? NaN : Number(g));
+  const h = tal(kamp?.homeGoals);
+  const a = tal(kamp?.awayGoals);
+  if (!Number.isFinite(h) || !Number.isFinite(a)) return null;
+  if (h > a) return kamp.home ?? null;
+  if (a > h) return kamp.away ?? null;
+  const s = kampSlut(kamp);
+  if (!s) return null;
+  return (s.home > s.away ? kamp.home : kamp.away) ?? null;
 }
 
 /**

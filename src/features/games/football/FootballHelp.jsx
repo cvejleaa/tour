@@ -9,7 +9,7 @@ import {
   CHANCE, COMBI, eloExpectedHome, puljeKonfig, roundComboBonus, sportProfil, TRAEF_BONUS,
 } from '../../../lib/superligaScoring';
 import { puljeMaksStartRunde } from '../../../lib/ligaPoint';
-import { rundePuljeTekster } from '../../../lib/puljeFacit';
+import { rundePuljeTekster, antalOrd } from '../../../lib/puljeFacit';
 import { fmtDec } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
@@ -75,6 +75,24 @@ export default function FootballHelp({ game }) {
   // En RUNDE-pulje ("hvem når semifinalerne?") afgøres af en fase, ikke af en
   // slutstilling — og dens tekst og dato kommer af kalenderen. null for SL/PL.
   const rundePulje = rundePuljeTekster(game, pulje);
+  // «STADIG MED»-pulsen tænder, når fasen EFTER den første er hel. Ordet
+  // («hovedrunden») kommer af kalenderen (QC på pulsen, Bør 3) — og uden en
+  // anden fase er der ingen puls at forklare.
+  const pulsFase = rundePulje && Array.isArray(game?.faser) && game.faser[1]
+    ? (game.faser[1].bestemt || game.faser[1].navn) : null;
+  const smaa = (t) => `${t.charAt(0).toLowerCase()}${t.slice(1)}`;
+  const pulsOrd = pulsFase ? smaa(pulsFase) : null;
+  // De faser, Runde-Botten fortæller om: fra den anden og FØR facit-fasen
+  // (gameRecap.puljeUdeOvergang). «ikke nåede hovedrunden eller en senere
+  // fase» var logisk forkert fra kvartfinalerne (QC på d9puls, Bør 3): et
+  // hold, der røg ud i hovedrunden, NÅEDE hovedrunden.
+  const facitFra = pulsOrd ? game.faser.find((f) => f.navn === pulje.facitFase)?.fra : null;
+  const botFaser = pulsOrd
+    ? game.faser.slice(1).filter((f) => facitFra == null || f.fra < facitFra).map((f) => smaa(f.bestemt || f.navn))
+    : [];
+  const botFaserTekst = botFaser.length > 1
+    ? `først ${botFaser[0]}, siden ${botFaser.slice(1).join(', ')}`
+    : botFaser[0];
   // Elo- og odds-tallene kommer fra SPILLETS sportsprofil, ikke fra de globale
   // konstanter — så guiden siger det, spillets odds faktisk er regnet med.
   const profil = sportProfil(game);
@@ -738,6 +756,15 @@ export default function FootballHelp({ game }) {
           et hold, og {rundePulje
             ? <>når {pulje.labels.top} er lagt ind, hvordan det gik i din liga</>
             : <>hvordan puljen står lige nu i din liga</>}.
+          {/* Kun for en runde-pulje med en anden fase. Ikke point — og
+              sætningen siger det, for netop dér kunne den misforstås. */}
+          {pulsOrd && (
+            <span data-testid="hjaelp-stadig-med">
+              {' '}Undervejs står der på fanen, hvor mange af dine {antalOrd(pulje.poolSize)} hold der
+              stadig er med: et hold står som ude (og streget over i holdtabellen), når {pulsOrd} er lagt
+              ind uden det — og igen ved hver fase derefter. Det er ikke point; dem giver kun {pulje.labels.top}.
+            </span>
+          )}
         </Section>
       )}
 
@@ -756,6 +783,12 @@ export default function FootballHelp({ game }) {
           væg — hvem der løb med {o.runden}, hvem der brændte den, hvem der turde bruge Chancen, og hvordan stillingen ser ud.
           Når et liga-spørgsmål får facit, poster den også <strong>afsløringen</strong>: hvem svarede hvad,
           hvem ramte — og hvem der aldrig fik svaret.
+          {pulsOrd && (
+            <span data-testid="hjaelp-bot-puls">
+              {' '}I puljen fortæller den også, når et hold, nogen i ligaen har tippet, ikke nåede næste fase
+              {' '}({botFaserTekst}) — men kun i ligaer, hvor puljen tæller, og først efter deadline.
+            </span>
+          )}
         </p>
       </Section>
 

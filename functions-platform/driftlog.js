@@ -54,6 +54,13 @@ const ALARM_TYPER = {
   // times-sweep'et (facitVagt.puljeVagt) — og lukker først, når puljen kan
   // afgøres; at rette den kræver et menneske.
   puljeFacit: { titel: 'Puljen kan ikke afgøres', hast: 'idag' },
+  // En dag i næste fase mangler kampe efter kl. 12 dagen før, og den kan
+  // stadig få dem (facitVagt.faseKampeVagt, D9.4). «Haster» (ejerens valg
+  // 3/11): uden kampene kan dagen ikke tippes, og når dens første kamp er gået
+  // i gang, kan de ikke længere lægges ind. Én alarm pr. dag (kampId 'r{dag}').
+  // Lukker selv, når dagen har sine kampe — eller ikke længere kan få dem
+  // (så står det som advarsel på Drift-kortet `fasekampe`).
+  faseKampe: { titel: 'Kampe mangler i næste fase', hast: 'haster' },
   livetavs: { titel: 'Live-stillingen står stille', hast: 'haster' },
   detaljerLukket: { titel: 'Kilden har lukket os ude', hast: 'udvikler' },
   detaljerKobling: { titel: 'Live-kortlægningen er død', hast: 'udvikler' },

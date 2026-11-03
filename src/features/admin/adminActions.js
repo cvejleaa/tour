@@ -195,6 +195,45 @@ export async function callSaetFacitManuelt({
 }
 
 /**
+ * 📥 LÆG NÆSTE FASES KAMPE IND (D9) — opret kampe i et spil med fasekalender.
+ *
+ * dryRun er DEFAULT SAND, her som på serveren (dryRunFraKald): kun et
+ * eksplicit `dryRun: false` opretter. Tør-kørslen svarer med kampene (dag,
+ * hold, tid i dansk tid, odds), fejl pr. linje, advarsler, serverens status
+ * og et aftryk, som skrive-kaldet SKAL sende med.
+ * `kampe`: [{dato:'YYYY-MM-DD', tid:'HH:MM' (dansk tid), hjemme, ude}] —
+ * holdnavnene fra spillets holdliste. Klienten fortolker intet; serveren
+ * validerer alt.
+ * Timeout matcher serverens timeoutSeconds: 120.
+ */
+export async function callOpretFaseKampe({ gameId, kampe = [], aftryk = null, dryRun = true } = {}) {
+  try {
+    const fn = httpsCallable(functions, 'opretFaseKampe', { timeout: 120000 });
+    const res = await fn({ gameId, kampe, aftryk, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke lægge kampene ind.' };
+  }
+}
+
+/**
+ * Ret kickoff på én kamp (kun uden facit, før den er gået i gang, samme dato).
+ * `tid`: 'HH:MM' i dansk tid. dryRun er DEFAULT SAND; skrive-kaldet kræver
+ * tør-kørslens aftryk. Timeout matcher serverens timeoutSeconds: 120.
+ */
+export async function callRetFaseKampKickoff({
+  gameId, matchId, tid, aftryk = null, dryRun = true,
+} = {}) {
+  try {
+    const fn = httpsCallable(functions, 'retFaseKampKickoff', { timeout: 120000 });
+    const res = await fn({ gameId, matchId, tid, aftryk, dryRun });
+    return { ok: true, data: res.data };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Kunne ikke rette kickoff.' };
+  }
+}
+
+/**
  * "Lad synken overtage igen" — fjern mærket resultatKilde:'manuel' fra én kamp.
  * Facit bliver stående; synken overskriver det ved næste kørsel, hvis kilden
  * siger noget andet. dryRun er DEFAULT SAND, som alle skrivende knapper.

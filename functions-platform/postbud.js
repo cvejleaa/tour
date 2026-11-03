@@ -61,6 +61,7 @@ const KOERSEL_NAVN = {
   kickoff: 'Daglig kickoff-synk',
   reminder: 'Daglig tip-påmindelse',
   facitvagt: 'Facit-vagt (spil uden synk)',
+  fasekampe: 'Fasekampe-vagt (næste fases kampe)',
   postbud: 'Alarm-mail (hvert 15. min)',
 };
 

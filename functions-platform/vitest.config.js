@@ -44,6 +44,7 @@ export default defineConfig({
       'facitVagt.test.js',
       'puljeFacit.test.js',
       'puljeRykMail.test.js',
+      'faseKampe.test.js',
     ],
     exclude: ['node_modules/**'],
     testTimeout: 10000,

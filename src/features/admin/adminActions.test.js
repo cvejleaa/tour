@@ -45,6 +45,8 @@ import {
   callAfregnPuljeNu,
   callSyncGameResults,
   callSaetFacitManuelt,
+  callOpretFaseKampe,
+  callRetFaseKampKickoff,
   callFrigivFacitTilSynk,
   callSyncGameKampdetaljer,
   callGenerateStageTip,
@@ -283,6 +285,46 @@ describe('adminActions', () => {
       const kilde = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../functions-platform/index.js'), 'utf8');
       expect(kilde).toMatch(/^exports\.saetFacitManuelt = onCall\(\{ region: REGION, timeoutSeconds: 120 \}/m);
       expect(kilde).toMatch(/^exports\.frigivFacitTilSynk = onCall\(/m);
+    });
+  });
+
+  // 📥 Næste fases kampe (D9): navn = serverens export, timeout = dens
+  // timeoutSeconds: 120 (QC B11), og standarden er TØR-KØRSEL.
+  describe('callOpretFaseKampe og callRetFaseKampKickoff', () => {
+    it('kalder opretFaseKampe med 120 s timeout og tørkører som standard', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: { dryRun: true } });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      const kampe = [{ dato: '2027-01-20', tid: '18:00', hjemme: 'Danmark', ude: 'Norge' }];
+      const res = await callOpretFaseKampe({ gameId: 'hvm2027', kampe });
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'opretFaseKampe', { timeout: 120000 });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'hvm2027', kampe, aftryk: null, dryRun: true });
+      expect(res).toEqual({ ok: true, data: { dryRun: true } });
+    });
+    it('sender aftryk og dryRun:false videre', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: {} });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      await callOpretFaseKampe({ gameId: 'hvm2027', kampe: [], aftryk: 'abc', dryRun: false });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'hvm2027', kampe: [], aftryk: 'abc', dryRun: false });
+    });
+    it('kalder retFaseKampKickoff med 120 s timeout og tørkører som standard', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: {} });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      await callRetFaseKampKickoff({ gameId: 'hvm2027', matchId: 'r8-den-nor', tid: '18:00' });
+      expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'retFaseKampKickoff', { timeout: 120000 });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'hvm2027', matchId: 'r8-den-nor', tid: '18:00', aftryk: null, dryRun: true });
+    });
+    it('giver serverens fejl videre i stedet for at kaste', async () => {
+      mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('Noget er ændret')));
+      expect(await callOpretFaseKampe({ gameId: 'g' })).toEqual({ ok: false, error: 'Noget er ændret' });
+      expect((await callRetFaseKampKickoff({ gameId: 'g' })).error).toBe('Noget er ændret');
+    });
+    it('navnene og timeouten findes som exports i functions-platform/index.js', async () => {
+      const { readFileSync } = await import('node:fs');
+      const { resolve, dirname } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const kilde = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../functions-platform/index.js'), 'utf8');
+      expect(kilde).toMatch(/^exports\.opretFaseKampe = onCall\(\{ region: REGION, timeoutSeconds: 120 \}/m);
+      expect(kilde).toMatch(/^exports\.retFaseKampKickoff = onCall\(\{ region: REGION, timeoutSeconds: 120 \}/m);
     });
   });
 

@@ -14,7 +14,7 @@ import { goldenKampe, GOLDEN_NU_MS, makeEloDb as makeGoldenDb } from '../scripts
 
 const require = createRequire(import.meta.url);
 const {
-  recomputeGameMatchCore, recomputeSeasonElo,
+  recomputeGameMatchCore, recomputeSeasonElo, levendeElo,
   computeRanks, snapshotRoundRanks, settlePuljeBets, officielTop, puljeTipKomplet,
   gatedIds, recomputeAllPlayerTotals, rescoreAllBets, dryRunFraKald, ukendtSportFejl,
   tilHttpsFejl, omprisFraKnap, spillereTriggerenGenberegner, kampeTriggerenLaeser, IN_MAKS,
@@ -1658,7 +1658,8 @@ describe('settlePuljeBets', () => {
     const alarm = db._alarmer.g1_puljeFacit;
     expect(alarm).toMatchObject({ type: 'puljeFacit', gameId: 'g1', titel: 'Puljen kan ikke afgøres', loestAt: null });
     expect(alarm.besked).toContain('«Håndbold-VM 2027» kan ikke afregnes: DK står i to kampe i «Semifinaler»');
-    expect(alarm.besked).toContain('🎖️ Afregn puljen under Spil-tidsplan');
+    expect(alarm.besked).toContain('📥 Læg næste fases kampe ind');
+    expect(alarm.besked).toContain('Tryk så 🎖️ Afregn puljen — begge under Admin → 🗓️ Spil-tidsplan.');
     expect(db._pulje.P1.points).toBeUndefined();
 
     // Rettet: samme db, nu med de rigtige kampe → afregnet, og alarmen lukket.
@@ -1916,6 +1917,34 @@ describe('dryRunFraKald (hvad en KNAP gør som standard)', () => {
     for (const v of ['false', 0, '', null, undefined, 'nej', NaN]) {
       expect(dryRunFraKald({ dryRun: v }), String(v)).toBe(true);
     }
+  });
+});
+
+// D9.1: den levende Elo er trukket ud som en REN funktion, så kernen, der
+// lægger næste fases kampe ind (faseKampe.js), priser af præcis samme tal som
+// omprisningen — og ikke af game.eloCurrent, der gemmes afrundet.
+describe('levendeElo (ren — én prisvej)', () => {
+  const profil = scoring.sportProfil({});
+  it('er UAFRUNDET, mens eloCurrent afrundes — og giver samme tal som recomputeSeasonElo prises af', async () => {
+    const teams = [{ name: 'A', elo: 1500 }, { name: 'B', elo: 1480 }];
+    const kampe = [{ id: 'm1', round: 1, home: 'A', away: 'B', kickoff: 1000, result: '1' }];
+    const { elo, eloHistory, get } = levendeElo(teams, kampe, profil);
+    expect(Number.isInteger(elo.get('A'))).toBe(false);
+    expect(eloHistory).toEqual([{ round: 1, elo: { A: Math.round(elo.get('A')), B: Math.round(elo.get('B')) } }]);
+    // Et navn, der ikke står i listen, får profilens start (det er den
+    // tavse fælde, faseKampe.js afviser med V2 — her er den bare synlig).
+    expect(get('Ukendt')).toBe(profil.elo.START);
+    // recomputeSeasonElo priser den fremtidige kamp af den samme Map.
+    const db = makeEloDb({ teams }, [...kampe, { id: 'm2', round: 2, home: 'A', away: 'B', kickoff: 5_000_000_000_000 }]);
+    await recomputeSeasonElo(db, FieldValue, 'g1', 2_000_000_000_000);
+    const m2 = db._matches.find((m) => m.data.id === 'm2').data;
+    expect(m2.eloHome).toBe(elo.get('A'));
+    expect(m2.eloAway).toBe(elo.get('B'));
+  });
+  it('en streng-elo læses som tal, en manglende som start — som før udtrækningen', () => {
+    const { get } = levendeElo([{ name: 'A', elo: '1632' }, { name: 'B' }], [], profil);
+    expect(get('A')).toBe(1632);
+    expect(get('B')).toBe(profil.elo.START);
   });
 });
 
