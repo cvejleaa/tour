@@ -10,6 +10,9 @@
 // Testen her findes for, at feltet bærer sin egen begrundelse.
 import { describe, it, expect } from 'vitest';
 import { faneVises, GAME_TABS } from './GamePage.jsx';
+import { harGrupper } from '../lib/grupper';
+import { GAMES } from '../../scripts/games.mjs';
+import { HVM27G, GRUPPER } from '../test/hvm2027Grupper';
 
 const FODBOLD_MED_PULJE = { type: 'football', pulje: { poolSize: 6 } };
 const FODBOLD_UDEN_PULJE = { type: 'football' };
@@ -75,4 +78,39 @@ describe('faneVises', () => {
       expect(GAME_TABS.find((t) => t.key === 'pulje')?.kraever).toBe('pulje');
     });
   });
+
+  // 📊 Grupper gates på EVNEN harGrupper — ikke på feltet. Testes mod den
+  // RIGTIGE post i GAME_TABS, så en fjernet `evne` bliver rød her.
+  describe('grupper-fanen gates på evnen harGrupper', () => {
+    const rigtig = GAME_TABS.find((t) => t.key === 'grupper');
+
+    it('etiketten er præcis «📊 Grupper» og evnen er harGrupper', () => {
+      expect(rigtig.label).toBe('📊 Grupper');
+      expect(rigtig.label).not.toMatch(/⚽|pulje/i);
+      expect(rigtig.evne).toBe(harGrupper);
+      expect(rigtig.football).toBe(true);
+    });
+
+    it('vises for håndbold-VM med gyldige grupper', () => {
+      expect(faneVises(rigtig, HVM27G)).toBe(true);
+    });
+
+    it('skjules uden grupper, med ugyldige grupper og i Superligaen/PL', () => {
+      const uden = { ...HVM27G, grupper: undefined };
+      expect(faneVises(rigtig, uden)).toBe(false);
+      // Forkert fasenavn: feltet FINDES, men er ugyldigt — et `kraever` ville vise fanen.
+      const forkert = { ...HVM27G, grupper: { ...GRUPPER, faser: [GRUPPER.faser[0], { ...GRUPPER.faser[1], fase: 'Hovedrunden' }] } };
+      expect(forkert.grupper).toBeTruthy();
+      expect(faneVises(rigtig, forkert)).toBe(false);
+      for (const id of ['superliga2627', 'pl2627-efteraar']) {
+        expect(faneVises(rigtig, GAMES.find((g) => g.id === id)), id).toBe(false);
+      }
+    });
+
+    it('står lige efter ⚽ Tabel', () => {
+      const i = GAME_TABS.findIndex((t) => t.key === 'tabel');
+      expect(GAME_TABS[i + 1].key).toBe('grupper');
+    });
+  });
 });
+

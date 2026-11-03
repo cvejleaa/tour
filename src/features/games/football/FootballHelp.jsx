@@ -17,6 +17,7 @@ import { fmtDec } from '../../../lib/daNum';
 import { harXg, harKampdetaljer, harLiveStilling } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
 import { harLandeflag } from './teamInfo';
+import { harGrupper } from '../../../lib/grupper';
 import { ringOgTemaTekst } from './yndlingsholdTekst';
 import { sportOrd, harHjemmebane, oddsLoft } from '../../../lib/superligaScoring';
 import {
@@ -133,6 +134,11 @@ export default function FootballHelp({ game }) {
   // Landeflag i stedet for trøjer: trøjeoversigten under Mit hold findes ikke
   // (TroejeOversigt gater på samme evne), og ringen er landets farve.
   const flag = harLandeflag(game);
+  // 📊 Grupper: samme evne som fanen (GamePage), så guiden aldrig beskriver
+  // eller linker en fane, spilleren ikke har.
+  const grupper = harGrupper(game);
+  const gp = grupper ? game.grupper : null;
+  const faseBestemt = (navn) => ((game.faser || []).find((f) => f.navn === navn)?.bestemt || navn).toLowerCase();
   const live = harLiveStilling(game);
   const ko = harKnockout(game);
   const startOrd = kal ? 'startdag' : 'startrunde';
@@ -161,6 +167,8 @@ export default function FootballHelp({ game }) {
           <li style={{ marginBottom: '0.4rem' }}>
             <strong>Mens der spilles:</strong> Følg {game?.standings ? (
               <>den officielle <Tab fane="tabel">⚽ Tabel</Tab> og jeres indbyrdes</>
+            ) : grupper ? (
+              <>grupperne under <Tab fane="grupper">📊 Grupper</Tab> og jeres indbyrdes</>
             ) : (
               <>jeres indbyrdes</>
             )}
@@ -538,6 +546,23 @@ export default function FootballHelp({ game }) {
             )}
           </>
         )}
+        {/* GRUPPERNE (samme evne som fanen). Q13: pointtallet står der, for
+            spillerne kender 3 for en sejr fra fodbold, og P-kolonnen ville
+            ellers se forkert ud. Tallene kommer fra game.grupper.point. */}
+        {grupper && (
+          <>
+            {' '}<Tab fane="grupper">📊 Grupper</Tab> viser gruppetabellerne, regnet af kampenes resultater her i
+            {' '}spillet: <strong>{gp.point.sejr} point for en sejr, {gp.point.uafgjort} for uafgjort</strong>. Står
+            {' '}holdene lige på point, tæller de indbyrdes kampe først og derefter målforskellen.
+            {gp.faser[1] && (
+              <>
+                {' '}I {faseBestemt(gp.faser[1].fase)} tæller resultaterne fra {faseBestemt(gp.faser[0].fase)} mod de
+                {' '}andre hold fra samme gruppe, der også gik videre, med. {faseBestemt(gp.faser[1].fase).replace(/^./, (c) => c.toUpperCase())}s
+                {' '}grupper fylder sig selv, når kampene er lagt ind — indtil da står der, hvilke grupper de kommer fra.
+              </>
+            )}
+          </>
+        )}
       </Section>
 
       {/* Kun spil, hvis KILDE kan levere målchancer. Gaten er spil-bred og
@@ -704,9 +729,9 @@ export default function FootballHelp({ game }) {
         {/* Trøjeoversigten nævnes kun, hvor den findes: et flag-spil har den
             ikke (samme evne som TroejeOversigt). */}
         <strong>Klik på et holdnavn</strong> — {flag ? (
-          <>i Elo-tabellen{game?.standings ? ', i den officielle tabel' : ''} eller på et kampkort</>
+          <>i Elo-tabellen{game?.standings ? ', i den officielle tabel' : ''}{grupper ? ', i grupperne' : ''} eller på et kampkort</>
         ) : (
-          <>i Elo-tabellen,{game?.standings ? ' i den officielle tabel,' : ''} i
+          <>i Elo-tabellen,{game?.standings ? ' i den officielle tabel,' : ''}{grupper ? ' i grupperne,' : ''} i
             trøjeoversigten under <Tab fane="profil">🙂 Mit hold</Tab> eller på et kampkort</>
         )} — så får du
         holdets egne tal i dette spil: form, {hjemme ? 'hjemme og ude, ' : ''}mål, og hvor stort holdet vinder,

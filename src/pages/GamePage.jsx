@@ -23,6 +23,8 @@ import HoldXgListe from '../features/games/football/HoldXgListe';
 import { harXg } from '../features/games/spilEvner';
 import HoldSide from '../features/games/football/HoldSide';
 import FootballTable from '../features/games/football/FootballTable';
+import Grupper from '../features/games/football/Grupper';
+import { harGrupper } from '../lib/grupper';
 import FootballHelp from '../features/games/football/FootballHelp';
 import { GAME_TYPE } from '../lib/constants';
 import { withTab } from '../features/games/GameTabLink';
@@ -49,6 +51,11 @@ export const GAME_TABS = [
   // provider-liste: den dag en synk skriver standings, dukker fanen op af
   // sig selv — der er ingen klient-tilstand at huske at flippe.
   { key: 'tabel', label: '⚽ Tabel', football: true, kraever: 'standings' },
+  // KRÆVER EVNEN harGrupper — ikke feltet `grupper`: et halvt skrevet eller
+  // ugyldigt felt ville vise en fane, der ikke kan tegnes. Lige efter ⚽ Tabel
+  // (som håndbold ikke har). Ikke under ⚽ Tabel: dén lover en officiel,
+  // synket stilling, og grupperne regnes her af spillets egne facit.
+  { key: 'grupper', label: '📊 Grupper', football: true, evne: harGrupper },
   { key: 'elo', label: '📈 Elo', football: true },
   { key: 'ligaer', label: '👥 Ligaer' },
   { key: 'profil', label: '🙂 Mit hold' },
@@ -61,6 +68,8 @@ export function faneVises(t, game) {
   // `kraever` peger på et felt, spillet skal HAVE. Tilstedeværelsen er
   // signalet — ikke en boolean, man kan glemme at sætte til false.
   if (t.kraever && !game?.[t.kraever]) return false;
+  // `evne` er en funktion af spillet — når et felt ikke er nok (gyldighed).
+  if (t.evne && !t.evne(game)) return false;
   return true;
 }
 
@@ -207,6 +216,12 @@ export default function GamePage() {
             )
           ) : tab === 'tabel' && game.type === GAME_TYPE.FOOTBALL ? (
             <FootballTable game={game} />
+          ) : tab === 'grupper' && game.type === GAME_TYPE.FOOTBALL && harGrupper(game) ? (
+            /* Q14, ET VALG: et dybt link ?fane=grupper til et spil uden evnen
+               falder igennem til Tip (uden aktiv fane) — som ?fane=pulje uden
+               pulje. En tom «ingen grupper»-side ville love en fane, spillet
+               ikke har. */
+            <Grupper game={game} matches={matches} />
           ) : game.type === GAME_TYPE.FOOTBALL ? (
             <FootballTip game={game} me={me} matches={matches} />
           ) : (
