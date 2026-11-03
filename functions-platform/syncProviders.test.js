@@ -10,11 +10,14 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import { readFileSync } from 'node:fs';
 import { GAMES } from '../scripts/games.mjs';
-import { RESULTAT_PROVIDERE, harResultatSynk } from '../src/features/games/spilEvner.js';
+import { RESULTAT_PROVIDERE, harResultatSynk, harKickoffSynk } from '../src/features/games/spilEvner.js';
+import { SYNK_HULLER } from '../src/test/synkHuller.js';
 
 const require = createRequire(import.meta.url);
 const { PROVIDERS, SYNCED_GAMES, rundeTal } = require('./syncProviders');
 const { runScheduledSyncAll, syncResultsCore, syncLiveCore, syncKickoffsCore } = require('./superligaSync');
+const { spilUdenSynk } = require('./facitVagt');
+const { forventerFacit } = require('./facit');
 
 const FieldValue = {
   serverTimestamp: () => ({ __ts: true }),
@@ -239,6 +242,33 @@ describe('SYNCED_GAMES ⇄ scripts/games.mjs', () => {
     for (const g of SYNCED_GAMES) {
       expect(Object.hasOwn(g.sync, 'livescore'), `${g.gameId}`).toBe(false);
     }
+  });
+
+  // DET BEVIDSTE HUL (D6 → D8). Håndbold-VM 2027 seedes uden `sync`, fordi
+  // provideren ikke er bygget. Det må ikke være en TAVS undtagelse: hvert
+  // aktivt kampspil i games.mjs er enten synket ELLER navngivet i
+  // src/test/synkHuller.js — og et navngivet hul vogtes af facit-vagten
+  // (spilUdenSynk), så en glemt kamp stadig melder sig. Får spillet sin
+  // provider, bliver den første test rød, til hullet er taget ud af listen.
+  it('hvert aktivt kampspil er synket eller et navngivet hul — aldrig ingen af delene', () => {
+    const synket = new Set(SYNCED_GAMES.map((g) => g.gameId));
+    for (const g of GAMES.filter((x) => x.type === 'football' && x.status !== 'finished')) {
+      expect(synket.has(g.id) !== Object.hasOwn(SYNK_HULLER, g.id), `${g.id}: synket XOR hul`).toBe(true);
+    }
+  });
+
+  it('Håndbold-VM er hullet: ingen synk-evne nogen steder, men vogtet af facit-vagten', () => {
+    expect(Object.keys(SYNK_HULLER)).toEqual(['hvm2027']);
+    const hvm = GAMES.find((g) => g.id === 'hvm2027');
+    expect(hvm).not.toHaveProperty('sync');
+    expect(SYNCED_GAMES.some((x) => x.gameId === 'hvm2027')).toBe(false);
+    expect(harResultatSynk(hvm)).toBe(false);
+    expect(harKickoffSynk(hvm)).toBe(false);
+    // Facit forventes — og så er det facit-vagten, ikke sweep'et, der vogter.
+    expect(forventerFacit(hvm)).toBe(true);
+    const { aktive, lukkes } = spilUdenSynk(GAMES, SYNCED_GAMES.map((g) => g.gameId));
+    expect(aktive.map((g) => g.id)).toEqual(['hvm2027']);
+    expect(lukkes.map((g) => g.id)).not.toContain('hvm2027');
   });
 
   it('hver post i SYNCED_GAMES peger på en provider, der findes', () => {

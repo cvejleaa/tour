@@ -54,6 +54,12 @@
 //              det tilfælde (GameScheduleTab: puljeRundeUdenSynk), men
 //              puljeLockAt er ikke admin-ejet (seed-payload.mjs), så næste
 //              seed skriver værdien herfra tilbage — ret den derfor her.
+//            Mellemformen: `puljeLockRound` på et spil, hvis kickoff-synk
+//            KOMMER (håndbold-VM indtil D8). Indtil den lander, sætter admin
+//            puljeLockAt under Spil-tidsplan (samme redigerbare felt); seedet
+//            rører den ikke, for den står ikke her. Synken flytter den
+//            bagefter til rundens tidligste kickoff, så længe den ikke er
+//            passeret (superligaSync.js: puljeLockFraRunde).
 //
 // ET SPIL UDEN IMPLEMENTERET PROVIDER SYNKES IKKE — OG INGEN OPDAGER DET.
 // Synk, sweep og strandede-alarm løber over SYNCED_GAMES i functions-
@@ -64,6 +70,10 @@
 // det uendelige, uden at nogen får besked. (Begge nuværende providere —
 // superliga og pulselive — ER implementeret og synkes automatisk; advarslen
 // gælder det NÆSTE spil, der seedes før dets provider er bygget.)
+// Håndbold-VM 2027 seedes UDEN `sync`, indtil provideren findes (planens D8) —
+// ikke med en provider, der ikke er bygget. Det er ikke tavst: et aktivt
+// kampspil uden synk vogtes af facit-vagten (functions-platform/facitVagt.js),
+// og hullet er navngivet i functions-platform/syncProviders.test.js.
 export const GAMES = [
   {
     id: 'vm2026',
@@ -147,5 +157,60 @@ export const GAMES = [
       },
     },
     puljeLockRound: 3,
+  },
+  {
+    // HÅNDBOLD-VM 2027 (herrer), Tyskland 13.-31. januar 2027. Et kampspil
+    // (`type: 'football'` = kampe med 1/X/2) med sporten på `sport` — fladerne
+    // gater på sportsprofilen og fasekalenderen, aldrig på spil-id'et.
+    id: 'hvm2027',
+    name: 'Håndbold-VM 2027', shortName: 'Håndbold-VM', emoji: '🤾',
+    type: 'football', sport: 'haandbold',
+    // OPRETTES SKJULT, som Premier League: seedGames skriver spillet, og
+    // seedKampe lægger den indledende runde ind bagefter. Uden joinable: false
+    // stod spillet under "Åbne spil — deltag" i samme sekund — før nogen havde
+    // set holdnavne, kickoff-tider og odds efter. Synligheden slås til fra
+    // Spil-tidsplan; derefter ejer admin feltet (ADMIN_OWNED).
+    status: 'open', joinable: false,
+    // INGEN `season`: GameLayout skriver «Sæson {season}» foran overskriften
+    // (dér gated på fasekalenderen), og forsidens kort viser feltet som en
+    // mærkat. En turnering har ingen sæson — årstallet står i navnet.
+    order: 5,
+    // INGEN `sync` ENDNU. Provideren (planens D8) er ikke bygget, og en
+    // provider-post her, som serveren ikke kender, ville give et spil, der
+    // LIGNER et synket spil (kildelinje) uden at blive det. Indtil D8 er
+    // spillet et bevidst hul i synken: facit sættes i hånden (✍️ under
+    // Spil-tidsplan), og facit-vagten vogter det (functions-platform/
+    // facitVagt.js: spilUdenSynk). Navngivet i syncProviders.test.js.
+    //
+    // FASEKALENDEREN — én runde pr. spilledag. Kopieret fra `faser` i
+    // scripts/haandbold-vm2027-program.json (bygget af det FILTREREDE program:
+    // uden Presidents Cup og placeringskampe 5-8, med bronzekampen på
+    // finaledagen). games.test.mjs binder de to ordret: bygges programmet om,
+    // bliver testen rød i stedet for at seede en gammel kalender med merge.
+    faser: [
+      { navn: 'Indledende runde', bestemt: 'Den indledende runde', fra: 1, til: 7, start: '2027-01-13', antalKampe: 48 },
+      { navn: 'Hovedrunde', bestemt: 'Hovedrunden', fra: 8, til: 13, start: '2027-01-20', antalKampe: 36 },
+      { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14, til: 15, start: '2027-01-26', antalKampe: 4, knockout: true },
+      { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 16, til: 16, start: '2027-01-29', antalKampe: 2, knockout: true },
+      { navn: 'Finaledag', bestemt: 'Finaledagen', fra: 17, til: 17, start: '2027-01-31', antalKampe: 2, knockout: true },
+    ],
+    // 🏆 SEMIFINALISTERNE: hvilke fire hold når semifinalerne? Facit er
+    // holdene i fasen «Semifinaler» (2 kampe = 4 hold), afgjort så snart
+    // fasen er HELT lagt ind (src/lib/puljeFacit.js).
+    // maksStartRunde: 1 og puljeLockRound: 1 er ejerens valg (planen,
+    // §11-tillæg 3): deadline = første kamp på første spilledag, og kun ligaer,
+    // der starter på første spilledag, får puljen med.
+    //
+    // DEADLINEN UDEN KICKOFF-SYNK. puljeLockRound udleder først puljeLockAt,
+    // når spillet får en kickoff-synk (D8). Indtil da sætter admin deadlinen
+    // under Spil-tidsplan (feltet er redigerbart netop her —
+    // GameScheduleTab: puljeRundeUdenSynk) til første kickoff, 13/1 kl. 17.30.
+    // puljeLockAt står med vilje IKKE her: så ville seedet skrive den tilbage,
+    // og når synken lander, ville to kilder bestemme samme deadline.
+    pulje: {
+      poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', maksStartRunde: 1,
+      labels: { overskrift: '🏆 Semifinalisterne' },
+    },
+    puljeLockRound: 1,
   },
 ];

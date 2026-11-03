@@ -37,6 +37,17 @@ export const SEED_FILER = Object.freeze({
     fixtures: 'scripts/premier-league-fixtures-2627.json',
     runder: '1-18',
   }),
+  // Kun DEN INDLEDENDE RUNDE (spilledag 1-7, 48 kampe) seedes herfra —
+  // intervallet er kalenderens første fase (games.mjs: faser[0]), og
+  // seed-filer.test.mjs binder de to. Senere faser oprettes på serveren, når
+  // holdene kendes (planens D9); et gen-seed herfra må aldrig blive vejen til
+  // dem, og et program, der bygges om med hovedrunden i, må ikke tavst få den
+  // med.
+  hvm2027: Object.freeze({
+    teams: 'src/data/haandboldVm2027Hold.js',
+    fixtures: 'scripts/haandbold-vm2027-program.json',
+    runder: '1-7',
+  }),
 });
 
 // De argumenter, opslaget kan levere. Er BLOT ÉT af dem givet på

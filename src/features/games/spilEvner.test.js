@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import {
   KICKOFF_PROVIDERE, RESULTAT_PROVIDERE, XG_PROVIDERE, KAMPDETALJE_SPIL, LIVE_PROVIDERE,
-  harKickoffSynk, harXg, harResultatSynk, harKampdetaljer, harLiveStilling,
+  harKickoffSynk, harXg, harResultatSynk, harKampdetaljer, harLiveStilling, forventerPaamindelser,
 } from './spilEvner';
 import { GAMES } from '../../../scripts/games.mjs';
 
@@ -157,5 +157,19 @@ describe('spejling mod scripts/games.mjs', () => {
     // skal hver af dem tages stilling til i den PR, der ændrer dem.
     const med = GAMES.filter((g) => harXg(g)).map((g) => g.id).sort();
     expect(med).toEqual(['pl2627-efteraar', 'superliga2627']);
+  });
+
+  // FRAVÆRS-ASSERTION MED VILJE (D6). Håndbold-VM har endnu ingen kilde
+  // (planens D8): ingen af kilde-evnerne, og dermed hverken ⬇️-, 🗓️- eller
+  // ⚽-knap, kildens Drift-kort eller guidens xG-/DIREKTE-afsnit. Når D8 giver
+  // spillet `sync`, SKAL denne vendes — evnerne følger provideren, ikke sporten.
+  // Påmindelser afhænger ikke af en kilde: dem forventer spillet allerede.
+  it('Håndbold-VM har ingen kilde-evner endnu — men forventer påmindelser', () => {
+    const hvm = GAMES.find((g) => g.id === 'hvm2027');
+    expect(hvm).toBeTruthy();
+    for (const evne of [harResultatSynk, harKickoffSynk, harXg, harLiveStilling, harKampdetaljer]) {
+      expect(evne(hvm), evne.name).toBe(false);
+    }
+    expect(forventerPaamindelser(hvm)).toBe(true);
   });
 });

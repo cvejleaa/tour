@@ -2,8 +2,9 @@
 //
 // Listen stod uden for enhver kontrol, indtil den blev skilt ud af
 // seed-games.mjs. Den beskriver de felter, en fejl er dyrest i: hvor facit
-// hentes fra, og hvilke faner et spil har. Og den skrives DIREKTE i
-// produktionsdata — der er ingen tør-kørsel på seed-games.
+// hentes fra, og hvilke faner et spil har. Og den skrives i produktionsdata.
+// seed-games har nu en tør-kørsel (scripts/lib/seedGames.mjs), men den viser
+// kun, hvad listen siger — den kan ikke vide, om listen har ret.
 //
 // EN TING, DER GØR ALT HERUNDER VIGTIGERE: seedet skriver med `merge: true`,
 // og merge FJERNER ALDRIG ET FELT. Er `sync` eller `pulje` først skrevet på et
@@ -20,6 +21,8 @@ import { puljeSeedFejl } from '../src/lib/puljeFacit.js';
 import { HAANDBOLD_SPIL } from '../src/test/faseKalender.js';
 import { ADMIN_OWNED } from './seed-payload.mjs';
 import { SEED_FILER } from './seed-filer.mjs';
+import { SYNK_HULLER } from '../src/test/synkHuller.js';
+import { harFaseKalender } from '../src/lib/faser.js';
 
 // Providerens navn → de nøgler, den præcist skal have. Ingen flere, ingen
 // færre. Et `SHAPES`-objekt frem for if-grene, så en NY provider ikke kan
@@ -44,7 +47,7 @@ describe('spil-listen', () => {
   // players, bets, leagues og matches hænger alle under games/{gameId}/.
   it('har præcis de spil-id\'er, platformen kender', () => {
     expect(GAMES.map((g) => g.id)).toEqual([
-      'vm2026', 'tour2026', 'superliga2627', 'pl2627-efteraar',
+      'vm2026', 'tour2026', 'superliga2627', 'pl2627-efteraar', 'hvm2027',
     ]);
   });
 
@@ -56,7 +59,10 @@ describe('spil-listen', () => {
       expect(g.type, g.id).toMatch(/^(football|cycling)$/);
       expect(['open', 'live', 'finished'], g.id).toContain(g.status);
       expect(typeof g.joinable, g.id).toBe('boolean');
-      expect(g.season, g.id).toMatch(/^\d{4}(-\d{2})?$/);
+      // En TURNERING (spil med fasekalender) har ingen sæson — årstallet står
+      // i navnet, og «Sæson …» foran overskriften ville være forkert (QC).
+      if (g.faser === undefined) expect(g.season, g.id).toMatch(/^\d{4}(-\d{2})?$/);
+      else expect(g, g.id).not.toHaveProperty('season');
     }
   });
 
@@ -96,6 +102,16 @@ describe('spil-listen', () => {
     expect(pl.status).toBe('open');
   });
 
+  // Håndbold-VM oprettes skjult af samme grund: seedGames skriver spillet,
+  // seedKampe den indledende runde, og spillet skal gennemgås (holdnavne,
+  // tider, odds), før det står under "Åbne spil — deltag".
+  it('opretter Håndbold-VM 2027 skjult, men åbent — som håndboldspil', () => {
+    const hvm = GAMES.find((g) => g.id === 'hvm2027');
+    expect(hvm).toMatchObject({
+      name: 'Håndbold-VM 2027', type: 'football', sport: 'haandbold', status: 'open', joinable: false,
+    });
+  });
+
   it('peger kun på logoer, der findes', () => {
     for (const g of GAMES.filter((x) => x.logo)) {
       // process.cwd() er projektroden i vitest. `import.meta.url` duer ikke:
@@ -112,10 +128,28 @@ describe('spil-listen', () => {
 });
 
 describe('sync — hvor facit hentes fra', () => {
-  it('giver hvert aktivt fodboldspil en provider', () => {
+  // Et aktivt kampspil uden provider er kun i orden som et NAVNGIVET hul
+  // (src/test/synkHuller.js) — ellers er det en glemt konfiguration.
+  it('giver hvert aktivt kampspil en provider — eller står som et bevidst hul', () => {
     const aktive = GAMES.filter((g) => g.type === 'football' && g.status !== 'finished');
     expect(aktive.length).toBeGreaterThan(0);
-    for (const g of aktive) expect(g.sync, `${g.id} mangler sync`).toBeTruthy();
+    for (const g of aktive.filter((x) => !Object.hasOwn(SYNK_HULLER, x.id))) {
+      expect(g.sync, `${g.id} mangler sync`).toBeTruthy();
+    }
+  });
+
+  // Hullet er bevidst og MIDLERTIDIGT: spillet må ikke have en sync-blok
+  // (en provider, serveren ikke har, ville ligne synk på skærmen), og et hul,
+  // der har fået sin provider, skal ud af listen i samme PR.
+  it('hvert bevidst hul er et aktivt kampspil UDEN sync', () => {
+    expect(Object.keys(SYNK_HULLER)).toEqual(['hvm2027']);
+    for (const id of Object.keys(SYNK_HULLER)) {
+      const g = GAMES.find((x) => x.id === id);
+      expect(g, id).toBeTruthy();
+      expect(g.type, id).toBe('football');
+      expect(g.status, id).not.toBe('finished');
+      expect(g, id).not.toHaveProperty('sync');
+    }
   });
 
   // SSRF-SPÆRREN. firestore.rules giver isGlobalAdmin() skriveadgang til HELE
@@ -164,9 +198,23 @@ describe('sync — hvor facit hentes fra', () => {
 describe('pulje — sæson-spørgsmålene pr. spil (#8)', () => {
   // Feltets TILSTEDEVÆRELSE er signalet. GamePage.faneVises læser det, og
   // settlePuljeBets afviser at afregne uden det.
-  it('findes på Superligaen og PL-efteråret — og ingen andre', () => {
+  it('findes på Superligaen, PL-efteråret og Håndbold-VM — og ingen andre', () => {
     expect(GAMES.filter((g) => g.pulje).map((g) => g.id).sort())
-      .toEqual(['pl2627-efteraar', 'superliga2627']);
+      .toEqual(['hvm2027', 'pl2627-efteraar', 'superliga2627']);
+  });
+
+  // Ejerens valg (planen §11-tillæg 3): semifinalisterne, deadline = første
+  // kamp på første spilledag, og kun ligaer fra første spilledag får puljen.
+  it('Håndbold-VM: semifinalisterne, puljeLockRound 1, maksStartRunde 1 — og ingen fast dato', () => {
+    const hvm = GAMES.find((g) => g.id === 'hvm2027');
+    expect(hvm.pulje).toEqual({
+      poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler', maksStartRunde: 1,
+      labels: { overskrift: '🏆 Semifinalisterne' },
+    });
+    expect(hvm.puljeLockRound).toBe(1);
+    // Ingen puljeLockAt: seedet ville skrive den tilbage over admins værdi,
+    // og når kickoff-synken lander, ville to kilder bestemme deadlinen.
+    expect('puljeLockAt' in hvm).toBe(false);
   });
 
   it('Superligaens form er det LITERALE {poolSize: 6} — normalizerens SL-bånd', async () => {
@@ -203,8 +251,12 @@ describe('pulje — sæson-spørgsmålene pr. spil (#8)', () => {
 // her (`sport: 'handbold'`) kan kun rettes i konsollen — og Ompris-knappen og det
 // fulde seed afviser spillet, indtil det er gjort. Et spil UDEN sport er fodbold
 // med vilje (SL, PL); et spil MED sport skal være en, registret kender.
-// (PR #240: intet spil i listen sætter i dag `sport`; testen vogter den dag, nogen gør.)
+// Håndbold-VM 2027 er det første spil med `sport` (D6).
 describe('sport på spillene', () => {
+  it('præcis Håndbold-VM sætter sport — og til haandbold', () => {
+    expect(GAMES.filter((g) => g.sport !== undefined).map((g) => [g.id, g.sport])).toEqual([['hvm2027', 'haandbold']]);
+  });
+
   it('intet spil i listen har et sat-men-ukendt sport', () => {
     expect(GAMES.length).toBeGreaterThan(0);
     for (const g of GAMES) {
@@ -238,6 +290,19 @@ describe('faser på spillene', () => {
   // kunne rette den. Stod den i ADMIN_OWNED, blev en rettelse tavst sprunget over.
   it('faser er ikke admin-ejet', () => {
     expect(ADMIN_OWNED).not.toContain('faser');
+  });
+
+  // Kalenderen er et SPEJL af programfilens `faser` (scripts/haandbold-
+  // program.mjs bygger begge af det filtrerede program). Bygges programmet
+  // om, skal kalenderen her følge med — ellers seedes en gammel kalender med
+  // merge, og «Dag 7 af 17» tæller forkert.
+  it('Håndbold-VM: kalenderen er ordret programfilens og tæller som gyldig', () => {
+    const hvm = GAMES.find((g) => g.id === 'hvm2027');
+    const program = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/haandbold-vm2027-program.json'), 'utf8'));
+    expect(hvm.faser).toEqual(program.faser);
+    expect(harFaseKalender(hvm)).toBe(true);
+    expect(hvm.faser.at(-1).til).toBe(17);
+    expect(hvm.faser.map((f) => f.navn)).toEqual(['Indledende runde', 'Hovedrunde', 'Kvartfinaler', 'Semifinaler', 'Finaledag']);
   });
 });
 
@@ -283,9 +348,9 @@ describe('runde-puljer på spillene', () => {
     }
   });
 
-  // I DAG HAR LISTEN INGEN RUNDE-PULJE (hvm2027 kommer med D6), så testen
-  // ovenfor kan ikke blive rød af en. Her bevises vagten på den form, D6
-  // skal skrive — og på de fejl, den skal fange (modstander-bemærkning).
+  // Listen HAR en runde-pulje (hvm2027), så testen ovenfor dækker den. Her
+  // bevises vagten på samme form — og på de fejl, den skal fange
+  // (modstander-bemærkning). Formen er bundet til hvm2027's nedenfor.
   it('vagten er rød på en forkert runde-pulje og grøn på den tilsigtede form', () => {
     const TILSIGTET = {
       ...HAANDBOLD_SPIL,
@@ -293,6 +358,9 @@ describe('runde-puljer på spillene', () => {
       puljeLockRound: 1,
     };
     expect(puljeSeedFejl(TILSIGTET)).toEqual([]);
+    const hvm = GAMES.find((g) => g.id === 'hvm2027');
+    expect(hvm.pulje).toEqual(TILSIGTET.pulje);
+    expect(hvm.puljeLockRound).toBe(TILSIGTET.puljeLockRound);
     const uden = { ...TILSIGTET, pulje: { ...TILSIGTET.pulje, maksStartRunde: undefined } };
     expect(puljeSeedFejl(uden)).toEqual(['maksStartRunde skal sættes eksplicit på en runde-pulje (ejerens valg — håndbold-VM: 1)']);
     expect(puljeSeedFejl({ ...TILSIGTET, pulje: { ...TILSIGTET.pulje, maksStartRunde: 0 } })).toHaveLength(1);
@@ -304,24 +372,21 @@ describe('runde-puljer på spillene', () => {
   });
 
   // seed-games.mjs kan ikke importeres (firebase-admin initialiseres på
-  // øverste niveau), så LEDNINGEN bevogtes som tekst: vagten kaldes på hver
-  // post, og kørslen afvises FØR den første skrivning (batch, set, commit).
-  it('seed-games.mjs afviser hele seedet ved en pulje-fejl — før den første skrivning', () => {
+  // øverste niveau), så LEDNINGEN bevogtes som tekst. Forløbet (vagt før
+  // første læsning, ingen skrivning uden skriv) er bevist med en fake
+  // Firestore i scripts/lib/seedGames.test.mjs; her bindes, at scriptet
+  // faktisk sender vagten og --skriv videre — og ikke selv skriver.
+  it('seed-games.mjs sender pulje-vagten og --skriv til det testede forløb — og skriver ikke selv', () => {
     const kilde = readFileSync(resolve(process.cwd(), 'scripts/seed-games.mjs'), 'utf8')
       .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
     expect(kilde).toMatch(/const \{ puljeSeedFejl \} = createRequire\(import\.meta\.url\)\('\.\.\/functions-platform\/puljeFacit\.js'\);/);
-    const krop = kilde.split('async function seedGames()')[1];
-    expect(krop).toBeTruthy();
-    const vagt = krop.indexOf('puljeSeedFejl(');
-    const kast = krop.indexOf('throw new Error(');
-    expect(vagt).toBeGreaterThan(-1);
-    expect(kast).toBeGreaterThan(vagt);
-    for (const skriv of ['db.batch(', 'batch.set(', 'batch.commit(']) {
-      expect(krop.indexOf(skriv), skriv).toBeGreaterThan(kast);
-    }
-    // Vagten går over HELE listen og kaster ved MINDST én fejl.
-    expect(krop).toMatch(/const puljeFejl = GAMES\.flatMap\(\(g\) => puljeSeedFejl\(g\)/);
-    expect(krop).toMatch(/if \(puljeFejl\.length\) \{\s*throw new Error\(/);
+    expect(kilde).toMatch(/const \{ koerSeedGames \} = await import\('\.\/lib\/seedGames\.mjs'\);/);
+    // SKRIV kommer KUN fra et præcist --skriv, og et ukendt argument afvises.
+    expect(kilde).toMatch(/const SKRIV = argv\.includes\('--skriv'\);/);
+    expect(kilde).toMatch(/const ukendte = argv\.filter\(\(a\) => a !== '--skriv'\);\nif \(ukendte\.length\) \{\n[^\n]*\n {2}process\.exit\(1\);\n\}/);
+    expect(kilde).toMatch(/koerSeedGames\(\{\s*games: GAMES, db, skriv: SKRIV, now, puljeSeedFejl,/);
+    for (const skriv of ['.batch(', '.set(', '.commit(', '.update(']) expect(kilde, skriv).not.toContain(skriv);
+    expect(kilde.match(/koerSeedGames\(/g)).toHaveLength(1);
   });
 
   // FRAVÆRS-ASSERTION MED VILJE: Superligaen og Premier League skal have

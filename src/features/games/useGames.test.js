@@ -88,3 +88,28 @@ describe('splitGames', () => {
     expect(splitGames(withExt, new Set()).open).toEqual([]);
   });
 });
+
+// HÅNDBOLD-VM 2027 SOM DET SEEDES (D6): posten fra scripts/games.mjs gennem
+// seedPayload. Spillerfladerne (forsiden og hjælpesidens «Spillene lige nu»)
+// læser begge splitGames — så er spillet ude her, er det ude dér.
+describe('splitGames — det skjulte Håndbold-VM', async () => {
+  const { GAMES } = await import('../../../scripts/games.mjs');
+  const { seedPayload } = await import('../../../scripts/seed-payload.mjs');
+  const { id, ...data } = GAMES.find((g) => g.id === 'hvm2027');
+  const hvm = { id, ...seedPayload(data, { exists: false, now: null }) };
+
+  it('står hverken under åbne, mine eller eksterne for en, der ikke er med', () => {
+    const { mine, open, external } = splitGames([hvm], new Set());
+    expect(open).toEqual([]);
+    expect(mine).toEqual([]);
+    expect(external).toEqual([]);
+  });
+
+  it('står under mine for den, der har tilmeldt sig (fx admin, der gennemgår det)', () => {
+    expect(splitGames([hvm], new Set(['hvm2027'])).mine.map((g) => g.id)).toEqual(['hvm2027']);
+  });
+
+  it('kommer under åbne, når admin slår synligheden til', () => {
+    expect(splitGames([{ ...hvm, joinable: true }], new Set()).open.map((g) => g.id)).toEqual(['hvm2027']);
+  });
+});

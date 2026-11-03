@@ -49,7 +49,7 @@ export async function koerFuldtSeed({
   // vise de forkerte odds som rigtige.
   if (!snap.exists) {
     throw new Error(
-      `games/${navn} findes ikke. Kør seedGames først (Deploy platform med seedGames) — `
+      `games/${navn} findes ikke. Kør seedGames først (Deploy platform med seedGames + seedGamesSkriv) — `
       + 'uden spil-dokumentet kender seedet hverken sporten eller holdlisten. Der er IKKE skrevet noget.',
     );
   }

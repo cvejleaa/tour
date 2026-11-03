@@ -541,14 +541,14 @@ function GameRow({ game }) {
       {puljeFejl.length > 0 && (
         <p className="badge badge--red" data-testid="pulje-ugyldig" role="alert"
           style={{ display: 'block', whiteSpace: 'normal', marginTop: '0.5rem' }}>
-          {`⚠️ Puljen kan ikke afgøres: ${puljeFejl.join('; ')}. Pulje-tippene bliver aldrig afregnet, før det er rettet. Ret pulje (og faser) i scripts/games.mjs og kør Deploy platform med seedGames.`}
+          {`⚠️ Puljen kan ikke afgøres: ${puljeFejl.join('; ')}. Pulje-tippene bliver aldrig afregnet, før det er rettet. Ret pulje (og faser) i scripts/games.mjs og kør Deploy platform med seedGames — først som tør-kørsel, så med seedGamesSkriv.`}
         </p>
       )}
 
       {kalenderFejl && (
         <p className="badge badge--red" data-testid="fasekalender-ugyldig" role="alert"
           style={{ display: 'block', whiteSpace: 'normal', marginTop: '0.5rem' }}>
-          {`⚠️ Fasekalenderen er ugyldig: ${kalenderFejl.join('; ')}. Spillet vises med «Runde N» i stedet for dagens navn, Runde-Botten ser ikke de kommende faser, og ✍️ facit i hånden kender ingen knockout-kampe (intet slutresultat efter forlængelse). Ret faser i scripts/games.mjs og kør Deploy platform med seedGames.`}
+          {`⚠️ Fasekalenderen er ugyldig: ${kalenderFejl.join('; ')}. Spillet vises med «Runde N» i stedet for dagens navn, Runde-Botten ser ikke de kommende faser, og ✍️ facit i hånden kender ingen knockout-kampe (intet slutresultat efter forlængelse). Ret faser i scripts/games.mjs og kør Deploy platform med seedGames — først som tør-kørsel, så med seedGamesSkriv.`}
         </p>
       )}
 

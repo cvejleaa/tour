@@ -31,9 +31,11 @@ IKKE hemmelig, så den kræver ingen ekstra opsætning.
 
 GitHub → **Actions → "Deploy platform (tip.vejleaa.dk)" → Run workflow**.
 Inputs:
-- **seedGames** (standard: FRA — workflowets default er `false`; slå den kun til, når
-  spillene faktisk skal skrives, og tør-kør først) — opretter spillene VM/Tour/Superliga i
-  `games`-collection'en, så oversigten har noget at vise.
+- **seedGames** (standard: FRA — workflowets default er `false`) — opretter og
+  opdaterer spillene fra `scripts/games.mjs` i `games`-collection'en, så oversigten
+  har noget at vise. Alene tørkører den: loggen viser pr. spil, hvad der oprettes
+  eller ændres. Der skrives først, når **seedGamesSkriv** også er sat (standard:
+  FRA) — læs tør-kørslen først.
 - **bootstrapOwnerEmail** — lad den være tom ved FØRSTE kørsel (din konto
   findes ikke endnu). Se owner-trinnet nedenfor.
 
@@ -82,7 +84,8 @@ EOF
 npm run build
 firebase login
 firebase deploy --only hosting,firestore --project spil
-# seed spil + (efter login) gør dig til owner:
+# seed spil (først tør-kørsel, så --skriv) + (efter login) gør dig til owner:
 GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-games.mjs
+GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json node scripts/seed-games.mjs --skriv
 GOOGLE_APPLICATION_CREDENTIALS=/sti/sa.json OWNER_EMAIL=cvejleaa@gmail.com node scripts/bootstrap-owner.mjs
 ```

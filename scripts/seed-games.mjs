@@ -3,14 +3,32 @@
 // (tip.vejleaa.dk / projekt spil-89af9). Ét dokument pr. spil; se
 // docs/samlet-platform.md. Kan køres flere gange (idempotent, merge).
 //
+// TØR-KØRSEL ER DEFAULT. Uden --skriv skrives der intet: kørslen viser pr.
+// spil, om dokumentet oprettes eller hvilke felter der ændres (fra → til),
+// hvilke admin-ejede felter der bevares, og hvilke felter i databasen listen
+// ikke nævner (merge fjerner aldrig et felt). Forløbet bor i
+// scripts/lib/seedGames.mjs, hvor det er testet.
+//
 // BRUG:
 //   Mod emulator:
-//     FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/seed-games.mjs
-//   Mod platform-projektet:
+//     FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/seed-games.mjs [--skriv]
+//   Mod platform-projektet (læs tør-kørslen, FØR du skriver):
 //     GOOGLE_APPLICATION_CREDENTIALS=/sti/serviceAccount.json node scripts/seed-games.mjs
+//     GOOGLE_APPLICATION_CREDENTIALS=/sti/serviceAccount.json node scripts/seed-games.mjs --skriv
 //
 // Krav: firebase-admin.
 // ---------------------------------------------------------------------------
+
+// Argumenterne FØR forbindelsen: en tastefejl (`--write`, `--skriv=true`)
+// må ikke give en tør-kørsel, operatøren tror var en skrivning — og slet ikke
+// omvendt. Kun --skriv kendes.
+const argv = process.argv.slice(2);
+const ukendte = argv.filter((a) => a !== '--skriv');
+if (ukendte.length) {
+  console.error(`\n⚠️  Ukendt argument: ${ukendte.join(' ')}. Kun --skriv kendes (uden det tørkøres der).\n`);
+  process.exit(1);
+}
+const SKRIV = argv.includes('--skriv');
 
 const admin = (await import('firebase-admin')).default;
 
@@ -30,43 +48,24 @@ const db = admin.firestore();
 const now = admin.firestore.FieldValue.serverTimestamp();
 
 const { GAMES } = await import('./games.mjs');
-// Hvilke felter seedet må skrive — og hvilke admin ejer. Bor i sin egen fil,
-// så den kan testes: denne fil kan ikke importeres fra en test (firebase-admin
-// initialiseres på øverste niveau).
-const { seedPayload } = await import('./seed-payload.mjs');
+// Forløbet — plan, tør-kørsel og skrivning — bor i et testet modul. Hvad seedet
+// MÅ skrive på et spil (og hvilke felter admin ejer), afgøres af
+// scripts/seed-payload.mjs.
+const { koerSeedGames } = await import('./lib/seedGames.mjs');
 // En runde-pulje, der aldrig kan afgøres, opdages ellers først ved
 // semifinalerne — og seedet skriver med merge, så den første kørsel er den
 // eneste gode chance for at få felterne rigtige. Samme vagt som
 // scripts/games.test.mjs. Hentet fra SERVER-spejlet (CommonJS):
 // src/lib/puljeFacit.js importerer uden filendelse og kan ikke indlæses af
 // node uden vite — og de to ender er bundet byte for byte
-// (functions-platform/puljeFacit.test.js).
+// (functions-platform/puljeFacit.test.js). koerSeedGames afviser HELE
+// kørslen, før noget læses eller skrives, hvis én post har en fejl.
 const { createRequire } = await import('module');
 const { puljeSeedFejl } = createRequire(import.meta.url)('../functions-platform/puljeFacit.js');
 
-async function seedGames() {
-  // AFVIS HELE KØRSLEN før den første skrivning: et halvt seedet katalog er
-  // værre end intet.
-  const puljeFejl = GAMES.flatMap((g) => puljeSeedFejl(g).map((f) => `${g.id}: ${f}`));
-  if (puljeFejl.length) {
-    throw new Error(`Puljen kan ikke seedes — intet er skrevet:\n  ${puljeFejl.join('\n  ')}`);
-  }
-  console.log(`\nSeeder ${GAMES.length} spil i games-collection'en...`);
-  const batch = db.batch();
-  for (const { id, ...data } of GAMES) {
-    const ref = db.collection('games').doc(id);
-    const exists = (await ref.get()).exists;
-    const payload = seedPayload(data, { exists, now });
-    batch.set(ref, payload, { merge: true });
-    console.log(exists
-      ? `  • ${id} — ${data.name} (findes; status/joinable urørt)`
-      : `  • ${id} — ${data.name} (ny, ${data.status})`);
-  }
-  await batch.commit();
-  console.log('Spil seedet.');
-}
-
-seedGames()
+koerSeedGames({
+  games: GAMES, db, skriv: SKRIV, now, puljeSeedFejl, log: (s) => console.log(s),
+})
   .then(() => { console.log('\n✅ Færdig.'); return app.delete(); })
   .then(() => process.exit(0))
   .catch((err) => { console.error('Seed-fejl:', err); process.exit(1); });

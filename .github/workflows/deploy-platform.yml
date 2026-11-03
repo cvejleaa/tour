@@ -16,10 +16,17 @@ on:
   workflow_dispatch:
     inputs:
       seedGames:
-        description: 'Seed spillene (VM/Tour/Superliga) i databasen bagefter?'
+        description: 'Seed spil-dokumenterne fra scripts/games.mjs bagefter? Viser pr. spil, hvad der oprettes eller ændres — skriver kun med seedGamesSkriv.'
         type: boolean
         # Default FALSE: en almindelig deploy skal ikke skrive i produktions-
         # databasen. Slå den kun til, når spil-dokumenterne faktisk skal ind.
+        default: false
+      seedGamesSkriv:
+        # Default FALSE = tør-kørsel, samme mønster som seedKampeSkriv. Seedet
+        # skriver med merge, og merge fjerner aldrig et felt: sync, pulje og
+        # faser kan kun rettes i konsollen bagefter. Planen skal læses først.
+        description: 'seedGames: SKRIV i databasen? Uden dette flueben tørkøres der, og ændringerne vises kun.'
+        type: boolean
         default: false
       seedSuperliga:
         # Labelen er det ENESTE, operatøren ser i klik-øjeblikket — YAML-
@@ -182,7 +189,14 @@ jobs:
         if: ${{ inputs.seedGames }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: node scripts/seed-games.mjs
+        # Tørkører, indtil seedGamesSkriv er sat (scripts/lib/seedGames.mjs):
+        # loggen viser pr. spil, om det oprettes, hvilke felter der ændres, og
+        # hvilke admin-ejede felter (status, joinable) der bevares. Et NYT spil
+        # seedes FØR dets kampe (seedKampe) — kampene prises af spillets sport,
+        # og seed-football afviser et spil uden dokument.
+        run: |
+          node scripts/seed-games.mjs \
+            ${{ inputs.seedGamesSkriv && '--skriv' || '' }}
 
       - name: Seed Superliga-kampprogram (valgfrit)
         if: ${{ inputs.seedSuperliga }}
