@@ -75,7 +75,7 @@ function holdNavn(v) {
  *   fejl: kun når ANTALLET passer, men et navn eller fordelingen ikke gør —
  *   det er en tastefejl, ikke «ikke lagt ind endnu».
  */
-function faseKampeKomplette(matches, fase, { hverHoldEnGang = false } = {}) {
+export function faseKampeKomplette(matches, fase, { hverHoldEnGang = false } = {}) {
   const ud = { hold: null, fejl: null };
   if (!fase || !fase.antalKampe) return ud;
   const kampe = (matches || []).filter((m) => {

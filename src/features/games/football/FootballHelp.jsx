@@ -80,7 +80,19 @@ export default function FootballHelp({ game }) {
   // anden fase er der ingen puls at forklare.
   const pulsFase = rundePulje && Array.isArray(game?.faser) && game.faser[1]
     ? (game.faser[1].bestemt || game.faser[1].navn) : null;
-  const pulsOrd = pulsFase ? `${pulsFase.charAt(0).toLowerCase()}${pulsFase.slice(1)}` : null;
+  const smaa = (t) => `${t.charAt(0).toLowerCase()}${t.slice(1)}`;
+  const pulsOrd = pulsFase ? smaa(pulsFase) : null;
+  // De faser, Runde-Botten fortæller om: fra den anden og FØR facit-fasen
+  // (gameRecap.puljeUdeOvergang). «ikke nåede hovedrunden eller en senere
+  // fase» var logisk forkert fra kvartfinalerne (QC på d9puls, Bør 3): et
+  // hold, der røg ud i hovedrunden, NÅEDE hovedrunden.
+  const facitFra = pulsOrd ? game.faser.find((f) => f.navn === pulje.facitFase)?.fra : null;
+  const botFaser = pulsOrd
+    ? game.faser.slice(1).filter((f) => facitFra == null || f.fra < facitFra).map((f) => smaa(f.bestemt || f.navn))
+    : [];
+  const botFaserTekst = botFaser.length > 1
+    ? `først ${botFaser[0]}, siden ${botFaser.slice(1).join(', ')}`
+    : botFaser[0];
   // Elo- og odds-tallene kommer fra SPILLETS sportsprofil, ikke fra de globale
   // konstanter — så guiden siger det, spillets odds faktisk er regnet med.
   const profil = sportProfil(game);
@@ -749,8 +761,8 @@ export default function FootballHelp({ game }) {
           {pulsOrd && (
             <span data-testid="hjaelp-stadig-med">
               {' '}Undervejs står der på fanen, hvor mange af dine {antalOrd(pulje.poolSize)} hold der
-              stadig er med: et hold streges over, når {pulsOrd} er lagt ind uden det — og igen ved hver
-              fase derefter. Det er ikke point; dem giver kun {pulje.labels.top}.
+              stadig er med: et hold står som ude (og streget over i holdtabellen), når {pulsOrd} er lagt
+              ind uden det — og igen ved hver fase derefter. Det er ikke point; dem giver kun {pulje.labels.top}.
             </span>
           )}
         </Section>
@@ -773,8 +785,8 @@ export default function FootballHelp({ game }) {
           hvem ramte — og hvem der aldrig fik svaret.
           {pulsOrd && (
             <span data-testid="hjaelp-bot-puls">
-              {' '}I puljen fortæller den også, når et hold, nogen i ligaen har tippet, ikke nåede {pulsOrd}
-              {' '}eller en senere fase — men kun i ligaer, hvor puljen tæller, og først efter deadline.
+              {' '}I puljen fortæller den også, når et hold, nogen i ligaen har tippet, ikke nåede næste fase
+              {' '}({botFaserTekst}) — men kun i ligaer, hvor puljen tæller, og først efter deadline.
             </span>
           )}
         </p>

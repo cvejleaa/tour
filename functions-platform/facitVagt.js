@@ -157,6 +157,9 @@ async function faseKampeVagt(db, FieldValue, {
     }
     for (const adv of tilstand.advarsler) st.advarsel(adv);
     for (const l of tilstand.linjer) st.ok(l);
+    // Pulsen hænger på DETTE kort, som findes for spillet med og uden synk —
+    // ikke på facit-vagtens, som et synket spil ikke har (QC på d9puls).
+    meldPulsFejl(st, game, kampe);
   } catch (err) {
     console.error(`faseKampeVagt(${game.id}) fejlede (ignoreret):`, err?.message || err);
     st.fejl(`Fase-tjekket fejlede: ${err?.message || err}`);
@@ -166,7 +169,9 @@ async function faseKampeVagt(db, FieldValue, {
 }
 
 /**
- * «STADIG MED»-PULSENS DATAFEJL på kortet (QC på pulsen, Bør 1). Pulsen
+ * «STADIG MED»-PULSENS DATAFEJL på fasekampe-kortet (QC på pulsen, Bør 1;
+ * flyttet fra facit-vagtens kort af QC på d9puls: det kort har et synket
+ * spil ikke, og så var pulsen mørk uden signal, så snart D8 gav synk). Pulsen
  * fejler lukket — et hold i en fase, der ikke var med før, eller en skæv
  * fordeling (en forbytning), og så streges intet over. Men lukket må ikke
  * være tavst: så var linjen bare mørk, og ingen vidste hvorfor. Egen tekst,
@@ -311,7 +316,6 @@ async function facitVagtUdenSynk(db, FieldValue, {
       strandede = liste.length;
       try {
         await puljeVagt(db, FieldValue, { game: g, kampe, nowMs, meld, loes });
-        meldPulsFejl(st, g, kampe);
       } catch (err) {
         console.error(`puljeVagt(${g.id}) fejlede (ignoreret):`, err?.message || err);
         st.fejl(`Pulje-tjekket fejlede: ${err?.message || err}`);

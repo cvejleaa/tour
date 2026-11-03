@@ -664,9 +664,16 @@ describe('guiden forklarer «stadig med» — kun for runde-puljen', () => {
   it('Håndbold-VM: sætningen står med «hovedrunden» fra kalenderen og siger, at det ikke er point', () => {
     vis({ ...GAMES.find((g) => g.id === 'hvm2027'), id: 'hvm2027' });
     expect(screen.getByTestId('hjaelp-stadig-med').textContent.trim().replace(/\s+/g, ' ')).toBe(
-      'Undervejs står der på fanen, hvor mange af dine fire hold der stadig er med: et hold streges over, når hovedrunden er lagt ind uden det — og igen ved hver fase derefter. Det er ikke point; dem giver kun semifinalerne.',
+      'Undervejs står der på fanen, hvor mange af dine fire hold der stadig er med: et hold står som ude (og streget over i holdtabellen), når hovedrunden er lagt ind uden det — og igen ved hver fase derefter. Det er ikke point; dem giver kun semifinalerne.',
     );
-    expect(screen.getByTestId('hjaelp-bot-puls').textContent.replace(/\s+/g, ' ')).toContain('ikke nåede hovedrunden eller en senere fase');
+    // QC på d9puls, Bør 3: overstregningen findes KUN i holdtabellen — guiden
+    // må ikke love, at holdet streges over i spillerens eget tip.
+    expect(screen.getByTestId('hjaelp-stadig-med').textContent).not.toMatch(/et hold streges over/);
+    // Og et hold, der røg ud i hovedrunden, NÅEDE hovedrunden: botten
+    // fortæller om næste fase, fra kalenderen og før facit-fasen.
+    const bot = screen.getByTestId('hjaelp-bot-puls').textContent.replace(/\s+/g, ' ');
+    expect(bot).toContain('ikke nåede næste fase (først hovedrunden, siden kvartfinalerne) — men kun i ligaer');
+    expect(bot).not.toMatch(/eller en senere fase|semifinalerne/);
   });
   // Gaten er runde-puljen, ikke kalenderen: et turneringsspil UDEN pulje har
   // ingen puls at forklare — heller ikke i Runde-Bottens afsnit.

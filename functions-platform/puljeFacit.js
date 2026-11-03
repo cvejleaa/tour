@@ -371,6 +371,6 @@ function rundePuljeTekster(game, konfig, nowMs) {
 
 module.exports = {
   alleKampeSpillet, facitFase, faseHold, rundeFacit, puljeKanAfregnes, puljeKonfigFejl, puljeSeedFejl,
-  puljeFaseFejl, stadigMed, pulsFor, antalOrd,
+  puljeFaseFejl, faseKampeKomplette, stadigMed, pulsFor, antalOrd,
   rundePuljeDato, rundePuljeTekster,
 };

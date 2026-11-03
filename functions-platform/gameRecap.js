@@ -155,7 +155,7 @@ const KALENDER_UDSKIFTNING = [
 // allerede ligger sidst. «Det giver IKKE point» er sandt, fordi feltet kun
 // findes for faser FØR facit-fasen (QC på pulsen, B2).
 const PULJE_UDE_ANKER = '- "naesteRundeNavn": hvad næste spilledag hedder. "naesteRundeStart": datoen for første kamp, når næste dag begynder en ny fase.';
-const PULJE_UDE_FORKLARING = '- "puljeUde" (kan mangle): ligaens pulje-tip om, hvilke hold der når længst. Feltet findes kun, når en ny fase netop er blevet hel, og hold, nogen i ligaen har tippet, ikke er med i den. "fase" er fasen (fx "hovedrunden"): holdene i "spillere[].ude" nåede ikke den — skriv fx "nåede ikke hovedrunden" eller "røg ud inden hovedrunden", aldrig "i dag" og aldrig "lagt ind". "tilbage" er, hvor mange af spillerens "af" hold der stadig er med. Det giver IKKE point — skriv aldrig, at nogen mistede eller fik point af det. Fortæl højst ÉN pulje-historie, valgt i denne rækkefølge: (a) "enegaengere": et udskilt hold, kun ét medlem tippede ("Bo var den eneste, der troede på Norge"); (b) "favoritter": et udskilt hold, flertallet tippede; (c) "alleTilbage" med præcis ét navn: den eneste, der har alle sine hold tilbage. Kun hvis ingen af dem findes, må du nævne én fra "spillere" med 0 tilbage — og så venligt.';
+const PULJE_UDE_FORKLARING = '- "puljeUde" (kan mangle): ligaens pulje-tip om, hvilke hold der når længst. Feltet findes kun, når en ny fase netop er blevet hel, og hold, nogen i ligaen har tippet, ikke er med i den. "fase" er fasen (fx "hovedrunden"): holdene i "spillere[].ude" nåede ikke den — skriv fx "nåede ikke hovedrunden" eller "røg ud inden hovedrunden", aldrig "i dag" og aldrig "lagt ind". "tilbage" er, hvor mange af spillerens "af" hold der stadig er med. Det giver IKKE point — skriv aldrig, at nogen mistede eller fik point af det. Fortæl højst ÉN pulje-historie, valgt i denne rækkefølge: (a) "enegaengere": et udskilt hold, kun ét medlem af ligaen tippede ("Bo var den eneste i ligaen, der troede på Norge"); (b) "favoritter": et udskilt hold, flertallet tippede; (c) "alleTilbage" med præcis ét navn: den eneste, der har alle sine hold tilbage. Kun hvis ingen af dem findes, må du nævne én fra "spillere" med 0 tilbage — og så venligt.';
 
 // Ankeret, knockout-forklaringen hægtes på: kampenes linje, som den står
 // EFTER kalender-udskiftningen (knockout findes kun med en kalender).
@@ -399,9 +399,21 @@ function puljeUdeOvergang(game, alleKampe) {
 }
 
 /**
+ * Under så mange komplette tip i ligaen kaldes ingen «enegænger» og intet
+ * «flertal» — blandt to tip er «den eneste» en mønt, ikke en bedrift
+ * (Spilfører på pulsen). SPEJL af ENEGAENGER_MINIMUM i
+ * src/features/games/football/PuljeAfsloering.jsx — paritetstest i
+ * gameRecap.test.js, så væggen og holdtabellen er enige om grænsen.
+ */
+const ENEGAENGER_MINIMUM = 3;
+
+/**
  * Pulje-fakta for ÉN liga — eller null (så får fakta ingen ny nøgle). Ren.
  * Kun ligaens egne medlemmer med et KOMPLET tip (puljeTipKomplet) tæller;
- * navnene renses (sanitizeName). Holdene står i tippets rækkefølge.
+ * navnene renses (sanitizeName). Holdene står i tippets rækkefølge, og hvert
+ * hold tæller ÉN gang pr. tip (Security på pulsen: ['Norge' × 4] gjorde
+ * ellers én spiller til «hele ligaen troede på Norge» — samme regel som
+ * puljeScore).
  * @param {Array<{uid:string, name:string}>} medlemmer
  * @param {Map<string, object>} tipAf  uid → pulje-tip
  */
@@ -410,25 +422,27 @@ function puljeUdeFakta({ overgang, medlemmer, tipAf, konfig }) {
   const { foer, efter } = overgang;
   const med = medlemmer
     .map((p) => ({ p, bet: tipAf.get(p.uid) }))
-    .filter(({ bet }) => puljeTipKomplet(bet, konfig));
+    .filter(({ bet }) => puljeTipKomplet(bet, konfig))
+    .map(({ p, bet }) => ({ p, valgte: [...new Set(bet.championship)] }));
   if (!med.length) return null;
   const spillere = [];
   const tippet = new Map(); // udskilt hold → navne
-  for (const { p, bet } of med) {
-    const f = pulsFor(bet.championship, foer);
-    const e = pulsFor(bet.championship, efter);
-    const ude = bet.championship.filter((h) => foer.hold.has(h) && !efter.hold.has(h));
+  for (const { p, valgte } of med) {
+    const f = pulsFor(valgte, foer);
+    const e = pulsFor(valgte, efter);
+    const ude = valgte.filter((h) => foer.hold.has(h) && !efter.hold.has(h));
     for (const h of ude) tippet.set(h, [...(tippet.get(h) || []), sanitizeName(p.name)]);
     if (e.med < f.med) spillere.push({ name: sanitizeName(p.name), ude, tilbage: e.med, af: e.af });
   }
   if (!spillere.length) return null;
   const b = efter.fase.bestemt || efter.fase.navn;
+  const nokTip = med.length >= ENEGAENGER_MINIMUM;
   return {
     fase: `${b.charAt(0).toLowerCase()}${b.slice(1)}`,
     spillere,
-    enegaengere: [...tippet].filter(([, navne]) => navne.length === 1).map(([hold, navne]) => ({ hold, name: navne[0] })),
-    favoritter: [...tippet].filter(([, navne]) => navne.length * 2 > med.length).map(([hold, navne]) => ({ hold, tippetAf: navne.length, af: med.length })),
-    alleTilbage: med.filter(({ bet }) => pulsFor(bet.championship, efter).ude.length === 0).map(({ p }) => sanitizeName(p.name)),
+    enegaengere: nokTip ? [...tippet].filter(([, navne]) => navne.length === 1).map(([hold, navne]) => ({ hold, name: navne[0] })) : [],
+    favoritter: nokTip ? [...tippet].filter(([, navne]) => navne.length * 2 > med.length).map(([hold, navne]) => ({ hold, tippetAf: navne.length, af: med.length })) : [],
+    alleTilbage: med.filter(({ valgte }) => pulsFor(valgte, efter).ude.length === 0).map(({ p }) => sanitizeName(p.name)),
   };
 }
 
@@ -720,5 +734,5 @@ async function runGameRoundRecap(db, FieldValue, anthropic, gameId, roundNo = nu
 module.exports = {
   RECAP_SYSTEM, sanitizeName, isSurprise, buildRoundRecapFacts, generateRecapText, runGameRoundRecap,
   recapSystem, kalenderFakta, KALENDER_UDSKIFTNING, KNOCKOUT_ANKER,
-  PULJE_UDE_ANKER, PULJE_UDE_FORKLARING, puljeUdeOvergang, puljeUdeFakta,
+  PULJE_UDE_ANKER, PULJE_UDE_FORKLARING, puljeUdeOvergang, puljeUdeFakta, ENEGAENGER_MINIMUM,
 };

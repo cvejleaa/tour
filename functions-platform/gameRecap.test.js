@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createRequire } from 'module';
 import { createHash } from 'crypto';
+import { readFileSync } from 'fs';
 import { HAANDBOLD_SPIL, TEST_FASER, kl18 } from '../src/test/faseKalender.js';
 import {
   HVM27, INDLEDENDE, HOVED, KVART as KVART27, SEMI as SEMI27,
@@ -9,7 +10,7 @@ import {
 const require = createRequire(import.meta.url);
 const {
   sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap, RECAP_SYSTEM,
-  recapSystem, KALENDER_UDSKIFTNING, KNOCKOUT_ANKER, PULJE_UDE_FORKLARING,
+  recapSystem, KALENDER_UDSKIFTNING, KNOCKOUT_ANKER, PULJE_UDE_FORKLARING, ENEGAENGER_MINIMUM,
 } = require('./gameRecap');
 // Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
 const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
@@ -1137,8 +1138,9 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     expect(JSON.stringify(l1.puljeUde)).not.toMatch(/Carla|Dan/);
     expect(JSON.stringify(l2.puljeUde)).not.toMatch(/Anna|Bo/);
     expect(l2.puljeUde.spillere).toEqual([{ name: 'Carla', ude: ['Uruguay'], tilbage: 3, af: 4 }]);
-    // I L2 har kun Carla et komplet tip — så er hendes eneste udskilte hold en
-    // enegænger, og ingen har alle tilbage.
+    // I L2 har kun Carla et komplet tip — så er hun ikke «den eneste, der
+    // troede på Uruguay» (under ENEGAENGER_MINIMUM), og ingen har alle tilbage.
+    expect(l2.puljeUde.enegaengere).toEqual([]);
     expect(l2.puljeUde.alleTilbage).toEqual([]);
   });
 
@@ -1210,8 +1212,54 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     expect(pu.enegaengere).toEqual([{ hold: 'Kuwait', name: 'Bo' }]);
   });
 
+  // Spilfører på d9puls (Bør 1): blandt to tip er «den eneste» en mønt — og
+  // «flertallet» af to er begge. Samme grænse som holdtabellen.
+  it('under ENEGAENGER_MINIMUM komplette tip: ingen enegængere og ingen favoritter — spillerne står', async () => {
+    const { kald, anth } = optag();
+    const db = makeDb(fix({ leagues: [{ name: 'To', memberUids: ['B', 'C'] }] }));
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 7, { nowMs: NU });
+    const pu = JSON.parse(kald[0].messages[0].content).puljeUde;
+    expect(pu.enegaengere).toEqual([]);
+    expect(pu.favoritter).toEqual([]);
+    expect(pu.spillere.map((x) => x.name)).toEqual(['Bo', 'Carla']);
+    // Grænsen er 3 — det første eksempel (Anna, Bo og Carla) HAR enegængere.
+    expect(ENEGAENGER_MINIMUM).toBe(3);
+  });
+
+  it('ENEGAENGER_MINIMUM er holdtabellens (PuljeAfsloering.jsx) — væggen og fanen er enige', () => {
+    const jsx = readFileSync(new URL('../src/features/games/football/PuljeAfsloering.jsx', import.meta.url), 'utf8');
+    const m = jsx.match(/^export const ENEGAENGER_MINIMUM = (\d+);$/m);
+    expect(m).not.toBeNull();
+    expect(Number(m[1])).toBe(ENEGAENGER_MINIMUM);
+  });
+
+  // Security på d9puls (Bør 2): et tip med samme hold fire gange (reglen
+  // tjekker kun længden) gjorde én spiller til «hele ligaen troede på det».
+  // Hvert hold tæller én gang pr. tip — som puljeScore.
+  it('et hold tæller ÉN gang pr. tip — dubletter kan ikke forfalske «favoritter»', async () => {
+    const { kald, anth } = optag();
+    const fx = fix({ leagues: [{ name: 'Kontoret', memberUids: ['A', 'M', 'X'] }] });
+    fx.users.M = { displayName: 'Mallory' };
+    fx.users.X = { displayName: 'Xenia' };
+    fx.players.M = { totalPoints: 0 };
+    fx.players.X = { totalPoints: 0 };
+    fx.puljeBets = {
+      A: PULJE_TIP.A,
+      M: { championship: ['Uruguay', 'Uruguay', 'Uruguay', 'Uruguay'] },
+      X: { championship: ['Danmark', 'Norge', 'Sverige', 'Tyskland'] },
+    };
+    await runGameRoundRecap(makeDb(fx), FieldValue, anth, 'g1', 7, { nowMs: NU });
+    const pu = JSON.parse(kald[0].messages[0].content).puljeUde;
+    expect(pu.favoritter).toEqual([]);
+    expect(pu.enegaengere).toEqual([{ hold: 'Uruguay', name: 'Mallory' }]);
+    expect(pu.spillere).toEqual([{ name: 'Mallory', ude: ['Uruguay'], tilbage: 0, af: 1 }]);
+    expect(JSON.stringify(pu)).not.toMatch(/tippetAf":4/);
+  });
+
   it('prompten: forklaringen står PRÆCIS én gang for runde-puljen — og ikke for håndbold uden pulje', () => {
     const sys = recapSystem(HVM27);
+    // Enegængeren er den eneste I LIGAEN — holdtabellen regner på hele spillet.
+    expect(PULJE_UDE_FORKLARING).toContain('kun ét medlem af ligaen tippede ("Bo var den eneste i ligaen, der troede på Norge")');
     expect(sys.split(PULJE_UDE_FORKLARING)).toHaveLength(2);
     expect(PULJE_UDE_FORKLARING).toContain('Det giver IKKE point');
     expect(PULJE_UDE_FORKLARING).toContain('aldrig "i dag" og aldrig "lagt ind"');

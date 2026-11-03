@@ -298,6 +298,33 @@ const KV = [
 ];
 const NU_KO = dk('2027-01-27', '23:30');
 
+/**
+ * En hel hovedrunde: 24 hold i fire grupper à seks, hvert hold tre kampe
+ * (gruppens tre første mod dens tre sidste, én modstander pr. spillerunde) —
+ * 36 kampe over dag 8-13, seks pr. dag og hvert hold højst én gang pr. dag.
+ * Kvartfinalernes otte hold er med.
+ */
+const HR_GRUPPER = [
+  ['Tyskland', 'Danmark', 'Frankrig', 'Serbien', 'Norge', 'Sverige'],
+  ['Spanien', 'Kroatien', 'Egypten', 'Island', 'Portugal', 'Slovenien'],
+  ['Polen', 'Brasilien', 'Argentina', 'Tunesien', 'Italien', 'Færøerne'],
+  ['Qatar', 'Japan', 'Chile', 'Tyrkiet', 'Kap Verde', 'Grækenland'],
+];
+function hovedrunde({ facit = true } = {}) {
+  const par = [];
+  for (let r = 0; r < 3; r += 1) {
+    for (const g of HR_GRUPPER) for (let j = 0; j < 3; j += 1) par.push([g[j], g[3 + ((j + r) % 3)]]);
+  }
+  return par.map(([home, away], i) => {
+    const round = 8 + Math.floor(i / 6);
+    const dato = `2027-01-${20 + Math.floor(i / 6)}`;
+    return {
+      id: `hr-${i}`, round, home, away, kickoff: dk(dato, ['14:00', '15:30', '17:00', '18:00', '19:30', '20:30'][i % 6]),
+      ...(facit ? { result: '1', homeGoals: 30, awayGoals: 25 } : {}),
+    };
+  });
+}
+
 describe('V9 — knockout: semifinalerne kan kun bestå af kvartfinalernes vindere', () => {
   const g = spil();
   it('vindere mod vindere: godkendt, og puljen afgøres, når begge semifinaler er der (B3)', () => {
@@ -338,6 +365,56 @@ describe('V9 — knockout: semifinalerne kan kun bestå af kvartfinalernes vinde
     expect(p.fejl).toEqual([]);
     expect(planFaseKampe(g, [...KV, ...sf], [k('2027-01-31', '17:30', 'Danmark', 'Spanien')], dk('2027-01-30', '12:00')).fejl[0].tekst)
       .toBe('Danmark–Spanien parrer en vinder med en taber fra semifinalerne');
+  });
+});
+
+// QC på d9puls, Bør 1: create-only gør en tastefejl permanent — derfor afvises
+// de to former, der ellers først blev en advarsel bagefter.
+describe('V3/V8 — tastefejl, der ikke kan slettes, afvises før oprettelsen', () => {
+  const g = spil();
+  const foerKV = [...indledende({ facit: true }), ...hovedrunde()];
+  const NU_HR_SLUT = dk('2027-01-25', '23:30');
+
+  it('V3 i knockout: et hold højst én gang i HELE fasen — kvartfinalerne har to dage', () => {
+    // QC's eget forsøg: Danmark 26/1 og igen 27/1 i samme kald.
+    const toDage = planFaseKampe(g, foerKV, [k('2027-01-26', '18:00', 'Danmark', 'Frankrig'), k('2027-01-27', '18:00', 'Danmark', 'Spanien')], NU_HR_SLUT);
+    expect(toDage.fejl).toEqual([{ linje: 2, tekst: 'Danmark spiller allerede i kvartfinalerne (Danmark–Frankrig, Kvartfinaler · dag 1) — et hold spiller højst én kamp i en knockout-fase' }]);
+    expect(toDage.nye.map((n) => n.id)).toEqual(['r14-den-fra']);
+    // Og mod en kamp, der allerede findes, på den anden dag.
+    const findes = [...foerKV, { id: 'r14-den-nor', round: 14, home: 'Danmark', away: 'Norge', kickoff: dk('2027-01-26', '20:30') }];
+    expect(planFaseKampe(g, findes, [k('2027-01-27', '18:00', 'Spanien', 'Danmark')], NU_HR_SLUT).fejl[0].tekst)
+      .toBe('Danmark spiller allerede i kvartfinalerne (Danmark–Norge, Kvartfinaler · dag 1) — et hold spiller højst én kamp i en knockout-fase');
+    // Kontrol: to andre hold på dag 2 er fine.
+    expect(planFaseKampe(g, findes, [k('2027-01-27', '18:00', 'Spanien', 'Kroatien')], NU_HR_SLUT).fejl).toEqual([]);
+    // Og den anden vej: dag 2 lagt ind FØR dag 1 — grænsen er fasens sidste dag.
+    const dag2Foerst = [...foerKV, { id: 'r15-den-esp', round: 15, home: 'Danmark', away: 'Spanien', kickoff: dk('2027-01-27', '18:00') }];
+    expect(planFaseKampe(g, dag2Foerst, [k('2027-01-26', '18:00', 'Frankrig', 'Danmark')], NU_HR_SLUT).fejl[0].tekst)
+      .toBe('Danmark spiller allerede i kvartfinalerne (Danmark–Spanien, Kvartfinaler · dag 2) — et hold spiller højst én kamp i en knockout-fase');
+  });
+
+  it('V3 uden for knockout er stadig pr. dag — samme hold på to hovedrundedage er fint', () => {
+    const p = planFaseKampe(g, indledende(), [k('2027-01-20', '18:00', 'Danmark', 'Norge'), k('2027-01-21', '18:00', 'Danmark', 'Sverige')], NU);
+    expect(p.fejl).toEqual([]);
+  });
+
+  it('V8: bliver fasen HEL med en skæv fordeling (forbytning), afvises den — samme regel som pulsen', () => {
+    const hr = hovedrunde({ facit: false });
+    const sidste = hr[hr.length - 1];
+    const uden = [...indledende({ facit: true }), ...hr.slice(0, -1)];
+    const nu = dk('2027-01-19', '23:00');
+    const dato = '2027-01-25';
+    // Rigtig: den manglende kamp → hel og lige (3/3).
+    expect(planFaseKampe(g, uden, [k(dato, '21:00', sidste.home, sidste.away)], nu).fejl).toEqual([]);
+    // Forbyttet: Danmark (spiller ikke dag 13) i stedet for udeholdet — Danmark
+    // får 4 kampe, udeholdet 2. Antallet passer (36), fordelingen ikke.
+    expect(hr.filter((m) => m.round === 13).some((m) => m.home === 'Danmark' || m.away === 'Danmark')).toBe(false);
+    const skaev = planFaseKampe(g, uden, [k(dato, '21:00', sidste.home, 'Danmark')], nu);
+    expect(skaev.fejl).toEqual([{
+      linje: 0,
+      tekst: `«Hovedrunde» har 36 kampe, men holdene står ikke lige mange gange (Danmark 4, ${sidste.away} 2 — forventet 3). Ret tastningen — en oprettet kamp kan ikke slettes i appen.`,
+    }]);
+    // Ikke hel endnu (34 + 1): ingen fordelingsfejl — den kommer, når fasen bliver hel.
+    expect(planFaseKampe(g, [...indledende({ facit: true }), ...hr.slice(0, -2)], [k(dato, '21:00', sidste.home, 'Danmark')], nu).fejl).toEqual([]);
   });
 });
 
@@ -544,6 +621,19 @@ describe('retKickoffCore — ret en tastefejl i kickoff (QC B1)', () => {
     expect(db._opdateringer[0].data.kickoff.__ts).toBe(dk('2027-01-20', '18:00'));
     expect(db._opdateringer[0].opts).toEqual({ lastUpdateTime: 't-r8-den-nor' });
   });
+  // Security på d9puls, Bør 1: aftrykket binder den NYE tid. Før kunne et
+  // skrive-kald med tør-kørslens aftryk sende en anden tid end den viste.
+  it('skrive-kaldet skal sende SAMME tid som tør-kørslen — en anden tid med samme aftryk afvises', async () => {
+    const db = makeDb(spil(), [kamp]);
+    const toer = await kald(db, { tid: '19:00' });
+    await expect(kald(db, { tid: '23:45', dryRun: false, aftryk: toer.aftryk }))
+      .rejects.toMatchObject({ kode: 'failed-precondition', message: expect.stringMatching(/ændret siden tør-kørslen/) });
+    expect(db._opdateringer).toEqual([]);
+    // To tider giver to aftryk — og den viste tid kan skrives.
+    expect((await kald(db, { tid: '23:45' })).aftryk).not.toBe(toer.aftryk);
+    await kald(db, { tid: '19:00', dryRun: false, aftryk: toer.aftryk });
+    expect(db._opdateringer[0].data.kickoff.__ts).toBe(dk('2027-01-20', '19:00'));
+  });
   it('en kamp med facit, eller en kamp, der er gået i gang, kan ikke få kickoff rettet', async () => {
     await expect(kald(makeDb(spil(), [{ ...kamp, result: '1', homeGoals: 30, awayGoals: 28 }])))
       .rejects.toMatchObject({ kode: 'failed-precondition', message: expect.stringMatching(/har facit/) });
@@ -572,18 +662,19 @@ describe('retKickoffCore — ret en tastefejl i kickoff (QC B1)', () => {
 describe('faseVagtTilstand — alarm kl. 12 dagen før, kun mens dagen kan få kampe', () => {
   const g = spil();
   const kl12DagenFoer = dk('2027-01-19', '12:00');
+  const afgjort = indledende({ facit: true });
   it('grænsen: 11:59 dagen før er intet, 12:00 er en alarm pr. dag (id r8)', () => {
-    expect(faseVagtTilstand(g, indledende(), kl12DagenFoer - 60_000).alarmer).toEqual([]);
-    const t = faseVagtTilstand(g, indledende(), kl12DagenFoer);
+    expect(faseVagtTilstand(g, afgjort, kl12DagenFoer - 60_000).alarmer).toEqual([]);
+    const t = faseVagtTilstand(g, afgjort, kl12DagenFoer);
     expect(t.alarmer).toHaveLength(1);
     expect(t.alarmer[0].kampId).toBe('r8');
     expect(t.alarmer[0].besked).toBe('«Håndbold-VM 2027» · Hovedrunde · dag 1 (ons 20/1): 0 af 6 kampe er lagt ind. Læg resten ind før dagens første kamp: Admin → 🗓️ Spil-tidsplan → 📥 Læg næste fases kampe ind (tør-kørsel først). Uden kampene kan dagen ikke tippes.');
   });
   // B2: en HALV dag (3 af 6) er også en alarm — ikke kun en tom dag.
   it('en halv dag (3 af 6) giver alarm; en hel dag giver ingen', () => {
-    const tre = [...indledende(), ...['a', 'b', 'c'].map((x, i) => ({ id: `r8-${x}`, round: 8, home: `H${i}`, away: `U${i}`, kickoff: dk('2027-01-20', '20:30') }))];
+    const tre = [...afgjort, ...['a', 'b', 'c'].map((x, i) => ({ id: `r8-${x}`, round: 8, home: `H${i}`, away: `U${i}`, kickoff: dk('2027-01-20', '20:30') }))];
     expect(faseVagtTilstand(g, tre, kl12DagenFoer).alarmer[0].besked).toMatch(/3 af 6 kampe/);
-    const seks = [...indledende(), ...[0, 1, 2, 3, 4, 5].map((i) => ({ id: `r8-${i}`, round: 8, home: `H${i}`, away: `U${i}`, kickoff: dk('2027-01-20', '20:30') }))];
+    const seks = [...afgjort, ...[0, 1, 2, 3, 4, 5].map((i) => ({ id: `r8-${i}`, round: 8, home: `H${i}`, away: `U${i}`, kickoff: dk('2027-01-20', '20:30') }))];
     expect(faseVagtTilstand(g, seks, kl12DagenFoer).alarmer).toEqual([]);
   });
   // B2: når dagen ikke længere kan få kampe, er det en advarsel — ikke en
@@ -597,8 +688,48 @@ describe('faseVagtTilstand — alarm kl. 12 dagen før, kun mens dagen kan få k
   it('kortets linjer: fasens status og hvornår næste alarm går', () => {
     const t = faseVagtTilstand(g, indledende(), NU);
     expect(t.linjer).toContain('Hovedrunde: 0 af 36 kampe er lagt ind.');
-    expect(t.linjer).toContain('Næste dag uden alle kampe: Hovedrunde · dag 1 (ons 20/1) — alarmen går fra tir 19/1 kl. 12.00, hvis kampene ikke er lagt ind.');
+    expect(t.linjer).toContain('Næste dag uden alle kampe: Hovedrunde · dag 1 (ons 20/1) — alarmen går fra tir 19/1 kl. 12.00, hvis kampene ikke er lagt ind — dog tidligst, når den indledende runde er afgjort.');
     expect(t.udtoemt).toBe(false);
+    // Er den indledende runde afgjort, er der intet at vente på.
+    expect(faseVagtTilstand(g, afgjort, NU).linjer)
+      .toContain('Næste dag uden alle kampe: Hovedrunde · dag 1 (ons 20/1) — alarmen går fra tir 19/1 kl. 12.00, hvis kampene ikke er lagt ind.');
+  });
+
+  // QC på d9puls, Bør 2: kl. 12 dagen før lå FØR løsningen var mulig for en
+  // fases første dag — den indledende runds sidste kamp starter 19/1 kl. 20.30,
+  // og alarmen gik kl. 13.25. Alarmen må kun stå, mens løsningen er mulig.
+  it('en fases FØRSTE dag alarmerer først, når fasen før er afgjort — så står det som en linje', () => {
+    // Situationen 19/1 kl. 13.25: dag 7's kampe er ikke spillet.
+    const dag7Uafgjort = afgjort.map((m) => (m.round === 7 ? { ...m, result: null, homeGoals: null, awayGoals: null } : m));
+    const antal7 = afgjort.filter((m) => m.round === 7).length;
+    const kl1325 = dk('2027-01-19', '13:25');
+    const venter = faseVagtTilstand(g, dag7Uafgjort, kl1325);
+    expect(venter.alarmer).toEqual([]);
+    expect(venter.linjer).toContain(`Hovedrunde · dag 1 (ons 20/1) mangler kampe, men den indledende runde mangler facit i ${antal7} kampe — holdene kendes ikke endnu. Alarmen går, så snart den indledende runde er afgjort.`);
+    // Én kamp tilbage: ental.
+    const enTilbage = afgjort.map((m, i) => (i === afgjort.length - 1 ? { ...m, result: null, homeGoals: null, awayGoals: null } : m));
+    expect(faseVagtTilstand(g, enTilbage, kl1325).linjer.join('\n')).toMatch(/mangler facit i 1 kamp —/);
+    // Facit sat (19/1 kl. 22.25): alarmen går ved næste sweep.
+    expect(faseVagtTilstand(g, afgjort, dk('2027-01-19', '22:25')).alarmer.map((a) => a.kampId)).toEqual(['r8']);
+    // Kun fasens FØRSTE dag venter: dag 2 (r9) alarmerer kl. 12 dagen før, også
+    // uden facit i den indledende runde.
+    const t9 = faseVagtTilstand(g, dag7Uafgjort, dk('2027-01-20', '12:00'));
+    expect(t9.alarmer.map((a) => a.kampId)).toContain('r9');
+    expect(t9.alarmer.map((a) => a.kampId)).not.toContain('r8');
+  });
+
+  it('knockout: semifinalerne alarmerer først, når hver kvartfinale har en VINDER (uafgjort uden slut venter)', () => {
+    const foer = [...afgjort, ...hovedrunde()];
+    const kl12 = dk('2027-01-28', '12:00');
+    expect(faseVagtTilstand(g, [...foer, ...KV], kl12).alarmer.map((a) => a.kampId)).toEqual(['r16']);
+    const udenSlut = KV.map((m) => (m.id === 'r14-den-nor' ? { ...m, slut: undefined } : m));
+    const t = faseVagtTilstand(g, [...foer, ...udenSlut], kl12);
+    expect(t.alarmer).toEqual([]);
+    expect(t.linjer.join('\n')).toMatch(/Semifinaler \(fre 29\/1\) mangler kampe, men kvartfinalerne mangler facit i 1 kamp/);
+    // Kvartfinalernes første dag venter på hovedrunden (25/1 kl. 12: dag 13 er ikke spillet).
+    const hrUafgjort = [...afgjort, ...hovedrunde().map((m) => (m.round === 13 ? { ...m, result: null, homeGoals: null, awayGoals: null } : m))];
+    expect(faseVagtTilstand(g, hrUafgjort, dk('2027-01-25', '12:00')).alarmer).toEqual([]);
+    expect(faseVagtTilstand(g, [...afgjort, ...hovedrunde()], dk('2027-01-25', '12:00')).alarmer.map((a) => a.kampId)).toEqual(['r14']);
   });
   it('udtømt, når kalenderens sidste dag er forbi', () => {
     expect(faseVagtTilstand(g, indledende(), dk('2027-02-01', '01:00')).udtoemt).toBe(true);
@@ -608,6 +739,9 @@ describe('faseVagtTilstand — alarm kl. 12 dagen før, kun mens dagen kan få k
     const t = faseVagtTilstand(g, indledende(), dk('2027-01-12', '13:00'));
     expect(t.alarmer).toEqual([]);
     expect(faseStatus(g, indledende(), dk('2027-01-12', '13:00')).faser[0]).toEqual({ navn: 'Indledende runde', har: 48, antalKampe: 48 });
+    // Turneringens FØRSTE dag har ingen fase før at vente på: mangler dag 1's
+    // kampe, alarmerer den kl. 12 dagen før.
+    expect(faseVagtTilstand(g, indledende().filter((m) => m.round !== 1), dk('2027-01-12', '12:00')).alarmer.map((a) => a.kampId)).toEqual(['r1']);
     // Mangler dag 7's fire kampe, er det en alarm for dag 7.
     const uden7 = indledende().filter((m) => m.round !== 7);
     expect(faseVagtTilstand(g, uden7, dk('2027-01-18', '12:00')).alarmer.map((a) => a.kampId)).toEqual(['r7']);
@@ -616,5 +750,43 @@ describe('faseVagtTilstand — alarm kl. 12 dagen før, kun mens dagen kan få k
     const t7 = faseVagtTilstand(g, en7, dk('2027-01-18', '12:00'));
     expect(t7.alarmer.map((a) => a.kampId)).toEqual(['r7']);
     expect(t7.alarmer[0].besked).toMatch(/1 af 4 kampe/);
+  });
+});
+
+// Test Manager på d9puls (blokerende): kernen var dækket, ledningen ikke —
+// requireAdmin og tør-kørsel som standard kunne fjernes med grøn suite.
+// index.js kan ikke importeres uden firebase-functions, så ledningen
+// bevogtes som tekst (mønstret fra manuelFacit.test.js og gameScoring.test.js).
+describe('index.js: ledningen til de to callables', () => {
+  const kilde = readFileSync(new URL('./index.js', import.meta.url), 'utf8')
+    .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  const krop = (navn) => (kilde.split(`exports.${navn} = `)[1] || '').split('\nexports.')[0];
+
+  for (const [navn, kerne] of [['opretFaseKampe', 'opretFaseKampeCore'], ['retFaseKampKickoff', 'retKickoffCore']]) {
+    it(`${navn}: 120 s, requireAdmin FØR ${kerne}, dryRunFraKald videresendt, aftryk, tidspunkt og fejl-oversættelsen`, () => {
+      const k = krop(navn);
+      expect(k.length).toBeGreaterThan(200);
+      // Samme timeout som klienten (adminActions: 120000 ms, QC B11).
+      expect(k).toMatch(/^onCall\(\{ region: REGION, timeoutSeconds: 120 \}, async \(request\) => \{/);
+      const admin = k.indexOf('await requireAdmin(db, request);');
+      expect(admin).toBeGreaterThan(-1);
+      // FØR kernen — ellers kunne en ikke-admin få en tør-kørsel (planen).
+      expect(k.indexOf(`await ${kerne}(db, FieldValue, {`)).toBeGreaterThan(admin);
+      expect(k.match(new RegExp(`${kerne}\\(`, 'g'))).toHaveLength(1);
+      expect(k).toMatch(/const dryRun = dryRunFraKald\(d\);/);
+      // Ingen egen kopi af reglen ved siden af husets.
+      expect(k).not.toMatch(/!==\s*false|===\s*true|dryRun\s*\|\||dryRun = (true|false)|dryRun: (true|false)/);
+      expect(k).toMatch(new RegExp(`await ${kerne}\\(db, FieldValue, \\{[\\s\\S]*?\\n\\s+dryRun,\\n[\\s\\S]*?\\}\\);`));
+      expect(k).toMatch(/aftryk: d\.aftryk \?\? null,/);
+      expect(k).toMatch(/tilTimestamp: \(ms\) => Timestamp\.fromMillis\(ms\),/);
+      expect(k).toMatch(/\} catch \(err\) \{\n\s+throw facitHttpsFejl\(err, HttpsError\);/);
+    });
+  }
+
+  it('klienten kalder med samme timeout (120000 ms) — serveren og klienten er enige', () => {
+    const klient = readFileSync(new URL('../src/features/admin/adminActions.js', import.meta.url), 'utf8');
+    for (const navn of ['opretFaseKampe', 'retFaseKampKickoff']) {
+      expect(klient).toContain(`httpsCallable(functions, '${navn}', { timeout: 120000 })`);
+    }
   });
 });

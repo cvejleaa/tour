@@ -409,7 +409,10 @@ kampe efter kl. 12 dagen før (kampe pr. dag er fasens `antalKampe` delt med
 dens dage — 6 i hovedrunden, 2 i kvartfinalerne; i den indledende runde, hvor
 det ikke går op, mindst én og resten på sidste dag), og kan dagen stadig få
 dem, melder alarmen **«Kampe mangler i næste fase»** (type `faseKampe`, hast
-**haster**, én pr. dag) med remediet **📥 Læg næste fases kampe ind**. Er
+**haster**, én pr. dag) med remediet **📥 Læg næste fases kampe ind**. En
+fases første dag alarmerer først, når fasen før har facit på alle sine kampe
+(ved knockout: en vinder) — før det kendes holdene ikke, og kortet siger, at
+det venter. Mangler et facit længe, melder facit-vagten det selv. Er
 dagen gået i gang med for få kampe, er det en advarsel på kortet, ikke en
 alarm. Kortet lukkes, når kalenderens sidste dag er forbi, eller når spillet
 afsluttes.

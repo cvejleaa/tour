@@ -117,7 +117,7 @@ Liga-admin følger med at have oprettet ligaen.
   kvartfinaler). Det er ikke point. Runde-Botten fortæller det i det første
   dagsopslag, efter fasen er blevet hel. Står der et hold i en fase, som ikke
   var med i fasen før, eller står holdene ikke lige mange gange (en
-  forbytning), slukker linjen, og facit-vagtens Drift-kort siger hvorfor.
+  forbytning), slukker linjen, og Drift-kortet «Fasekampe-vagt» siger hvorfor.
 - **🏁 Status** er spillets livscyklus og et bevidst valg — den følger *ikke*
   automatisk starttidspunktet eller sidste kamp:
 
@@ -432,10 +432,18 @@ Runde-Bottens fortælling om udskilte pulje-hold tænder først, når hele fasen
 
 **Glemmer du en dag**, melder Drift-alarmen **«Kampe mangler i næste fase»**
 (hast: haster) sig fra kl. 12 dagen før — i praksis ved Times-sweep'et kl.
-13:25 — én alarm pr. dag, med næste skridt. Den står kun, mens dagen stadig
-kan få kampe; er dagen gået i gang med for få kampe, bliver den en advarsel
-på Drift-kortet **«Fasekampe-vagt»** (en aflyst kamp er i orden). Kortet
-viser også, hvornår næste alarm går.
+13:25 — én alarm pr. dag, med næste skridt. En fases **første** dag (hovedrunden
+20/1, kvartfinalerne 26/1, …) alarmerer dog først, når fasen før har facit
+på alle sine kampe: før det kendes holdene ikke, og så står det som en linje
+på kortet i stedet. Alarmen står kun, mens dagen stadig kan få kampe; er
+dagen gået i gang med for få kampe, bliver den en advarsel på Drift-kortet
+**«Fasekampe-vagt»** (en aflyst kamp er i orden). Kortet viser også, hvornår
+næste alarm går.
+
+**Tastefejl, der ikke kan slettes, afvises før oprettelsen:** et hold to
+gange i samme knockout-fase (også på hver sin dag), og en fase, der bliver
+hel med en skæv fordeling (fx et hold fire gange og et andet to i
+hovedrunden).
 
 ### Halvleg, målscorere og tilskuertal
 

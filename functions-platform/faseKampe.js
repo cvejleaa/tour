@@ -21,7 +21,9 @@
 //   V2  holdet findes i game.teams med en elo, der er et tal, og en entydig
 //       hbKode. Navnet SKRIVES fra holdlisten — aldrig en stille 1500.
 //   V3  hjemme ≠ ude, og et hold højst én gang pr. dag (også mod kampe, der
-//       allerede findes).
+//       allerede findes) — i en KNOCKOUT-fase højst én gang i hele fasen
+//       (QC på D9, Bør 1: kvartfinalerne har to dage, og Danmark på begge
+//       kunne ellers oprettes og aldrig slettes i appen).
 //   V4  dagen (runden) udledes af den danske dato: fase.start + dage. Det
 //       forudsætter, at en fases dage ligger i træk — bundet af en test mod
 //       Wikipedias program.
@@ -31,7 +33,11 @@
 //       En eksisterende kamp overskrives aldrig.
 //   V7  en dag er åben for nye kampe, indtil dens første kamp går i gang
 //       (ejerens valg 3/11) — så kan Runde-Botten aldrig poste en halv dag.
-//   V8  en fase får højst `antalKampe` kampe.
+//   V8  en fase får højst `antalKampe` kampe — og bliver fasen HEL ved
+//       oprettelsen, skal fordelingen passe (puljeFacit.faseKampeKomplette,
+//       samme regel som pulsen læser med — QC på D9, Bør 1): en forbytning
+//       i hovedrunden (4/2 i stedet for 3/3) afvises, før den skrives, i
+//       stedet for at blive en advarsel bagefter, som intet kan rette.
 //   V9  hvert hold HAR EN KAMP i fasen før (QC B8 — ikke «har facit», så
 //       hovedrunden kan tørkøres før den indledende runde er spillet). Er
 //       fasen før knockout (data, ikke navnet), skal alle dens kampe have en
@@ -78,6 +84,7 @@ const {
 } = require('./gameScoring');
 const { kickoffMs: kampKickoffMs, matchOutcome } = require('./pointOpdeling');
 const { kampAftryk, stabil } = require('./manuelFacit');
+const { faseKampeKomplette } = require('./puljeFacit');
 
 /** Højst så mange kampe pr. kald — en fase er højst 36, og batchen tager 500. */
 const MAKS_KAMPE = 48;
@@ -237,10 +244,33 @@ function dageStatus(game, matches, nowMs) {
         forventet,
         aaben: dagAaben(dato, kampe, nowMs),
         alarmFraMs: kbhTilMs(plusDage(dato, -1), '12:00'),
+        venterPaa: r === fase.fra ? forrigeFaseVenter(game, fase, pr) : null,
       });
     }
   }
   return ud;
+}
+
+/**
+ * Kan en fases FØRSTE dag overhovedet lægges ind endnu? Ikke før fasen før er
+ * afgjort — så kendes holdene ikke (QC på D9, Bør 2: hovedrundens dag 1
+ * alarmerede 19/1 kl. 13.25, mens den indledende runds sidste kamp først
+ * starter 20.30; kvartfinalerne ligeså). Alarmen må kun stå, mens løsningen
+ * er mulig — også i startenden. Afgjort = hver kamp i fasen før har facit, og
+ * ved knockout en vinder (som V9 kræver). En fase før uden kampe venter vi
+ * ikke på: den har sin egen alarm. Mangler et facit længe, melder facit-vagten
+ * det selv («uden facit længe efter kickoff») — så venter denne ikke tavst.
+ * @returns {{fase:string, uden:number}|null} fasen før (bestemt, lille begyndelsesbogstav)
+ *   og antallet af kampe uden facit — eller null, når intet ventes på
+ */
+function forrigeFaseVenter(game, fase, pr) {
+  const foer = forrigeFase(game, fase);
+  if (!foer) return null;
+  const kampe = [];
+  for (let r = foer.fra; r <= foer.til; r += 1) kampe.push(...(pr.get(r) || []));
+  const uden = kampe.filter((m) => (foer.knockout ? kampVinder(m) == null : !harFacit(m)));
+  if (!uden.length) return null;
+  return { fase: foer.bestemt.toLowerCase(), uden: uden.length };
 }
 
 /** "Hovedrunde · dag 1 (ons 20/1)" — dagen, som ejeren kender den. */
@@ -414,11 +444,16 @@ function planFaseKampe(game, eksisterende, kampe, nowMs) {
     const ude = perNavn.get(k.ude);
     // V3
     if (hjemme.name === ude.name) return f(`${hjemme.name} kan ikke møde sig selv`);
-    const iDagen = [...(pr.get(runde) || []), ...(nyePrRunde.get(runde) || [])];
+    // I knockout er grænsen hele fasen, ellers dagen.
+    const runder = [];
+    for (let r = fase.knockout ? fase.fra : runde; r <= (fase.knockout ? fase.til : runde); r += 1) runder.push(r);
+    const iSamme = runder.flatMap((r) => [...(pr.get(r) || []), ...(nyePrRunde.get(r) || [])]);
     for (const t of [hjemme, ude]) {
-      if (iDagen.some((m) => m.home === t.name || m.away === t.name)) {
-        return f(`${t.name} spiller allerede ${rundeEtiket(game, runde)}`);
-      }
+      const mod = iSamme.find((m) => m.home === t.name || m.away === t.name);
+      if (!mod) continue;
+      return f(fase.knockout
+        ? `${t.name} spiller allerede i ${fase.bestemt.toLowerCase()} (${mod.home}–${mod.away}, ${rundeEtiket(game, mod.round)}) — et hold spiller højst én kamp i en knockout-fase`
+        : `${t.name} spiller allerede ${rundeEtiket(game, runde)}`);
     }
     // V5
     if (kickoff <= nowMs + LAAS_MARGIN_MS) return f(`${visTid(kickoff)} er passeret — en kamp skal kunne tippes, før den går i gang`);
@@ -476,6 +511,9 @@ function planFaseKampe(game, eksisterende, kampe, nowMs) {
     for (let r = fase.fra; r <= fase.til; r += 1) har += (pr.get(r) || []).length;
     if (har + liste.length > fase.antalKampe) {
       fejlListe.push({ linje: 0, tekst: `${navn} har ${har} kampe, og ${liste.length} til giver ${har + liste.length} — kalenderen siger ${fase.antalKampe}` });
+    } else if (har + liste.length === fase.antalKampe) {
+      const { fejl: skaev } = faseKampeKomplette([...alle, ...liste], fase);
+      if (skaev) fejlListe.push({ linje: 0, tekst: `${skaev}. Ret tastningen — en oprettet kamp kan ikke slettes i appen.` });
     }
   }
 
@@ -637,7 +675,7 @@ async function opretFaseKampeCore(db, FieldValue, {
  *     Er den nye tid passeret, lukkes tippet med det samme, og svaret siger,
  *     at tips afgivet efter den rigtige kampstart stadig står.
  * Tør-kørsel er standard; skrivningen kræver tør-kørslens aftryk
- * (manuelFacit.kampAftryk: facit, odds, runde og kickoff).
+ * (manuelFacit.kampAftryk: facit, odds, runde og kickoff — plus den nye tid).
  */
 async function retKickoffCore(db, FieldValue, {
   gameId, matchId, tid, aftryk = null, dryRun = true, nowMs = Date.now(), tilTimestamp,
@@ -669,7 +707,9 @@ async function retKickoffCore(db, FieldValue, {
   if (ny <= nowMs + LAAS_MARGIN_MS) {
     advarsler.push(`${visTid(ny)} er passeret: tippet på kampen lukker i samme øjeblik, du skriver. Tips, der blev afgivet efter den rigtige kampstart, står stadig — de kan ikke trækkes tilbage i appen.`);
   }
-  const nuAftryk = kampAftryk(kamp);
+  // Aftrykket binder kampen OG den nye tid (Security på D9, Bør 1): ellers
+  // kunne skrive-kaldet sende en anden tid end den, tør-kørslen viste.
+  const nuAftryk = createHash('sha256').update(stabil({ kamp: kampAftryk(kamp), ny })).digest('hex').slice(0, 32);
   const svar = {
     dryRun, skrevet: false, advarsler,
     kamp: { id: matchId, home: kamp.home, away: kamp.away, round: kamp.round ?? null, etiket: rundeEtiket(game, kamp.round) },
@@ -709,7 +749,9 @@ async function retKickoffCore(db, FieldValue, {
 //   ALARM `faseKampe` (hast «haster»), én pr. DAG (kampId 'r{dag}', QC B6 —
 //     ellers dæmpede dag 8's åbne alarm meldingen om dag 9), når dagen
 //     mangler kampe efter kl. 12 dagen før, OG den stadig kan få dem (QC B2:
-//     en alarm må kun stå, mens løsningen er mulig).
+//     en alarm må kun stå, mens løsningen er mulig). En fases FØRSTE dag
+//     alarmerer desuden først, når fasen før er afgjort (forrigeFaseVenter)
+//     — før det kendes holdene ikke; så står det som en linje på kortet.
 //   ADVARSEL på kortet, når en dag mangler kampe og ikke længere kan få dem
 //     (gået i gang eller passeret) — en aflyst kamp er en mulig, varig
 //     tilstand og hører på kortet, ikke i en alarm, der mailes hver 6. time.
@@ -724,9 +766,13 @@ function faseVagtTilstand(game, matches, nowMs) {
   const navn = game?.name || game?.id || '?';
   const alarmer = [];
   const advarsler = [];
+  const venter = [];
   for (const d of dage) {
     if (d.har >= d.forventet) continue;
-    if (d.aaben && d.alarmFraMs != null && nowMs >= d.alarmFraMs) {
+    if (d.aaben && d.venterPaa && d.alarmFraMs != null && nowMs >= d.alarmFraMs) {
+      const v = d.venterPaa;
+      venter.push(`${dagTekst(d)} mangler kampe, men ${v.fase} mangler facit i ${v.uden} ${v.uden === 1 ? 'kamp' : 'kampe'} — holdene kendes ikke endnu. Alarmen går, så snart ${v.fase} er afgjort.`);
+    } else if (d.aaben && d.alarmFraMs != null && nowMs >= d.alarmFraMs) {
       alarmer.push({
         kampId: `r${d.runde}`,
         besked: `«${navn}» · ${dagTekst(d)}: ${d.har} af ${d.forventet} kampe er lagt ind. `
@@ -738,10 +784,11 @@ function faseVagtTilstand(game, matches, nowMs) {
     }
   }
   const status = faseStatus(game, matches, nowMs);
-  const linjer = [...status.linjer];
+  const linjer = [...status.linjer, ...venter];
   const naeste = dage.find((d) => d.aaben && d.har < d.forventet && d.alarmFraMs != null && nowMs < d.alarmFraMs);
   if (naeste && !alarmer.length) {
-    linjer.push(`Næste dag uden alle kampe: ${dagTekst(naeste)} — alarmen går fra ${visTid(naeste.alarmFraMs)}, hvis kampene ikke er lagt ind.`);
+    const efterAfgjort = naeste.venterPaa ? ` — dog tidligst, når ${naeste.venterPaa.fase} er afgjort` : '';
+    linjer.push(`Næste dag uden alle kampe: ${dagTekst(naeste)} — alarmen går fra ${visTid(naeste.alarmFraMs)}, hvis kampene ikke er lagt ind${efterAfgjort}.`);
   }
   return { alarmer, advarsler, linjer, udtoemt: dage.length > 0 && dage.every((d) => !d.aaben) };
 }
