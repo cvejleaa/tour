@@ -21,6 +21,7 @@ import FaseKampe from './FaseKampe';
 import { formatKickoff, formatDateRange } from '../../lib/daDate';
 import { rundeEtiket, rundeFlertal, rundeOrd, rundeOrdene, harFaseKalender, faseKalenderAdvarsel } from '../../lib/faser';
 import { puljeKonfigFejl } from '../../lib/puljeFacit';
+import { grupperAdvarsel, harGrupper } from '../../lib/grupper';
 import { fmtDec, fmtPoints } from '../../lib/daNum';
 import { puljeKonfig } from '../../lib/superligaScoring';
 import { GAME_STATUS, GAME_STATUS_VALUES, GAME_STATUS_LABEL } from '../../lib/constants';
@@ -139,6 +140,32 @@ function StartRundeVaelger({ game, vaerdi, onVaelg }) {
   );
 }
 
+/**
+ * ⚠️ GRUPPERNE MOD KAMPENE (📊 Grupper). Hovedrundens grupper udledes af de
+ * kampe, ejeren lægger ind med 📥 — så en fejlparret kamp (et hold fra C i
+ * gruppe I), et hold for meget, eller et indlagt hold, som stillingen ikke
+ * har over stregen (QC Q1: «Gruppe A: stillingen siger Tunesien som nr. 3,
+ * men Uruguay er lagt ind …»), ville ellers kun stå forkert på fanen.
+ *
+ * KAMPENE HENTES HER, ved render — men KUN for et spil med evnen
+ * harGrupper (Håndbold-VM: ét spil, under 100 kampe, kun admin). Superligaen
+ * og Premier League monterer den aldrig, så fanens dovne kamphentning
+ * (useGameRounds) gælder stadig for dem. Kampene er dem, der fandtes, da
+ * fanen blev åbnet: efter 📥 vises en ny advarsel, når siden hentes igen.
+ */
+function GrupperKampAdvarsel({ game }) {
+  const { kampe, henter, fejl } = useGameRounds(game.id);
+  if (henter || fejl) return null;
+  const advarsler = grupperAdvarsel(game, kampe);
+  if (!advarsler.length) return null;
+  return (
+    <ul className="badge badge--red" data-testid="grupper-advarsel" role="alert"
+      style={{ display: 'block', whiteSpace: 'normal', marginTop: '0.5rem', paddingLeft: '1.4rem' }}>
+      {advarsler.map((a) => <li key={a}>{`⚠️ 📊 Grupper: ${a}`}</li>)}
+    </ul>
+  );
+}
+
 function GameRow({ game }) {
   const [startAt, setStartAt] = useState('');
   // Startrunden. Kamplisten hentes FØRST når ejeren beder om at vælge en —
@@ -198,6 +225,10 @@ function GameRow({ game }) {
 
   const isFootball = game.type === 'football';
   const kalenderFejl = faseKalenderAdvarsel(game);
+  // Ugyldige grupper slår fanen 📊 Grupper og kortets mærke fra — men ikke
+  // tavst. Uden kampe: kun felt-fejlene (grupperFejl); kampenes advarsler står
+  // i GrupperKampAdvarsel, der kun monteres med evnen.
+  const grupperFejlTekst = grupperAdvarsel(game, []);
   // Pulje-deadlinen hører til spil MED en pulje. Uden gaten kunne ejeren i god
   // tro sætte en deadline på Premier League — og så ville et puljetip faktisk
   // blive gemt og senere afregnet mod PL-stillingen, selv om ligaen ikke har
@@ -562,6 +593,14 @@ function GameRow({ game }) {
           {`⚠️ Fasekalenderen er ugyldig: ${kalenderFejl.join('; ')}. Spillet vises med «Runde N» i stedet for dagens navn, Runde-Botten ser ikke de kommende faser, og ✍️ facit i hånden kender ingen knockout-kampe (intet slutresultat efter forlængelse). Ret faser i scripts/games.mjs og kør Deploy platform med seedGames — først som tør-kørsel, så med seedGamesSkriv.`}
         </p>
       )}
+
+      {grupperFejlTekst.length > 0 && (
+        <p className="badge badge--red" data-testid="grupper-ugyldige" role="alert"
+          style={{ display: 'block', whiteSpace: 'normal', marginTop: '0.5rem' }}>
+          {`⚠️ ${grupperFejlTekst.join('; ')}. Kampkortene viser ingen gruppe. Ret grupper i scripts/games.mjs (kopien af programfilen) og kør Deploy platform med seedGames — først som tør-kørsel, så med seedGamesSkriv.`}
+        </p>
+      )}
+      {harGrupper(game) && <GrupperKampAdvarsel game={game} />}
 
       <div className="grid-2" style={{ gap: '0.75rem', marginTop: '0.75rem' }}>
         <label style={{ display: 'block' }}>
