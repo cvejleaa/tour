@@ -494,6 +494,14 @@ describe('grupperne (game.grupper)', () => {
     expect(() => byggProgram(fire)).toThrow('Gruppetabellen i «Main round › Group I»: pladsholderen «A4» i team_order er ikke et af de 3 bedste hold fra en indledende gruppe.');
   });
 
+  // TM: `const ok = bogstaver.length === n * fra.length` kunne erstattes med `true`
+  // med suiten grøn — hver fra-gruppe havde stadig sine tre, så et syvende
+  // pladsholder-hold fra en tredje gruppe slap igennem og ville ligge i grupperne.
+  it('KASTER, når hovedrundegruppens team_order har et hold for meget (en syvende kode fra gruppe C)', () => {
+    const t = retTabel(SIDE, 'Main round', 'Group I', 'team_order=A1, B1, A2, B2, A3, B3', 'team_order=A1, B1, A2, B2, A3, B3, C1');
+    expect(() => byggProgram(t)).toThrow(/team_order \(A1, B1, A2, B2, A3, B3, C1\) kommer fra gruppe A, B, C, men formatet siger de 3 bedste fra gruppe A og B/);
+  });
+
   // VIDERE er en konstant, som siden efterprøves mod. Stod 3 hardkodet uden
   // et tjek, ville en side med result3=P give en grøn kørsel og en streg på
   // det forkerte sted.

@@ -176,6 +176,11 @@ describe('grupperFejl og harGrupper (evnen)', () => {
     ['fra nævner en gruppe, der ikke findes', (g) => { g.faser[1].grupper[0].fra = ['A', 'Z']; }, /fra nævner «Z»/],
     ['point i fodboldform uden sejr', (g) => { g.point = { sejr: 0, uafgjort: 1 }; }, /point skal være/],
     ['videre er ikke et tal', (g) => { g.faser[0].videre = '3'; }, /videre skal være et heltal/],
+    // TM: hver af disse regler kunne slås fra (if (false)) med suiten grøn.
+    ['to hovedrundegrupper henter fra samme indledende gruppe', (g) => { g.faser[1].grupper[1].fra = ['A', 'D']; }, /gruppe A står i fra for både I og II/],
+    ['to grupper med samme navn', (g) => { g.faser[1].grupper[1].navn = 'I'; }, /gruppe I står to gange/],
+    ['hovedrunden før den indledende i kalenderen', (g) => { g.faser.reverse(); }, /kommer ikke efter forrige gruppefase/],
+    ['en tredje gruppefase', (g) => { g.faser.push({ fase: 'Hovedrunde', videre: 1, grupper: [{ navn: 'V', fra: ['I'] }] }); }, /højst to gruppefaser/],
   ];
   for (const [navn, fn, besked] of UGYLDIGE) {
     it(`ugyldig: ${navn} — evnen falder, kalenderen står`, () => {
@@ -187,6 +192,18 @@ describe('grupperFejl og harGrupper (evnen)', () => {
       expect(grupperOversigt(game, INDLEDENDE)).toEqual([]);
     });
   }
+});
+
+describe('grupperFejl: spillet selv', () => {
+  // TM: `if (!teams.size)` og `if (!harFaseKalender)` kunne slås fra uden en rød test.
+  it('uden holdliste siges det højt', () => {
+    expect(grupperFejl(GRUPPER, { ...HVM27G, teams: [] }).join('\n')).toMatch(/ingen holdliste/);
+  });
+  it('uden gyldig fasekalender siges det højt, og evnen falder', () => {
+    const uden = { ...HVM27G, faser: undefined };
+    expect(grupperFejl(GRUPPER, uden).join('\n')).toMatch(/ingen gyldig fasekalender/);
+    expect(harGrupper(uden)).toBe(false);
+  });
 });
 
 describe('kampGruppe', () => {
@@ -320,6 +337,46 @@ describe('Q1: IHF afgør, hvem der gik videre — og advarslen peger', () => {
     const uden = INDL_FACIT.map((m) => (m.id === 'r1-srb-uru' ? { ...m, homeGoals: null, awayGoals: null, result: null } : m));
     expect(grupperOversigt(HVM27G, uden)[0].grupper[0].raekker[2].teamName).toBe('Tunesien');
     const kampe = [...uden, ...hovedrundeKampe({ A: ['Tyskland', 'Serbien', 'Uruguay'] })];
+    expect(grupperAdvarsel(HVM27G, kampe)).toEqual([]);
+  });
+});
+
+describe('grupperAdvarsel: flere hold end der går videre, og delt plads over stregen (TM)', () => {
+  const INDL_FACIT = medFacit(INDLEDENDE, GRUPPE_A_KNAEK);
+  // Før TM var hele «flere hold end der går videre»-grenen uden test: den kunne slettes, og
+  // tærsklen flyttes til > videre + 1, med suiten grøn.
+  it('fire A-hold lagt ind i hovedrunden, men kun tre går videre → advarslen, ved navn', () => {
+    const ekstra = kamp(8, 'Uruguay', 'Italien'); // Uruguay er nr. 4 i A; Italien er fra B
+    const kampe = [...INDL_FACIT, ...hovedrundeKampe({ A: A_KNAEK_ORDEN.slice(0, 3) }), ekstra];
+    // Fire hold er ikke «de hold, der gik videre»: videreHold er ukendt (null), ikke fire ✓.
+    expect(grupperOversigt(HVM27G, kampe)[0].grupper[0].videreHold).toBeNull();
+    expect(grupperAdvarsel(HVM27G, kampe)).toContain(
+      'Gruppe A: 4 hold er lagt ind i hovedrunden (Tyskland, Serbien, Tunesien, Uruguay), men kun 3 går videre. Tjek hovedrundens kampe.',
+    );
+  });
+  // «Klar» kræver netop `videre` hold: fire A-hold i en ellers klar hovedrundegruppe (4 + 2 B = 6)
+  // er en uenighed at pege på, ikke fire ✓.
+  it('videreHold er null ved overskud, selv når hovedrundegruppen er klar', () => {
+    const kampe = [...INDL_FACIT,
+      kamp(8, 'Tyskland', 'Italien'), kamp(8, 'Serbien', 'Egypten'), kamp(10, 'Tunesien', 'Italien'), kamp(10, 'Uruguay', 'Egypten')];
+    const o = grupperOversigt(HVM27G, kampe);
+    expect(o[1].grupper[0].status).toBe('klar'); // uden dette ville testen ikke nå vagten
+    expect(o[0].grupper[0].videreHold).toBeNull();
+  });
+  it('præcis tre lagt ind (ingen overskud): ingen sådan advarsel', () => {
+    const kampe = [...INDL_FACIT, ...hovedrundeKampe({ A: A_KNAEK_ORDEN.slice(0, 3) })];
+    expect(grupperAdvarsel(HVM27G, kampe).join('\n')).not.toMatch(/går videre/);
+  });
+  // Alle seks A-kampe 25-25: alle fire står lige (delt). Stregen går gennem en delt plads, så
+  // vi ved ikke, hvem der skulle være med — Tunesien «som nr. 1» er ingen uenighed.
+  it('ingen Q1-advarsel, når stregen går gennem en delt plads', () => {
+    const lige = Object.fromEntries(INDLEDENDE.filter((m) => m.gruppe === 'A').map((m) => [`${m.home}–${m.away}`, [25, 25]]));
+    // Tunesien (nr. 4 i programrækkefølgen) ER lagt ind, Uruguay (nr. 3) er IKKE: uden vagten
+    // ville «Uruguay som nr. 1» blive meldt, selv om alle fire står lige.
+    const kampe = [...medFacit(INDLEDENDE, lige), ...hovedrundeKampe({ A: ['Tyskland', 'Serbien', 'Tunesien'] })];
+    const a = grupperOversigt(HVM27G, kampe)[0].grupper[0];
+    expect(a.raekker.map((r) => [r.rank, r.delt])).toEqual([[1, true], [1, true], [1, true], [1, true]]);
+    expect(a.videreHold).not.toBeNull(); // uden dette ville testen ikke nå vagten
     expect(grupperAdvarsel(HVM27G, kampe)).toEqual([]);
   });
 });

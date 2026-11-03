@@ -6,7 +6,7 @@
 // stregens plads, ventekortets tekst ordret — og det, der ALDRIG må stå:
 // ordet for semifinalist-tippet, «Officiel» og «ude» om nr. 4.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 vi.mock('../../../firebase', () => ({ db: {} }));
@@ -149,6 +149,33 @@ describe('📊 Grupper — hovedrunden', () => {
     // C er IKKE kendt (gruppe II venter): ingen ✓ dér.
     expect(within(kort('C')).queryAllByTestId('gik-videre')).toHaveLength(0);
     expect(screen.getByTestId('gruppefase-1').textContent).toContain('✓ står ved de hold, der er lagt ind i hovedrunden.');
+  });
+});
+
+describe('📊 Grupper — ✓-mærket (TM)', () => {
+  // Før TM assertérede Q1-testen kun data-videre-attributten: ✓-spanen selv kunne fjernes.
+  it('✓ står som element ved præcis de indlagte hold — og forklaringen er først der, når nogen er lagt ind', () => {
+    vis(IND_KNAEK);
+    expect(screen.queryAllByTestId('gik-videre')).toHaveLength(0);
+    expect(screen.getByTestId('gruppefase-1').textContent).not.toContain('✓');
+    cleanup();
+    vis([...IND_KNAEK, ...hovedrundeKampe({ A: ['Tyskland', 'Serbien', 'Uruguay'] }, { runder: [8] })]);
+    const a = within(kort('A')).getAllByTestId('gik-videre');
+    expect(a.map((e) => navnI(e.closest('tr')))).toEqual(['Tyskland', 'Serbien', 'Uruguay']);
+    expect(a[0]).toHaveTextContent('✓');
+    expect(a[0]).toHaveAccessibleName('gik videre');
+    expect(within(kort('B')).getAllByTestId('gik-videre')).toHaveLength(3);
+    expect(within(kort('H')).queryAllByTestId('gik-videre')).toHaveLength(0);
+  });
+
+  it('«tæller med»-sætningen står kun, når en hovedrundegruppe er klar', () => {
+    // To kampe i gruppe I: gruppen har hold (så fase 2 vises), men venter.
+    const dag8 = hovedrundeKampe(A_VIDERE, { runder: [8] }).filter((m) => m.id.startsWith('r8-I-'));
+    vis([...IND_KNAEK, ...dag8.slice(0, 2)]);
+    const fase2 = screen.getByTestId('gruppefase-2');
+    expect(kort('I').dataset.status).toBe('venter');
+    expect(fase2.textContent).toContain('Hovedrunden spilles fra');
+    expect(fase2.textContent).not.toContain('tæller med');
   });
 });
 

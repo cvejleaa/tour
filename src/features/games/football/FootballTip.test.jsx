@@ -2331,6 +2331,22 @@ describe('FootballTip — gruppemærket', () => {
     expect(container.querySelector('#kamp-r14-a').textContent).not.toMatch(/Gruppe/);
   });
 
+  // TM: mutationerne `[gruppe && ..., h.venue]` → kun gruppen, og omvendt
+  // rækkefølge, overlevede (ingen test havde både gruppe og stadion).
+  it('gruppe OG stadion: «Gruppe A · stadion», gruppen først, og kun da må rækken ombrydes', () => {
+    const teams = HVM27G.teams.map((t) => (t.name === 'Serbien' ? { ...t, venue: 'Arena Beograd' } : t));
+    const { container } = setup({ ...hvm(), teams }, '/spil/hvm2027?runde=1', INDLEDENDE);
+    const v = container.querySelector('#kamp-r1-srb-uru .match-card__meta .match-card__venue');
+    expect(v.textContent).toBe('Gruppe A · Arena Beograd');
+    // Uden gruppe er højre halvdel som før: ingen ombrydning (et langt stadionnavn får sin ellipse).
+    expect(v.parentElement.style.flexWrap).toBe('wrap');
+    cleanup();
+    const uden = setup({ ...hvm(), teams, grupper: undefined }, '/spil/hvm2027?runde=1', INDLEDENDE).container;
+    const u = uden.querySelector('#kamp-r1-srb-uru .match-card__meta .match-card__venue');
+    expect(u.textContent).toBe('Arena Beograd');
+    expect(u.parentElement.style.flexWrap).toBe('');
+  });
+
   it('Superligaen: intet gruppemærke nogen steder', () => {
     const { container } = setup();
     expect(container.querySelectorAll('.match-card').length).toBeGreaterThan(0);
