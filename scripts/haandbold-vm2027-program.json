@@ -1,5 +1,5 @@
 {
- "_note": "Håndbold-VM 2027 (herrer), den indledende runde: 48 kampe. Bygget af scripts/haandbold-program.mjs fra Wikipedia («2027 World Men's Handball Championship», revision ukendt, hentet 2026-11-02); indholdet er CC BY-SA 4.0. kickoff er UTC (siden angiver lokal tid UTC+1). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp. kickoffSenest står kun, hvor siden har et tidsvindue — deadline er da det tidligste. kickoffSenest og gruppe når IKKE databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her. faser er forslaget til game.faser (lægges i scripts/games.mjs i D6). RET ALDRIG I HÅNDEN: kør scriptet igen.",
+ "_note": "Håndbold-VM 2027 (herrer), den indledende runde: 48 kampe. Bygget af scripts/haandbold-program.mjs fra Wikipedia («2027 World Men's Handball Championship», revision ukendt, hentet 2026-11-02); indholdet er CC BY-SA 4.0. kickoff er UTC (siden angiver lokal tid UTC+1). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp. kickoffSenest står kun, hvor siden har et tidsvindue — deadline er da det tidligste. kickoffSenest og gruppe når IKKE kampene i databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her, men gruppen når spillet via grupper. faser og grupper er game.faser og game.grupper (holdene i programrækkefølge) og kopieres ordret til scripts/games.mjs. RET ALDRIG I HÅNDEN: kør scriptet igen.",
  "kilde": {
   "side": "2027 World Men's Handball Championship",
   "url": "https://en.wikipedia.org/wiki/2027_World_Men's_Handball_Championship",
@@ -52,6 +52,126 @@
    "knockout": true
   }
  ],
+ "grupper": {
+  "point": {
+   "sejr": 2,
+   "uafgjort": 1
+  },
+  "faser": [
+   {
+    "fase": "Indledende runde",
+    "videre": 3,
+    "grupper": [
+     {
+      "navn": "A",
+      "hold": [
+       "Serbien",
+       "Uruguay",
+       "Tyskland",
+       "Tunesien"
+      ]
+     },
+     {
+      "navn": "B",
+      "hold": [
+       "Italien",
+       "Saudi-Arabien",
+       "Egypten",
+       "Kap Verde"
+      ]
+     },
+     {
+      "navn": "C",
+      "hold": [
+       "Spanien",
+       "Tyrkiet",
+       "Kroatien",
+       "Chile"
+      ]
+     },
+     {
+      "navn": "D",
+      "hold": [
+       "Argentina",
+       "Brasilien",
+       "Frankrig",
+       "Kuwait"
+      ]
+     },
+     {
+      "navn": "E",
+      "hold": [
+       "Sverige",
+       "Grækenland",
+       "Norge",
+       "Qatar"
+      ]
+     },
+     {
+      "navn": "F",
+      "hold": [
+       "Færøerne",
+       "Algeriet",
+       "Portugal",
+       "Polen"
+      ]
+     },
+     {
+      "navn": "G",
+      "hold": [
+       "Slovenien",
+       "Angola",
+       "Danmark",
+       "USA"
+      ]
+     },
+     {
+      "navn": "H",
+      "hold": [
+       "Nordmakedonien",
+       "Japan",
+       "Island",
+       "Bahrain"
+      ]
+     }
+    ]
+   },
+   {
+    "fase": "Hovedrunde",
+    "videre": 2,
+    "grupper": [
+     {
+      "navn": "I",
+      "fra": [
+       "A",
+       "B"
+      ]
+     },
+     {
+      "navn": "II",
+      "fra": [
+       "C",
+       "D"
+      ]
+     },
+     {
+      "navn": "III",
+      "fra": [
+       "E",
+       "F"
+      ]
+     },
+     {
+      "navn": "IV",
+      "fra": [
+       "G",
+       "H"
+      ]
+     }
+    ]
+   }
+  ]
+ },
  "usikreTider": [
   "r2-arg-bra Argentina–Brasilien 2027-01-14: siden siger «18:00/18:30» — deadline sat til 18:00 (det tidligste)",
   "r2-fra-kuw Frankrig–Kuwait 2027-01-14: siden siger «20:30/21:00» — deadline sat til 20:30 (det tidligste)",

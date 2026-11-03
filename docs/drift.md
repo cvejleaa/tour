@@ -43,7 +43,9 @@ tør-kørsel er den, der viser databasens faktiske felter.
 
 1. **Deploy platform** med `seedGames`, UDEN `seedGamesSkriv` (tør-kørsel).
    Loggen viser pr. spil: **OPRETTES** med hvert felt (fasekalenderen én fase
-   pr. linje), eller hvilke felter der **ændres** (`felt: fra → til`), hvilke
+   pr. linje, grupperne én gruppe pr. linje), eller hvilke felter der
+   **ændres** (`felt: fra → til`; et felt med en liste af objekter, fx
+   `grupper`, står udfoldet med `fra:` og `til:` hver for sig), hvilke
    admin-ejede felter der **bevares** (`status`, `joinable` — med listens værdi
    ved siden af, hvis de er forskellige), og hvilke felter i databasen listen
    ikke nævner (de bliver stående; merge fjerner aldrig et felt). Et uændret
@@ -206,7 +208,10 @@ node scripts/haandbold-program.mjs --skriv                         # skriv filer
 
 `--skriv` skriver `scripts/haandbold-vm2027-program.json` (48 kampe med
 kickoff i UTC, dansk holdnavn, gruppe og id `r{dag}-{hjemmekode}-{udekode}`,
-plus forslaget til `game.faser`) og fixturen `scripts/testdata/wiki-vm2027.wikitext`.
+plus `faser` og `grupper`, der kopieres ordret til `game.faser` og
+`game.grupper` i `scripts/games.mjs` — `games.test.mjs` er rød, til de to er
+ens) og fixturen `scripts/testdata/wiki-vm2027.wikitext`. En ændret `grupper`
+når først spillet med `seedGames` (tør-kørsel først).
 Testen bygger programmet af fixturen og kræver, at det er **identisk** med
 JSON-filen, så de to skal altid skrives sammen af scriptet. Ret aldrig i dem i
 hånden. Efter en kørsel: læs `git diff` på JSON-filen. Hver ændret tid er en
@@ -229,16 +234,34 @@ Det, scriptet **melder**, og hvad du gør:
   `VM2027_FORMAT.tidszone` er `Europe/Berlin`, og står der UTC+2 på siden,
   ville hver deadline ligge en time for tidligt), eller **et felt, parseren ikke
   kender, i en medtaget kamp** (fx `timezone=` eller `status=postponed`: det
-  kunne flytte en tip-deadline). Hver besked siger, hvilken kamp og hvilken
-  fil der skal rettes. Skraberen gætter aldrig.
+  kunne flytte en tip-deadline), eller **en gruppetabel, der modsiger
+  formatet**: `winpoints` er ikke 2 (eller mangler — så er det modulets 3),
+  `resultN=Q` står på et andet antal pladser end 3 i den indledende runde og 2
+  i hovedrunden, en hovedrundegruppes `team_order` kommer fra andre grupper
+  end A+B, C+D, E+F og G+H, eller en indledende tabels hold er ikke dem, der
+  spiller gruppens kampe. Point, videre og hovedrundens «fra» er konstanter i
+  `VM2027_FORMAT` (`scripts/lib/haandboldProgram.mjs`), som siden
+  efterprøves mod — de læses aldrig ud af siden. Hver besked siger, hvilken
+  kamp eller tabel og hvilken fil der skal rettes. Skraberen gætter aldrig.
+
+  **Det er IKKE en fejl**, at redaktørerne sorterer `team_order` efter
+  stillingen under turneringen, eller at hovedrundens pladsholdere (`A1`,
+  `B1` …) bliver rigtige landekoder. Medlemskabet tages af kampene og
+  rækkefølgen af programmet (holdenes første kamp), så en kørsel midt i
+  turneringen giver samme `grupper`.
 - **«advarsler om fravalgte kampe»**: en Presidents Cup- eller placeringskamp
   har en form eller et felt, parseren ikke kender. Den er ikke med i
   programmet og stopper intet, men formen på siden har ændret sig.
 
-**Tidsvinduet når ikke databasen.** `kickoffSenest` og `gruppe` står kun i
-JSON-filen: `seed-football` skriver kun `round`, `home`, `away`, `kickoff`,
-Elo og odds. Kampen får det tidligste tidspunkt som deadline; at det er et
-vindue, ved kun filen og scriptets udskrift.
+**Tidsvinduet når ikke databasen.** `kickoffSenest` og kampens `gruppe` står
+kun i JSON-filen: `seed-football` skriver kun `round`, `home`, `away`,
+`kickoff`, Elo og odds på kampene. Kampen får det tidligste tidspunkt som
+deadline; at det er et vindue, ved kun filen og scriptets udskrift. **Grupperne
+når derimod spillet** — ikke via kampene, men som `game.grupper` på
+spil-dokumentet (hvem der er i gruppe A-H, og hvilke grupper hovedrundens I-IV
+kommer fra), seedet af `seedGames` fra `scripts/games.mjs`. Hovedrundens hold
+gemmes ikke: de følger af de kampe, der lægges ind med 📥 Læg næste fases
+kampe ind.
 
 Det, scriptet **ikke** gør: seede (det gør `seed-football.mjs` med filen som
 `--fixtures` i delopgave D6, med tør-kørsel og ejerens ja), oprette

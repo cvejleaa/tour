@@ -445,6 +445,30 @@ gange i samme knockout-fase (også på hver sin dag), og en fase, der bliver
 hel med en skæv fordeling (fx et hold fire gange og et andet to i
 hovedrunden).
 
+**Hovedrundens grupper fylder sig selv.** Under **📊 Grupper** (fanen i
+spillet, kun Håndbold-VM) står hovedrundens fire grupper som «Gruppe I · de
+tre bedste fra gruppe A og B», indtil gruppens kampe er lagt ind her — så
+bliver de til tabeller med de medførte resultater fra den indledende runde.
+Du taster ingen grupper: et hold er i gruppe I, fordi det har en hovedrunde-
+kamp og kom fra gruppe A eller B. Lægger du dag 8 ind, er gruppe I og III
+klar; II og IV følger med dag 9. Samtidig får de hold, der faktisk er lagt
+ind, et ✓ i den indledende tabel — det er IHF, der afgør, hvem der gik
+videre, ikke vores stilling.
+
+**Et hold i den forkerte kamp står forkert under 📊 Grupper** — serveren
+tjekker ikke grupperne, kun at holdet var med i fasen før. I stedet siger en
+rød **⚠️ 📊 Grupper**-linje i 🗓️ Spil-tidsplan det ved navn: en kamp mellem
+to hovedrundegrupper eller mellem to hold fra samme indledende gruppe, for
+mange hold fra én gruppe, og når stillingen og de indlagte hold er uenige
+(«Gruppe A: stillingen siger Tunesien som nr. 3, men Uruguay er lagt ind i
+hovedrunden. Tjek facit eller hovedrundens kampe.»). Linjen regnes af
+kampene, som de var, da fanen blev åbnet — hent siden igen efter **Opret**.
+Den afgør ingenting; den peger. Er det facit, der er forkert, så ret det
+under ✍️. Er det kampen, kan den ikke slettes i appen (se ovenfor).
+Er selve grupperne ugyldige (`grupper` i `scripts/games.mjs`), står det også
+som en rød linje — så er fanen og kortenes «Gruppe A» væk, til det er rettet
+med `seedGames`.
+
 ### Halvleg, målscorere og tilskuertal
 
 Under slutresultatet på kampkortet står **stillingen ved pausen**, og under

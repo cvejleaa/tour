@@ -130,9 +130,18 @@ function faseHold(game, matches, navn) {
  * Reglen: et hold er med, så længe det står i den seneste HELE fase til og
  * med facit-fasen (semifinalerne). Finaledagen tæller ALDRIG — ellers blev
  * semifinaletaberne streget over, når bronzen og finalen lægges ind. Vi regner
- * ingen matematik inden i en fase (grupperne gemmes ikke, og det ville være at
- * genudlede IHF's afgørelse af vores egen håndtastede facit): pulsen halter
- * 0-3 dage efter virkeligheden, og teksten nævner derfor fasen.
+ * ingen matematik inden i en fase: det ville være at genudlede IHF's afgørelse
+ * af vores egen håndtastede facit. Pulsen halter derfor 0-3 dage efter
+ * virkeligheden, og teksten nævner fasen.
+ *
+ * GRUPPERNE GEMMES NU (game.grupper, scripts/games.mjs), og 📊 Grupper
+ * beregner stillingen i klienten (src/lib/grupper.js) — men kun som VISNING.
+ * Pulsen bruger dem med vilje ikke. ACCEPTERET (QC Q11 på grupper-planen):
+ * mellem den indledende runde og indlæsningen af hovedrunden kan pulsen sige
+ * «med» om en gruppe-nr. 4, mens Grupper viser holdet under stregen. Det er
+ * ikke en modsigelse, for pulsen nævner fasen («… er med i den indledende
+ * runde»), og hvem der gik videre, afgør IHF via de kampe, der lægges ind.
+ * «Ret» det ikke ved at lade pulsen regne på gruppestillingen.
  *
  * KUN FALDENDE — OG FEJLER LUKKET. Hver hel fase skal være en delmængde af
  * den forrige; står der et hold, der ikke var med, stopper den og svarer med

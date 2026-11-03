@@ -285,6 +285,19 @@ PR-teksten, ikke her.
   faktisk fik at vide. Et rent internt referenceafsnit i samme fil (tydeligt
   mærket "ikke til mailen") kan til gengæld frit opdateres.
 
+- **En beregnet afgørelse ved siden af den FAKTISKE skal vige, når den
+  faktiske kendes** (vores tiebreak-streg «går videre» over hovedrunde-holdene,
+  ejeren lagde ind). Uenigheden er en admin-advarsel. Den er samtidig det
+  eneste net under en tastefejl, som en antals-vagt ikke kan se.
+- **Et rækkefølge-felt i en ekstern kilde er LEVENDE** (Wikipedia `team_order`
+  sorteres efter stillingen, pladsholdere A1/B1 erstattes). Format-fakta
+  læst af et snapshot knækker ved næste kørsel. Læg dem som konstanter, der
+  EFTERPRØVES mod kilden, og spørg: kører byggeren igen midt i turneringen?
+- **En fase-egenskab vist pr. del-enhed er en påstand om delen**: hovedrundens
+  start 20/1 gælder kun gruppe I og III. II og IV starter 21/1. Samme kilde har
+  navnekollisioner på tværs af sektioner (Presidents Cup «Group I/II»).
+  Klassificér på stien, aldrig på navnet.
+
 ## Nye tal og ny skala på en eksisterende flade
 
 - **Et nyt aggregat-tal skal komme af den samme KILDE som fladens
@@ -499,6 +512,15 @@ PR-teksten, ikke her.
   (tom prefix = alle vars) og efterprøves for kollision med eksisterende
   build/deploy-trin — en dummy-outDir må aldrig kunne forveksles med den
   rigtige (`firebase.json` peger fortsat på den ægte `dist`).
+- **En ny modifier-klasse på en række i en EKSISTERENDE tabel taber mod tabellens
+  egne selektorer** (`.grupper__streg td` (0,1,1) mod `.sltab tbody td` (0,1,2)):
+  stregen var i DOM og klassen var asserteret i jsdom, men computed border-bottom
+  var 1px grå. jsdom har intet layout/cascade — mål `getComputedStyle` med
+  Playwright på den ægte CSS, eller skriv selektoren med tabellens klasse foran.
+- **Et script, der både henter tider (tip-deadlines) og præsentations-fakta
+  (grupper), må ikke lade det sidste blokere det første** — spørg ved en ny
+  `throw` i en bygger: kan en redaktørs ændring af et visuelt felt (Q-markør)
+  forhindre en kickoff-opdatering midt i turneringen?
 - **En bar `<table>` uden wrapper arver mobil-bredde-risiko**, fordi jsdom
   ikke ser ombrydning — og to identiske emoji med forskellig betydning på
   samme skærm løses ikke af en hjælpetekst; svaret er et andet symbol.

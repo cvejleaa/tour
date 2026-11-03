@@ -40,6 +40,7 @@ import {
 // Knockout: stillingen efter ordinær tid er facit; et slutresultat efter
 // forlængelse/straffekast står for sig (facit.js).
 import { kampSlut, slutTekst, knockoutRegel, AFGJORT_NAVN } from '../../../lib/facit';
+import { kampGruppe } from '../../../lib/grupper';
 // Combi-reglen bor ÉT sted, spejlet med serveren. Fladen regnede den før selv.
 import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
 // Chance-deltaet udledes ÉT sted — se chanceUdfald.
@@ -811,6 +812,13 @@ export default function FootballTip({ game, me, matches }) {
         const chanceUikkeAfregnet = !!udfald && !udfald.afregnet;
         const paaKupon = iKupon(m);
         const visMaerke = kupon > 0 && udenforKupon.length > 0;
+        // GRUPPEN («Gruppe A», «Gruppe I») i stadionets plads — håndboldholdene
+        // har intet stadion, og meta-rækken må ikke få et element mere
+        // (FootballTip.test: målene og xG står uden for den af samme grund).
+        // Fasen står allerede i rundens overskrift, så kortet gentager den ikke.
+        // Gaten er evnen (kampGruppe → harGrupper); knockout giver null.
+        const gruppe = kampGruppe(game, m);
+        const sted = [gruppe && `Gruppe ${gruppe}`, h.venue].filter(Boolean).join(' · ');
         return (
           <div
             className={`card match-card mb-2 ${isChance ? 'match-card--chance' : ''}`
@@ -835,8 +843,22 @@ export default function FootballTip({ game, me, matches }) {
                   </span>
                 )}
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0 }}>
-                {h.venue && <span className="match-card__venue">{h.venue}</span>}
+              {/* MED GRUPPE OMBRYDER HØJRE HALVDEL (QC Q8, målt med Playwright på
+                  360 px): på det værst tænkelige afgjorte kort (🕒 Uden for
+                  kuponen + fra-runde + Ramt + ⚡) klemte flex-krympningen
+                  `.match-card__venue` til 0 px — mærket forsvandt helt. Med
+                  ombrydning får mærket sin fulde bredde, og det krymper aldrig
+                  (`--gruppe`). Uden gruppe er rækken præcis som før, så et
+                  langt stadionnavn stadig får sin ellipse. */}
+              <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.5rem', minWidth: 0, ...(gruppe ? { flexWrap: 'wrap' } : {}) }}>
+                {sted && (
+                  <span
+                    className={`match-card__venue${gruppe ? ' match-card__venue--gruppe' : ''}`}
+                    data-testid={gruppe ? 'kamp-gruppe' : undefined}
+                  >
+                    {sted}
+                  </span>
+                )}
                 {/* SPROGET ER HUSETS: "uden for rundens uge", ALDRIG "udsat".
                     Kommentaren ved combi-udenfor-teksten siger hvorfor — en
                     kamp kan være programsat i næste uge helt legitimt, og

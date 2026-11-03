@@ -23,6 +23,8 @@ import { ADMIN_OWNED } from './seed-payload.mjs';
 import { SEED_FILER } from './seed-filer.mjs';
 import { SYNK_HULLER } from '../src/test/synkHuller.js';
 import { harFaseKalender } from '../src/lib/faser.js';
+import { HAANDBOLD_VM2027_HOLD } from '../src/data/haandboldVm2027Hold.js';
+import { grupperFejl, harGrupper } from '../src/lib/grupper.js';
 
 // Providerens navn → de nøgler, den præcist skal have. Ingen flere, ingen
 // færre. Et `SHAPES`-objekt frem for if-grene, så en NY provider ikke kan
@@ -307,6 +309,70 @@ describe('faser på spillene', () => {
     expect(harFaseKalender(hvm)).toBe(true);
     expect(hvm.faser.at(-1).til).toBe(17);
     expect(hvm.faser.map((f) => f.navn)).toEqual(['Indledende runde', 'Hovedrunde', 'Kvartfinaler', 'Semifinaler', 'Finaledag']);
+  });
+
+  // GRUPPERNE er et spejl af programfilens `grupper` på samme måde som
+  // kalenderen: bygges programmet om, skal de følge med, ellers seedes gamle
+  // grupper med merge.
+  it('Håndbold-VM: grupperne er ordret programfilens', () => {
+    const hvm = GAMES.find((g) => g.id === 'hvm2027');
+    const program = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/haandbold-vm2027-program.json'), 'utf8'));
+    expect(program.grupper).toBeDefined();
+    expect(hvm.grupper).toEqual(program.grupper);
+  });
+
+  // STRUKTUREN, uafhængigt af programfilen (så en fejl i byggeren ikke
+  // bæres med over i spejlet): hver `fase` er en ikke-knockout-fase i
+  // kalenderen, hvert hold står i holdfilen og i præcis én gruppe, og hver
+  // hovedrundegruppes `fra` er bogstaver fra den forrige fase — hver brugt
+  // én gang.
+  // Evnen (src/lib/grupper.js) skal sige ja til PRÆCIS det, der seedes —
+  // med holdlisten, som spil-dokumentet får den (teams seedes fra holdfilen).
+  // Uden den ja er fanen og kortets mærke tavst væk i produktion.
+  it('Håndbold-VM: grupperFejl er tom og harGrupper er sand for det seedede spil', () => {
+    const hvm = { ...GAMES.find((g) => g.id === 'hvm2027'), teams: HAANDBOLD_VM2027_HOLD };
+    expect(grupperFejl(hvm.grupper, hvm)).toEqual([]);
+    expect(harGrupper(hvm)).toBe(true);
+    // Og evnen er ikke bare altid sand: uden holdlisten siger den nej.
+    expect(harGrupper({ ...hvm, teams: [] })).toBe(false);
+  });
+
+  it('Håndbold-VM: grupperne har kontraktens form og passer til kalenderen og holdene', () => {
+    const hvm = GAMES.find((g) => g.id === 'hvm2027');
+    const { grupper } = hvm;
+    expect(Object.keys(grupper)).toEqual(['point', 'faser']);
+    expect(grupper.point).toEqual({ sejr: 2, uafgjort: 1 });
+    expect(grupper.faser.map((f) => [f.fase, f.videre])).toEqual([['Indledende runde', 3], ['Hovedrunde', 2]]);
+    for (const f of grupper.faser) {
+      const fase = hvm.faser.find((x) => x.navn === f.fase);
+      expect(fase, f.fase).toBeDefined();
+      expect(fase.knockout, f.fase).toBeUndefined();
+    }
+    const [indledende, hoved] = grupper.faser;
+    const holdnavne = new Set(HAANDBOLD_VM2027_HOLD.map((t) => t.name));
+    const alle = indledende.grupper.flatMap((g) => g.hold);
+    expect(indledende.grupper.map((g) => g.hold.length)).toEqual([4, 4, 4, 4, 4, 4, 4, 4]);
+    expect(new Set(alle).size).toBe(32);
+    for (const h of alle) expect(holdnavne.has(h), h).toBe(true);
+    const bogstaver = indledende.grupper.map((g) => g.navn);
+    const fra = hoved.grupper.flatMap((g) => g.fra);
+    expect([...fra].sort()).toEqual([...bogstaver].sort());
+    // Indledende grupper har `hold` og ingen `fra`; hovedrundens omvendt.
+    for (const g of indledende.grupper) expect(Object.keys(g), g.navn).toEqual(['navn', 'hold']);
+    for (const g of hoved.grupper) expect(Object.keys(g), g.navn).toEqual(['navn', 'fra']);
+  });
+
+  it('Superligaen og Premier League har INGEN grupper', () => {
+    for (const id of ['superliga2627', 'pl2627-efteraar']) {
+      expect(GAMES.find((g) => g.id === id), id).not.toHaveProperty('grupper');
+      expect(harGrupper(GAMES.find((g) => g.id === id)), id).toBe(false);
+    }
+  });
+
+  // Grupperne er spillets program, ikke et admin-valg: et senere seed skal
+  // kunne rette dem. Stod de i ADMIN_OWNED, blev en rettelse tavst sprunget over.
+  it('grupper er ikke admin-ejet', () => {
+    expect(ADMIN_OWNED).not.toContain('grupper');
   });
 });
 

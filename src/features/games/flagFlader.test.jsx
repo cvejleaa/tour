@@ -17,6 +17,8 @@
 //   Holdsiden               HoldSide
 //   Officiel tabel          FootballTable — kun nåbar med `standings`
 //   Mål og målchancer       HoldXgListe — kun nåbar med `harXg`
+//   Grupperne               Grupper (📊 Grupper) — kun nåbar med `harGrupper`
+//                           (rækkerne er TabelRaekke, delt med den officielle tabel)
 // De to sidste er ikke nåbare for håndbold i dag, men får flaget alligevel:
 // en evne, der udvides, følges hele vejen ud (CLAUDE.md, «Korrekt er ikke
 // komplet»). Admin-cirklen i Hold-farver får det MED VILJE ikke.
@@ -66,6 +68,8 @@ import FootballTable from './football/FootballTable';
 import HoldXgListe from './football/HoldXgListe';
 import TroejeOversigt from './football/TroejeOversigt';
 import FootballHelp from './football/FootballHelp';
+import Grupper from './football/Grupper';
+import { GAMES } from '../../../scripts/games.mjs';
 import { ringOgTemaTekst } from './football/yndlingsholdTekst';
 import { HAANDBOLD_VM2027_HOLD } from '../../data/haandboldVm2027Hold';
 import { SUPERLIGA_TEAMS_2026 } from '../../data/superligaTeams2026';
@@ -84,6 +88,22 @@ const MANGLER = {
 };
 
 const navneAf = (game) => game.teams.map((t) => t.name);
+// Spillets hold i én gruppe på håndbold-VM's kalender — evnen harGrupper er
+// DATA (gyldige grupper + kalender + holdliste), ikke sporten, så også
+// Superliga-fixturen får fladen, når den får grupper (som FootballTable med
+// standings nedenfor).
+const HVM_FASER = GAMES.find((g) => g.id === 'hvm2027').faser;
+const medGrupper = (game) => ({
+  ...game,
+  faser: HVM_FASER,
+  grupper: {
+    point: { sejr: 2, uafgjort: 1 },
+    faser: [
+      { fase: 'Indledende runde', videre: 3, grupper: [{ navn: 'A', hold: navneAf(game) }] },
+      { fase: 'Hovedrunde', videre: 2, grupper: [{ navn: 'I', fra: ['A'] }] },
+    ],
+  },
+});
 const koderAf = (game, navne) => navne.map((n) => game.teams.find((t) => t.name === n).iso2);
 
 // ── Det, der måles ──────────────────────────────────────────────────────
@@ -198,6 +218,11 @@ const FLADER = [
     koder: (game) => koderAf(game, navneAf(game)),
   },
   {
+    navn: 'grupperne (📊 Grupper)',
+    vis: async (game) => iRouter(<Grupper game={medGrupper(game)} matches={[]} />).container.querySelector('[data-testid="gruppe-A"]'),
+    koder: (game) => koderAf(game, navneAf(game)),
+  },
+  {
     navn: 'mål og målchancer (xG-listen)',
     vis: async (game) => iRouter(<HoldXgListe game={game} matches={xgKampe(navneAf(game))} />).container,
     koder: (game) => koderAf(game, navneAf(game)),
@@ -267,6 +292,29 @@ describe('guiden', () => {
     const t = guide({ ...HB, standings: [{ rank: 1 }] });
     expect(t).toContain('i Elo-tabellen, i den officielle tabel eller på et kampkort');
     expect(t).not.toMatch(/trøjeoversigten/);
+  });
+
+  // 📊 Grupper i guiden — samme evne som fanen. Uden grupper står intet af
+  // det (den eksakte holdside-sætning ovenfor er HB UDEN grupper).
+  it('flag-spil MED grupper: fanen, pointsystemet og «i grupperne»', () => {
+    const t = guide(medGrupper(HB));
+    expect(t).toContain('Følg grupperne under 📊 Grupper og jeres indbyrdes 🏆 Stilling');
+    expect(t).toContain('📊 Grupper viser gruppetabellerne, regnet af kampenes resultater her i spillet: 2 point for en sejr, 1 for uafgjort.');
+    expect(t).toContain('I hovedrunden tæller resultaterne fra den indledende runde mod de andre hold fra samme gruppe, der også gik videre, med.');
+    expect(t).toContain('Hovedrundens grupper fylder sig selv, når kampene er lagt ind');
+    expect(t).toContain('Klik på et holdnavn — i Elo-tabellen, i grupperne eller på et kampkort — så får du');
+    expect(t).not.toMatch(/alle IHF/i);
+    const links = [...iRouter(<FootballHelp game={medGrupper(HB)} />).container.querySelectorAll('a')]
+      .filter((a) => a.textContent === '📊 Grupper');
+    expect(links.length).toBe(2);
+    for (const a of links) expect(a.getAttribute('href')).toContain('fane=grupper');
+  });
+
+  it('flag-spil UDEN grupper: ingen 📊 Grupper og ingen «i grupperne»', () => {
+    const t = guide(HB);
+    expect(t).not.toContain('📊 Grupper');
+    expect(t).not.toContain('i grupperne');
+    expect(t).not.toContain('point for en sejr');
   });
 
   it('Superligaen: alt står som før', () => {

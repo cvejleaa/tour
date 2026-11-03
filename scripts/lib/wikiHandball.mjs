@@ -168,6 +168,41 @@ export function findHandballboxe(wikitekst) {
   return ud;
 }
 
+/**
+ * Alle gruppetabeller ({{#invoke:Sports table|main|…}}) i teksten, rå:
+ * navngivne felter + sektionssti. Samme form som findHandballboxe.
+ *
+ * Tabellen er IKKE en kilde til, hvem der er i en gruppe, eller i hvilken
+ * rækkefølge — redaktørerne sorterer `team_order` efter stillingen under
+ * turneringen, og hovedrundens pladsholdere (A1, B1 …) erstattes af rigtige
+ * koder. Kalderen (haandboldProgram.mjs) bruger den kun til at EFTERPRØVE
+ * formatets konstanter (point, hvor mange der går videre, hvilke grupper en
+ * hovedrundegruppe kommer fra) og som krydstjek af medlemskabets MÆNGDE.
+ * @returns {Array<{nr: number, sektion: string[], felter: Record<string,string>}>}
+ */
+export function findSportsTabeller(wikitekst) {
+  const tekst = fjernKommentarer(wikitekst);
+  const overs = overskrifter(tekst);
+  const ud = [];
+  const re = /\{\{\s*#invoke:\s*Sports table\s*\|/gi;
+  let m;
+  while ((m = re.exec(tekst))) {
+    const slut = skabelonSlut(tekst, m.index);
+    if (slut < 0) {
+      const linje = tekst.slice(0, m.index).split('\n').length;
+      throw new Error(`En gruppetabel ({{#invoke:Sports table}}) ved linje ${linje} lukkes aldrig — siden er ufuldstændig eller ændret. Intet er læst.`);
+    }
+    const felter = {};
+    for (const l of delFelter(tekst.slice(m.index + 2, slut - 2)).slice(1)) {
+      const i = l.indexOf('=');
+      if (i > 0) felter[l.slice(0, i).trim()] = l.slice(i + 1).trim();
+    }
+    ud.push({ nr: ud.length + 1, sektion: sektionVed(overs, m.index), felter });
+    re.lastIndex = slut;
+  }
+  return ud;
+}
+
 // HOLD UDEN EN TREBOGSTAVSKODE PÅ SIDEN. Hver form står ORDRET, som den står
 // i kasserne — intet mønster, for et mønster ville gætte på former, ingen har
 // set. En ny form kaster stadig (se parseHold).

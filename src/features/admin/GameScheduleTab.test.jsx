@@ -3,7 +3,7 @@
 // påmindelser stopper), så den må hverken skrives utilsigtet eller kunne sættes
 // til en værdi, visningen ikke kender.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import { createRequire } from 'module';
 
 // Serverens EGEN afvisningstekst — ikke en kopi. Kopierede testen den, kunne
@@ -1739,5 +1739,67 @@ describe('advarslen om manglende bonus-deadline ved Vis spillet', async () => {
     u2();
     vis({ ...HVM2027, status: 'finished' });
     expect(screen.queryByTestId('mangler-pulje-deadline')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ⚠️ GRUPPERNE (📊 Grupper) I SPIL-TIDSPLAN. Ugyldige grupper slår fanen og
+// kortets mærke fra — men ikke tavst. Og hovedrundens grupper udledes af de
+// kampe, ejeren lægger ind, så en fejlparret kamp eller et indlagt hold, som
+// stillingen ikke har over stregen (QC Q1), skal stå her ved navn.
+// ---------------------------------------------------------------------------
+describe('Spil-tidsplan — ⚠️ grupperne', async () => {
+  const { HVM27G, INDLEDENDE, medFacit, hovedrundeKampe, GRUPPE_A_KNAEK, A_KNAEK_ORDEN } = await import('../../test/hvm2027Grupper');
+  const { GAMES } = await import('../../../scripts/games.mjs');
+  const IND = medFacit(INDLEDENDE, GRUPPE_A_KNAEK);
+  const giv = (kampe) => mockGetDocs.mockResolvedValue({ docs: kampe.map((m) => ({ id: m.id, data: () => m })) });
+  const advarsel = async () => (await screen.findByTestId('grupper-advarsel')).textContent;
+
+  beforeEach(() => {
+    mockGames.mockReturnValue({ games: [HVM27G], loading: false });
+  });
+
+  it('Q1: stillingen siger Tunesien som nr. 3, men Uruguay er lagt ind — ordret', async () => {
+    giv([...IND, ...hovedrundeKampe({ A: ['Tyskland', 'Serbien', 'Uruguay'] }, { runder: [8] })]);
+    render(<GameScheduleTab />);
+    expect(await advarsel()).toContain('⚠️ 📊 Grupper: Gruppe A: stillingen siger Tunesien som nr. 3, men Uruguay er lagt ind i hovedrunden. Tjek facit eller hovedrundens kampe.');
+    expect(mockGetDocs).toHaveBeenCalledWith({ __sti: ['games', 'hvm2027', 'matches'] });
+  });
+
+  it('en hovedrundekamp på tværs af grupperne nævnes ved navn', async () => {
+    const dag8 = hovedrundeKampe({ A: A_KNAEK_ORDEN.slice(0, 3) }, { runder: [8] });
+    giv([...IND, ...dag8, { id: 'r8-x', round: 8, home: 'Kroatien', away: 'Tyskland', kickoff: Date.parse('2027-01-20T20:00:00Z') }]);
+    render(<GameScheduleTab />);
+    const t = await advarsel();
+    expect(t).toContain('Kroatien–Tyskland');
+    expect(t).toContain('gruppe C og A er ikke i samme gruppe i hovedrunden');
+  });
+
+  it('kampe, der stemmer: ingen advarsel', async () => {
+    giv([...IND, ...hovedrundeKampe({ A: A_KNAEK_ORDEN.slice(0, 3) }, { runder: [8] })]);
+    render(<GameScheduleTab />);
+    await waitFor(() => expect(mockGetDocs).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(screen.queryByTestId('grupper-advarsel')).toBeNull();
+    expect(screen.queryByTestId('grupper-ugyldige')).toBeNull();
+  });
+
+  it('ugyldige grupper: rød linje med grunden — og ingen kamphentning', () => {
+    const forkert = { ...HVM27G, grupper: { ...HVM27G.grupper, faser: [HVM27G.grupper.faser[0], { ...HVM27G.grupper.faser[1], fase: 'Hovedrunden' }] } };
+    mockGames.mockReturnValue({ games: [forkert], loading: false });
+    render(<GameScheduleTab />);
+    const linje = screen.getByTestId('grupper-ugyldige').textContent;
+    expect(linje).toContain('Grupperne er ugyldige (fanen 📊 Grupper vises ikke)');
+    expect(linje).toContain('«Hovedrunden» findes ikke');
+    expect(linje).toContain('Kampkortene viser ingen gruppe.');
+    expect(mockGetDocs).not.toHaveBeenCalled();
+  });
+
+  it('Superligaen: ingen gruppe-linje og INGEN kamphentning ved render', () => {
+    mockGames.mockReturnValue({ games: [{ ...GAMES.find((g) => g.id === 'superliga2627'), id: 'superliga2627' }], loading: false });
+    render(<GameScheduleTab />);
+    expect(screen.queryByTestId('grupper-ugyldige')).toBeNull();
+    expect(screen.queryByTestId('grupper-advarsel')).toBeNull();
+    expect(mockGetDocs).not.toHaveBeenCalled();
   });
 });

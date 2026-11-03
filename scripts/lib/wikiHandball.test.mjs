@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import {
   findHandballboxe, delFelter, overskrifter, parseHold, parseDato, parseTid, parseScore,
   facitFraBox, sidensForskydning, utcIso, laesKampe, beskaarTilKampe, fjernKommentarer, laesBox,
-  transklusioner, infoboksKampe,
+  transklusioner, infoboksKampe, findSportsTabeller,
 } from './wikiHandball.mjs';
 import { holdForIhfNavn } from '../../src/data/haandboldVm2027Hold.js';
 
@@ -293,6 +293,23 @@ describe('VM 2025-fixturen hele vejen', () => {
       }
     }
     expect(n).toBe(10);
+  });
+});
+
+describe('gruppetabellerne ({{#invoke:Sports table}})', () => {
+  it('felterne og sektionsstien — også et link med «|» og en kommentar', () => {
+    const t = '== Main round ==\n=== Group I ===\n{{#invoke:Sports table|main|style=WDL\n|winpoints=2 <!-- |winpoints=3 -->\n'
+      + '|team_order=A1, B1\n|text_Q=[[#Quarterfinals|Quarterfinals]] |result1=Q\n}}\n';
+    expect(findSportsTabeller(t)).toEqual([{
+      nr: 1,
+      sektion: ['Main round', 'Group I'],
+      felter: { style: 'WDL', winpoints: '2', team_order: 'A1, B1', text_Q: '[[#Quarterfinals|Quarterfinals]]', result1: 'Q' },
+    }]);
+  });
+
+  it('kaster på en tabel, der aldrig lukkes', () => {
+    expect(() => findSportsTabeller('linje 1\n{{#invoke:Sports table|main\n|team_order=A1'))
+      .toThrow('En gruppetabel ({{#invoke:Sports table}}) ved linje 2 lukkes aldrig');
   });
 });
 

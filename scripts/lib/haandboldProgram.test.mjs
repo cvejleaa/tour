@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import {
   byggProgram, byggFaser, klassificer, programFil, utcTekst, VM_FASER, VM2027_FORMAT, zoneForskydning, tjekTidszone,
+  gruppeTabeller,
 } from './haandboldProgram.mjs';
 import { faseKalenderFejl, dagTaeller, rundeEtiket, erKnockout, ventetekst } from '../../src/lib/faser.js';
 import { docId, tjekDubletter, kickoffMs } from '../../src/lib/seedFootball.js';
@@ -41,8 +42,9 @@ function retKasse(tekst, { team1, team2, dato }, fn) {
 const SRB_URU = { team1: '{{hb-rt|SRB}}', team2: '{{hb|URU}}', dato: '13 January 2027' };
 
 describe('paritet: den committede fil er det, modulet bygger', () => {
-  it('faser, kampe og usikre tider er identiske med scripts/haandbold-vm2027-program.json', () => {
+  it('faser, grupper, kampe og usikre tider er identiske med scripts/haandbold-vm2027-program.json', () => {
     expect(FIL.faser).toEqual(P.faser);
+    expect(FIL.grupper).toEqual(P.grupper);
     expect(FIL.fixtures).toEqual(P.fixtures);
     expect(FIL.usikreTider).toEqual(P.usikreTider);
   });
@@ -54,7 +56,7 @@ describe('paritet: den committede fil er det, modulet bygger', () => {
   it('programFil(...) med filens egen kilde er den committede fil, felt for felt', () => {
     const bygget = programFil(P, { titel: FIL.kilde.side, revid: FIL.kilde.revid, hentet: FIL.kilde.hentet });
     expect(bygget).toStrictEqual(FIL);
-    expect(Object.keys(bygget)).toEqual(['_note', 'kilde', 'faser', 'usikreTider', 'fixtures']);
+    expect(Object.keys(bygget)).toEqual(['_note', 'kilde', 'faser', 'grupper', 'usikreTider', 'fixtures']);
     expect(Object.keys(bygget.kilde)).toEqual(['side', 'url', 'revid', 'hentet', 'licens']);
     // Et revisions-id går igennem som tal — ikke kun null, som filen har i dag.
     expect(programFil(P, { titel: 'X', revid: 1378613629, hentet: '2026-11-02T13:00:00Z' }).kilde)
@@ -77,7 +79,11 @@ describe('paritet: den committede fil er det, modulet bygger', () => {
     const egypten = programFil({ ...P, forskydningMin: 120 }, { titel: 'X' })._note;
     expect(egypten).toContain('siden angiver lokal tid UTC+2');
     expect(egypten).not.toContain('UTC+1');
-    expect(FIL._note).toContain('kickoffSenest og gruppe når IKKE databasen');
+    expect(FIL._note).toContain('kickoffSenest og gruppe når IKKE kampene i databasen');
+    // Gruppen NÅR nu spillet (game.grupper) — den gamle påstand må ikke stå.
+    expect(FIL._note).toContain('men gruppen når spillet via grupper');
+    expect(FIL._note).toContain('faser og grupper er game.faser og game.grupper');
+    expect(FIL._note).not.toMatch(/gruppe når IKKE databasen|lægges i scripts\/games\.mjs i D6/);
   });
 
   it('utcTekst: fortegn og minutter', () => {
@@ -390,6 +396,169 @@ describe('strukturvagterne', () => {
   it('en MEDTAGET kamp, der ikke kan læses, vælter kaldet', () => {
     const t = retKasse(SIDE, SRB_URU, (k) => k.replace('|time=17:30', '|time=TBD'));
     expect(() => byggProgram(t)).toThrow(/tidspunktet «TBD» har en ukendt form/);
+  });
+});
+
+// GRUPPERNE (game.grupper). `point`, `videre` og hovedrundens `fra` er
+// KONSTANTER i VM2027_FORMAT, som siden EFTERPRØVES mod — som tidszonen.
+// Medlemskabet kommer af kampene (handballboxenes gruppe), rækkefølgen er
+// programrækkefølgen, og gruppetabellernes team_order er kun et krydstjek af
+// MÆNGDEN (redaktørerne sorterer den efter stillingen under turneringen).
+describe('grupperne (game.grupper)', () => {
+  // Erstat `fra` med `til` i gruppetabellen under overskriften `gruppe` i
+  // sektionen `sektion`. Kaster, hvis intet matcher — en erstatning, der
+  // ikke rammer, må ikke give en grøn test, der intet dækker.
+  function retTabel(tekst, sektion, gruppe, fra, til) {
+    const s = tekst.indexOf(`\n==${sektion}==\n`);
+    const g = tekst.indexOf(`\n===${gruppe}===\n`, s);
+    const slut = tekst.indexOf('\n}}\n', g);
+    if (s < 0 || g < 0 || slut < 0) throw new Error(`testen fandt ikke tabellen ${sektion} › ${gruppe}`);
+    const blok = tekst.slice(g, slut);
+    if (!blok.includes(fra)) throw new Error(`testen fandt ikke «${fra}» i ${sektion} › ${gruppe}`);
+    return tekst.slice(0, g) + blok.replace(fra, til) + tekst.slice(slut);
+  }
+
+  it('formen er datakontraktens: point, to faser med videre, A-H med hold og I-IV med fra', () => {
+    expect(P.grupper.point).toEqual({ sejr: 2, uafgjort: 1 });
+    expect(P.grupper.faser.map((f) => [f.fase, f.videre])).toEqual([['Indledende runde', 3], ['Hovedrunde', 2]]);
+    expect(P.grupper.faser[0].grupper.map((g) => g.navn)).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+    expect(P.grupper.faser[1].grupper).toEqual([
+      { navn: 'I', fra: ['A', 'B'] }, { navn: 'II', fra: ['C', 'D'] },
+      { navn: 'III', fra: ['E', 'F'] }, { navn: 'IV', fra: ['G', 'H'] },
+    ]);
+    // Begge faser er navne i kalenderen og ikke knockout.
+    for (const f of P.grupper.faser) {
+      const fase = P.faser.find((x) => x.navn === f.fase);
+      expect(fase, f.fase).toBeDefined();
+      expect(fase).not.toHaveProperty('knockout');
+    }
+  });
+
+  // PROGRAMRÆKKEFØLGE, ikke team_order: siden skriver GER, SRB, TUN, URU og
+  // EGY, ITA, CPV, KSA. Første kamp er Serbien–Uruguay 17.30, så
+  // Tyskland–Tunesien; i B Italien–Saudi-Arabien før Egypten–Kap Verde.
+  it('gruppe A og B: præcis holdene i programrækkefølge — ikke tabellens', () => {
+    expect(P.grupper.faser[0].grupper[0]).toEqual({ navn: 'A', hold: ['Serbien', 'Uruguay', 'Tyskland', 'Tunesien'] });
+    expect(P.grupper.faser[0].grupper[1]).toEqual({ navn: 'B', hold: ['Italien', 'Saudi-Arabien', 'Egypten', 'Kap Verde'] });
+    expect(gruppeTabeller(SIDE).indledende.get('A').koder).toEqual(['GER', 'SRB', 'TUN', 'URU']);
+  });
+
+  it('hvert hold står i præcis den gruppe, dets kampe er i — alle 32, ingen to gange', () => {
+    const gruppeAf = new Map();
+    for (const g of P.grupper.faser[0].grupper) {
+      for (const h of g.hold) {
+        expect(gruppeAf.has(h), h).toBe(false);
+        gruppeAf.set(h, g.navn);
+      }
+    }
+    expect(gruppeAf.size).toBe(32);
+    for (const f of P.fixtures) {
+      expect(gruppeAf.get(f.home), f.id).toBe(f.gruppe);
+      expect(gruppeAf.get(f.away), f.id).toBe(f.gruppe);
+    }
+  });
+
+  // Q5: Presidents Cup har også «Group I» og «Group II». Klassificeres der
+  // på gruppenavnet alene, bliver PC's I (A4, B4, E4, F4) hovedrundens.
+  it('tabellerne klassificeres på sektionsstien: Presidents Cups Group I er IKKE hovedrundens', () => {
+    const t = gruppeTabeller(SIDE);
+    expect([...t.indledende.keys()]).toEqual(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+    expect([...t.hoved.keys()]).toEqual(['I', 'II', 'III', 'IV']);
+    expect(t.hoved.get('I').koder).toEqual(['A1', 'B1', 'A2', 'B2', 'A3', 'B3']);
+    expect(t.hoved.get('I').hvor).toBe('Gruppetabellen i «Main round › Group I»');
+    // Presidents Cup læses slet ikke: en ulæselig PC-tabel ændrer intet.
+    const pc = retTabel(SIDE, 'Presidents Cup', 'Group I', 'team_order=A4, B4, E4, F4', 'team_order=XYZ, A9');
+    expect(byggProgram(pc).grupper).toEqual(P.grupper);
+  });
+
+  // Q4: under turneringen sorterer redaktørerne team_order efter stillingen,
+  // og hovedrundens pladsholdere bliver rigtige koder. Det må ikke ændre
+  // `grupper` — ellers gav en ny kørsel en seedGames-diff midt i turneringen.
+  it('team_order med rigtige koder i ny orden giver UÆNDREDE grupper', () => {
+    let t = retTabel(SIDE, 'Main round', 'Group I', 'team_order=A1, B1, A2, B2, A3, B3', 'team_order=EGY, GER, ITA, SRB, CPV, TUN');
+    t = retTabel(t, 'Preliminary round', 'Group A', 'team_order=GER, SRB, TUN, URU', 'team_order=URU, TUN, SRB, GER');
+    expect(t).not.toBe(SIDE);
+    expect(byggProgram(t).grupper).toEqual(P.grupper);
+  });
+
+  it('KASTER, når en hovedrundegruppes rigtige hold kommer fra en anden gruppe', () => {
+    const t = retTabel(SIDE, 'Main round', 'Group I', 'team_order=A1, B1, A2, B2, A3, B3', 'team_order=EGY, GER, ITA, SRB, CPV, CRO');
+    expect(() => byggProgram(t)).toThrow('Gruppetabellen i «Main round › Group I»: team_order (EGY, GER, ITA, SRB, CPV, CRO) kommer fra gruppe A, B, C, '
+      + 'men formatet siger de 3 bedste fra gruppe A og B. Ret siden/formatet, intet er skrevet.');
+  });
+
+  it('KASTER, når hovedrundens pladsholdere ikke er formatets (C3 i gruppe I, A4 som et af de bedste)', () => {
+    const c = retTabel(SIDE, 'Main round', 'Group I', 'team_order=A1, B1, A2, B2, A3, B3', 'team_order=A1, B1, A2, B2, A3, C3');
+    expect(() => byggProgram(c)).toThrow(/team_order \(A1, B1, A2, B2, A3, C3\) kommer fra gruppe A, B, C, men formatet siger de 3 bedste fra gruppe A og B/);
+    const fire = retTabel(SIDE, 'Main round', 'Group I', 'team_order=A1, B1, A2, B2, A3, B3', 'team_order=A1, B1, A2, B2, A4, B3');
+    expect(() => byggProgram(fire)).toThrow('Gruppetabellen i «Main round › Group I»: pladsholderen «A4» i team_order er ikke et af de 3 bedste hold fra en indledende gruppe.');
+  });
+
+  // TM: `const ok = bogstaver.length === n * fra.length` kunne erstattes med `true`
+  // med suiten grøn — hver fra-gruppe havde stadig sine tre, så et syvende
+  // pladsholder-hold fra en tredje gruppe slap igennem og ville ligge i grupperne.
+  it('KASTER, når hovedrundegruppens team_order har et hold for meget (en syvende kode fra gruppe C)', () => {
+    const t = retTabel(SIDE, 'Main round', 'Group I', 'team_order=A1, B1, A2, B2, A3, B3', 'team_order=A1, B1, A2, B2, A3, B3, C1');
+    expect(() => byggProgram(t)).toThrow(/team_order \(A1, B1, A2, B2, A3, B3, C1\) kommer fra gruppe A, B, C, men formatet siger de 3 bedste fra gruppe A og B/);
+  });
+
+  // VIDERE er en konstant, som siden efterprøves mod. Stod 3 hardkodet uden
+  // et tjek, ville en side med result3=P give en grøn kørsel og en streg på
+  // det forkerte sted.
+  it('KASTER, når siden siger et andet antal videre end formatet (result3=P i gruppe A)', () => {
+    const t = retTabel(SIDE, 'Preliminary round', 'Group A', '|result3=Q', '|result3=P');
+    expect(() => byggProgram(t)).toThrow('Gruppetabellen i «Preliminary round › Group A»: siden siger, at de 2 øverste går videre (resultN=Q), men formatet siger 3. '
+      + 'Stregen i gruppetabellen ville stå forkert — ret siden/formatet, intet er skrevet.');
+    const h = retTabel(SIDE, 'Main round', 'Group III', '|result2=Q', '|result2=Q |result3=Q');
+    expect(() => byggProgram(h)).toThrow(/«Main round › Group III»: siden siger, at de 3 øverste går videre \(resultN=Q\), men formatet siger 2\./);
+  });
+
+  it('formatets videre bestemmer — og et format, der siger 2, afvises af den rigtige side', () => {
+    const format = { ...VM2027_FORMAT, videre: { indledende: 2, hoved: 2 } };
+    expect(() => byggProgram(SIDE, { format })).toThrow(/«Preliminary round › Group A»: siden siger, at de 3 øverste går videre \(resultN=Q\), men formatet siger 2\./);
+  });
+
+  it('KASTER, når Q ikke står på de øverste pladser', () => {
+    const t = retTabel(SIDE, 'Preliminary round', 'Group B', '|result1=Q', '|result1=P');
+    expect(() => byggProgram(t)).toThrow('Gruppetabellen i «Preliminary round › Group B»: Q står på plads 2, 3 — ikke på de øverste pladser.');
+  });
+
+  // POINT: håndbold giver 2 for en sejr. En tabel uden winpoints er
+  // Sports table-modulets standard (3) — en fodboldtabel.
+  it.each([
+    ['winpoints=3', '|winpoints=2', '|winpoints=3', 'siden giver 3 point for en sejr, 1 for uafgjort og 0 for et nederlag'],
+    ['ingen winpoints (modulets standard 3)', '|winpoints=2', '', 'siden giver 3 point for en sejr, 1 for uafgjort og 0 for et nederlag'],
+    ['drawpoints=2', '|winpoints=2', '|winpoints=2 |drawpoints=2', 'siden giver 2 point for en sejr, 2 for uafgjort og 0 for et nederlag'],
+    ['losspoints=1', '|winpoints=2', '|winpoints=2 |losspoints=1', 'siden giver 2 point for en sejr, 1 for uafgjort og 1 for et nederlag'],
+  ])('KASTER på point, der ikke er formatets: %s', (_, fra, til, besked) => {
+    const t = retTabel(SIDE, 'Main round', 'Group IV', fra, til);
+    expect(() => byggProgram(t)).toThrow(`Gruppetabellen i «Main round › Group IV»: ${besked}, men formatet siger 2, 1 og 0.`);
+  });
+
+  it('point i grupper kommer fra formatet — og den rigtige side afviser et format med 3', () => {
+    expect(() => byggProgram(SIDE, { format: { ...VM2027_FORMAT, point: { sejr: 3, uafgjort: 1 } } }))
+      .toThrow(/«Preliminary round › Group A»: siden giver 2 point for en sejr, 1 for uafgjort og 0 for et nederlag, men formatet siger 3, 1 og 0\./);
+  });
+
+  it('KASTER, når en indledende tabel har et hold fra en anden gruppe (mængden modsiger kampene)', () => {
+    const t = retTabel(SIDE, 'Preliminary round', 'Group A', 'team_order=GER, SRB, TUN, URU', 'team_order=GER, SRB, TUN, ITA');
+    expect(() => byggProgram(t)).toThrow('Gruppetabellen i «Preliminary round › Group A»: tabellen har Italien, Serbien, Tunesien, Tyskland, '
+      + 'men kampene i gruppe A har Serbien, Tunesien, Tyskland, Uruguay. Siden modsiger sig selv — ret siden, intet er skrevet.');
+  });
+
+  it('KASTER på en ukendt holdkode i team_order og peger på holdfilen', () => {
+    const t = retTabel(SIDE, 'Preliminary round', 'Group H', 'team_order=ISL, MKD, BHR, JPN', 'team_order=ISL, MKD, BHR, XYZ');
+    expect(() => byggProgram(t)).toThrow('Gruppetabellen i «Preliminary round › Group H»: holdkoden «XYZ» i team_order findes ikke i src/data/haandboldVm2027Hold.js');
+  });
+
+  it('KASTER, når en gruppe mangler sin tabel — eller har to', () => {
+    const uden = retTabel(SIDE, 'Preliminary round', 'Group H', '{{#invoke:Sports table|main', '{{#invoke:Ikke en tabel|main');
+    expect(() => byggProgram(uden)).toThrow('Gruppetabellerne i fasen «Indledende runde» er A, B, C, D, E, F, G, men formatet siger A, B, C, D, E, F, G, H. Intet er skrevet.');
+    const g = SIDE.indexOf('\n===Group I===\n', SIDE.indexOf('\n==Main round==\n')) + '\n===Group I===\n'.length;
+    const blok = SIDE.slice(g, SIDE.indexOf('\n}}\n', g) + 4);
+    expect(blok.startsWith('{{#invoke:Sports table|main')).toBe(true);
+    const to = SIDE.slice(0, g) + blok + SIDE.slice(g);
+    expect(() => byggProgram(to)).toThrow('Gruppetabellen i «Main round › Group I»: gruppe I har to tabeller på siden');
   });
 });
 

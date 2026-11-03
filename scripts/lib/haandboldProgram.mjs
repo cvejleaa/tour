@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // scripts/lib/haandboldProgram.mjs — VM 2027-programmet fra Wikipedia →
-// kampe til seed-football + fasekalenderen (`game.faser`).
+// kampe til seed-football + fasekalenderen (`game.faser`) + grupperne
+// (`game.grupper`).
 //
 // Rene funktioner; scripts/haandbold-program.mjs henter siden og skriver
 // filen. Testet i haandboldProgram.test.mjs mod en fixture af siden.
@@ -20,7 +21,7 @@
 // gætte. Ukendt sektion med kampe → kast med navnet.
 // ---------------------------------------------------------------------------
 
-import { findHandballboxe, laesBox, sidensForskydning, utcIso } from './wikiHandball.mjs';
+import { findHandballboxe, findSportsTabeller, laesBox, sidensForskydning, utcIso } from './wikiHandball.mjs';
 import { faseKalenderFejl } from '../../src/lib/faser.js';
 import { HAANDBOLD_VM2027_HOLD, holdForKode } from '../../src/data/haandboldVm2027Hold.js';
 
@@ -47,6 +48,18 @@ export const VM2027_FORMAT = {
   // om siden, og den efterprøves: står der noget andet end værtens zone på
   // kampdagene, flytter hver tip-deadline sig en time, og så stopper vi.
   tidszone: 'Europe/Berlin',
+  // GRUPPERNE (game.grupper). KONSTANTER, som siden EFTERPRØVES mod — som
+  // tidszonen — og aldrig læses ud af den: gruppetabellernes `team_order` er
+  // et LEVENDE felt (redaktørerne sorterer det efter stillingen under
+  // turneringen, og hovedrundens pladsholdere A1, B1 … erstattes af rigtige
+  // koder). En kørsel midt i turneringen må ikke give et andet `grupper`.
+  //   point        winpoints (og drawpoints/losspoints) på HVER tabel
+  //   videre       resultN=Q på præcis de øverste N pladser i hver tabel
+  //   hovedgrupper hovedrundegruppens team_order kommer fra præcis disse
+  //                indledende grupper (pladsholderen A1 eller A-holdets kode)
+  point: { sejr: 2, uafgjort: 1 },
+  videre: { indledende: 3, hoved: 2 },
+  hovedgrupper: { I: ['A', 'B'], II: ['C', 'D'], III: ['E', 'F'], IV: ['G', 'H'] },
 };
 
 /**
@@ -184,6 +197,161 @@ export function byggFaser(kampe) {
   return { faser, rundeForDato };
 }
 
+// Sports table-modulets standard, når feltet ikke står på tabellen
+// (Module:Sports table, style=WDL): 3 point for en sejr, 1 for uafgjort, 0
+// for et nederlag. Derfor er en tabel UDEN winpoints en fodboldtabel, og den
+// fejler mod formatets 2.
+const TABEL_STANDARD = { winpoints: 3, drawpoints: 1, losspoints: 0 };
+
+/**
+ * Gruppetabellerne på siden, klassificeret på SEKTIONSSTIEN (klassificer) —
+ * aldrig på gruppenavnet: Presidents Cup har også en «Group I» og «Group II»,
+ * og deres team_order (A4, B4 …) er ikke hovedrundens.
+ * @returns {{indledende: Map<string, object>, hoved: Map<string, object>}}
+ *   gruppe → {gruppe, hvor, koder, videre, point:{sejr, uafgjort, tab}}
+ */
+export function gruppeTabeller(wikitekst) {
+  const ud = { indledende: new Map(), hoved: new Map() };
+  for (const t of findSportsTabeller(wikitekst)) {
+    const k = klassificer(t.sektion);
+    if (k.fra) continue; // Presidents Cup og placering er ikke med
+    const hvor = `Gruppetabellen i «${t.sektion.join(' › ')}»`;
+    if (!ud[k.fase] || !k.gruppe) {
+      throw new Error(`${hvor}: fasen «${k.fase}» har ingen grupper i formatet. Afgør formen på siden — der gættes ikke.`);
+    }
+    if (ud[k.fase].has(k.gruppe)) throw new Error(`${hvor}: gruppe ${k.gruppe} har to tabeller på siden — der gættes ikke, hvilken der gælder.`);
+    const f = t.felter;
+    const koder = String(f.team_order ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (!koder.length) throw new Error(`${hvor} har ingen team_order — siden er ufuldstændig eller ændret.`);
+    // Hvor mange går videre: pladserne med resultN=Q. De skal være de
+    // ØVERSTE — et Q på plads 4 uden et på plads 3 er en ny betydning.
+    const q = Object.entries(f).filter(([n, v]) => /^result\d+$/.test(n) && v === 'Q').map(([n]) => Number(n.slice(6))).sort((a, b) => a - b);
+    if (q.some((n, i) => n !== i + 1)) {
+      throw new Error(`${hvor}: Q står på plads ${q.join(', ')} — ikke på de øverste pladser. Læs formen på siden — der gættes ikke.`);
+    }
+    const tal = (navn) => {
+      if (f[navn] === undefined || f[navn] === '') return TABEL_STANDARD[navn];
+      const n = Number(f[navn]);
+      if (!Number.isInteger(n)) throw new Error(`${hvor}: ${navn}=«${f[navn]}» er ikke et helt tal.`);
+      return n;
+    };
+    ud[k.fase].set(k.gruppe, {
+      gruppe: k.gruppe,
+      hvor,
+      koder,
+      videre: q.length,
+      point: { sejr: tal('winpoints'), uafgjort: tal('drawpoints'), tab: tal('losspoints') },
+    });
+  }
+  return ud;
+}
+
+/** Siger tabellen det samme som formatet om point og om, hvor mange der går videre? Ellers kast. */
+function tjekTabel(t, videre, format) {
+  const p = format.point;
+  if (t.point.sejr !== p.sejr || t.point.uafgjort !== p.uafgjort || t.point.tab !== 0) {
+    throw new Error(`${t.hvor}: siden giver ${t.point.sejr} point for en sejr, ${t.point.uafgjort} for uafgjort og ${t.point.tab} for et nederlag, `
+      + `men formatet siger ${p.sejr}, ${p.uafgjort} og 0. Gruppestillingen ville tælle forkert — ret siden/formatet, intet er skrevet.`);
+  }
+  if (t.videre !== videre) {
+    throw new Error(`${t.hvor}: siden siger, at de ${t.videre} øverste går videre (resultN=Q), men formatet siger ${videre}. `
+      + 'Stregen i gruppetabellen ville stå forkert — ret siden/formatet, intet er skrevet.');
+  }
+}
+
+/**
+ * `game.grupper` (datakontrakten): formatets konstanter, efterprøvet mod
+ * sidens tabeller, og medlemskabet af de indledende grupper fra kampene.
+ *
+ * MEDLEMSKAB kommer af handballboxenes gruppe (allerede valideret i
+ * byggProgram: 8 × 4, 6 kampe, intet hold i to grupper). Tabellens team_order
+ * er kun et krydstjek af MÆNGDEN.
+ * RÆKKEFØLGEN inden for en gruppe er PROGRAMRÆKKEFØLGEN: holdenes første
+ * optræden i det sorterede program (kickoff, id). Den er stabil, når
+ * redaktørerne sorterer team_order efter stillingen, og den er ikke en
+ * placering.
+ * Hovedrundens HOLD gemmes ikke — de udledes af de kampe, ejeren lægger ind.
+ * Her står kun, hvilke indledende grupper en hovedrundegruppe kommer FRA.
+ *
+ * @param {{tabeller: ReturnType<typeof gruppeTabeller>, fixtures: Array, hold: Array, format: object}} o
+ *   fixtures SORTERET (kickoff, id), med `gruppe`
+ */
+export function byggGrupper({ tabeller, fixtures, hold, format }) {
+  const navnFor = (noegle) => VM_FASER.find((f) => f.noegle === noegle).navn;
+  const medlemmer = new Map(format.grupper.map((g) => [g, []]));
+  const gruppeAf = new Map();
+  for (const fx of fixtures) {
+    for (const n of [fx.home, fx.away]) {
+      if (gruppeAf.has(n)) continue;
+      gruppeAf.set(n, fx.gruppe);
+      medlemmer.get(fx.gruppe).push(n);
+    }
+  }
+
+  const sammeNoegler = (m, forventet, fase) => {
+    const fundet = [...m.keys()];
+    if ([...fundet].sort().join() !== [...forventet].sort().join()) {
+      throw new Error(`Gruppetabellerne i fasen «${navnFor(fase)}» er ${fundet.join(', ') || '(ingen)'}, men formatet siger ${forventet.join(', ')}. Intet er skrevet.`);
+    }
+  };
+
+  // Den indledende runde: point, videre og MÆNGDEN af hold.
+  sammeNoegler(tabeller.indledende, format.grupper, 'indledende');
+  for (const g of format.grupper) {
+    const t = tabeller.indledende.get(g);
+    tjekTabel(t, format.videre.indledende, format);
+    const paaSiden = t.koder.map((kode) => {
+      const h = holdForKode(kode, hold);
+      if (!h) throw new Error(`${t.hvor}: holdkoden «${kode}» i team_order findes ikke i src/data/haandboldVm2027Hold.js — ret holdfilen (hbKode/aliaser), der gættes ikke.`);
+      return h.name;
+    });
+    const kampene = medlemmer.get(g);
+    if ([...paaSiden].sort().join() !== [...kampene].sort().join()) {
+      throw new Error(`${t.hvor}: tabellen har ${[...paaSiden].sort().join(', ')}, men kampene i gruppe ${g} har ${[...kampene].sort().join(', ')}. `
+        + 'Siden modsiger sig selv — ret siden, intet er skrevet.');
+    }
+  }
+
+  // Hovedrunden: point, videre og hvilke indledende grupper holdene kommer
+  // fra — pladsholderen «A1» eller et rigtigt hold fra gruppe A.
+  const hovedNavne = Object.keys(format.hovedgrupper);
+  sammeNoegler(tabeller.hoved, hovedNavne, 'hoved');
+  const n = format.videre.indledende;
+  for (const navn of hovedNavne) {
+    const t = tabeller.hoved.get(navn);
+    tjekTabel(t, format.videre.hoved, format);
+    const fra = format.hovedgrupper[navn];
+    const bogstaver = t.koder.map((kode) => {
+      const ph = /^([A-Z])(\d)$/.exec(kode);
+      if (ph) {
+        if (!format.grupper.includes(ph[1]) || Number(ph[2]) < 1 || Number(ph[2]) > n) {
+          throw new Error(`${t.hvor}: pladsholderen «${kode}» i team_order er ikke et af de ${n} bedste hold fra en indledende gruppe. Intet er skrevet.`);
+        }
+        return ph[1];
+      }
+      const h = holdForKode(kode, hold);
+      if (!h || !gruppeAf.has(h.name)) {
+        throw new Error(`${t.hvor}: «${kode}» i team_order er hverken en pladsholder (A1) eller et hold fra den indledende runde. Intet er skrevet.`);
+      }
+      return gruppeAf.get(h.name);
+    });
+    const ok = bogstaver.length === n * fra.length
+      && fra.every((b) => bogstaver.filter((x) => x === b).length === n);
+    if (!ok) {
+      throw new Error(`${t.hvor}: team_order (${t.koder.join(', ')}) kommer fra gruppe ${[...new Set(bogstaver)].sort().join(', ')}, `
+        + `men formatet siger de ${n} bedste fra gruppe ${fra.join(' og ')}. Ret siden/formatet, intet er skrevet.`);
+    }
+  }
+
+  return {
+    point: { sejr: format.point.sejr, uafgjort: format.point.uafgjort },
+    faser: [
+      { fase: navnFor('indledende'), videre: format.videre.indledende, grupper: format.grupper.map((g) => ({ navn: g, hold: medlemmer.get(g) })) },
+      { fase: navnFor('hoved'), videre: format.videre.hoved, grupper: hovedNavne.map((g) => ({ navn: g, fra: [...format.hovedgrupper[g]] })) },
+    ],
+  };
+}
+
 /** Holdet for en kode — eller kast. Aldrig en pladsholder i den indledende runde. */
 function holdEllerKast(side, kamp, hold) {
   const hvor = `Kamp nr. ${kamp.nr} (${kamp.sektion.join(' › ')})`;
@@ -194,7 +362,7 @@ function holdEllerKast(side, kamp, hold) {
 }
 
 /**
- * Hele vejen: siden → {fixtures, faser, advarsler, usikreTider}.
+ * Hele vejen: siden → {fixtures, faser, grupper, advarsler, usikreTider}.
  * @param {string} wikitekst
  * @param {{hold?: Array, format?: object}} [o]
  */
@@ -264,7 +432,9 @@ export function byggProgram(wikitekst, { hold = HAANDBOLD_VM2027_HOLD, format = 
   if (hold.length !== format.antalHold) throw new Error(`Holdfilen har ${hold.length} hold, ikke ${format.antalHold}.`);
 
   fixtures.sort((a, b) => a.kickoff.localeCompare(b.kickoff) || a.id.localeCompare(b.id));
-  return { fixtures, faser, advarsler, usikreTider, forskydningMin: forskydning };
+  // Efter sorteringen: gruppernes rækkefølge er programrækkefølgen.
+  const grupper = byggGrupper({ tabeller: gruppeTabeller(wikitekst), fixtures, hold, format });
+  return { fixtures, faser, grupper, advarsler, usikreTider, forskydningMin: forskydning };
 }
 
 /** Minutter øst for UTC → «UTC+1», «UTC−3», «UTC+5:30». Til noten — tidszonen står i SIDEN, ikke her. */
@@ -281,7 +451,8 @@ export const wikiSideUrl = (titel) => `https://en.wikipedia.org/wiki/${encodeURI
 
 /**
  * Filen, scriptet skriver (scripts/haandbold-vm2027-program.json). seed-football
- * læser `fixtures` og viser `_note`; D6 tager `faser` til scripts/games.mjs.
+ * læser `fixtures` og viser `_note`; `faser` og `grupper` kopieres ordret til
+ * scripts/games.mjs (game.faser og game.grupper — games.test.mjs binder dem).
  */
 export function programFil(p, { titel, revid = null, hentet = null }) {
   const dato = hentet ? String(hentet).slice(0, 10) : 'ukendt dato';
@@ -290,10 +461,12 @@ export function programFil(p, { titel, revid = null, hentet = null }) {
       + `fra Wikipedia («${titel}», revision ${revid ?? 'ukendt'}, hentet ${dato}); indholdet er CC BY-SA 4.0. `
       + `kickoff er UTC (siden angiver lokal tid ${utcTekst(p.forskydningMin)}). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp. `
       + 'kickoffSenest står kun, hvor siden har et tidsvindue — deadline er da det tidligste. '
-      + 'kickoffSenest og gruppe når IKKE databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her. '
-      + 'faser er forslaget til game.faser (lægges i scripts/games.mjs i D6). RET ALDRIG I HÅNDEN: kør scriptet igen.',
+      + 'kickoffSenest og gruppe når IKKE kampene i databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her, '
+      + 'men gruppen når spillet via grupper. faser og grupper er game.faser og game.grupper (holdene i programrækkefølge) og kopieres ordret til scripts/games.mjs. '
+      + 'RET ALDRIG I HÅNDEN: kør scriptet igen.',
     kilde: { side: titel, url: wikiSideUrl(titel), revid, hentet, licens: 'CC BY-SA 4.0' },
     faser: p.faser,
+    grupper: p.grupper,
     usikreTider: p.usikreTider,
     fixtures: p.fixtures,
   };
