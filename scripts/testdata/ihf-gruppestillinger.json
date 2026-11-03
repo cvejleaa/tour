@@ -1,0 +1,1703 @@
+{
+  "_note": "IHF's slutrækkefølge (team_order) og tabeltal for hver FÆRDIG tabel i den indledende runde og hovedrunden, kun VM. Holdkoderne er historikkens (scripts/haandbold-historik.json). Tabeller, hvis tal ikke kan regnes af historikkens kampe (aflyste kampe), står under udeladt med grunden. Bygget af scripts/haandbold-gruppeorakel.mjs; RET ALDRIG I HÅNDEN.",
+  "kilder": [
+    {
+      "noegle": "vm2021",
+      "side": "2021 World Men's Handball Championship",
+      "url": "https://en.wikipedia.org/wiki/2021_World_Men's_Handball_Championship",
+      "fil": "vm2021.wikitext",
+      "sha256": "51b324d1423225bb14ea3d3bca8adc26885dab71aaa75cd5ba56ec567d24f5a8",
+      "hentet": "2026-11-03T07:48:00.655Z",
+      "licens": "CC BY-SA 4.0"
+    },
+    {
+      "noegle": "vm2023",
+      "side": "2023 World Men's Handball Championship",
+      "url": "https://en.wikipedia.org/wiki/2023_World_Men's_Handball_Championship",
+      "fil": "vm2023.wikitext",
+      "sha256": "8b58dd9adba7bd887393ceb3fef7de75d42d0841724025bbb8251722b9ef96fd",
+      "hentet": "2026-11-03T07:48:05.295Z",
+      "licens": "CC BY-SA 4.0"
+    },
+    {
+      "noegle": "vm2025",
+      "side": "2025 World Men's Handball Championship",
+      "url": "https://en.wikipedia.org/wiki/2025_World_Men's_Handball_Championship",
+      "fil": "vm2025.wikitext",
+      "sha256": "de3faf1336dab59a75a7ea19f6b64c49dd6a9296307c2223c3529913d782e2b5",
+      "hentet": "2026-11-03T07:48:09.939Z",
+      "licens": "CC BY-SA 4.0"
+    }
+  ],
+  "tabeller": [
+    {
+      "turnering": "vm2021",
+      "fase": "indledende",
+      "gruppe": "B",
+      "sektion": "Preliminary round › Group B",
+      "team_order": [
+        "ESP",
+        "POL",
+        "BRA",
+        "TUN"
+      ],
+      "stats": {
+        "ESP": {
+          "won": 2,
+          "draw": 1,
+          "lost": 0,
+          "gf": 92,
+          "ga": 85
+        },
+        "POL": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 89,
+          "ga": 78
+        },
+        "BRA": {
+          "won": 0,
+          "draw": 2,
+          "lost": 1,
+          "gf": 84,
+          "ga": 94
+        },
+        "TUN": {
+          "won": 0,
+          "draw": 1,
+          "lost": 2,
+          "gf": 90,
+          "ga": 98
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "indledende",
+      "gruppe": "C",
+      "sektion": "Preliminary round › Group C",
+      "team_order": [
+        "CRO",
+        "QAT",
+        "JPN",
+        "ANG"
+      ],
+      "stats": {
+        "CRO": {
+          "won": 2,
+          "draw": 1,
+          "lost": 0,
+          "gf": 83,
+          "ga": 73
+        },
+        "QAT": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 85,
+          "ga": 80
+        },
+        "JPN": {
+          "won": 1,
+          "draw": 1,
+          "lost": 1,
+          "gf": 88,
+          "ga": 89
+        },
+        "ANG": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 74,
+          "ga": 88
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "indledende",
+      "gruppe": "D",
+      "sektion": "Preliminary round › Group D",
+      "team_order": [
+        "DEN",
+        "ARG",
+        "BHR",
+        "COD"
+      ],
+      "stats": {
+        "DEN": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 104,
+          "ga": 59
+        },
+        "ARG": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 72,
+          "ga": 74
+        },
+        "BHR": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 75,
+          "ga": 85
+        },
+        "COD": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 68,
+          "ga": 101
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "indledende",
+      "gruppe": "E",
+      "sektion": "Preliminary round › Group E",
+      "team_order": [
+        "FRA",
+        "NOR",
+        "SUI",
+        "AUT"
+      ],
+      "stats": {
+        "FRA": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 88,
+          "ga": 76
+        },
+        "NOR": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 93,
+          "ga": 82
+        },
+        "SUI": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 77,
+          "ga": 81
+        },
+        "AUT": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 82,
+          "ga": 101
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "indledende",
+      "gruppe": "F",
+      "sektion": "Preliminary round › Group F",
+      "team_order": [
+        "POR",
+        "ISL",
+        "ALG",
+        "MAR"
+      ],
+      "stats": {
+        "POR": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 84,
+          "ga": 62
+        },
+        "ISL": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 93,
+          "ga": 72
+        },
+        "ALG": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 67,
+          "ga": 88
+        },
+        "MAR": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 66,
+          "ga": 88
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "indledende",
+      "gruppe": "G",
+      "sektion": "Preliminary round › Group G",
+      "team_order": [
+        "SWE",
+        "EGY",
+        "MKD",
+        "CHI"
+      ],
+      "stats": {
+        "SWE": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 97,
+          "ga": 69
+        },
+        "EGY": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 96,
+          "ga": 72
+        },
+        "MKD": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 71,
+          "ga": 99
+        },
+        "CHI": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 84,
+          "ga": 108
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "indledende",
+      "gruppe": "H",
+      "sektion": "Preliminary round › Group H",
+      "team_order": [
+        "RUS",
+        "SLO",
+        "BLR",
+        "KOR"
+      ],
+      "stats": {
+        "RUS": {
+          "won": 2,
+          "draw": 1,
+          "lost": 0,
+          "gf": 93,
+          "ga": 83
+        },
+        "SLO": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 105,
+          "ga": 85
+        },
+        "BLR": {
+          "won": 1,
+          "draw": 1,
+          "lost": 1,
+          "gf": 89,
+          "ga": 85
+        },
+        "KOR": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 79,
+          "ga": 113
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "hoved",
+      "gruppe": "I",
+      "sektion": "Main round › Group I",
+      "team_order": [
+        "ESP",
+        "HUN",
+        "GER",
+        "POL",
+        "BRA",
+        "URU"
+      ],
+      "stats": {
+        "ESP": {
+          "won": 4,
+          "draw": 1,
+          "lost": 0,
+          "gf": 162,
+          "ga": 134
+        },
+        "HUN": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 160,
+          "ga": 131
+        },
+        "GER": {
+          "won": 2,
+          "draw": 1,
+          "lost": 2,
+          "gf": 153,
+          "ga": 122
+        },
+        "POL": {
+          "won": 2,
+          "draw": 1,
+          "lost": 2,
+          "gf": 138,
+          "ga": 119
+        },
+        "BRA": {
+          "won": 1,
+          "draw": 1,
+          "lost": 3,
+          "gf": 136,
+          "ga": 139
+        },
+        "URU": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 88,
+          "ga": 192
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "hoved",
+      "gruppe": "II",
+      "sektion": "Main round › Group II",
+      "team_order": [
+        "DEN",
+        "QAT",
+        "ARG",
+        "CRO",
+        "JPN",
+        "BHR"
+      ],
+      "stats": {
+        "DEN": {
+          "won": 5,
+          "draw": 0,
+          "lost": 0,
+          "gf": 169,
+          "ga": 116
+        },
+        "QAT": {
+          "won": 3,
+          "draw": 0,
+          "lost": 2,
+          "gf": 132,
+          "ga": 135
+        },
+        "ARG": {
+          "won": 3,
+          "draw": 0,
+          "lost": 2,
+          "gf": 120,
+          "ga": 121
+        },
+        "CRO": {
+          "won": 2,
+          "draw": 1,
+          "lost": 2,
+          "gf": 128,
+          "ga": 132
+        },
+        "JPN": {
+          "won": 1,
+          "draw": 1,
+          "lost": 3,
+          "gf": 138,
+          "ga": 147
+        },
+        "BHR": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 107,
+          "ga": 143
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "hoved",
+      "gruppe": "III",
+      "sektion": "Main round › Group III",
+      "team_order": [
+        "FRA",
+        "NOR",
+        "POR",
+        "SUI",
+        "ISL",
+        "ALG"
+      ],
+      "stats": {
+        "FRA": {
+          "won": 5,
+          "draw": 0,
+          "lost": 0,
+          "gf": 142,
+          "ga": 123
+        },
+        "NOR": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 155,
+          "ga": 137
+        },
+        "POR": {
+          "won": 3,
+          "draw": 0,
+          "lost": 2,
+          "gf": 135,
+          "ga": 132
+        },
+        "SUI": {
+          "won": 2,
+          "draw": 0,
+          "lost": 3,
+          "gf": 125,
+          "ga": 131
+        },
+        "ISL": {
+          "won": 1,
+          "draw": 0,
+          "lost": 4,
+          "gf": 139,
+          "ga": 132
+        },
+        "ALG": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 116,
+          "ga": 157
+        }
+      }
+    },
+    {
+      "turnering": "vm2021",
+      "fase": "hoved",
+      "gruppe": "IV",
+      "sektion": "Main round › Group IV",
+      "team_order": [
+        "SWE",
+        "EGY",
+        "SLO",
+        "RUS",
+        "BLR",
+        "MKD"
+      ],
+      "stats": {
+        "SWE": {
+          "won": 3,
+          "draw": 2,
+          "lost": 0,
+          "gf": 144,
+          "ga": 117
+        },
+        "EGY": {
+          "won": 3,
+          "draw": 1,
+          "lost": 1,
+          "gf": 149,
+          "ga": 117
+        },
+        "SLO": {
+          "won": 2,
+          "draw": 2,
+          "lost": 1,
+          "gf": 138,
+          "ga": 130
+        },
+        "RUS": {
+          "won": 2,
+          "draw": 1,
+          "lost": 2,
+          "gf": 138,
+          "ga": 139
+        },
+        "BLR": {
+          "won": 1,
+          "draw": 2,
+          "lost": 2,
+          "gf": 139,
+          "ga": 148
+        },
+        "MKD": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 106,
+          "ga": 163
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "indledende",
+      "gruppe": "A",
+      "sektion": "Preliminary round › Group A",
+      "team_order": [
+        "ESP",
+        "MNE",
+        "IRI",
+        "CHI"
+      ],
+      "stats": {
+        "ESP": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 99,
+          "ga": 73
+        },
+        "MNE": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 94,
+          "ga": 94
+        },
+        "IRI": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 78,
+          "ga": 93
+        },
+        "CHI": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 83,
+          "ga": 94
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "indledende",
+      "gruppe": "B",
+      "sektion": "Preliminary round › Group B",
+      "team_order": [
+        "FRA",
+        "SLO",
+        "POL",
+        "KSA"
+      ],
+      "stats": {
+        "FRA": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 102,
+          "ga": 78
+        },
+        "SLO": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 96,
+          "ga": 77
+        },
+        "POL": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 74,
+          "ga": 82
+        },
+        "KSA": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 66,
+          "ga": 101
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "indledende",
+      "gruppe": "C",
+      "sektion": "Preliminary round › Group C",
+      "team_order": [
+        "SWE",
+        "BRA",
+        "CPV",
+        "URU"
+      ],
+      "stats": {
+        "SWE": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 107,
+          "ga": 57
+        },
+        "BRA": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 83,
+          "ga": 78
+        },
+        "CPV": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 88,
+          "ga": 89
+        },
+        "URU": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 61,
+          "ga": 115
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "indledende",
+      "gruppe": "D",
+      "sektion": "Preliminary round › Group D",
+      "team_order": [
+        "POR",
+        "ISL",
+        "HUN",
+        "KOR"
+      ],
+      "stats": {
+        "POR": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 85,
+          "ga": 74
+        },
+        "ISL": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 96,
+          "ga": 81
+        },
+        "HUN": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 85,
+          "ga": 82
+        },
+        "KOR": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 76,
+          "ga": 105
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "indledende",
+      "gruppe": "E",
+      "sektion": "Preliminary round › Group E",
+      "team_order": [
+        "GER",
+        "SRB",
+        "QAT",
+        "ALG"
+      ],
+      "stats": {
+        "GER": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 102,
+          "ga": 81
+        },
+        "SRB": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 103,
+          "ga": 85
+        },
+        "QAT": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 80,
+          "ga": 89
+        },
+        "ALG": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 72,
+          "ga": 102
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "indledende",
+      "gruppe": "F",
+      "sektion": "Preliminary round › Group F",
+      "team_order": [
+        "NOR",
+        "NED",
+        "ARG",
+        "MKD"
+      ],
+      "stats": {
+        "NOR": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 98,
+          "ga": 74
+        },
+        "NED": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 89,
+          "ga": 70
+        },
+        "ARG": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 75,
+          "ga": 87
+        },
+        "MKD": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 77,
+          "ga": 108
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "indledende",
+      "gruppe": "G",
+      "sektion": "Preliminary round › Group G",
+      "team_order": [
+        "EGY",
+        "CRO",
+        "USA",
+        "MAR"
+      ],
+      "stats": {
+        "EGY": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 96,
+          "ga": 57
+        },
+        "CRO": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 98,
+          "ga": 77
+        },
+        "USA": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 66,
+          "ga": 102
+        },
+        "MAR": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 70,
+          "ga": 94
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "indledende",
+      "gruppe": "H",
+      "sektion": "Preliminary round › Group H",
+      "team_order": [
+        "DEN",
+        "BHR",
+        "BEL",
+        "TUN"
+      ],
+      "stats": {
+        "DEN": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 113,
+          "ga": 70
+        },
+        "BHR": {
+          "won": 1,
+          "draw": 1,
+          "lost": 1,
+          "gf": 78,
+          "ga": 91
+        },
+        "BEL": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 87,
+          "ga": 102
+        },
+        "TUN": {
+          "won": 0,
+          "draw": 1,
+          "lost": 2,
+          "gf": 77,
+          "ga": 92
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "hoved",
+      "gruppe": "I",
+      "sektion": "Main round › Group I",
+      "team_order": [
+        "FRA",
+        "ESP",
+        "SLO",
+        "POL",
+        "MNE",
+        "IRI"
+      ],
+      "stats": {
+        "FRA": {
+          "won": 5,
+          "draw": 0,
+          "lost": 0,
+          "gf": 165,
+          "ga": 134
+        },
+        "ESP": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 149,
+          "ga": 124
+        },
+        "SLO": {
+          "won": 3,
+          "draw": 0,
+          "lost": 2,
+          "gf": 158,
+          "ga": 133
+        },
+        "POL": {
+          "won": 2,
+          "draw": 0,
+          "lost": 3,
+          "gf": 123,
+          "ga": 127
+        },
+        "MNE": {
+          "won": 1,
+          "draw": 0,
+          "lost": 4,
+          "gf": 126,
+          "ga": 154
+        },
+        "IRI": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 125,
+          "ga": 174
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "hoved",
+      "gruppe": "II",
+      "sektion": "Main round › Group II",
+      "team_order": [
+        "SWE",
+        "HUN",
+        "ISL",
+        "POR",
+        "BRA",
+        "CPV"
+      ],
+      "stats": {
+        "SWE": {
+          "won": 5,
+          "draw": 0,
+          "lost": 0,
+          "gf": 164,
+          "ga": 133
+        },
+        "HUN": {
+          "won": 3,
+          "draw": 0,
+          "lost": 2,
+          "gf": 148,
+          "ga": 147
+        },
+        "ISL": {
+          "won": 3,
+          "draw": 0,
+          "lost": 2,
+          "gf": 169,
+          "ga": 158
+        },
+        "POR": {
+          "won": 2,
+          "draw": 1,
+          "lost": 2,
+          "gf": 146,
+          "ga": 133
+        },
+        "BRA": {
+          "won": 1,
+          "draw": 1,
+          "lost": 3,
+          "gf": 138,
+          "ga": 151
+        },
+        "CPV": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 138,
+          "ga": 181
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "hoved",
+      "gruppe": "III",
+      "sektion": "Main round › Group III",
+      "team_order": [
+        "NOR",
+        "GER",
+        "SRB",
+        "NED",
+        "ARG",
+        "QAT"
+      ],
+      "stats": {
+        "NOR": {
+          "won": 5,
+          "draw": 0,
+          "lost": 0,
+          "gf": 148,
+          "ga": 118
+        },
+        "GER": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 163,
+          "ga": 133
+        },
+        "SRB": {
+          "won": 3,
+          "draw": 0,
+          "lost": 2,
+          "gf": 155,
+          "ga": 141
+        },
+        "NED": {
+          "won": 2,
+          "draw": 0,
+          "lost": 3,
+          "gf": 143,
+          "ga": 141
+        },
+        "ARG": {
+          "won": 1,
+          "draw": 0,
+          "lost": 4,
+          "gf": 107,
+          "ga": 150
+        },
+        "QAT": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 120,
+          "ga": 153
+        }
+      }
+    },
+    {
+      "turnering": "vm2023",
+      "fase": "hoved",
+      "gruppe": "IV",
+      "sektion": "Main round › Group IV",
+      "team_order": [
+        "DEN",
+        "EGY",
+        "CRO",
+        "BHR",
+        "USA",
+        "BEL"
+      ],
+      "stats": {
+        "DEN": {
+          "won": 4,
+          "draw": 1,
+          "lost": 0,
+          "gf": 174,
+          "ga": 130
+        },
+        "EGY": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 150,
+          "ga": 118
+        },
+        "CRO": {
+          "won": 3,
+          "draw": 1,
+          "lost": 1,
+          "gf": 171,
+          "ga": 143
+        },
+        "BHR": {
+          "won": 2,
+          "draw": 0,
+          "lost": 3,
+          "gf": 137,
+          "ga": 160
+        },
+        "USA": {
+          "won": 1,
+          "draw": 0,
+          "lost": 4,
+          "gf": 113,
+          "ga": 162
+        },
+        "BEL": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 132,
+          "ga": 164
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "indledende",
+      "gruppe": "A",
+      "sektion": "Preliminary round › Group A",
+      "team_order": [
+        "GER",
+        "SUI",
+        "CZE",
+        "POL"
+      ],
+      "stats": {
+        "GER": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 95,
+          "ga": 79
+        },
+        "SUI": {
+          "won": 1,
+          "draw": 1,
+          "lost": 1,
+          "gf": 76,
+          "ga": 76
+        },
+        "CZE": {
+          "won": 0,
+          "draw": 2,
+          "lost": 1,
+          "gf": 58,
+          "ga": 65
+        },
+        "POL": {
+          "won": 0,
+          "draw": 1,
+          "lost": 2,
+          "gf": 75,
+          "ga": 84
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "indledende",
+      "gruppe": "B",
+      "sektion": "Preliminary round › Group B",
+      "team_order": [
+        "DEN",
+        "ITA",
+        "TUN",
+        "ALG"
+      ],
+      "stats": {
+        "DEN": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 118,
+          "ga": 63
+        },
+        "ITA": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 84,
+          "ga": 87
+        },
+        "TUN": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 72,
+          "ga": 89
+        },
+        "ALG": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 70,
+          "ga": 105
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "indledende",
+      "gruppe": "C",
+      "sektion": "Preliminary round › Group C",
+      "team_order": [
+        "FRA",
+        "AUT",
+        "QAT",
+        "KUW"
+      ],
+      "stats": {
+        "FRA": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 115,
+          "ga": 65
+        },
+        "AUT": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 92,
+          "ga": 87
+        },
+        "QAT": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 70,
+          "ga": 87
+        },
+        "KUW": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 67,
+          "ga": 105
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "indledende",
+      "gruppe": "D",
+      "sektion": "Preliminary round › Group D",
+      "team_order": [
+        "HUN",
+        "NED",
+        "MKD",
+        "GUI"
+      ],
+      "stats": {
+        "HUN": {
+          "won": 2,
+          "draw": 1,
+          "lost": 0,
+          "gf": 98,
+          "ga": 77
+        },
+        "NED": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 109,
+          "ga": 91
+        },
+        "MKD": {
+          "won": 1,
+          "draw": 1,
+          "lost": 1,
+          "gf": 88,
+          "ga": 84
+        },
+        "GUI": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 61,
+          "ga": 104
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "indledende",
+      "gruppe": "E",
+      "sektion": "Preliminary round › Group E",
+      "team_order": [
+        "POR",
+        "BRA",
+        "NOR",
+        "USA"
+      ],
+      "stats": {
+        "POR": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 91,
+          "ga": 75
+        },
+        "BRA": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 86,
+          "ga": 80
+        },
+        "NOR": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 87,
+          "ga": 77
+        },
+        "USA": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 62,
+          "ga": 94
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "indledende",
+      "gruppe": "F",
+      "sektion": "Preliminary round › Group F",
+      "team_order": [
+        "SWE",
+        "ESP",
+        "CHI",
+        "JPN"
+      ],
+      "stats": {
+        "SWE": {
+          "won": 2,
+          "draw": 1,
+          "lost": 0,
+          "gf": 110,
+          "ga": 80
+        },
+        "ESP": {
+          "won": 2,
+          "draw": 1,
+          "lost": 0,
+          "gf": 99,
+          "ga": 71
+        },
+        "CHI": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 83,
+          "ga": 99
+        },
+        "JPN": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 67,
+          "ga": 109
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "indledende",
+      "gruppe": "G",
+      "sektion": "Preliminary round › Group G",
+      "team_order": [
+        "ISL",
+        "SLO",
+        "CPV",
+        "CUB"
+      ],
+      "stats": {
+        "ISL": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 97,
+          "ga": 58
+        },
+        "SLO": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 95,
+          "ga": 66
+        },
+        "CPV": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 83,
+          "ga": 98
+        },
+        "CUB": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 66,
+          "ga": 119
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "indledende",
+      "gruppe": "H",
+      "sektion": "Preliminary round › Group H",
+      "team_order": [
+        "EGY",
+        "CRO",
+        "ARG",
+        "BHR"
+      ],
+      "stats": {
+        "EGY": {
+          "won": 3,
+          "draw": 0,
+          "lost": 0,
+          "gf": 102,
+          "ga": 73
+        },
+        "CRO": {
+          "won": 2,
+          "draw": 0,
+          "lost": 1,
+          "gf": 93,
+          "ga": 68
+        },
+        "ARG": {
+          "won": 1,
+          "draw": 0,
+          "lost": 2,
+          "gf": 69,
+          "ga": 97
+        },
+        "BHR": {
+          "won": 0,
+          "draw": 0,
+          "lost": 3,
+          "gf": 71,
+          "ga": 97
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "hoved",
+      "gruppe": "I",
+      "sektion": "Main round › Group I",
+      "team_order": [
+        "DEN",
+        "GER",
+        "SUI",
+        "ITA",
+        "CZE",
+        "TUN"
+      ],
+      "stats": {
+        "DEN": {
+          "won": 5,
+          "draw": 0,
+          "lost": 0,
+          "gf": 178,
+          "ga": 121
+        },
+        "GER": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 155,
+          "ga": 137
+        },
+        "SUI": {
+          "won": 2,
+          "draw": 1,
+          "lost": 2,
+          "gf": 144,
+          "ga": 138
+        },
+        "ITA": {
+          "won": 2,
+          "draw": 0,
+          "lost": 3,
+          "gf": 129,
+          "ga": 149
+        },
+        "CZE": {
+          "won": 1,
+          "draw": 1,
+          "lost": 3,
+          "gf": 111,
+          "ga": 125
+        },
+        "TUN": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 117,
+          "ga": 164
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "hoved",
+      "gruppe": "II",
+      "sektion": "Main round › Group II",
+      "team_order": [
+        "FRA",
+        "HUN",
+        "NED",
+        "MKD",
+        "AUT",
+        "QAT"
+      ],
+      "stats": {
+        "FRA": {
+          "won": 5,
+          "draw": 0,
+          "lost": 0,
+          "gf": 176,
+          "ga": 129
+        },
+        "HUN": {
+          "won": 3,
+          "draw": 1,
+          "lost": 1,
+          "gf": 151,
+          "ga": 145
+        },
+        "NED": {
+          "won": 2,
+          "draw": 1,
+          "lost": 2,
+          "gf": 172,
+          "ga": 177
+        },
+        "MKD": {
+          "won": 1,
+          "draw": 2,
+          "lost": 2,
+          "gf": 152,
+          "ga": 159
+        },
+        "AUT": {
+          "won": 1,
+          "draw": 2,
+          "lost": 2,
+          "gf": 147,
+          "ga": 156
+        },
+        "QAT": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 139,
+          "ga": 171
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "hoved",
+      "gruppe": "III",
+      "sektion": "Main round › Group III",
+      "team_order": [
+        "POR",
+        "BRA",
+        "NOR",
+        "SWE",
+        "ESP",
+        "CHI"
+      ],
+      "stats": {
+        "POR": {
+          "won": 4,
+          "draw": 1,
+          "lost": 0,
+          "gf": 179,
+          "ga": 148
+        },
+        "BRA": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 136,
+          "ga": 129
+        },
+        "NOR": {
+          "won": 3,
+          "draw": 0,
+          "lost": 2,
+          "gf": 147,
+          "ga": 130
+        },
+        "SWE": {
+          "won": 1,
+          "draw": 2,
+          "lost": 2,
+          "gf": 156,
+          "ga": 152
+        },
+        "ESP": {
+          "won": 1,
+          "draw": 1,
+          "lost": 3,
+          "gf": 138,
+          "ga": 137
+        },
+        "CHI": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 126,
+          "ga": 186
+        }
+      }
+    },
+    {
+      "turnering": "vm2025",
+      "fase": "hoved",
+      "gruppe": "IV",
+      "sektion": "Main round › Group IV",
+      "team_order": [
+        "CRO",
+        "EGY",
+        "ISL",
+        "SLO",
+        "ARG",
+        "CPV"
+      ],
+      "stats": {
+        "CRO": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 162,
+          "ga": 122
+        },
+        "EGY": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 148,
+          "ga": 125
+        },
+        "ISL": {
+          "won": 4,
+          "draw": 0,
+          "lost": 1,
+          "gf": 140,
+          "ga": 116
+        },
+        "SLO": {
+          "won": 2,
+          "draw": 0,
+          "lost": 3,
+          "gf": 139,
+          "ga": 125
+        },
+        "ARG": {
+          "won": 1,
+          "draw": 0,
+          "lost": 4,
+          "gf": 117,
+          "ga": 162
+        },
+        "CPV": {
+          "won": 0,
+          "draw": 0,
+          "lost": 5,
+          "gf": 119,
+          "ga": 175
+        }
+      }
+    }
+  ],
+  "udeladt": [
+    {
+      "turnering": "vm2021",
+      "sektion": "Preliminary round › Group A",
+      "grund": "tabellens tal kan ikke regnes af historikkens kampe (aflyste kampe/walkovers): GER tabel 2-0-1 81:43 ≠ historik 1-0-1 71:43; URU tabel 1-0-2 42:87 ≠ historik 0-0-2 32:87; CPV tabel 0-0-3 27:54 ≠ historik 0-0-1 27:34"
+    }
+  ]
+}
