@@ -973,12 +973,6 @@
   skriver `games/{g}/matches` (rules L907-911) og intet hvm2027-spil er seedet før loftet
   (scripts/seed-filer.mjs har ingen post, 2026-11-03). Tjek ved seed-PR'en: ingen gamle odds.
 
-- **[ÅBEN, lav — D9 haandbold-d9puls a273a56, BEKRÆFTET emulator] `retFaseKampKickoff`s aftryk binder
-  IKKE den nye tid.** `faseKampe.js:672` `nuAftryk = kampAftryk(kamp)` (kampens tilstand) — tør med 19:00,
-  skriv med 23:45 + samme aftryk → `skrevet:true`, kickoff 23:45. Kun admin; vagterne (gammelt kickoff ikke
-  passeret, samme dato) holder for ENHVER tid, så ingen tip-efter-kampstart. Men "skriver præcis det, tør-
-  kørslen viste" hviler alene på klientens `nulstil()` (FaseKampe.jsx). Fix: hash `{kamp, ny}`. Kontrol:
-  opretFaseKampe-aftrykket binder hele planen (anden tid/andet hold → afvist).
 - **[ÅBEN, lav — D9 P3, BEKRÆFTET ren funktion] Dubletter i `championship` forfalsker Runde-Bottens
   `favoritter`.** `gameRecap.js:420-430` tæller ét navn pr. FOREKOMST: Mallory med 4×'Norge' (reglen tillader
   det, se RENT om puljeScore) → `favoritter:[{hold:'Norge',tippetAf:4,af:4}]` — botten kan skrive, at hele
@@ -1181,6 +1175,18 @@
   '', null, 'finale' → NaN → filtreret FØR tolkning.
 
 ## Afprøvet og RENT (gentag ikke arbejdet uden grund)
+
+- **Kvartfinaler som én runde over to datoer (`sidsteDato`, multi-game-player-collection 0a1f4aa,
+  2026-11-05): RENT — 52 emulator-checks.** `retFaseKampKickoff` med ny `dato`: anonym/pending/spiller afvist
+  (også tør); dato i hviledag/anden runde/andet år/ugyldig/objekt/liste/tal/bool/' 2027-…'/ISO-med-tid → invalid-
+  argument; én-dato-runde kan ikke skifte dato; aftrykket binder `ny` (ms = dato+tid) — tør 27/1 genbrugt med
+  26/1 eller uden dato afvist (det gamle ÅBNE 'aftryk binder ikke tiden' er LUKKET, faseKampe.js ~L774).
+  Kampe i gang kan ikke flyttes. V7 lukker hele runden ved første kickoff (også 27/1-kampe); tom runde åben til
+  midnat efter sidsteDato. Ugyldig `sidsteDato` (flere runder, overlap, objekt) → harFaseKalender false → D9
+  lukket, intet kast. Gammel kode (afe4247) afviser nøglen ('ukendt nøgle') = fail-closed. Rules urørt; tips
+  låses stadig pr. kamp, Chancen pr. runde (chanceVagt grupperer på round → én ⚡ over begge aftener).
+  Bevidst rest (KAN): 'tidligere og passeret' kan nu flytte en 27/1-kamp til i går → andres tips på den kamp
+  læsbare et døgn før kampen (låst, ingen point-gevinst). PoC: scratchpad sec-kvart/poc.cjs <udpakket src>.
 
 - **📊 Grupper (hvm2027, 5247f15, 2026-11-03): ingen ny læsevej, ingen regel-/functions-ændring.**
   `useEgetPuljeBet` (src/features/games/football/useEgetPuljeBet.js) er PuljeTip's gamle lytter flyttet
@@ -2813,7 +2819,8 @@ kampe kun kan skrives af admin. Firebase-CLI fandtes ikke i dag: brug jar'en dir
 D6 (fb7072f, 2026-11-03): seed + skjult spil RENT (se RENT). Næste angrebsflade er D8
 (provideren: punkt 1d-4 ovenfor) og D9 (senere faser oprettes på SERVEREN — hvem kan udløse det,
 og kan holdnavne fra kilden blive nøgler?).
-D9+puls (haandbold-d9puls, 2026-11-03): callables RENT, to lave åbne (VIRKER: ret-kickoff-aftryk uden tid,
-championship-dubletter i bottens favoritter). Holdnavne bliver aldrig nøgler (Map + hbKode-regex). Næste: D8.
+D9+puls (haandbold-d9puls, 2026-11-03): callables RENT, én lav åben (VIRKER: championship-dubletter i bottens
+favoritter; ret-kickoff-aftrykket er LUKKET, bekræftet 0a1f4aa). Holdnavne bliver aldrig nøgler (Map + hbKode-regex). Næste: D8.
+Kvart-tipdag (0a1f4aa, 2026-11-05): `dato` i ret-kickoff + sidsteDato RENT (se RENT).
 Landeflag (haandbold-flag, 2026-11-03): RENT (se RENT). Rest: ingen test scanner svg-
 indholdet, så et udvidet flagsæt skal scannes i hånden (faldgrube).
