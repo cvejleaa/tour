@@ -393,7 +393,10 @@ er **Åben** eller **I gang**. Superligaen og Premier League har den ikke.
 1. Åbn panelet. Øverst står serverens status: hvor mange af fasens kampe der
    er lagt ind, og hvilke dage der mangler kampe og stadig kan få dem.
 2. Tast hver kamp: **dato**, **tid i dansk tid** og de to hold fra spillets
-   holdliste. **＋ Tilføj kamp** giver en række til (med samme dato).
+   holdliste. **＋ Tilføj kamp** giver en række til (med samme dato). I en
+   runde over flere datoer (kvartfinalerne: tir 26/1 og ons 27/1) står datoen
+   tom, så du selv vælger den rigtige for hver kamp — og ＋ arver ikke en
+   kvartfinaledato.
 3. **Vis hvad der oprettes** er en tør-kørsel. Tabellen viser dag, kamp,
    ugedag, dato og klokkeslæt i dansk tid — tjek dem; det er den eneste
    kontrol af det, du har tastet — og de odds, kampen får (den levende Elo
@@ -402,8 +405,10 @@ er **Åben** eller **I gang**. Superligaen og Premier League har den ikke.
    - en dato, der ikke er en spilledag i kalenderen;
    - et hold, der ikke står i holdlisten, eller som allerede spiller den dag;
    - en tid, der er passeret;
-   - en dag, hvis første kamp er gået i gang (så kan Runde-Botten aldrig gøre
-     en halv dag op);
+   - en runde, hvis første kamp er gået i gang (så kan Runde-Botten aldrig
+     gøre en halv runde op). For kvartfinalerne betyder det: **alle 4
+     kvartfinaler skal lægges ind før den første kamp tirsdag 26/1 — også
+     onsdagens**;
    - flere kampe end fasen skal have;
    - et hold uden en kamp i fasen før — og i knockout: et hold, der tabte
      (semifinalerne kan kun bestå af kvartfinalernes vindere; kun
@@ -418,9 +423,11 @@ er **Åben** eller **I gang**. Superligaen og Premier League har den ikke.
    anden), afviser serveren: «Noget er ændret siden tør-kørslen — vis igen.»
 
 **Det kan ikke fortrydes i appen.** En oprettet kamp kan hverken slettes eller
-flyttes til en anden dag (dagen står i kampens id). Kun kickoff kan rettes:
+flyttes til en anden runde (runden står i kampens id). Kun kickoff kan rettes:
 **🕒 Ret kickoff på en kamp** i samme panel, så længe kampen ikke har facit og
-ikke er gået i gang, og på samme dato. Et senere kickoff kræver en tid, der
+ikke er gået i gang, og inden for kampens egen runde — i en runde over to
+datoer (kvartfinalerne) kan du også vælge den anden dato, fx flytte en kamp,
+der er tastet som tirsdag, til onsdag. Et senere kickoff kræver en tid, der
 kan tippes; et tidligere er altid tilladt (det kan kun lukke for tips) — er
 det passeret, lukker tippet med det samme, og tips afgivet efter den rigtige
 kampstart står stadig. Alt andet er konsollen med en udvikler.
@@ -430,12 +437,23 @@ Tip-siden ser færdig ud med en halv dag, og «stadig med»-linjen i puljen og
 Runde-Bottens fortælling om udskilte pulje-hold tænder først, når hele fasen
 (alle 36 i hovedrunden) er lagt ind.
 
+**Kvartfinalerne er én tipdag over to aftener** (runde 14: tir 26/1 og ons
+27/1), så de fire kampe skal ind før tirsdagens første kamp — onsdagens kan
+ikke lægges ind bagefter, og mangler de, kan semifinalerne heller ikke lægges
+ind. Du må lægge dem ind i to omgange: de to tirsdagskampe, så snart gruppe I
+og III er færdige (søndag 24/1), og **de to onsdagskampe mandag 25/1 om
+aftenen**, når gruppe II og IV er færdige. Tør-kørslen siger, hvor mange af de
+4 der er lagt ind, og minder om fristen.
+
 **Glemmer du en dag**, melder Drift-alarmen **«Kampe mangler i næste fase»**
 (hast: haster) sig fra kl. 12 dagen før — i praksis ved Times-sweep'et kl.
 13:25 — én alarm pr. dag, med næste skridt. En fases **første** dag (hovedrunden
 20/1, kvartfinalerne 26/1, …) alarmerer dog først, når fasen før har facit
 på alle sine kampe: før det kendes holdene ikke, og så står det som en linje
-på kortet i stedet. Alarmen står kun, mens dagen stadig kan få kampe; er
+på kortet i stedet. For kvartfinalerne (én runde over to datoer, én alarm for
+alle 4) gælder ventetiden kun til en hård frist: alarmen går senest **tirsdag
+26/1 kl. 12**, også hvis hovedrundens facit mangler — og den siger, at alle 4
+skal ind før tirsdagens første kamp. Alarmen står kun, mens dagen stadig kan få kampe; er
 dagen gået i gang med for få kampe, bliver den en advarsel på Drift-kortet
 **«Fasekampe-vagt»** (en aflyst kamp er i orden). Kortet viser også, hvornår
 næste alarm går.

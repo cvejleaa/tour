@@ -20,19 +20,26 @@
 //       igangværende kampspil med gyldig fasekalender) og har en kendt sport.
 //   V2  holdet findes i game.teams med en elo, der er et tal, og en entydig
 //       hbKode. Navnet SKRIVES fra holdlisten — aldrig en stille 1500.
-//   V3  hjemme ≠ ude, og et hold højst én gang pr. dag (også mod kampe, der
-//       allerede findes) — i en KNOCKOUT-fase højst én gang i hele fasen
-//       (QC på D9, Bør 1: kvartfinalerne har to dage, og Danmark på begge
-//       kunne ellers oprettes og aldrig slettes i appen).
-//   V4  dagen (runden) udledes af den danske dato: fase.start + dage. Det
-//       forudsætter, at en fases dage ligger i træk — bundet af en test mod
-//       Wikipedias program.
+//   V3  hjemme ≠ ude, og et hold højst én gang pr. dag (runde — også mod
+//       kampe, der allerede findes) — i en KNOCKOUT-fase højst én gang i hele
+//       fasen (QC på D9, Bør 1: Danmark på to kvartfinaledatoer kunne ellers
+//       oprettes og aldrig slettes i appen).
+//   V4  dagen (runden) udledes af den danske dato med kalenderens
+//       faser.rundeForDato: fase.start + (runde − fra) — eller, for en fase
+//       med ÉN runde over flere datoer (`sidsteDato`), hele start..sidsteDato
+//       (kvartfinalerne 26/1 og 27/1 er begge runde 14; hviledagen 28/1 er
+//       ingen runde). Det forudsætter, at en fases dage ligger i træk —
+//       bundet af en test mod Wikipedias program.
 //   V5  kickoff ligger efter nu + låsemarginen (aldrig en kamp, der ikke kan
 //       tippes, og aldrig en kamp uden kickoff).
 //   V6  CREATE-ONLY: én atomisk batch af create — hele listen eller intet.
 //       En eksisterende kamp overskrives aldrig.
 //   V7  en dag er åben for nye kampe, indtil dens første kamp går i gang
 //       (ejerens valg 3/11) — så kan Runde-Botten aldrig poste en halv dag.
+//       Det gælder også en runde over flere datoer: alle fire kvartfinaler
+//       skal ind før tirsdagens første kamp, også onsdagens (planen K3), og
+//       teksterne siger den frist konkret (QC B3). Kampene MÅ lægges ind i
+//       flere omgange før da — parrene til 26/1 kendes 24/1, til 27/1 25/1.
 //   V8  en fase får højst `antalKampe` kampe — og bliver fasen HEL ved
 //       oprettelsen, skal fordelingen passe (puljeFacit.faseKampeKomplette,
 //       samme regel som pulsen læser med — QC på D9, Bør 1): en forbytning
@@ -64,8 +71,10 @@
 // RET KICKOFF (QC B1). Kickoff er tip-låsen. En tastefejl (20:30 for 18:00)
 // eller en tid, IHF flytter, ville ellers kun kunne rettes i konsollen. Samme
 // kerne har derfor en rette-vej: kun på en kamp uden facit, der ikke er gået i
-// gang, på samme dato (dagen må ikke skifte — id'et bærer den), med
-// tør-kørsel og aftryk.
+// gang, i samme runde (id'et bærer runden), med tør-kørsel og aftryk. En
+// runde over flere datoer må få datoen flyttet inden for sine egne datoer
+// (QC B2: en 27/1-kamp tastet som 26/1 lukkede ellers et døgn for tidligt
+// og kunne ikke rettes); alle andre runder har én dato.
 //
 // UDEBLIVELSES-VAGTEN (D9.4) bor også her (faseVagtTilstand), så kernen og
 // vagten er enige om, hvad en dag forventer, og hvornår den er åben.
@@ -74,7 +83,7 @@
 const { createHash } = require('node:crypto');
 const { forventerFaseKampe, kampVinder } = require('./facit');
 const {
-  harFaseKalender, faseFor, kbhDato, kortDato, rundeEtiket,
+  harFaseKalender, faseFor, kbhDato, kortDato, rundeEtiket, rundeDatoer, rundeForDato,
 } = require('./faser');
 const {
   sportProfil, ukendtSport, visSport, outcomeOdds, oddsParametre, sportOrd, puljeKonfig,
@@ -118,12 +127,6 @@ function plusDage(dato, n) {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 
-/** Antal dage fra a til b ('YYYY-MM-DD'). */
-function dageMellem(a, b) {
-  const ms = (s) => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d); };
-  return Math.round((ms(b) - ms(a)) / 86_400_000);
-}
-
 /** Klokken i dansk tid, 'HH:MM'. */
 function kbhKlokke(ms) {
   const dele = new Intl.DateTimeFormat('en-GB', {
@@ -153,28 +156,46 @@ function visTid(ms) {
   return `${kortDato(ms)} kl. ${kbhKlokke(ms).replace(':', '.')}`;
 }
 
-/** Datoen (dansk) for en kalenderdag. */
-function dagDato(fase, runde) {
-  return plusDage(fase.start, runde - fase.fra);
+const UGEDAG_LANG = ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'];
+
+/** Ugedagen for en ren dato ('YYYY-MM-DD'), fx 'tirsdag'. */
+function ugedag(dato) {
+  const [y, m, d] = dato.split('-').map(Number);
+  return UGEDAG_LANG[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+
+/** "tirsdag 26/1" — en ren dato i en sætning. */
+function langDato(dato) {
+  const [, m, d] = dato.split('-').map(Number);
+  return `${ugedag(dato)} ${d}/${m}`;
+}
+
+/** "tir 26/1" — en ren dato (dansk) kort. */
+function kortRenDato(dato) {
+  return kortDato(Date.parse(`${dato}T12:00:00Z`));
 }
 
 /**
- * Hvilken dag (runde) en dansk dato er ifølge kalenderen — V4. null uden for
- * kalenderen (en hviledag mellem to faser eller en dato uden for turneringen).
+ * FRISTEN for en runde over flere datoer (QC B3), afledt af kalenderen:
+ *   "Alle 4 kvartfinaler skal lægges ind før den første kamp tirsdag 26/1 — også onsdagens"
+ * V7 lukker runden ved dens første kamp, så kampene på de senere datoer skal
+ * ind samtidig. Kun for en runde med flere datoer (d.sidsteDato > d.dato);
+ * alle andre runder bruger deres tekster uændret.
  */
-function rundeForDato(game, dato) {
-  if (!gyldigDato(dato) || !harFaseKalender(game)) return null;
-  for (const f of game.faser) {
-    const i = dageMellem(f.start, dato);
-    if (i >= 0 && i <= f.til - f.fra) return f.fra + i;
-  }
-  return null;
+function fristTekst(d) {
+  const hvilke = d.fase.antalKampe
+    ? `Alle ${d.fase.antalKampe} ${d.fase.navn.toLowerCase()}`
+    : `Alle kampe i ${d.fase.bestemt.toLowerCase()}`;
+  const ogsaa = d.sidsteDato === plusDage(d.dato, 1)
+    ? `${ugedag(d.sidsteDato)}ens`
+    : `kampene til og med ${langDato(d.sidsteDato)}`;
+  return `${hvilke} skal lægges ind før den første kamp ${langDato(d.dato)} — også ${ogsaa}`;
 }
 
 /**
  * Kampe pr. dag i en fase, UDLEDT af kalenderen (QC B2, ejerens valg 3/11):
- * antalKampe / antal dage, når det går op (hovedrunden 36/6 = 6,
- * kvartfinalerne 4/2 = 2). null, når det ikke går op (den indledende runde
+ * antalKampe / antal runder, når det går op (hovedrunden 36/6 = 6,
+ * kvartfinalerne 4/1 = 4 — én runde over to datoer). null, når det ikke går op (den indledende runde
  * 48/7) eller fasen intet antal har — så kender kalenderen ikke en dags
  * antal, og vagten nøjes med «mindst én kamp» og fasens total.
  */
@@ -200,13 +221,15 @@ function perRunde(matches) {
 
 /**
  * Er dagen ÅBEN for nye kampe? V7: indtil dens første kamp går i gang. En dag
- * uden kampe er åben, så længe en kamp på datoen stadig kan nå at blive tippet
- * (før midnat dansk tid minus låsemarginen).
+ * uden kampe er åben, så længe en kamp på dens SIDSTE dato stadig kan nå at
+ * blive tippet (før midnat dansk tid minus låsemarginen) — for en runde over
+ * flere datoer altså også efter den første dato, så de senere datoers kampe
+ * kan nå ind, hvis den første er tabt (planen K3).
  */
-function dagAaben(dato, kampeIDagen, nowMs) {
+function dagAaben(sidsteDato, kampeIDagen, nowMs) {
   const kickoffs = (kampeIDagen || []).map(kampKickoffMs).filter((k) => Number.isFinite(k));
   if (kickoffs.length) return Math.min(...kickoffs) > nowMs + LAAS_MARGIN_MS;
-  const slut = kbhTilMs(plusDage(dato, 1), '00:00');
+  const slut = kbhTilMs(plusDage(sidsteDato, 1), '00:00');
   return slut != null && slut > nowMs + LAAS_MARGIN_MS;
 }
 
@@ -217,8 +240,14 @@ function dagAaben(dato, kampeIDagen, nowMs) {
  *
  * forventet: kampePrDag, ellers 1 (mindst én kamp) — og på fasens SIDSTE dag
  * resten af fasens antal, så en fase uden et tal pr. dag stadig bliver hel.
- * @returns {Array<{runde:number, fase:object, dato:string, etiket:string, har:number,
- *   forventet:number, aaben:boolean, alarmFraMs:number}>}
+ * dato/sidsteDato: rundens første og sidste dato (rundeDatoer) — ens, undtagen
+ * for en runde over flere datoer.
+ * hardFristMs (QC B1): kun for en runde over flere datoer — kl. 12 på dens
+ * FØRSTE dato. Fra da venter alarmen ikke længere på fasen før: V7 lukker
+ * runden ved første kamp, og mangler de senere datoers kampe, blokerer V9
+ * også de næste faser. Ellers null.
+ * @returns {Array<{runde:number, fase:object, dato:string, sidsteDato:string, etiket:string,
+ *   har:number, forventet:number, aaben:boolean, alarmFraMs:number, hardFristMs:number|null}>}
  */
 function dageStatus(game, matches, nowMs) {
   if (!harFaseKalender(game)) return [];
@@ -234,16 +263,21 @@ function dageStatus(game, matches, nowMs) {
       let forventet = fast ?? 1;
       if (fast == null && sidste && fase.antalKampe) forventet = Math.max(1, fase.antalKampe - foerSidste);
       foerSidste += kampe.length;
-      const dato = dagDato(fase, r);
+      const { foerste: dato, sidste: sidsteDato } = rundeDatoer(game, r);
       ud.push({
         runde: r,
         fase,
         dato,
+        sidsteDato,
         etiket: rundeEtiket(game, r),
         har: kampe.length,
         forventet,
-        aaben: dagAaben(dato, kampe, nowMs),
+        aaben: dagAaben(sidsteDato, kampe, nowMs),
         alarmFraMs: kbhTilMs(plusDage(dato, -1), '12:00'),
+        // Antagelse: rundens første kickoff ligger efter kl. 12 (kvartfinalerne
+        // spilles om aftenen; Wikipedias time= er tom endnu). Ligger den
+        // tidligere, kommer alarmen efter V7 har lukket runden — ret så fristen.
+        hardFristMs: sidsteDato > dato ? kbhTilMs(dato, '12:00') : null,
         venterPaa: r === fase.fra ? forrigeFaseVenter(game, fase, pr) : null,
       });
     }
@@ -273,9 +307,14 @@ function forrigeFaseVenter(game, fase, pr) {
   return { fase: foer.bestemt.toLowerCase(), uden: uden.length };
 }
 
-/** "Hovedrunde · dag 1 (ons 20/1)" — dagen, som ejeren kender den. */
+/**
+ * "Hovedrunde · dag 1 (ons 20/1)" — dagen, som ejeren kender den. En runde
+ * over flere datoer har ingen kampe at gå ud fra her, så datoerne kommer fra
+ * kalenderen: "Kvartfinaler (tir 26/1–ons 27/1)".
+ */
 function dagTekst(d) {
-  return `${d.etiket} (${kortDato(Date.parse(`${d.dato}T12:00:00Z`))})`;
+  const spaend = d.sidsteDato > d.dato ? `–${kortRenDato(d.sidsteDato)}` : '';
+  return `${d.etiket} (${kortRenDato(d.dato)}${spaend})`;
 }
 
 /**
@@ -458,7 +497,12 @@ function planFaseKampe(game, eksisterende, kampe, nowMs) {
     // V5
     if (kickoff <= nowMs + LAAS_MARGIN_MS) return f(`${visTid(kickoff)} er passeret — en kamp skal kunne tippes, før den går i gang`);
     // V7
-    if (!dagAaben(dato, pr.get(runde) || [], nowMs)) {
+    const datoer = rundeDatoer(game, runde);
+    if (!dagAaben(datoer.sidste, pr.get(runde) || [], nowMs)) {
+      if (datoer.sidste > datoer.foerste) {
+        const frist = fristTekst({ fase, dato: datoer.foerste, sidsteDato: datoer.sidste });
+        return f(`${rundeEtiket(game, runde)} er gået i gang — der kan ikke lægges flere kampe ind, heller ikke på en senere dato i runden. ${frist} (Runde-Botten gør dagen op, når dens kampe er afgjort). Mangler en kamp, så tal med udvikleren (konsollen).`);
+      }
       return f(`${rundeEtiket(game, runde)} er gået i gang — der kan ikke lægges flere kampe ind på dagen (Runde-Botten gør dagen op, når dens kampe er afgjort). Mangler en kamp, så tal med udvikleren (konsollen).`);
     }
     // V10. V6 (create-only) har INGEN forhåndstjek her: samme id er samme
@@ -529,6 +573,12 @@ function planFaseKampe(game, eksisterende, kampe, nowMs) {
     }
     for (const d of dageStatus(game, efter, nowMs)) {
       if (!nyePrRunde.has(d.runde) || d.har >= d.forventet) continue;
+      if (d.sidsteDato > d.dato) {
+        // Flere omgange er i orden (parrene kendes på hver sin dag) — men
+        // fristen er rundens første kamp, også for de senere datoer.
+        advarsler.push(`${dagTekst(d)}: ${d.har} af ${d.forventet} kampe efter denne oprettelse. ${fristTekst(d)}: runden lukker for nye kampe, når dens første kamp går i gang.`);
+        continue;
+      }
       advarsler.push(`${dagTekst(d)}: ${d.har} af ${d.forventet} kampe efter denne oprettelse. Læg helst hele dagen ind ad gangen — Tip-siden ser færdig ud med en halv dag.`);
     }
     // Pulsen og Runde-Botten fortæller først om udskilte hold, når en fase er
@@ -669,7 +719,9 @@ async function opretFaseKampeCore(db, FieldValue, {
  *   - kampen har intet facit (et facit afgør tips — dem må en tid ikke flytte),
  *   - kampen er ikke gået i gang (tips er låst, og et senere kickoff ville
  *     åbne for tip efter kampstart),
- *   - den nye tid er på SAMME dato (dagen bærer id'et og runden),
+ *   - den nye tid er på SAMME dato — eller, med `dato`, på en anden dato i
+ *     SAMME runde (id'et bærer runden; kun en runde over flere datoer har
+ *     en, QC B2),
  *   - den nye tid ligger efter nu + låsemarginen — ELLER før den gamle:
  *     at flytte et kickoff TIDLIGERE kan kun lukke for tips, aldrig åbne.
  *     Er den nye tid passeret, lukkes tippet med det samme, og svaret siger,
@@ -678,7 +730,7 @@ async function opretFaseKampeCore(db, FieldValue, {
  * (manuelFacit.kampAftryk: facit, odds, runde og kickoff — plus den nye tid).
  */
 async function retKickoffCore(db, FieldValue, {
-  gameId, matchId, tid, aftryk = null, dryRun = true, nowMs = Date.now(), tilTimestamp,
+  gameId, matchId, tid, dato: nyDato = null, aftryk = null, dryRun = true, nowMs = Date.now(), tilTimestamp,
 } = {}) {
   const { game, snap } = await hentSpil(db, gameId);
   if (!forventerFaseKampe(game)) {
@@ -695,7 +747,20 @@ async function retKickoffCore(db, FieldValue, {
     throw fejl('failed-precondition', `${kamp.home}–${kamp.away} er gået i gang (${visTid(gammel)}) — tips er låst. Et nyt kickoff ville åbne for tip efter kampstart.`);
   }
   if (!gyldigTid(tid)) throw fejl('invalid-argument', 'Den nye tid mangler eller er ugyldig (TT:MM, dansk tid).');
-  const dato = kbhDato(gammel);
+  // Datoen: kampens egen, medmindre en ny er givet. En ny dato skal høre til
+  // SAMME runde (QC B2) — kun en runde over flere datoer har en anden at
+  // flytte til. Id'et bærer runden, så en anden runde er stadig konsol-vej.
+  const gammelDato = kbhDato(gammel);
+  const dato = nyDato == null || nyDato === '' ? gammelDato : nyDato;
+  if (dato !== gammelDato) {
+    if (!gyldigDato(dato)) throw fejl('invalid-argument', 'Den nye dato er ugyldig (ÅÅÅÅ-MM-DD, dansk dato).');
+    const runde = rundeForDato(game, dato);
+    if (runde == null || runde !== Number(kamp.round)) {
+      const d = rundeDatoer(game, Number(kamp.round));
+      const rundensDatoer = d && d.sidste > d.foerste ? `${kortRenDato(d.foerste)}–${kortRenDato(d.sidste)}` : kortRenDato(gammelDato);
+      throw fejl('invalid-argument', `${kamp.home}–${kamp.away} hører til ${rundeEtiket(game, kamp.round)} (${rundensDatoer}), og ${dato} ${runde == null ? 'er ikke en spilledag i kalenderen' : `hører til ${rundeEtiket(game, runde)}`} — en kamp kan kun flyttes inden for sin egen runde (id'et bærer runden).`);
+    }
+  }
   const ny = kbhTilMs(dato, tid);
   if (ny == null) throw fejl('invalid-argument', `kl. ${tid} findes ikke ${dato} i dansk tid (sommertid).`);
   if (ny === gammel) throw fejl('invalid-argument', `${kamp.home}–${kamp.away} står allerede til ${visTid(gammel)}.`);
@@ -704,6 +769,16 @@ async function retKickoffCore(db, FieldValue, {
   // det lukker blot tippet nu. Ingen egen vagt for «senere og passeret»: den
   // kunne ikke nås (fundet ved mutation).
   const advarsler = [];
+  if (dato !== gammelDato) {
+    // Security (KAN 1): et datoskift kan flytte en kamp op til et døgn tilbage.
+    // Et passeret kickoff på en ANDEN dato ville vise alle i ligaen tipsene på
+    // en kamp, der først spilles i morgen — det afvises. Og skiftet siges
+    // højt i tør-kørslen, så en fejltastet dato ses, før den skrives.
+    if (ny <= nowMs + LAAS_MARGIN_MS) {
+      throw fejl('invalid-argument', `${visTid(ny)} er passeret — en kamp kan ikke flyttes til en anden dato bagud i tid. Intet er skrevet.`);
+    }
+    advarsler.push(`Datoen skifter fra ${kortRenDato(gammelDato)} til ${kortRenDato(dato)}.`);
+  }
   if (ny <= nowMs + LAAS_MARGIN_MS) {
     advarsler.push(`${visTid(ny)} er passeret: tippet på kampen lukker i samme øjeblik, du skriver. Tips, der blev afgivet efter den rigtige kampstart, står stadig — de kan ikke trækkes tilbage i appen.`);
   }
@@ -752,6 +827,9 @@ async function retKickoffCore(db, FieldValue, {
 //     en alarm må kun stå, mens løsningen er mulig). En fases FØRSTE dag
 //     alarmerer desuden først, når fasen før er afgjort (forrigeFaseVenter)
 //     — før det kendes holdene ikke; så står det som en linje på kortet.
+//     En runde over flere datoer venter dog kun til kl. 12 på sin første
+//     dato (QC B1): så går alarmen ubetinget, for runden lukker ved første
+//     kamp, og uden de senere datoers kampe er resten af turneringen død.
 //   ADVARSEL på kortet, når en dag mangler kampe og ikke længere kan få dem
 //     (gået i gang eller passeret) — en aflyst kamp er en mulig, varig
 //     tilstand og hører på kortet, ikke i en alarm, der mailes hver 6. time.
@@ -769,14 +847,19 @@ function faseVagtTilstand(game, matches, nowMs) {
   const venter = [];
   for (const d of dage) {
     if (d.har >= d.forventet) continue;
-    if (d.aaben && d.venterPaa && d.alarmFraMs != null && nowMs >= d.alarmFraMs) {
+    // QC B1: en runde over flere datoer venter kun på fasen før INDTIL sin
+    // hårde frist (kl. 12 på første dato) — derefter går alarmen ubetinget.
+    const venterStadig = d.venterPaa && !(d.hardFristMs != null && nowMs >= d.hardFristMs);
+    if (d.aaben && venterStadig && d.alarmFraMs != null && nowMs >= d.alarmFraMs) {
       const v = d.venterPaa;
-      venter.push(`${dagTekst(d)} mangler kampe, men ${v.fase} mangler facit i ${v.uden} ${v.uden === 1 ? 'kamp' : 'kampe'} — holdene kendes ikke endnu. Alarmen går, så snart ${v.fase} er afgjort.`);
+      const senest = d.hardFristMs != null ? `, og senest ${visTid(d.hardFristMs)}` : '';
+      venter.push(`${dagTekst(d)} mangler kampe, men ${v.fase} mangler facit i ${v.uden} ${v.uden === 1 ? 'kamp' : 'kampe'} — holdene kendes ikke endnu. Alarmen går, så snart ${v.fase} er afgjort${senest}.`);
     } else if (d.aaben && d.alarmFraMs != null && nowMs >= d.alarmFraMs) {
+      const hvad = d.sidsteDato > d.dato ? fristTekst(d) : 'Læg resten ind før dagens første kamp';
       alarmer.push({
         kampId: `r${d.runde}`,
         besked: `«${navn}» · ${dagTekst(d)}: ${d.har} af ${d.forventet} kampe er lagt ind. `
-          + 'Læg resten ind før dagens første kamp: Admin → 🗓️ Spil-tidsplan → 📥 Læg næste fases kampe ind (tør-kørsel først). '
+          + `${hvad}: Admin → 🗓️ Spil-tidsplan → 📥 Læg næste fases kampe ind (tør-kørsel først). `
           + 'Uden kampene kan dagen ikke tippes.',
       });
     } else if (!d.aaben && d.alarmFraMs != null && nowMs >= d.alarmFraMs) {
@@ -787,7 +870,8 @@ function faseVagtTilstand(game, matches, nowMs) {
   const linjer = [...status.linjer, ...venter];
   const naeste = dage.find((d) => d.aaben && d.har < d.forventet && d.alarmFraMs != null && nowMs < d.alarmFraMs);
   if (naeste && !alarmer.length) {
-    const efterAfgjort = naeste.venterPaa ? ` — dog tidligst, når ${naeste.venterPaa.fase} er afgjort` : '';
+    const senest = naeste.hardFristMs != null ? `, og senest ${visTid(naeste.hardFristMs)}` : '';
+    const efterAfgjort = naeste.venterPaa ? ` — dog tidligst, når ${naeste.venterPaa.fase} er afgjort${senest}` : '';
     linjer.push(`Næste dag uden alle kampe: ${dagTekst(naeste)} — alarmen går fra ${visTid(naeste.alarmFraMs)}, hvis kampene ikke er lagt ind${efterAfgjort}.`);
   }
   return { alarmer, advarsler, linjer, udtoemt: dage.length > 0 && dage.every((d) => !d.aaben) };

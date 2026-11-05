@@ -20,6 +20,22 @@ export const TEST_FASER = Object.freeze([
   Object.freeze({ navn: 'Finaledag', fra: 17, til: 17, start: '2027-01-31', knockout: true, antalKampe: 2 }),
 ]);
 
+/**
+ * ÉN TIPDAG PR. KNOCKOUTFASE — kvartfinalerne som én runde over to datoer
+ * (`sidsteDato`), som ejeren valgte for VM 2027: 16 runder, kvart = 14
+ * (tir 26/1 + ons 27/1), semi = 15 (fre 29/1), finaledag = 16 (søn 31/1).
+ * Formen som produktionen (indledende 1-7 fra 13/1, hovedrunde 8-13 fra
+ * 20/1), så D9-testene kan køre mod den, FØR data er ændret. TEST_FASER
+ * ovenfor er urørt: den dækker fortsat en knockoutfase over flere runder.
+ */
+export const TEST_FASER_EN_KVARTRUNDE = Object.freeze([
+  Object.freeze({ navn: 'Indledende runde', bestemt: 'Den indledende runde', fra: 1, til: 7, start: '2027-01-13', antalKampe: 48 }),
+  Object.freeze({ navn: 'Hovedrunde', bestemt: 'Hovedrunden', fra: 8, til: 13, start: '2027-01-20', antalKampe: 36 }),
+  Object.freeze({ navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14, til: 14, start: '2027-01-26', sidsteDato: '2027-01-27', antalKampe: 4, knockout: true }),
+  Object.freeze({ navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 15, til: 15, start: '2027-01-29', antalKampe: 2, knockout: true }),
+  Object.freeze({ navn: 'Finaledag', bestemt: 'Finaledagen', fra: 16, til: 16, start: '2027-01-31', antalKampe: 2, knockout: true }),
+]);
+
 /** Et håndboldspil med kalenderen. */
 export const HAANDBOLD_SPIL = Object.freeze({
   id: 'hvm-test', type: 'football', sport: 'haandbold', name: 'Håndbold-VM 2027', shortName: 'VM', emoji: '🤾',

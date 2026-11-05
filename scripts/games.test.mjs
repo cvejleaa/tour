@@ -307,8 +307,16 @@ describe('faser på spillene', () => {
     const program = JSON.parse(readFileSync(resolve(process.cwd(), 'scripts/haandbold-vm2027-program.json'), 'utf8'));
     expect(hvm.faser).toEqual(program.faser);
     expect(harFaseKalender(hvm)).toBe(true);
-    expect(hvm.faser.at(-1).til).toBe(17);
+    // 16 runder (ejeren 5/11 2026: én tipdag pr. fase efter hovedrunden). Før
+    // var det 17 — kvartfinalerne var to runder, én pr. dato.
+    expect(hvm.faser.at(-1).til).toBe(16);
     expect(hvm.faser.map((f) => f.navn)).toEqual(['Indledende runde', 'Hovedrunde', 'Kvartfinaler', 'Semifinaler', 'Finaledag']);
+    const fase = (navn) => hvm.faser.find((f) => f.navn === navn);
+    expect(fase('Kvartfinaler')).toMatchObject({ fra: 14, til: 14, start: '2027-01-26', sidsteDato: '2027-01-27' });
+    expect(fase('Semifinaler')).toMatchObject({ fra: 15, til: 15 });
+    expect(fase('Finaledag')).toMatchObject({ fra: 16, til: 16 });
+    // Kun kvartfinalerne går over to datoer — semi og finale er én dato hver.
+    expect(hvm.faser.filter((f) => f.sidsteDato).map((f) => f.navn)).toEqual(['Kvartfinaler']);
   });
 
   // GRUPPERNE er et spejl af programfilens `grupper` på samme måde som

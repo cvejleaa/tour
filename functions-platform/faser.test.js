@@ -16,7 +16,9 @@ import { createRequire } from 'module';
 import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { TEST_FASER, HAANDBOLD_SPIL, kl18 } from '../src/test/faseKalender.js';
+import {
+  TEST_FASER, TEST_FASER_EN_KVARTRUNDE, HAANDBOLD_SPIL, kl18,
+} from '../src/test/faseKalender.js';
 
 const require = createRequire(import.meta.url);
 const server = require('./faser');
@@ -54,9 +56,13 @@ describe('faser: server-spejlet er src', () => {
     // spørger erKnockout — klient og server skal begge sige nej.
     ['ugyldig med knockout', { faser: TEST_FASER.map((f) => (f.navn === 'Kvartfinaler' ? { ...f, fra: 15 } : f)) }],
     ['håndbold', HAANDBOLD_SPIL],
+    // Kvartfinalerne som ÉN runde over to datoer (sidsteDato) — den kalender,
+    // der læses (QC KAN): kilden er byte for byte ens, men matrixen viser det.
+    ['håndbold, én kvartfinalerunde', { faser: TEST_FASER_EN_KVARTRUNDE }],
   ];
   const RUNDER = [0, 1, 2, 6, 7, 13, 14, 15, 16, 17, 18, 2.5, null];
   const TIDER = [kl18('2027-01-10'), kl18('2027-01-20'), Date.parse('2027-01-19T23:30:00Z'), kl18('2027-02-01'), NaN];
+  const DATOER = ['2027-01-12', '2027-01-13', '2027-01-20', '2027-01-25', '2027-01-26', '2027-01-27', '2027-01-28', '2027-01-29', '2027-01-31', '2027-02-01', '2027-02-30', null];
 
   for (const [navn, game] of SPIL) {
     it(`samme svar: ${navn}`, async () => {
@@ -79,16 +85,36 @@ describe('faser: server-spejlet er src', () => {
         expect(server.dagTaeller(game, r, 6), k).toBe(src.dagTaeller(game, r, 6));
         expect(server.naesteKalenderRunde(game, r), k).toEqual(src.naesteKalenderRunde(game, r));
         expect(server.ventendeRunde(game, r), k).toEqual(src.ventendeRunde(game, r));
+        expect(server.rundeDatoer(game, r), k).toEqual(src.rundeDatoer(game, r));
         for (const t of TIDER) {
           expect(server.rundeEtiket(game, r, t), `${k} · ${t}`).toBe(src.rundeEtiket(game, r, t));
+          for (const t2 of TIDER) {
+            expect(server.rundeEtiket(game, r, t, t2), `${k} · ${t} · ${t2}`).toBe(src.rundeEtiket(game, r, t, t2));
+          }
           expect(server.ventetekst(game, r, t), `${k} · ${t}`).toBe(src.ventetekst(game, r, t));
         }
       }
       for (const t of TIDER) {
         expect(server.naesteFase(game, t), `${navn} · ${t}`).toEqual(src.naesteFase(game, t));
       }
+      for (const d of DATOER) {
+        expect(server.rundeForDato(game, d), `${navn} · ${d}`).toBe(src.rundeForDato(game, d));
+      }
     });
   }
+
+  // Og serveren giver de RIGTIGE svar for runden over to datoer — ikke bare
+  // de samme som src (to kopier af en forkert regel ville også være enige).
+  it('én kvartfinalerunde: serverens datoer, runde og etiket', () => {
+    const en = { faser: TEST_FASER_EN_KVARTRUNDE };
+    expect(server.harFaseKalender(en)).toBe(true);
+    expect(DATOER.map((d) => server.rundeForDato(en, d))).toEqual([null, 1, 8, 13, 14, 14, null, 15, 16, null, null, null]);
+    expect(server.rundeDatoer(en, 14)).toEqual({ foerste: '2027-01-26', sidste: '2027-01-27' });
+    expect(server.faseFor(en, 14).sidsteDato).toBe('2027-01-27');
+    expect(server.rundeEtiket(en, 14, kl18('2027-01-26'), kl18('2027-01-27'))).toBe('Kvartfinaler · tir 26/1–ons 27/1');
+    expect(server.rundeEtiket(en, 14)).toBe('Kvartfinaler');
+    expect(server.dagTaeller(en, 14, 14)).toBe('Dag 14 af 16');
+  });
 
   // Paritet alene beviser ikke svaret: to kopier af et naivt opslag ville
   // også være enige. Over en UGYLDIG kalender er INGEN runde knockout — i
@@ -108,7 +134,11 @@ describe('faser: server-spejlet er src', () => {
   it('samme formkontrol og samme datoer', async () => {
     const src = await import('../src/lib/faser.js');
     for (const faser of [TEST_FASER, [], null, [{ ...TEST_FASER[0], knockOut: true }], [{ ...TEST_FASER[0], fra: 2 }],
-      [TEST_FASER[0], TEST_FASER[1], { ...TEST_FASER[2], start: '2027-01-21' }]]) {
+      [TEST_FASER[0], TEST_FASER[1], { ...TEST_FASER[2], start: '2027-01-21' }],
+      TEST_FASER_EN_KVARTRUNDE,
+      TEST_FASER_EN_KVARTRUNDE.map((f, i) => (i === 3 ? { ...f, start: '2027-01-27' } : f)),
+      TEST_FASER_EN_KVARTRUNDE.map((f, i) => (i === 2 ? { ...f, sidsteDato: '2027-01-26' } : f)),
+      TEST_FASER.map((f, i) => (i === 2 ? { ...f, sidsteDato: '2027-01-28' } : f))]) {
       expect(server.faseKalenderFejl(faser)).toEqual(src.faseKalenderFejl(faser));
     }
     for (const d of ['2027-01-20', '2027-02-30', 'x']) expect(server.fmtFaseStart(d)).toBe(src.fmtFaseStart(d));

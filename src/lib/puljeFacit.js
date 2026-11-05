@@ -23,7 +23,7 @@
 //   med `antalKampe`, og at netop så mange kampe ligger i fasens runder med
 //   begge hold kendt. En halvt lagt fase giver intet facit.
 
-import { harFaseKalender, faseFor, fmtFaseStart, kbhDato } from './faser';
+import { harFaseKalender, faseFor, fmtFaseStart, kbhDato, rundeDatoer } from './faser';
 import { puljeKonfig } from './superligaScoring';
 
 /** Har HVER kamp mål? Liga-puljens kriterium (og kun dens). */
@@ -340,7 +340,7 @@ export function antalOrd(n) {
  * melder), lover teksten ingen dato.
  *
  * DATOEN ER ÉN FUNKTION, rundePuljeDato: "fredag 29. januar", "fra mandag
- * 20. januar" for en fase over flere dage, null uden fasen. Invitationen
+ * 20. januar" for en fase over flere datoer, null uden fasen. Invitationen
  * (inviteTemplate.js) bruger den samme — den havde før sin egen kopi af
  * logikken, og intet bandt de to (modstander-bemærkning M25).
  */
@@ -349,7 +349,10 @@ export function rundePuljeDato(game, konfig) {
   const fase = facitFase(game, konfig.facitFase);
   const dato = fase ? fmtFaseStart(fase.start) : '';
   if (!dato) return null;
-  return `${fase.dage > 1 ? 'fra ' : ''}${dato}`;
+  // «fra», når fasen spilles over FLERE DATOER — spurgt af kalenderen, ikke
+  // af antallet af runder: kvartfinalerne kan være én runde over to datoer
+  // (sidsteDato), og en fase med flere runder har en dato pr. runde.
+  return `${rundeDatoer(game, fase.til).sidste > fase.start ? 'fra ' : ''}${dato}`;
 }
 
 /**

@@ -1,5 +1,5 @@
 {
- "_note": "Håndbold-VM 2027 (herrer), den indledende runde: 48 kampe. Bygget af scripts/haandbold-program.mjs fra Wikipedia («2027 World Men's Handball Championship», revision ukendt, hentet 2026-11-02); indholdet er CC BY-SA 4.0. kickoff er UTC (siden angiver lokal tid UTC+1). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp. kickoffSenest står kun, hvor siden har et tidsvindue — deadline er da det tidligste. kickoffSenest og gruppe når IKKE kampene i databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her, men gruppen når spillet via grupper. faser og grupper er game.faser og game.grupper (holdene i programrækkefølge) og kopieres ordret til scripts/games.mjs. RET ALDRIG I HÅNDEN: kør scriptet igen.",
+ "_note": "Håndbold-VM 2027 (herrer), den indledende runde: 48 kampe. Bygget af scripts/haandbold-program.mjs fra Wikipedia («2027 World Men's Handball Championship», revision ukendt, hentet 2026-11-02); indholdet er CC BY-SA 4.0. kickoff er UTC (siden angiver lokal tid UTC+1). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp (kvartfinalerne, semifinalerne og finaledagen er dog hver én runde, også over flere datoer: sidsteDato). kickoffSenest står kun, hvor siden har et tidsvindue — deadline er da det tidligste. kickoffSenest og gruppe når IKKE kampene i databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her, men gruppen når spillet via grupper. faser og grupper er game.faser og game.grupper (holdene i programrækkefølge) og kopieres ordret til scripts/games.mjs. RET ALDRIG I HÅNDEN: kør scriptet igen.",
  "kilde": {
   "side": "2027 World Men's Handball Championship",
   "url": "https://en.wikipedia.org/wiki/2027_World_Men's_Handball_Championship",
@@ -28,16 +28,17 @@
    "navn": "Kvartfinaler",
    "bestemt": "Kvartfinalerne",
    "fra": 14,
-   "til": 15,
+   "til": 14,
    "start": "2027-01-26",
+   "sidsteDato": "2027-01-27",
    "antalKampe": 4,
    "knockout": true
   },
   {
    "navn": "Semifinaler",
    "bestemt": "Semifinalerne",
-   "fra": 16,
-   "til": 16,
+   "fra": 15,
+   "til": 15,
    "start": "2027-01-29",
    "antalKampe": 2,
    "knockout": true
@@ -45,8 +46,8 @@
   {
    "navn": "Finaledag",
    "bestemt": "Finaledagen",
-   "fra": 17,
-   "til": 17,
+   "fra": 16,
+   "til": 16,
    "start": "2027-01-31",
    "antalKampe": 2,
    "knockout": true

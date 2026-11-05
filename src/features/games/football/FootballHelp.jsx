@@ -21,10 +21,32 @@ import { harGrupper } from '../../../lib/grupper';
 import { ringOgTemaTekst } from './yndlingsholdTekst';
 import { sportOrd, harHjemmebane, oddsLoft } from '../../../lib/superligaScoring';
 import {
-  harFaseKalender, harKnockout, rundeKort, rundeOrd, rundeOrdene, sidsteKalenderRunde,
+  harFaseKalender, harKnockout, rundeKort, rundeOrd, rundeOrdene, sidsteKalenderRunde, kortDato, fmtFaseStart,
 } from '../../../lib/faser';
 import { knockoutRegel, stillingTekst, AFGJORT_KORT, AFGJORT_NAVN } from '../../../lib/facit';
 
+
+/**
+ * EN TIPDAG OVER FLERE DATOER (`sidsteDato` i kalenderen, fx kvartfinalerne
+ * tir 26/1 + ons 27/1). Sætningen AFLEDES af game.faser — ingen fasenavne
+ * eller datoer er skrevet af her (CLAUDE.md: «Et spejl af levende data»).
+ * Tom liste uden kalender eller uden en fase med feltet.
+ *   «Kvartfinalerne er én tipdag over to aftener (tir 26/1 og ons 27/1) — din
+ *    ⚡ Chance kan gemmes til onsdagens kampe.»
+ */
+function tipdageOverFlereDatoer(game) {
+  if (!harFaseKalender(game)) return [];
+  const ms = (dato) => Date.parse(`${dato}T12:00:00Z`);
+  return game.faser.filter((f) => f.sidsteDato).map((f) => {
+    const naeste = new Date(ms(f.start) + 86400000).toISOString().slice(0, 10);
+    const spaend = naeste === f.sidsteDato
+      ? `to aftener (${kortDato(ms(f.start))} og ${kortDato(ms(f.sidsteDato))})`
+      : `flere dage (${kortDato(ms(f.start))}–${kortDato(ms(f.sidsteDato))})`;
+    // fmtFaseStart: «onsdag 27. januar» → «onsdag» → «onsdagens».
+    const sidsteUgedag = fmtFaseStart(f.sidsteDato).split(' ')[0];
+    return `${f.bestemt || f.navn} er én tipdag over ${spaend} — din ⚡ Chance kan gemmes til ${sidsteUgedag}ens kampe.`;
+  });
+}
 
 // Udbetalingstabellen REGNES af den rigtige formel, den skrives ikke af.
 // En håndskrevet tabel er en anden udgave af reglen, og to udgaver driver fra
@@ -129,6 +151,7 @@ export default function FootballHelp({ game }) {
   //   live    kilden leverer en levende stilling (DIREKTE).
   //   ko      kalenderen har knockout-faser.
   const kal = harFaseKalender(game);
+  const tipdage = tipdageOverFlereDatoer(game);
   const o = rundeOrdene(game);
   const hjemme = harHjemmebane(game);
   // Landeflag i stedet for trøjer: trøjeoversigten under Mit hold findes ikke
@@ -216,12 +239,18 @@ export default function FootballHelp({ game }) {
           {/* TURNERINGENS FASER — kun med en fasekalender, og navnene LÆSES
               af kalenderen (ikke en hardkodet liste, der kan blive en
               "lige nu"-løgn). Uden kalender: intet nyt i guiden. */}
+          {/* «hver dag har sin egen kupon» er usandt, når en tipdag går over
+              to aftener — så siger sætningen TIPDAG, og en linje pr. sådan
+              fase forklarer, at runden (og ⚡) dækker begge aftener. */}
           {harFaseKalender(game) && (
             <li style={{ marginBottom: '0.4rem' }} data-testid="hjaelp-faser">
               <strong>Turneringen har faser:</strong> {game.faser.map((f) => f.navn).join(', ')}.
-              {' '}Pointene gøres op pr. spilledag: hver dag har sin egen kupon og sin egen combi, og
+              {' '}{tipdage.length
+                ? 'Pointene gøres op pr. tipdag: hver tipdag har sin egen kupon og sin egen combi, og'
+                : 'Pointene gøres op pr. spilledag: hver dag har sin egen kupon og sin egen combi, og'}
               {' '}tælleren på <Tab fane="tip">Tip</Tab> siger fx <strong>Dag 1 af {sidsteKalenderRunde(game)}</strong>. En ny fases kampe lægges ind, så snart
               holdene kendes — indtil da står der på <Tab fane="tip">Tip</Tab>, hvornår dens første kamp er.
+              {tipdage.map((t) => <span key={t} data-testid="hjaelp-tipdag-flere-datoer">{' '}{t}</span>)}
             </li>
           )}
           <li style={{ marginBottom: '0.4rem' }}>
@@ -420,7 +449,8 @@ export default function FootballHelp({ game }) {
       </Section>
 
       {/* EN LIGA-REGEL. En liga-runde kan sprede sig over uger, når en kamp
-          bliver udsat; en spilledag i en turnering er én dag. Kortets
+          bliver udsat; en tipdag i en turnering er én dag — eller to aftener
+          i træk (kvartfinalerne), stadig i samme kupon-uge. Kortets
           «🕒 Uden for kuponen» forklarer sig selv, hvis det alligevel sker. */}
       {!kal && (
       <Section emoji="🕒" title="Når en kamp bliver udsat">

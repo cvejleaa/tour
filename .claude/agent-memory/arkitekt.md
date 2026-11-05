@@ -380,3 +380,22 @@ Bekræfter og udvider afsnittet "Test-/CI-infrastruktur" ovenfor.
   oprettes fasevis. En kalender på spillet (`game.faser`) er kilden.
 - `PuljeTip.jsx:31-36` `alleSpillet` er klient-spejlet af serverens self-guard
   (gameScoring.js:399-403). En ændring skal ske i begge ender.
+
+## Fasekalender og D9 (fundet ved "én tipdag pr. knockoutfase", nov 2026)
+- `faseKalenderFejl` (src/lib/faser.js:72 ⇄ functions-platform/faser.js) er en NEDRE grænse
+  (næste start ≥ forrige start + antal runder). En fase med én runde over flere datoer BESTÅR i dag.
+  Det, der antager runde = dato, er D9: `dagDato`/`rundeForDato`/`dagAaben` (faseKampe.js:157-211).
+- FASE_NOEGLER afviser ukendte nøgler → et NYT felt på `faser` seedet før klient OG server kender det
+  slår hele kalenderen ihjel (harFaseKalender false, forventerFaseKampe false, Drift-kortet forsvinder).
+  Kode før data, altid. deploy-platform.yml kører hosting → seedGames → functions (i den rækkefølge).
+- `faseFor().dage` = antal RUNDER, ikke datoer. `rundePuljeDato` (puljeFacit.js:352) bruger den som
+  proxy for "flere datoer".
+- `slut` er optaget: slutresultatet efter forlængelse på en kamp (src/lib/facit.js:157). Brug ikke
+  navnet til andet.
+- Gruppernes slutdatoer + QF-par for VM 2027 står i scripts/testdata/wiki-vm2027.wikitext
+  (Main round :1664, Quarterfinals :2592). `byggProgram --fil … --skriv` regenererer deterministisk.
+- Produktions-bundne tests (GAMES/program.json): games.test.mjs:308-311, faseKampe.test.js (spil()),
+  facitVagt.test.js:403+, src/test/hvm2027Faser.js. TEST_FASER (src/test/faseKalender.js) er en
+  bevidst afvigende testkalender — rør den ikke ved data-ændringer.
+- `paakraevedeRoller` melder ikke Spilfører for en ren data-ændring i games.mjs, der ændrer mekanik
+  (antal runder → Chancen/combi/rundesejre).

@@ -210,17 +210,21 @@ function kickoffMs(k) {
  * kalender returneres null, og fakta får ikke én ny nøgle (SL og PL uændret).
  * @param {object} game
  * @param {number} round
- * @param {Array<object>} roundMatches rundens kampe (første kickoff → dato)
+ * @param {Array<object>} roundMatches rundens kampe (første og sidste kickoff → dato)
  * @param {Set<number>} oprettedeRunder runder, der har kampe
  */
 function kalenderFakta(game, round, roundMatches, oprettedeRunder) {
   if (!harFaseKalender(game)) return null;
   const ms = roundMatches.map((m) => kickoffMs(m.kickoff)).filter((x) => x != null);
   const foerste = ms.length ? Math.min(...ms) : undefined;
+  // Sidste kickoff med (QC B4): en runde over to aftener (kvartfinalerne
+  // 26/1 og 27/1) hedder «Kvartfinaler · tir 26/1–ons 27/1» — ikke kun den
+  // første dato om en runde, der sluttede dagen efter. Samme dato: uændret.
+  const sidste = ms.length ? Math.max(...ms) : undefined;
   const naeste = naesteKalenderRunde(game, round);
   const fase = naeste != null ? faseFor(game, naeste) : null;
   return {
-    rundeNavn: rundeEtiket(game, round, foerste),
+    rundeNavn: rundeEtiket(game, round, foerste, sidste),
     naesteRundeNavn: naeste != null ? rundeEtiket(game, naeste) : null,
     naesteRundeStart: fase && fase.dag === 1 ? fmtFaseStart(fase.start) : null,
     naesteKampeLagtInd: naeste != null ? oprettedeRunder.has(naeste) : null,

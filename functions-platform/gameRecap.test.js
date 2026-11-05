@@ -2,7 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createRequire } from 'module';
 import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
-import { HAANDBOLD_SPIL, TEST_FASER, kl18 } from '../src/test/faseKalender.js';
+import {
+  HAANDBOLD_SPIL, TEST_FASER, TEST_FASER_EN_KVARTRUNDE, kl18,
+} from '../src/test/faseKalender.js';
 import {
   HVM27, INDLEDENDE, HOVED, KVART as KVART27, SEMI as SEMI27,
 } from '../src/test/hvm2027Faser.js';
@@ -10,7 +12,7 @@ import {
 const require = createRequire(import.meta.url);
 const {
   sanitizeName, isSurprise, buildRoundRecapFacts, runGameRoundRecap, RECAP_SYSTEM,
-  recapSystem, KALENDER_UDSKIFTNING, KNOCKOUT_ANKER, PULJE_UDE_FORKLARING, ENEGAENGER_MINIMUM,
+  recapSystem, KALENDER_UDSKIFTNING, KNOCKOUT_ANKER, PULJE_UDE_FORKLARING, ENEGAENGER_MINIMUM, kalenderFakta,
 } = require('./gameRecap');
 // Stillingens egen vej til combi. Botten og stillingen SKAL sige samme tal.
 const { opdelPoint, buildRoundContext } = require('./pointOpdeling');
@@ -863,6 +865,25 @@ describe('Runde-Botten med fasekalender', () => {
     expect(f.rundeNavn).toBe('Finaledag · man 18/1');
   });
 
+  // QC B4: en runde over to aftener hedder med BEGGE datoer i botten — af
+  // rundens kampe, ikke af kalenderen. Før stod kun den første dato.
+  it('én kvartfinalerunde over to datoer: «Kvartfinaler · tir 26/1–ons 27/1» — af kampene', () => {
+    const en = { ...HAANDBOLD_SPIL, faser: TEST_FASER_EN_KVARTRUNDE };
+    const kv = [
+      { id: 'a', round: 14, kickoff: kl18('2027-01-27') + 9000000 },
+      { id: 'b', round: 14, kickoff: kl18('2027-01-26') },
+      { id: 'c', round: 14, kickoff: { toMillis: () => kl18('2027-01-27') } },
+    ];
+    expect(kalenderFakta(en, 14, kv, new Set([14]))).toEqual({
+      rundeNavn: 'Kvartfinaler · tir 26/1–ons 27/1',
+      naesteRundeNavn: 'Semifinaler',
+      naesteRundeStart: 'fredag 29. januar',
+      naesteKampeLagtInd: false,
+    });
+    // Alle fire lagt på onsdag: botten siger ikke tirsdag.
+    expect(kalenderFakta(en, 14, kv.filter((m) => m.id !== 'b'), new Set([14])).rundeNavn).toBe('Kvartfinaler · ons 27/1');
+  });
+
   it('kickoff som Firestore-Timestamp giver samme dato som et tal', async () => {
     const { kald, anth } = optag();
     const ts = dag6.map((m) => ({ ...m, kickoff: { toMillis: () => m.kickoff } }));
@@ -1159,7 +1180,7 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
       game: { puljeUdeFortalt: ['Hovedrunde', 'Kvartfinaler'] },
       matches: [...medFacit, ...HOVED, ...KVART27, ...SEMI27.map((m) => ({ ...m, result: '1', homeGoals: 30, awayGoals: 28, odds: { 1: 2, X: 9, 2: 2 } }))],
     }));
-    await runGameRoundRecap(db, FieldValue, anth, 'g1', 16, { nowMs: NU });
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
     expect(JSON.parse(kald[0].messages[0].content)).not.toHaveProperty('puljeUde');
     expect(db._laest.puljeBets).toBe(0);
   });
@@ -1168,7 +1189,7 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     const { kald, anth } = optag();
     const kv = KVART27.map((m) => ({ ...m, odds: { 1: 2, X: 9, 2: 2 } }));
     const db = makeDb(fix({ game: { puljeUdeFortalt: ['Hovedrunde'] }, matches: [...medFacit, ...HOVED, ...kv] }));
-    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 14, { nowMs: NU });
     const f = JSON.parse(kald[0].messages[0].content);
     expect(f.puljeUde.fase).toBe('kvartfinalerne');
     // Anna: Sverige nåede hovedrunden, men ikke kvartfinalerne.
@@ -1183,7 +1204,7 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     const { kald, anth } = optag();
     const kv = KVART27.map((m) => ({ ...m, odds: { 1: 2, X: 9, 2: 2 } }));
     const db = makeDb(fix({ game: { puljeUdeFortalt: ['Hovedrunde'] }, matches: [...medFacit, ...HOVED, ...kv] }));
-    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 14, { nowMs: NU });
     const pu = JSON.parse(kald[0].messages[0].content).puljeUde;
     // Uruguay, Angola og Kuwait røg ud i HOVEDRUNDEN (Bo og Carla) — den
     // historie er fortalt. Kvartfinalernes eneste nye udskilte pulje-hold er Annas Sverige.
@@ -1214,7 +1235,7 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     const { kald, anth } = optag();
     const dublet = KVART27.map((m, i) => ({ ...m, odds: { 1: 2, X: 9, 2: 2 }, ...(i === 1 ? { home: 'Danmark' } : {}) }));
     const db = makeDb(fix({ matches: [...medFacit, ...HOVED, ...dublet] }));
-    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 14, { nowMs: NU });
     expect(JSON.parse(kald[0].messages[0].content)).not.toHaveProperty('puljeUde');
     expect(db._laest.puljeBets).toBe(0);
   });

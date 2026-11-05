@@ -116,6 +116,14 @@ PR-teksten, ikke her.
   (start-Elo); først næste facit/💰 Ompris lægger levende Elo på. Læs hvilket
   felt prisen faktisk tages fra.
 
+- **Slås to enheder sammen (to dage → én runde), flytter hver vagt, der var
+  PR. DEL, sin frist.** Gå de tre igennem: lukkereglen (V7 «åben til første
+  kickoff» lukker nu del 2 et døgn før), alarmens gate («første dag venter på
+  forrige fases facit» gælder nu også del 2, der før alarmerede ugatet), og
+  formularens forudfyldning (`aabneDage[0].dato` peger på del 1). Spørg også,
+  hvad der kaskaderer: en manglende del blokerer næste fase (V9 tæller pr. fase).
+  Og tekster med «dagen» om noget, der nu spænder over to datoer.
+
 ## Gates, evner og proxier
 
 - **En proxy-gate findes ikke ved grep — den indeholder ikke evnens navn.**

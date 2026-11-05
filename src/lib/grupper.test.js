@@ -330,7 +330,9 @@ describe('Q1: IHF afgør, hvem der gik videre — og advarslen peger', () => {
   });
   it('hovedrunde → kvartfinaler: stillingen siger Egypten som nr. 2, men Serbien er lagt ind', () => {
     const hoved = hovedrundeKampe({ A: A_KNAEK_ORDEN.slice(0, 3) }).map(eloFacit);
-    const kvart = [kamp(14, 'Tyskland', 'Danmark'), kamp(15, 'Serbien', 'Kroatien')];
+    // Begge i runde 14: kvartfinalerne er ÉN runde over 26/1 og 27/1. Runde 15
+    // er nu semifinalerne (før: kvartfinalernes anden dag).
+    const kvart = [kamp(14, 'Tyskland', 'Danmark'), kamp(14, 'Serbien', 'Kroatien')];
     const kampe = [...INDL_FACIT, ...hoved, ...kvart];
     const gI = grupperOversigt(HVM27G, kampe)[1].grupper[0];
     expect(gI.raekker.slice(0, 3).map((r) => [r.teamName, r.rank])).toEqual([['Tyskland', 1], ['Egypten', 2], ['Serbien', 3]]);

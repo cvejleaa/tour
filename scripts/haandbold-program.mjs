@@ -72,7 +72,7 @@ async function main() {
 
   console.log(`\n${fil.fixtures.length} kampe i den indledende runde · ${fil.faser.length} faser`);
   for (const f of fil.faser) {
-    console.log(`  ${f.navn.padEnd(17)} runde ${String(f.fra).padStart(2)}-${String(f.til).padEnd(2)} fra ${f.start}  ${f.antalKampe} kampe${f.knockout ? ' · knockout' : ''}`);
+    console.log(`  ${f.navn.padEnd(17)} runde ${String(f.fra).padStart(2)}-${String(f.til).padEnd(2)} fra ${f.start}${f.sidsteDato ? ` til ${f.sidsteDato}` : ''}  ${f.antalKampe} kampe${f.knockout ? ' · knockout' : ''}`);
   }
   console.log(`\nGrupperne (${fil.grupper.point.sejr} point for en sejr, ${fil.grupper.point.uafgjort} for uafgjort):`);
   for (const f of fil.grupper.faser) {

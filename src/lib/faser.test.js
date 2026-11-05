@@ -15,9 +15,11 @@ import {
   faseKalenderFejl, harFaseKalender, faseKalenderAdvarsel, sidsteKalenderRunde, faseFor, erKnockout,
   rundeNavneord, rundeFlertal, rundeKort, rundeOrd, kortDato, kbhDato, fmtFaseStart, rundeEtiket,
   dagTaeller, naesteKalenderRunde, ventendeRunde, ventetekst, naesteFase,
-  rundeKolonne, rundeOrdene, harKnockout,
+  rundeKolonne, rundeOrdene, harKnockout, rundeDatoer, rundeForDato,
 } from './faser';
-import { TEST_FASER, HAANDBOLD_SPIL as HB, kl18 } from '../test/faseKalender';
+import {
+  TEST_FASER, TEST_FASER_EN_KVARTRUNDE, HAANDBOLD_SPIL as HB, kl18,
+} from '../test/faseKalender';
 
 const SL = { id: 'superliga2627', type: 'football' };
 const PL = { id: 'pl2627-efteraar', type: 'football', puljeLockRound: 3 };
@@ -335,5 +337,103 @@ describe('faseKalenderAdvarsel: hvornår der advares', () => {
       .toEqual(['fase 1: første fase skal starte i runde 1 (ikke 2)']);
     expect(faseKalenderAdvarsel({ faser: [] })).toEqual(['faser skal være en ikke-tom liste']);
     expect(faseKalenderAdvarsel({ faser: { navn: 'x' } })).toEqual(['faser skal være en ikke-tom liste']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ÉN RUNDE OVER FLERE DATOER (`sidsteDato`) — kvartfinalerne som én tipdag
+// over to aftener (planen D1, beslutningerne K1 og B4). Hver assertion her er
+// rød på koden før feltet: den gamle formkontrol kaldte feltet en ukendt nøgle
+// (så ingen kalender overhovedet), og en semifinale 27/1 efter en kvartfinale-
+// runde fra 26/1 bestod, fordi én runde = én dag.
+// ---------------------------------------------------------------------------
+describe('sidsteDato: én runde over flere datoer', () => {
+  const EN = { faser: TEST_FASER_EN_KVARTRUNDE };
+  const medFase = (i, over) => TEST_FASER_EN_KVARTRUNDE.map((f, j) => (j === i ? { ...f, ...over } : f));
+
+  it('kalenderen er gyldig — 16 runder, kvart = 14', () => {
+    expect(faseKalenderFejl(TEST_FASER_EN_KVARTRUNDE)).toEqual([]);
+    expect(harFaseKalender(EN)).toBe(true);
+    expect(sidsteKalenderRunde(EN)).toBe(16);
+    expect(dagTaeller(EN, 14, 14)).toBe('Dag 14 af 16');
+  });
+
+  it('(c) næste fase kan tidligst starte dagen EFTER sidsteDato — 27/1 afvises, 28/1 er grænsen', () => {
+    // Den gamle regel (én runde pr. dag) gav 27/1 som tidligste start og bestod.
+    expect(faseKalenderFejl(medFase(3, { start: '2027-01-27' })))
+      .toEqual(['fase 4: start 2027-01-27 ligger før 2027-01-28 — forrige fase spilles fra 2027-01-26 til 2027-01-27']);
+    expect(faseKalenderFejl(medFase(3, { start: '2027-01-28' }))).toEqual([]);
+    // Uden feltet: den gamle tekst, byte for byte.
+    const uden = medFase(2, { sidsteDato: undefined }).map((f) => JSON.parse(JSON.stringify(f)));
+    expect(faseKalenderFejl(uden.map((f, j) => (j === 3 ? { ...f, start: '2027-01-26' } : f))))
+      .toEqual(['fase 4: start 2027-01-26 ligger før 2027-01-27 — forrige fase har 1 dag fra 2027-01-26 (én runde pr. dag)']);
+  });
+
+  it('(a) sidsteDato skal være en gyldig dato EFTER start — (b) og kun på en fase med én runde', () => {
+    expect(faseKalenderFejl(medFase(2, { sidsteDato: '2027-01-26' })))
+      .toEqual(['fase 3: sidsteDato 2027-01-26 skal ligge efter start 2027-01-26']);
+    expect(faseKalenderFejl(medFase(2, { sidsteDato: '2027-01-25' })))
+      .toEqual(['fase 3: sidsteDato 2027-01-25 skal ligge efter start 2027-01-26']);
+    expect(faseKalenderFejl(medFase(2, { sidsteDato: '2027-02-30' })))
+      .toEqual(['fase 3: sidsteDato skal være en dato (YYYY-MM-DD)']);
+    // En fase med to runder har én runde pr. dato — feltet afvises højlydt.
+    const toRunder = TEST_FASER.map((f) => (f.navn === 'Kvartfinaler' ? { ...f, sidsteDato: '2027-01-28' } : f));
+    expect(faseKalenderFejl(toRunder))
+      .toEqual(['fase 3: sidsteDato er kun tilladt på en fase med én runde (fra = til) — fasen har runde 14-15']);
+    expect(harFaseKalender({ faser: toRunder })).toBe(false);
+  });
+
+  it('faseFor: sidsteDato på en fase med én runde — og ikke på en fase med flere', () => {
+    expect(faseFor(EN, 14)).toMatchObject({ navn: 'Kvartfinaler', start: '2027-01-26', sidsteDato: '2027-01-27', dag: 1, dage: 1 });
+    // Uden feltet: start + (til − fra) = start.
+    expect(faseFor(EN, 15).sidsteDato).toBe('2027-01-29');
+    expect(faseFor(HB, 16).sidsteDato).toBe('2027-01-29');
+    // Flere runder: ingen (hver runde har sin egen dato, se rundeDatoer).
+    expect(faseFor(EN, 9)).not.toHaveProperty('sidsteDato');
+    expect(faseFor(HB, 14)).not.toHaveProperty('sidsteDato');
+  });
+
+  it('rundeDatoer: start..sidsteDato — og én dato pr. runde i en fase med flere', () => {
+    expect(rundeDatoer(EN, 14)).toEqual({ foerste: '2027-01-26', sidste: '2027-01-27' });
+    expect(rundeDatoer(EN, 15)).toEqual({ foerste: '2027-01-29', sidste: '2027-01-29' });
+    expect(rundeDatoer(EN, 9)).toEqual({ foerste: '2027-01-21', sidste: '2027-01-21' });
+    expect(rundeDatoer(HB, 15)).toEqual({ foerste: '2027-01-28', sidste: '2027-01-28' });
+    expect(rundeDatoer(EN, 17)).toBeNull();
+    expect(rundeDatoer(SL, 3)).toBeNull();
+  });
+
+  it('rundeForDato: begge kvartfinaledatoer er runde 14, hviledagen ingen', () => {
+    const svar = ['2027-01-12', '2027-01-13', '2027-01-19', '2027-01-20', '2027-01-25', '2027-01-26', '2027-01-27', '2027-01-28', '2027-01-29', '2027-01-30', '2027-01-31', '2027-02-01']
+      .map((d) => rundeForDato(EN, d));
+    expect(svar).toEqual([null, 1, 7, 8, 13, 14, 14, null, 15, null, 16, null]);
+    // Uden feltet: én runde pr. dato, som før.
+    expect(['2027-01-27', '2027-01-28', '2027-01-29'].map((d) => rundeForDato(HB, d))).toEqual([14, 15, 16]);
+    expect(rundeForDato(EN, '2027-02-30')).toBeNull();
+    expect(rundeForDato(EN, 'x')).toBeNull();
+    expect(rundeForDato(SL, '2027-01-26')).toBeNull();
+  });
+
+  it('rundeEtiket: «Kvartfinaler» uden «· dag» — datospænd kun, når kickoffs falder på to datoer', () => {
+    const tir = kl18('2027-01-26');
+    const ons = kl18('2027-01-27') + 2.5 * 3600e3;
+    expect(rundeEtiket(EN, 14)).toBe('Kvartfinaler');
+    expect(rundeEtiket(EN, 14)).not.toMatch(/· dag/);
+    expect(rundeEtiket(EN, 14, tir, ons)).toBe('Kvartfinaler · tir 26/1–ons 27/1');
+    // Alle fire på onsdag: botten siger ikke tirsdag.
+    expect(rundeEtiket(EN, 14, kl18('2027-01-27'), ons)).toBe('Kvartfinaler · ons 27/1');
+    expect(rundeEtiket(EN, 14, tir)).toBe('Kvartfinaler · tir 26/1');
+    // 23.30 UTC den 26. er den 27. i Danmark — spændet regnes i dansk tid.
+    expect(rundeEtiket(EN, 14, tir, Date.parse('2027-01-26T22:30:00Z'))).toBe('Kvartfinaler · tir 26/1');
+    expect(rundeEtiket(EN, 14, tir, Date.parse('2027-01-26T23:30:00Z'))).toBe('Kvartfinaler · tir 26/1–ons 27/1');
+    // Samme form for alle faser — og uden kalender aldrig en dato.
+    expect(rundeEtiket(HB, 2, kl18('2027-01-14'), kl18('2027-01-14'))).toBe('Indledende runde · dag 2 · tor 14/1');
+    expect(rundeEtiket(SL, 7, tir, ons)).toBe('Runde 7');
+    expect(rundeEtiket(EN, 15)).toBe('Semifinaler');
+  });
+
+  it('ventelinjen efter hovedrunden peger på tirsdagen', () => {
+    expect(ventetekst(EN, 13, kl18('2027-01-25'))).toBe('Kvartfinalerne lægges ind, så snart holdene kendes. Første kamp tirsdag 26. januar.');
+    expect(naesteKalenderRunde(EN, 14)).toBe(15);
+    expect(ventendeRunde(EN, 14)).toMatchObject({ runde: 15, foersteDag: true });
   });
 });
