@@ -1251,6 +1251,7 @@ exports.retFaseKampKickoff = onCall({ region: REGION, timeoutSeconds: 120 }, asy
       gameId: d.gameId,
       matchId: d.matchId,
       tid: d.tid,
+      dato: d.dato,
       aftryk: d.aftryk ?? null,
       dryRun,
       tilTimestamp: (ms) => Timestamp.fromMillis(ms),

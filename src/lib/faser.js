@@ -20,7 +20,7 @@
 // En kamp får INTET fase- eller knockout-felt: det udledes af `round`.
 //
 // FORMEN (seedes fra scripts/games.mjs):
-//   faser: [{ navn, bestemt?, fra, til, start, knockout?, antalKampe? }, …]
+//   faser: [{ navn, bestemt?, fra, til, start, sidsteDato?, knockout?, antalKampe? }, …]
 //     navn       'Hovedrunde'   — ubestemt form, står i etiketten
 //     bestemt    'Hovedrunden'  — bestemt form til sætninger ("… lægges ind").
 //                Dansk bøjning kan ikke udledes ('Kvartfinaler' → 'Kvartfinalerne'),
@@ -34,6 +34,15 @@
 //                Men de ligger ikke TÆTTERE end én runde pr. dag (se
 //                formkontrollen), så næste fase kan tidligst starte forrige
 //                fases start + dens antal dage.
+//     sidsteDato 'YYYY-MM-DD', KUN på en fase med ÉN runde (fra = til), hvis
+//                runde spilles over flere datoer — én tipdag over to aftener
+//                (kvartfinalerne 26/1 og 27/1). Runden dækker start..sidsteDato,
+//                og næste fase kan tidligst starte dagen efter sidsteDato.
+//                Ikke `slut`: det er slutresultatet efter forlængelse på en
+//                kamp (facit.js). En fase med FLERE runder har stadig én runde
+//                pr. dato og får ikke feltet (formkontrollen afviser det) —
+//                datoer pr. runde i fx et gruppespil over flere dage er en
+//                senere udvidelse, der skal afvises højlydt, ikke gættes.
 //     knockout   true for udslagsfaser.
 //     antalKampe forventet antal kampe i fasen (til D9 og puljen).
 //
@@ -42,7 +51,7 @@
 // "Runde N af M"). En halvt skrevet kalender må ikke give halvt rigtige tal;
 // så hellere de gamle. Gaten er evnen `harFaseKalender`, ikke sporten.
 
-const FASE_NOEGLER = ['navn', 'bestemt', 'fra', 'til', 'start', 'knockout', 'antalKampe'];
+const FASE_NOEGLER = ['navn', 'bestemt', 'fra', 'til', 'start', 'sidsteDato', 'knockout', 'antalKampe'];
 
 const UGEDAG_KORT = ['søn', 'man', 'tir', 'ons', 'tor', 'fre', 'lør'];
 const UGEDAG_LANG = ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'];
@@ -91,6 +100,17 @@ export function faseKalenderFejl(faser) {
     if (!fraOk) fejl.push(`${hvor}: fra skal være et rundenummer ≥ 1`);
     if (!(Number.isInteger(f.til) && fraOk && f.til >= f.fra)) fejl.push(`${hvor}: til skal være et rundenummer ≥ fra`);
     if (!gyldigDato(f.start)) fejl.push(`${hvor}: start skal være en dato (YYYY-MM-DD)`);
+    if (f.sidsteDato !== undefined) {
+      // (a) en dato EFTER start, (b) kun på en fase med én runde.
+      if (!gyldigDato(f.sidsteDato)) {
+        fejl.push(`${hvor}: sidsteDato skal være en dato (YYYY-MM-DD)`);
+      } else if (gyldigDato(f.start) && f.sidsteDato <= f.start) {
+        fejl.push(`${hvor}: sidsteDato ${f.sidsteDato} skal ligge efter start ${f.start}`);
+      }
+      if (fraOk && Number.isInteger(f.til) && f.til !== f.fra) {
+        fejl.push(`${hvor}: sidsteDato er kun tilladt på en fase med én runde (fra = til) — fasen har runde ${f.fra}-${f.til}`);
+      }
+    }
     if (f.knockout !== undefined && typeof f.knockout !== 'boolean') fejl.push(`${hvor}: knockout skal være true/false`);
     if (f.antalKampe !== undefined && !(Number.isInteger(f.antalKampe) && f.antalKampe > 0)) {
       fejl.push(`${hvor}: antalKampe skal være et positivt heltal`);
@@ -108,12 +128,19 @@ export function faseKalenderFejl(faser) {
       // Hviledage er tilladt (senere start), tætpakning er ikke. Kontrollen
       // dækker også "start skal stige", for hver fase har mindst én dag. Er
       // forrige fases fra/til ugyldige, er det allerede meldt ovenfor.
+      //
+      // (c) En fase med `sidsteDato` slutter dér: næste fase kan tidligst
+      // starte dagen efter. Er feltet ugyldigt, er det meldt ovenfor, og
+      // kontrollen falder tilbage til én runde pr. dag.
       const forrigeOk = Number.isInteger(forrige.fra) && Number.isInteger(forrige.til) && forrige.til >= forrige.fra;
       if (forrigeOk && gyldigDato(f.start) && gyldigDato(forrige.start)) {
         const dageFoer = forrige.til - forrige.fra + 1;
-        const tidligst = plusDage(forrige.start, dageFoer);
+        const medSidste = gyldigDato(forrige.sidsteDato) && forrige.sidsteDato > forrige.start;
+        const tidligst = medSidste ? plusDage(forrige.sidsteDato, 1) : plusDage(forrige.start, dageFoer);
         if (f.start < tidligst) {
-          fejl.push(`${hvor}: start ${f.start} ligger før ${tidligst} — forrige fase har ${dageFoer} ${dageFoer === 1 ? 'dag' : 'dage'} fra ${forrige.start} (én runde pr. dag)`);
+          fejl.push(medSidste
+            ? `${hvor}: start ${f.start} ligger før ${tidligst} — forrige fase spilles fra ${forrige.start} til ${forrige.sidsteDato}`
+            : `${hvor}: start ${f.start} ligger før ${tidligst} — forrige fase har ${dageFoer} ${dageFoer === 1 ? 'dag' : 'dage'} fra ${forrige.start} (én runde pr. dag)`);
         }
       }
     }
@@ -157,8 +184,14 @@ export function sidsteKalenderRunde(game) {
 
 /**
  * Fasen, en runde hører til — med dagens nummer inden i fasen.
+ * `dage` er antallet af RUNDER (tipdage), ikke af datoer.
+ * `sidsteDato` står KUN på en fase med én runde: kalenderens `sidsteDato`,
+ * ellers `start` (én dato). En fase med flere runder får den ikke — dér har
+ * hver runde sin egen dato (rundeDatoer), og fasens sidste dato ville kun
+ * være en nedre grænse (QC på planen, KAN K1).
  * @returns {{navn:string, bestemt:string, fra:number, til:number, start:string,
- *   knockout:boolean, antalKampe:number|null, dag:number, dage:number, nummer:number}|null}
+ *   sidsteDato?:string, knockout:boolean, antalKampe:number|null, dag:number,
+ *   dage:number, nummer:number}|null}
  */
 export function faseFor(game, round) {
   if (!harFaseKalender(game) || !Number.isInteger(round)) return null;
@@ -171,12 +204,45 @@ export function faseFor(game, round) {
     fra: f.fra,
     til: f.til,
     start: f.start,
+    ...(f.fra === f.til ? { sidsteDato: f.sidsteDato || f.start } : {}),
     knockout: f.knockout === true,
     antalKampe: Number.isInteger(f.antalKampe) ? f.antalKampe : null,
     dag: round - f.fra + 1,
     dage: f.til - f.fra + 1,
     nummer: i + 1,
   };
+}
+
+/**
+ * Rundens datoer (dansk dato) ifølge kalenderen: { foerste, sidste }.
+ *   fase med flere runder:     én dato pr. runde — start + (runde − fra)
+ *   fase med én runde:          start..sidsteDato (eller blot start)
+ * null uden kalender eller uden for den.
+ */
+export function rundeDatoer(game, round) {
+  const f = faseFor(game, round);
+  if (!f) return null;
+  if (f.sidsteDato) return { foerste: f.start, sidste: f.sidsteDato };
+  const d = plusDage(f.start, round - f.fra);
+  return { foerste: d, sidste: d };
+}
+
+/**
+ * Hvilken runde en dansk dato hører til ifølge kalenderen — omvendt af
+ * rundeDatoer, så de to ikke kan drive fra hinanden. null uden for
+ * kalenderen (en hviledag mellem to faser eller en dato uden for
+ * turneringen). D9 (faseKampe.js, V4) udleder kampens runde med den, og en
+ * kilde (D8) skal bruge samme regel.
+ */
+export function rundeForDato(game, dato) {
+  if (!gyldigDato(dato) || !harFaseKalender(game)) return null;
+  for (const f of game.faser) {
+    for (let r = f.fra; r <= f.til; r += 1) {
+      const d = rundeDatoer(game, r);
+      if (dato >= d.foerste && dato <= d.sidste) return r;
+    }
+  }
+  return null;
 }
 
 /** Er runden en knockout-runde? Uden kalender: aldrig. */
@@ -287,18 +353,27 @@ export function fmtFaseStart(start) {
  *   uden kalender:  "Runde 7"                         (præcis som før)
  *   med kalender:   "Indledende runde · dag 2"        (fase over flere dage)
  *                   "Finaledag"                       (fase på én dag)
- *                   + " · tor 14/1", når kickoffMs gives
+ *                   + " · tor 14/1", når foersteMs gives
+ *                   + " · tir 26/1–ons 27/1", når også sidsteMs gives, og
+ *                     de to kickoffs falder på hver sin danske dato (én
+ *                     tipdag over to aftener). Samme dato: kun den ene.
  *   uden for den:   "Dag 18"                          (bør ikke ske; data-fejl)
+ * Datoerne kommer fra rundens KAMPE, ikke fra kalenderen (QC B4): lægges alle
+ * fire kvartfinaler på 27/1, siger etiketten ikke 26/1. Uden kickoff er der
+ * ingen dato — som for alle andre runder.
  * @param {object} game
  * @param {number} round
- * @param {number} [kickoffMs] rundens første kickoff — giver datoen med
+ * @param {number} [foersteMs] rundens første kickoff — giver datoen med
+ * @param {number} [sidsteMs]  rundens sidste kickoff — giver et datospænd
  */
-export function rundeEtiket(game, round, kickoffMs) {
+export function rundeEtiket(game, round, foersteMs, sidsteMs) {
   if (!harFaseKalender(game)) return `Runde ${round}`;
   const f = faseFor(game, round);
   if (!f) return `Dag ${round}`;
   const navn = f.dage > 1 ? `${f.navn} · dag ${f.dag}` : f.navn;
-  return Number.isFinite(kickoffMs) ? `${navn} · ${kortDato(kickoffMs)}` : navn;
+  if (!Number.isFinite(foersteMs)) return navn;
+  const spaend = Number.isFinite(sidsteMs) && kbhDato(sidsteMs) !== kbhDato(foersteMs);
+  return `${navn} · ${kortDato(foersteMs)}${spaend ? `–${kortDato(sidsteMs)}` : ''}`;
 }
 
 /**

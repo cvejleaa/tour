@@ -26,12 +26,15 @@ vi.mock('./adminActions', () => ({
 }));
 
 import FaseKampe, {
-  KNAP_TEKST, ADVARSEL_FORTRYD, FORKLARING, retteKandidater,
+  KNAP_TEKST, ADVARSEL_FORTRYD, FORKLARING, retteKandidater, forudfyldDato, rundensDatoListe,
 } from './FaseKampe';
+import { TEST_FASER_EN_KVARTRUNDE } from '../../test/faseKalender';
 import { GAMES } from '../../../scripts/games.mjs';
 import { HAANDBOLD_VM2027_HOLD } from '../../data/haandboldVm2027Hold';
 
 const HVM = { ...GAMES.find((g) => g.id === 'hvm2027'), id: 'hvm2027', teams: HAANDBOLD_VM2027_HOLD };
+// Kvartfinalerne som én runde over tir 26/1 + ons 27/1 (sidsteDato).
+const HVM_EN = { ...HVM, faser: TEST_FASER_EN_KVARTRUNDE };
 
 const STATUS = {
   faser: [{ navn: 'Hovedrunde', har: 0, antalKampe: 36 }],
@@ -228,5 +231,75 @@ describe('🕒 Ret kickoff på en kamp', () => {
     expect(confirm.mock.calls[0][0]).toContain('ons 20/1 kl. 20.30 → ons 20/1 kl. 18.00 (dansk tid). Tip-låsen flytter med.');
     expect(await screen.findByText('Kickoff rettet: Danmark – Norge spilles ons 20/1 kl. 18.00.')).toBeInTheDocument();
     confirm.mockRestore();
+  });
+});
+
+// QC B2: en runde over flere datoer får INGEN forudfyldt dato — en 27/1-kamp
+// tastet som 26/1 lukkede for tips et døgn for tidligt. Og Ret kickoff kan
+// flytte en kamp mellem rundens egne datoer.
+describe('en runde over to datoer (kvartfinalerne 26/1 + 27/1)', () => {
+  const KV_STATUS = {
+    ...STATUS,
+    aabneDage: [{ runde: 14, etiket: 'Kvartfinaler (tir 26/1–ons 27/1)', dato: '2027-01-26', har: 0, forventet: 4 }],
+  };
+
+  it('forudfyldDato: tom for en dato i runden over to datoer — uændret ellers', () => {
+    expect(forudfyldDato(HVM_EN, '2027-01-26')).toBe('');
+    expect(forudfyldDato(HVM_EN, '2027-01-27')).toBe('');
+    expect(forudfyldDato(HVM_EN, '2027-01-29')).toBe('2027-01-29');
+    expect(forudfyldDato(HVM_EN, '2027-01-20')).toBe('2027-01-20');
+    expect(forudfyldDato(HVM, '2027-01-26')).toBe('2027-01-26');
+    expect(forudfyldDato(HVM_EN, '')).toBe('');
+    expect(rundensDatoListe(HVM_EN, 14)).toEqual(['2027-01-26', '2027-01-27']);
+    expect(rundensDatoListe(HVM_EN, 8)).toEqual(['2027-01-20']);
+    expect(rundensDatoListe({ id: 'sl' }, 8)).toEqual([]);
+  });
+
+  it('første række står UDEN dato, når serverens første åbne dag er kvartfinalerunden — og ＋ arver ikke en kvartfinaledato', async () => {
+    mockOpret.mockResolvedValue({ ok: true, data: { ...PLAN, status: KV_STATUS, nye: [], advarsler: [] } });
+    await aabn(HVM_EN);
+    expect(screen.getByLabelText('Dato, kamp 1').value).toBe('');
+    fireEvent.change(screen.getByLabelText('Dato, kamp 1'), { target: { value: '2027-01-27' } });
+    fireEvent.click(screen.getByRole('button', { name: '＋ Tilføj kamp' }));
+    expect(screen.getByLabelText('Dato, kamp 2').value).toBe('');
+    // En semifinaledato (én dato) arves som før.
+    fireEvent.change(screen.getByLabelText('Dato, kamp 2'), { target: { value: '2027-01-29' } });
+    fireEvent.click(screen.getByRole('button', { name: '＋ Tilføj kamp' }));
+    expect(screen.getByLabelText('Dato, kamp 3').value).toBe('2027-01-29');
+  });
+
+  it('Ret kickoff: en kvartfinale får en datovælger med rundens to datoer, og den valgte dato sendes', async () => {
+    const nu = Date.now();
+    // Kampen står i dag på 26/1-datoen (dansk tid); tiden er i fremtiden.
+    const kickoff = Date.parse('2027-01-26T19:30:00Z');
+    const kampe = [
+      { id: 'r14-fra-swe', round: 14, home: 'Frankrig', away: 'Sverige', kickoff: Math.max(kickoff, nu + 3600e3) },
+      { id: 'r15-ger-den', round: 15, home: 'Tyskland', away: 'Danmark', kickoff: Math.max(Date.parse('2027-01-29T16:30:00Z'), nu + 7200e3) },
+    ];
+    mockGetDocs.mockResolvedValue({ docs: kampe.map(({ id, ...d }) => ({ id, data: () => d })) });
+    await aabn(HVM_EN);
+    fireEvent.click(screen.getByRole('button', { name: '🕒 Ret kickoff på en kamp' }));
+    const select = await screen.findByLabelText('Kamp at rette kickoff på i Håndbold-VM 2027');
+    // Semifinalen har én dato: ingen datovælger.
+    fireEvent.change(select, { target: { value: 'r15-ger-den' } });
+    expect(screen.queryByLabelText('Ny dato (inden for runden)')).toBeNull();
+    fireEvent.change(select, { target: { value: 'r14-fra-swe' } });
+    const datoValg = screen.getByLabelText('Ny dato (inden for runden)');
+    expect(within(datoValg).getAllByRole('option').map((o) => o.value)).toEqual(['2027-01-26', '2027-01-27']);
+    fireEvent.change(datoValg, { target: { value: '2027-01-27' } });
+    fireEvent.change(screen.getByLabelText('Nyt kickoff (dansk tid)'), { target: { value: '18:00' } });
+    mockRet.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        dryRun: true, skrevet: false, aftryk: 'k-2', advarsler: [],
+        kamp: { id: 'r14-fra-swe', home: 'Frankrig', away: 'Sverige' },
+        foer: { tid: 'tir 26/1 kl. 20.30' }, efter: { tid: 'ons 27/1 kl. 18.00' },
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Vis rettelsen' }));
+    expect(await screen.findByText(/tir 26\/1 kl\. 20\.30 →/)).toBeInTheDocument();
+    expect(mockRet).toHaveBeenLastCalledWith({
+      gameId: 'hvm2027', matchId: 'r14-fra-swe', tid: '18:00', dato: '2027-01-27', dryRun: true,
+    });
   });
 });

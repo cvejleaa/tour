@@ -313,6 +313,14 @@ describe('adminActions', () => {
       expect(mockHttpsCallable).toHaveBeenCalledWith(expect.anything(), 'retFaseKampKickoff', { timeout: 120000 });
       expect(mockFn).toHaveBeenCalledWith({ gameId: 'hvm2027', matchId: 'r8-den-nor', tid: '18:00', aftryk: null, dryRun: true });
     });
+    // QC B2: en ny dato (inden for en runde over flere datoer) sendes med —
+    // og kun når den er valgt, så serveren ellers beholder kampens egen dato.
+    it('sender dato med, når en er valgt', async () => {
+      const mockFn = vi.fn().mockResolvedValue({ data: {} });
+      mockHttpsCallable.mockReturnValue(mockFn);
+      await callRetFaseKampKickoff({ gameId: 'hvm2027', matchId: 'r14-fra-swe', tid: '18:00', dato: '2027-01-27' });
+      expect(mockFn).toHaveBeenCalledWith({ gameId: 'hvm2027', matchId: 'r14-fra-swe', tid: '18:00', dato: '2027-01-27', aftryk: null, dryRun: true });
+    });
     it('giver serverens fejl videre i stedet for at kaste', async () => {
       mockHttpsCallable.mockReturnValue(vi.fn().mockRejectedValue(new Error('Noget er ændret')));
       expect(await callOpretFaseKampe({ gameId: 'g' })).toEqual({ ok: false, error: 'Noget er ændret' });

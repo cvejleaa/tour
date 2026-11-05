@@ -24,14 +24,22 @@
  *      imens (et facit, en pris, en kamp), afviser serveren.
  *
  * RET KICKOFF (QC B1): kickoff er tip-låsen. En tastefejl kan rettes her, så
- * længe kampen ikke har facit og ikke er gået i gang — på samme dato.
+ * længe kampen ikke har facit og ikke er gået i gang — i samme runde. En runde
+ * over flere datoer (kvartfinalerne 26/1 og 27/1) får en datovælger med netop
+ * rundens datoer (QC B2); alle andre runder har én dato og ingen vælger.
+ *
+ * INGEN FORUDFYLDT DATO for en runde over flere datoer (QC B2): formularen
+ * kan ikke vide, om kampen er tirsdagens eller onsdagens, og en 27/1-kamp
+ * tastet som 26/1 ville lukke for tips et døgn for tidligt. Ejeren vælger.
  */
 import { useEffect, useState } from 'react';
 import { useGameRounds } from './useGameRounds';
 import { callOpretFaseKampe, callRetFaseKampKickoff } from './adminActions';
 import { fmtDec } from '../../lib/daNum';
 import { formatKickoff } from '../../lib/daDate';
-import { rundeEtiket } from '../../lib/faser';
+import {
+  rundeEtiket, rundeDatoer, rundeForDato, kbhDato,
+} from '../../lib/faser';
 
 export const KNAP_TEKST = '📥 Læg næste fases kampe ind';
 // Står ordret i panelet OG i confirm — testen binder den.
@@ -42,6 +50,28 @@ export const FORKLARING = 'Tast dato og tid i dansk tid (som IHF og TV viser dem
 // række fjernes. Nøglen sendes ikke til serveren (se kampeTilServer).
 let naesteNoegle = 1;
 const tomRaekke = (dato = '') => ({ noegle: naesteNoegle++, dato, tid: '', hjemme: '', ude: '' });
+
+/** Rundens datoer som liste ('YYYY-MM-DD'), første til sidste — [] uden kalender. */
+export function rundensDatoListe(game, round) {
+  const d = rundeDatoer(game, round);
+  if (!d) return [];
+  const ud = [d.foerste];
+  while (ud[ud.length - 1] < d.sidste) {
+    const [y, m, dag] = ud[ud.length - 1].split('-').map(Number);
+    ud.push(new Date(Date.UTC(y, m - 1, dag + 1)).toISOString().slice(0, 10));
+  }
+  return ud;
+}
+
+/**
+ * Datoen, en ny række forudfyldes med: den givne — undtagen når den hører
+ * til en runde over flere datoer (QC B2). Så er feltet tomt, og ejeren
+ * vælger selv tirsdag eller onsdag.
+ */
+export function forudfyldDato(game, dato) {
+  if (!dato) return '';
+  return rundensDatoListe(game, rundeForDato(game, dato)).length > 1 ? '' : dato;
+}
 /** Kun de felter, serveren læser. */
 const kampeTilServer = (rs) => rs.map(({ dato, tid, hjemme, ude }) => ({ dato, tid, hjemme, ude }));
 
@@ -111,6 +141,7 @@ function RetKickoff({ game, onSkrevet }) {
   const { kampe, henter, fejl } = useGameRounds(game.id);
   const [matchId, setMatchId] = useState('');
   const [tid, setTid] = useState('');
+  const [dato, setDato] = useState('');
   const [plan, setPlan] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -121,9 +152,14 @@ function RetKickoff({ game, onSkrevet }) {
     return <p style={{ margin: '0.35rem 0 0', fontSize: '0.85rem', color: 'var(--c-muted)' }}>Ingen kampe uden facit, der ikke er gået i gang — der er intet kickoff at rette.</p>;
   }
   const nulstil = () => { setPlan(null); setMsg(null); };
+  const valgt = kandidater.find((m) => m.id === matchId);
+  // Kun en runde over flere datoer har en anden dato at flytte til.
+  const datoer = valgt ? rundensDatoListe(game, valgt.round) : [];
   async function vis() {
     setBusy(true); nulstil();
-    const res = await callRetFaseKampKickoff({ gameId: game.id, matchId, tid, dryRun: true });
+    const res = await callRetFaseKampKickoff({
+      gameId: game.id, matchId, tid, ...(dato ? { dato } : {}), dryRun: true,
+    });
     setBusy(false);
     if (!res.ok) { setMsg({ kind: 'err', text: res.error }); return; }
     setPlan(res.data);
@@ -132,7 +168,7 @@ function RetKickoff({ game, onSkrevet }) {
     if (!window.confirm(`Ret kickoff for ${plan.kamp.home} – ${plan.kamp.away}?\n\n${plan.foer.tid} → ${plan.efter.tid} (dansk tid). Tip-låsen flytter med.${plan.advarsler.length ? `\n\n${plan.advarsler.join('\n')}` : ''}`)) return;
     setBusy(true); setMsg(null);
     const res = await callRetFaseKampKickoff({
-      gameId: game.id, matchId: plan.kamp.id, tid, aftryk: plan.aftryk, dryRun: false,
+      gameId: game.id, matchId: plan.kamp.id, tid, ...(dato ? { dato } : {}), aftryk: plan.aftryk, dryRun: false,
     });
     setBusy(false);
     if (!res.ok) { setPlan(null); setMsg({ kind: 'err', text: res.error }); return; }
@@ -147,7 +183,7 @@ function RetKickoff({ game, onSkrevet }) {
       <div className="flex items-center" style={{ gap: '0.4rem', flexWrap: 'wrap' }}>
         <select
           className="select" aria-label={`Kamp at rette kickoff på i ${game.name}`} value={matchId}
-          onChange={(e) => { setMatchId(e.target.value); nulstil(); }}
+          onChange={(e) => { setMatchId(e.target.value); setDato(''); nulstil(); }}
         >
           <option value="">– Vælg kamp –</option>
           {kandidater.map((m) => (
@@ -156,6 +192,15 @@ function RetKickoff({ game, onSkrevet }) {
             </option>
           ))}
         </select>
+        {datoer.length > 1 && (
+          <select
+            className="select" aria-label="Ny dato (inden for runden)"
+            value={dato || kbhDato(toMs(valgt.kickoff))}
+            onChange={(e) => { setDato(e.target.value); nulstil(); }}
+          >
+            {datoer.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        )}
         <input
           type="time" aria-label="Nyt kickoff (dansk tid)" value={tid}
           onChange={(e) => { setTid(e.target.value); nulstil(); }}
@@ -194,9 +239,11 @@ function Panel({ game, onSkrevet }) {
       if (!res.ok) { setMsg({ kind: 'err', text: res.error }); return; }
       setStatus(res.data.status);
       const forste = res.data.status?.aabneDage?.[0]?.dato || '';
-      setRaekker([tomRaekke(forste)]);
+      setRaekker([tomRaekke(forudfyldDato(game, forste))]);
     })();
     return () => { afbrudt = true; };
+  // Kalenderen (game) læses kun ved første status; spillet skifter med id'et.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game.id]);
 
   const nulstil = () => { setPlan(null); setMsg(null); };
@@ -267,7 +314,7 @@ function Panel({ game, onSkrevet }) {
         </div>
       ))}
       <div className="flex items-center" style={{ gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-        <button className="btn btn--ghost btn--sm" onClick={() => { setRaekker((rs) => [...rs, tomRaekke(rs[rs.length - 1]?.dato || '')]); nulstil(); }}>
+        <button className="btn btn--ghost btn--sm" onClick={() => { setRaekker((rs) => [...rs, tomRaekke(forudfyldDato(game, rs[rs.length - 1]?.dato))]); nulstil(); }}>
           ＋ Tilføj kamp
         </button>
         <button className="btn btn--ghost btn--sm" onClick={vis} disabled={busy || !udfyldt}>

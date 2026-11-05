@@ -10,7 +10,9 @@ import {
   puljeFaseFejl, rundePuljeDato, rundePuljeTekster,
 } from './puljeFacit';
 import { puljeKonfig } from './superligaScoring';
-import { TEST_FASER, HAANDBOLD_SPIL, kl18 } from '../test/faseKalender';
+import {
+  TEST_FASER, TEST_FASER_EN_KVARTRUNDE, HAANDBOLD_SPIL, kl18,
+} from '../test/faseKalender';
 
 const RUNDE_PULJE = Object.freeze({ poolSize: 4, facitKilde: 'runde', facitFase: 'Semifinaler' });
 const HVM = Object.freeze({ ...HAANDBOLD_SPIL, pulje: RUNDE_PULJE });
@@ -314,6 +316,20 @@ describe('rundePuljeDato og den forsinkede tekst', () => {
     expect(rundePuljeDato(kvart, puljeKonfig(kvart))).toBe('fra onsdag 27. januar');
     expect(rundePuljeDato({ ...HVM, faser: undefined }, puljeKonfig({ ...HVM, faser: undefined }))).toBeNull();
     expect(rundePuljeDato({ pulje: { poolSize: 6 } }, puljeKonfig({ pulje: { poolSize: 6 } }))).toBeNull();
+  });
+
+  // «fra» spørger kalenderen om DATOER, ikke om antallet af runder: en
+  // kvartfinalerunde over 26/1 og 27/1 er én runde (dage = 1), og den gamle
+  // proxy `dage > 1` gav «tirsdag 26. januar» uden «fra» — rød her.
+  it('en fase med ÉN runde over to datoer starter med «fra»; en fase på én dato gør ikke', () => {
+    const en = { ...HAANDBOLD_SPIL, faser: TEST_FASER_EN_KVARTRUNDE };
+    const kvart = { ...en, pulje: { ...RUNDE_PULJE, facitFase: 'Kvartfinaler', poolSize: 8 } };
+    expect(rundePuljeDato(kvart, puljeKonfig(kvart))).toBe('fra tirsdag 26. januar');
+    const semi = { ...en, pulje: RUNDE_PULJE };
+    expect(rundePuljeDato(semi, puljeKonfig(semi))).toBe('fredag 29. januar');
+    // En fase med flere runder (én dato hver) har stadig «fra».
+    const hoved = { ...en, pulje: { ...RUNDE_PULJE, facitFase: 'Hovedrunde', poolSize: 8 } };
+    expect(rundePuljeDato(hoved, puljeKonfig(hoved))).toBe('fra onsdag 20. januar');
   });
 
   it('er startdagen passeret, loves ingen dato, der er gået', () => {

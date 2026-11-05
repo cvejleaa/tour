@@ -217,16 +217,18 @@ export async function callOpretFaseKampe({ gameId, kampe = [], aftryk = null, dr
 }
 
 /**
- * Ret kickoff på én kamp (kun uden facit, før den er gået i gang, samme dato).
+ * Ret kickoff på én kamp (kun uden facit, før den er gået i gang, samme runde).
  * `tid`: 'HH:MM' i dansk tid. dryRun er DEFAULT SAND; skrive-kaldet kræver
  * tør-kørslens aftryk. Timeout matcher serverens timeoutSeconds: 120.
  */
 export async function callRetFaseKampKickoff({
-  gameId, matchId, tid, aftryk = null, dryRun = true,
+  gameId, matchId, tid, dato = '', aftryk = null, dryRun = true,
 } = {}) {
   try {
     const fn = httpsCallable(functions, 'retFaseKampKickoff', { timeout: 120000 });
-    const res = await fn({ gameId, matchId, tid, aftryk, dryRun });
+    // `dato` sendes kun, når en ny er valgt (en runde over flere datoer, QC B2)
+    // — ellers beholder serveren kampens egen dato.
+    const res = await fn({ gameId, matchId, tid, ...(dato ? { dato } : {}), aftryk, dryRun });
     return { ok: true, data: res.data };
   } catch (err) {
     return { ok: false, error: err?.message || 'Kunne ikke rette kickoff.' };
