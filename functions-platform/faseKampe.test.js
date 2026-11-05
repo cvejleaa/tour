@@ -971,6 +971,13 @@ describe('D9 med én runde over to datoer (kvartfinalerne 26/1 + 27/1)', () => {
       expect((await kald(makeDb(g, [forkert]), { dato: '2027-01-26' })).efter.tid).toBe('tir 26/1 kl. 18.00');
     });
 
+    // Test Manager (kvart-tm): en tom streng er «ingen dato» (som null) — ikke
+    // en ugyldig dato. Uden denne kunne `=== ''`-grenen fjernes med grøn suite.
+    it('en tom dato («») er ingen dato — kampens egen bruges, ingen «ugyldig dato»', async () => {
+      const r = await kald(makeDb(g, [forkert]), { dato: '' });
+      expect(r.efter).toMatchObject({ tid: 'tir 26/1 kl. 18.00', kickoff: dk('2027-01-26', '18:00') });
+    });
+
     it('en dato uden for runden afvises — hviledagen, en anden runde og en ugyldig dato', async () => {
       await expect(kald(makeDb(g, [forkert]), { dato: '2027-01-28' })).rejects.toMatchObject({
         kode: 'invalid-argument',
