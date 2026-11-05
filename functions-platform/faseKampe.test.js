@@ -959,11 +959,30 @@ describe('D9 med én runde over to datoer (kvartfinalerne 26/1 + 27/1)', () => {
       const db = makeDb(g, [forkert]);
       const toer = await kald(db, { dato: '2027-01-27' });
       expect(toer).toMatchObject({ foer: { tid: 'tir 26/1 kl. 20.30' }, efter: { tid: 'ons 27/1 kl. 18.00', kickoff: dk('2027-01-27', '18:00') } });
+      // Security (KAN 1): datoskiftet siges højt i tør-kørslen.
+      expect(toer.advarsler).toEqual(['Datoen skifter fra tir 26/1 til ons 27/1.']);
       // Aftrykket binder datoen: samme tid uden den nye dato er en anden rettelse.
       await expect(kald(db, { dryRun: false, aftryk: toer.aftryk }))
         .rejects.toMatchObject({ kode: 'failed-precondition', message: expect.stringMatching(/ændret siden tør-kørslen/) });
       await kald(db, { dato: '2027-01-27', dryRun: false, aftryk: toer.aftryk });
       expect(db._opdateringer[0].data.kickoff.__ts).toBe(dk('2027-01-27', '18:00'));
+    });
+
+    // Security (KAN 1): et datoskift bagud til et passeret kickoff ville vise
+    // alle i ligaen tipsene på en kamp, der først spilles i morgen. Afvist —
+    // mens et passeret kickoff på SAMME dato stadig kun advarer (som før).
+    it('en onsdagskamp kan ikke flyttes til et passeret tidspunkt tirsdag', async () => {
+      const onsdag = { ...forkert, id: 'r14-fra-swe', kickoff: dk('2027-01-27', '20:30') };
+      const nu = dk('2027-01-26', '19:00');
+      await expect(kald(makeDb(g, [onsdag]), { dato: '2027-01-26', nowMs: nu })).rejects.toMatchObject({
+        kode: 'invalid-argument',
+        message: 'tir 26/1 kl. 18.00 er passeret — en kamp kan ikke flyttes til en anden dato bagud i tid. Intet er skrevet.',
+      });
+      // Kontrol: SAMME dato, passeret tidspunkt — tilladt med advarsel, som før.
+      const tirsdag = { ...forkert, kickoff: dk('2027-01-26', '20:30') };
+      const r = await kald(makeDb(g, [tirsdag]), { nowMs: nu });
+      expect(r.efter.tid).toBe('tir 26/1 kl. 18.00');
+      expect(r.advarsler).toEqual([expect.stringMatching(/^tir 26\/1 kl\. 18\.00 er passeret: tippet på kampen lukker/)]);
     });
 
     it('uden dato, eller med kampens egen dato: som før (samme dato)', async () => {

@@ -38,7 +38,7 @@ import { callOpretFaseKampe, callRetFaseKampKickoff } from './adminActions';
 import { fmtDec } from '../../lib/daNum';
 import { formatKickoff } from '../../lib/daDate';
 import {
-  rundeEtiket, rundeDatoer, rundeForDato, kbhDato,
+  rundeEtiket, rundeDatoer, rundeForDato, kbhDato, kortDato,
 } from '../../lib/faser';
 
 export const KNAP_TEKST = '📥 Læg næste fases kampe ind';
@@ -198,7 +198,8 @@ function RetKickoff({ game, onSkrevet }) {
             value={dato || kbhDato(toMs(valgt.kickoff))}
             onChange={(e) => { setDato(e.target.value); nulstil(); }}
           >
-            {datoer.map((d) => <option key={d} value={d}>{d}</option>)}
+            {/* QC (KAN): «tir 26/1», ikke ISO — værdien er stadig ÅÅÅÅ-MM-DD. */}
+            {datoer.map((d) => <option key={d} value={d}>{kortDato(Date.parse(`${d}T12:00:00Z`))}</option>)}
           </select>
         )}
         <input

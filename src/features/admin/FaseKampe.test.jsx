@@ -276,6 +276,10 @@ describe('en runde over to datoer (kvartfinalerne 26/1 + 27/1)', () => {
   });
 
   it('Ret kickoff: en kvartfinale får en datovælger med rundens to datoer, og den valgte dato sendes', async () => {
+    // Test Manager (KAN): tiden fryses, så fixturet ikke skifter betydning,
+    // når 26/1 2027 passerer.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2027-01-20T10:00:00Z'));
     const nu = Date.now();
     // Kampen står i dag på 26/1-datoen (dansk tid); tiden er i fremtiden.
     const kickoff = Date.parse('2027-01-26T19:30:00Z');
@@ -293,6 +297,7 @@ describe('en runde over to datoer (kvartfinalerne 26/1 + 27/1)', () => {
     fireEvent.change(select, { target: { value: 'r14-fra-swe' } });
     const datoValg = screen.getByLabelText('Ny dato (inden for runden)');
     expect(within(datoValg).getAllByRole('option').map((o) => o.value)).toEqual(['2027-01-26', '2027-01-27']);
+    expect(within(datoValg).getAllByRole('option').map((o) => o.textContent)).toEqual(['tir 26/1', 'ons 27/1']);
     fireEvent.change(datoValg, { target: { value: '2027-01-27' } });
     fireEvent.change(screen.getByLabelText('Nyt kickoff (dansk tid)'), { target: { value: '18:00' } });
     mockRet.mockResolvedValueOnce({
@@ -308,6 +313,7 @@ describe('en runde over to datoer (kvartfinalerne 26/1 + 27/1)', () => {
     expect(mockRet).toHaveBeenLastCalledWith({
       gameId: 'hvm2027', matchId: 'r14-fra-swe', tid: '18:00', dato: '2027-01-27', dryRun: true,
     });
+    vi.useRealTimers();
   });
 });
 

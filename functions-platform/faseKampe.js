@@ -194,8 +194,8 @@ function fristTekst(d) {
 
 /**
  * Kampe pr. dag i en fase, UDLEDT af kalenderen (QC B2, ejerens valg 3/11):
- * antalKampe / antal dage, når det går op (hovedrunden 36/6 = 6,
- * kvartfinalerne 4/2 = 2). null, når det ikke går op (den indledende runde
+ * antalKampe / antal runder, når det går op (hovedrunden 36/6 = 6,
+ * kvartfinalerne 4/1 = 4 — én runde over to datoer). null, når det ikke går op (den indledende runde
  * 48/7) eller fasen intet antal har — så kender kalenderen ikke en dags
  * antal, og vagten nøjes med «mindst én kamp» og fasens total.
  */
@@ -274,6 +274,9 @@ function dageStatus(game, matches, nowMs) {
         forventet,
         aaben: dagAaben(sidsteDato, kampe, nowMs),
         alarmFraMs: kbhTilMs(plusDage(dato, -1), '12:00'),
+        // Antagelse: rundens første kickoff ligger efter kl. 12 (kvartfinalerne
+        // spilles om aftenen; Wikipedias time= er tom endnu). Ligger den
+        // tidligere, kommer alarmen efter V7 har lukket runden — ret så fristen.
         hardFristMs: sidsteDato > dato ? kbhTilMs(dato, '12:00') : null,
         venterPaa: r === fase.fra ? forrigeFaseVenter(game, fase, pr) : null,
       });
@@ -766,6 +769,16 @@ async function retKickoffCore(db, FieldValue, {
   // det lukker blot tippet nu. Ingen egen vagt for «senere og passeret»: den
   // kunne ikke nås (fundet ved mutation).
   const advarsler = [];
+  if (dato !== gammelDato) {
+    // Security (KAN 1): et datoskift kan flytte en kamp op til et døgn tilbage.
+    // Et passeret kickoff på en ANDEN dato ville vise alle i ligaen tipsene på
+    // en kamp, der først spilles i morgen — det afvises. Og skiftet siges
+    // højt i tør-kørslen, så en fejltastet dato ses, før den skrives.
+    if (ny <= nowMs + LAAS_MARGIN_MS) {
+      throw fejl('invalid-argument', `${visTid(ny)} er passeret — en kamp kan ikke flyttes til en anden dato bagud i tid. Intet er skrevet.`);
+    }
+    advarsler.push(`Datoen skifter fra ${kortRenDato(gammelDato)} til ${kortRenDato(dato)}.`);
+  }
   if (ny <= nowMs + LAAS_MARGIN_MS) {
     advarsler.push(`${visTid(ny)} er passeret: tippet på kampen lukker i samme øjeblik, du skriver. Tips, der blev afgivet efter den rigtige kampstart, står stadig — de kan ikke trækkes tilbage i appen.`);
   }

@@ -1239,7 +1239,8 @@ exports.opretFaseKampe = onCall({ region: REGION, timeoutSeconds: 120 }, async (
 });
 
 // retFaseKampKickoff — ret kickoff på én kamp (QC B1): kun uden facit, før
-// kampen er gået i gang, og på samme dato. Tør-kørsel er standard; skrivningen
+// kampen er gået i gang, og i samme runde (en ny dato kun inden for rundens
+// datoer, og aldrig bagud i tid). Tør-kørsel er standard; skrivningen
 // kræver aftrykket. Samme timeout som klienten (120 s).
 exports.retFaseKampKickoff = onCall({ region: REGION, timeoutSeconds: 120 }, async (request) => {
   const db = getFirestore();
