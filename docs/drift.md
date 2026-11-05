@@ -428,15 +428,18 @@ findes ikke for dem). En kamp uden læseligt kickoff meldes med det samme, med
 En turnering med fasekalender (Håndbold-VM 2027), der er Åben eller I gang,
 har også kortet **Fasekampe-vagt (næste fases kampe)** — med eller uden synk.
 Det kører i samme Times-sweep (`facitVagt.faseKampeVagt`) og viser, hvor mange
-af fasens kampe der er lagt ind, og hvornår næste alarm går. Mangler en dag
-kampe efter kl. 12 dagen før (kampe pr. dag er fasens `antalKampe` delt med
-dens dage — 6 i hovedrunden, 2 i kvartfinalerne; i den indledende runde, hvor
-det ikke går op, mindst én og resten på sidste dag), og kan dagen stadig få
+af fasens kampe der er lagt ind, og hvornår næste alarm går. Mangler en runde
+kampe efter kl. 12 dagen før (kampe pr. runde er fasens `antalKampe` delt med
+dens runder — 6 i hovedrunden, 4 i kvartfinalerne, der er ÉN runde over to
+datoer (tir 26/1 + ons 27/1, `sidsteDato`); i den indledende runde, hvor det
+ikke går op, mindst én og resten på sidste dag), og kan runden stadig få
 dem, melder alarmen **«Kampe mangler i næste fase»** (type `faseKampe`, hast
-**haster**, én pr. dag) med remediet **📥 Læg næste fases kampe ind**. En
-fases første dag alarmerer først, når fasen før har facit på alle sine kampe
+**haster**, én pr. runde) med remediet **📥 Læg næste fases kampe ind**. En
+fases første runde alarmerer først, når fasen før har facit på alle sine kampe
 (ved knockout: en vinder) — før det kendes holdene ikke, og kortet siger, at
-det venter. Mangler et facit længe, melder facit-vagten det selv. Er
+det venter. En runde over flere datoer venter dog kun til kl. 12 på sin
+første dato (kvartfinalerne: tir 26/1 kl. 12); så går alarmen ubetinget, for
+runden lukker for nye kampe ved sin første kickoff. Mangler et facit længe, melder facit-vagten det selv. Er
 dagen gået i gang med for få kampe, er det en advarsel på kortet, ikke en
 alarm. Kortet lukkes, når kalenderens sidste dag er forbi, eller når spillet
 afsluttes.

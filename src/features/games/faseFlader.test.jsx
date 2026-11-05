@@ -12,6 +12,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { HAANDBOLD_SPIL as HB, kl18 } from '../../test/faseKalender';
+import { GAMES } from '../../../scripts/games.mjs';
 
 vi.mock('./football/useSpillerOpdeling', () => ({
   useSpillerOpdeling: (gameId, uid) => {
@@ -114,6 +115,45 @@ describe('FootballHelp — faserne læses af kalenderen', () => {
     expect(container.textContent).toContain('Dag X →');
     expect(container.textContent).not.toContain('Runde X →');
     expect(container.textContent).toContain('Med knappen Dag N over podiet');
+  });
+
+  // QC B5 + Spilfører: KVARTFINALERNE ER ÉN TIPDAG OVER TO AFTENER. Sætningen
+  // afledes af kalenderens `sidsteDato` — her den RIGTIGE (scripts/games.mjs),
+  // så hjælpen siger det, spillet gør. «hver dag har sin egen kupon» ville
+  // modsige den: tirsdag og onsdag er ÉN kupon og én ⚡.
+  it('Håndbold-VM: kvartfinalerne er én tipdag over to aftener — og «hver dag» modsiger det ikke', () => {
+    medSpil({ ...GAMES.find((g) => g.id === 'hvm2027'), id: 'hvm2027' });
+    const faser = screen.getByTestId('hjaelp-faser');
+    const t = faser.textContent.replace(/\s+/g, ' ');
+    expect(screen.getAllByTestId('hjaelp-tipdag-flere-datoer').map((e) => e.textContent.trim())).toEqual([
+      'Kvartfinalerne er én tipdag over to aftener (tir 26/1 og ons 27/1) — din ⚡ Chance kan gemmes til onsdagens kampe.',
+    ]);
+    expect(t).toContain('Pointene gøres op pr. tipdag: hver tipdag har sin egen kupon og sin egen combi, og tælleren');
+    expect(t).not.toMatch(/hver dag har sin egen kupon|pr\. spilledag/);
+    expect(t).toContain('Dag 1 af 16');
+    // Kun kvartfinalerne — semifinalerne og finaledagen er én dato hver.
+    expect(t).not.toMatch(/Semifinalerne er én tipdag|Finaledagen er én tipdag/);
+  });
+
+  it('uden sidsteDato i kalenderen: ingen tipdag-linje, og sætningen er den gamle «pr. spilledag»', () => {
+    medSpil(HB);
+    expect(screen.queryByTestId('hjaelp-tipdag-flere-datoer')).toBeNull();
+    const t = screen.getByTestId('hjaelp-faser').textContent;
+    expect(t).not.toMatch(/tipdag|⚡/);
+  });
+
+  it('en anden kalender med sidsteDato: datoerne og ugedagen kommer af den — og et spænd med hviledag hedder «flere dage»', () => {
+    medSpil({
+      ...HB,
+      faser: [
+        { navn: 'Gruppespil', fra: 1, til: 3, start: '2027-06-01' },
+        { navn: 'Finale', fra: 4, til: 4, start: '2027-06-10', sidsteDato: '2027-06-12' },
+      ],
+    });
+    expect(screen.getAllByTestId('hjaelp-tipdag-flere-datoer').map((e) => e.textContent.trim())).toEqual([
+      'Finale er én tipdag over flere dage (tor 10/6–lør 12/6) — din ⚡ Chance kan gemmes til lørdagens kampe.',
+    ]);
+    expect(screen.getByTestId('hjaelp-faser').textContent).not.toContain('Kvartfinal');
   });
 
   // Puljegrænsen er tre DAGE i en turnering (PULJE_MAKS_STARTRUNDE tæller

@@ -72,36 +72,49 @@ describe('V4 — dagen udledes af den danske dato', () => {
     expect(rundeForDato(g, '2027-01-13')).toBe(1);
     expect(rundeForDato(g, '2027-01-20')).toBe(8);
     expect(rundeForDato(g, '2027-01-25')).toBe(13);
-    expect(rundeForDato(g, '2027-01-27')).toBe(15);
+    // Kvartfinalerne er ÉN runde over to datoer (sidsteDato). Før: 26/1 → 14,
+    // 27/1 → 15, semi 16, finale 17.
+    expect(rundeForDato(g, '2027-01-26')).toBe(14);
+    expect(rundeForDato(g, '2027-01-27')).toBe(14);
     expect(rundeForDato(g, '2027-01-28')).toBeNull(); // hviledag
-    expect(rundeForDato(g, '2027-01-29')).toBe(16);
-    expect(rundeForDato(g, '2027-01-31')).toBe(17);
+    expect(rundeForDato(g, '2027-01-29')).toBe(15);
+    expect(rundeForDato(g, '2027-01-31')).toBe(16);
     expect(rundeForDato(g, '2027-02-01')).toBeNull();
     expect(rundeForDato(g, '2027-01-12')).toBeNull();
   });
   // ANTAGELSEN, V4 hviler på (dagene inden i en fase ligger i træk), og den
-  // B2 hviler på (kampe pr. dag = antalKampe/dage): bundet mod Wikipedias
+  // B2 hviler på (kampe pr. RUNDE = antalKampe/runder): bundet mod Wikipedias
   // egne bokse for hovedrunde og knockout. Ændres programmet, bliver den rød.
-  it('hver hovedrunde- og knockout-boks i Wikipedias program giver en dag i den rigtige fase — med kalenderens antal pr. dag', () => {
+  // PR. RUNDE, ikke pr. dato: kvartfinalerne er én runde med 2 kampe 26/1 og
+  // 2 kampe 27/1 — pr. dato ville 2 ≠ 4 (QC B6: skrevet om, ikke slettet).
+  it('hver hovedrunde- og knockout-boks i Wikipedias program giver en runde i den rigtige fase — med kalenderens antal pr. runde', () => {
     const { kampe } = klassificeredeKampe(readFileSync(new URL('../scripts/testdata/wiki-vm2027.wikitext', import.meta.url), 'utf8'));
     const NAVN = {
       hoved: 'Hovedrunde', kvart: 'Kvartfinaler', semi: 'Semifinaler', finale: 'Finaledag',
     };
     const senere = kampe.filter((x) => NAVN[x.fase]);
     expect(senere.length).toBe(36 + 4 + 2 + 2);
-    const prDato = new Map();
+    const prRunde = new Map();
+    const datoerPrRunde = new Map();
     for (const x of senere) {
       const r = rundeForDato(g, x.dato);
       expect(faseFor(g, r)?.navn, `${x.fase} ${x.dato}`).toBe(NAVN[x.fase]);
-      prDato.set(x.dato, (prDato.get(x.dato) || 0) + 1);
+      prRunde.set(r, (prRunde.get(r) || 0) + 1);
+      datoerPrRunde.set(r, new Set([...(datoerPrRunde.get(r) || []), x.dato]));
     }
-    for (const [dato, n] of prDato) {
-      expect(n, dato).toBe(kampePrDag(faseFor(g, rundeForDato(g, dato))));
+    for (const [r, n] of prRunde) {
+      expect(n, `runde ${r}`).toBe(kampePrDag(faseFor(g, r)));
     }
+    // Runderne 8-16 har alle kampe på siden — og kun runde 14 går over to datoer.
+    expect([...prRunde.keys()].sort((a, b) => a - b)).toEqual([8, 9, 10, 11, 12, 13, 14, 15, 16]);
+    expect(prRunde.get(14)).toBe(4);
+    expect([...datoerPrRunde].filter(([, d]) => d.size > 1).map(([r, d]) => [r, [...d].sort()]))
+      .toEqual([[14, ['2027-01-26', '2027-01-27']]]);
   });
-  it('kampe pr. dag: 36/6 = 6 og 4/2 = 2 — den indledende runde (48/7) har intet fast tal', () => {
+  it('kampe pr. runde: 36/6 = 6, kvartfinalerne 4/1 = 4 (før 4/2 = 2), semi 2 — den indledende runde (48/7) har intet fast tal', () => {
     expect(kampePrDag(faseFor(g, 8))).toBe(6);
-    expect(kampePrDag(faseFor(g, 14))).toBe(2);
+    expect(kampePrDag(faseFor(g, 14))).toBe(4);
+    expect(kampePrDag(faseFor(g, 15))).toBe(2);
     expect(kampePrDag(faseFor(g, 16))).toBe(2);
     expect(kampePrDag(faseFor(g, 1))).toBeNull();
   });
@@ -332,8 +345,8 @@ describe('advarslerne — det, ejeren skal vide, før han trykker', () => {
 
   it('puljeAfgoeres: false, når puljen allerede KUNNE afgøres før oprettelsen', () => {
     const sf = [
-      { id: 'r16-ger-den', round: 16, home: 'Tyskland', away: 'Danmark', kickoff: dk('2027-01-29', '17:30'), result: '2', homeGoals: 29, awayGoals: 33 },
-      { id: 'r16-swe-esp', round: 16, home: 'Sverige', away: 'Spanien', kickoff: dk('2027-01-29', '20:30'), result: '1', homeGoals: 30, awayGoals: 28 },
+      { id: 'r15-ger-den', round: 15, home: 'Tyskland', away: 'Danmark', kickoff: dk('2027-01-29', '17:30'), result: '2', homeGoals: 29, awayGoals: 33 },
+      { id: 'r15-swe-esp', round: 15, home: 'Sverige', away: 'Spanien', kickoff: dk('2027-01-29', '20:30'), result: '1', homeGoals: 30, awayGoals: 28 },
     ];
     const p = planFaseKampe(g, [...KV, ...sf], [k('2027-01-31', '14:30', 'Tyskland', 'Spanien'), k('2027-01-31', '17:30', 'Danmark', 'Sverige')], dk('2027-01-30', '12:00'));
     expect(p.fejl).toEqual([]);
@@ -343,11 +356,13 @@ describe('advarslerne — det, ejeren skal vide, før han trykker', () => {
 });
 
 // Knockout-faserne — det, der kun kan bevises i unit-tests før januar.
+// Kvartfinalerne er ÉN runde (14) over tir 26/1 og ons 27/1; semifinalerne
+// er runde 15 og finaledagen 16 (før: kvart 14 + 15, semi 16, finale 17).
 const KV = [
   { id: 'r14-ger-srb', round: 14, home: 'Tyskland', away: 'Serbien', kickoff: dk('2027-01-26', '18:00'), result: '1', homeGoals: 31, awayGoals: 30 },
   { id: 'r14-den-nor', round: 14, home: 'Danmark', away: 'Norge', kickoff: dk('2027-01-26', '20:30'), result: 'X', homeGoals: 30, awayGoals: 30, slut: { home: 35, away: 34, afgjort: 'forlaenget' } },
-  { id: 'r15-fra-swe', round: 15, home: 'Frankrig', away: 'Sverige', kickoff: dk('2027-01-27', '18:00'), result: '2', homeGoals: 28, awayGoals: 29 },
-  { id: 'r15-esp-cro', round: 15, home: 'Spanien', away: 'Kroatien', kickoff: dk('2027-01-27', '20:30'), result: '1', homeGoals: 27, awayGoals: 25 },
+  { id: 'r14-fra-swe', round: 14, home: 'Frankrig', away: 'Sverige', kickoff: dk('2027-01-27', '18:00'), result: '2', homeGoals: 28, awayGoals: 29 },
+  { id: 'r14-esp-cro', round: 14, home: 'Spanien', away: 'Kroatien', kickoff: dk('2027-01-27', '20:30'), result: '1', homeGoals: 27, awayGoals: 25 },
 ];
 const NU_KO = dk('2027-01-27', '23:30');
 
@@ -411,8 +426,8 @@ describe('V9 — knockout: semifinalerne kan kun bestå af kvartfinalernes vinde
   });
   it('finaledagen: to vindere (finalen) og to tabere (bronzen) — fasen rummer alle semifinalens hold', () => {
     const sf = [
-      { id: 'r16-ger-den', round: 16, home: 'Tyskland', away: 'Danmark', kickoff: dk('2027-01-29', '17:30'), result: '2', homeGoals: 29, awayGoals: 33 },
-      { id: 'r16-swe-esp', round: 16, home: 'Sverige', away: 'Spanien', kickoff: dk('2027-01-29', '20:30'), result: '1', homeGoals: 30, awayGoals: 28 },
+      { id: 'r15-ger-den', round: 15, home: 'Tyskland', away: 'Danmark', kickoff: dk('2027-01-29', '17:30'), result: '2', homeGoals: 29, awayGoals: 33 },
+      { id: 'r15-swe-esp', round: 15, home: 'Sverige', away: 'Spanien', kickoff: dk('2027-01-29', '20:30'), result: '1', homeGoals: 30, awayGoals: 28 },
     ];
     const p = planFaseKampe(g, [...KV, ...sf], [k('2027-01-31', '14:30', 'Tyskland', 'Spanien'), k('2027-01-31', '17:30', 'Danmark', 'Sverige')], dk('2027-01-30', '12:00'));
     expect(p.fejl).toEqual([]);
@@ -428,21 +443,25 @@ describe('V3/V8 — tastefejl, der ikke kan slettes, afvises før oprettelsen', 
   const foerKV = [...indledende({ facit: true }), ...hovedrunde()];
   const NU_HR_SLUT = dk('2027-01-25', '23:30');
 
-  it('V3 i knockout: et hold højst én gang i HELE fasen — kvartfinalerne har to dage', () => {
+  // Kvartfinalerne er nu ÉN runde over to datoer, så «dag 1/dag 2» er blevet
+  // til «tirsdag/onsdag» i samme runde 14 — reglen (hele fasen) er den samme.
+  it('V3 i knockout: et hold højst én gang i HELE fasen — kvartfinalerne går over to datoer', () => {
     // QC's eget forsøg: Danmark 26/1 og igen 27/1 i samme kald.
     const toDage = planFaseKampe(g, foerKV, [k('2027-01-26', '18:00', 'Danmark', 'Frankrig'), k('2027-01-27', '18:00', 'Danmark', 'Spanien')], NU_HR_SLUT);
-    expect(toDage.fejl).toEqual([{ linje: 2, tekst: 'Danmark spiller allerede i kvartfinalerne (Danmark–Frankrig, Kvartfinaler · dag 1) — et hold spiller højst én kamp i en knockout-fase' }]);
+    expect(toDage.fejl).toEqual([{ linje: 2, tekst: 'Danmark spiller allerede i kvartfinalerne (Danmark–Frankrig, Kvartfinaler) — et hold spiller højst én kamp i en knockout-fase' }]);
     expect(toDage.nye.map((n) => n.id)).toEqual(['r14-den-fra']);
-    // Og mod en kamp, der allerede findes, på den anden dag.
+    // Og mod en kamp, der allerede findes, på den anden dato.
     const findes = [...foerKV, { id: 'r14-den-nor', round: 14, home: 'Danmark', away: 'Norge', kickoff: dk('2027-01-26', '20:30') }];
     expect(planFaseKampe(g, findes, [k('2027-01-27', '18:00', 'Spanien', 'Danmark')], NU_HR_SLUT).fejl[0].tekst)
-      .toBe('Danmark spiller allerede i kvartfinalerne (Danmark–Norge, Kvartfinaler · dag 1) — et hold spiller højst én kamp i en knockout-fase');
-    // Kontrol: to andre hold på dag 2 er fine.
-    expect(planFaseKampe(g, findes, [k('2027-01-27', '18:00', 'Spanien', 'Kroatien')], NU_HR_SLUT).fejl).toEqual([]);
-    // Og den anden vej: dag 2 lagt ind FØR dag 1 — grænsen er fasens sidste dag.
-    const dag2Foerst = [...foerKV, { id: 'r15-den-esp', round: 15, home: 'Danmark', away: 'Spanien', kickoff: dk('2027-01-27', '18:00') }];
-    expect(planFaseKampe(g, dag2Foerst, [k('2027-01-26', '18:00', 'Frankrig', 'Danmark')], NU_HR_SLUT).fejl[0].tekst)
-      .toBe('Danmark spiller allerede i kvartfinalerne (Danmark–Spanien, Kvartfinaler · dag 2) — et hold spiller højst én kamp i en knockout-fase');
+      .toBe('Danmark spiller allerede i kvartfinalerne (Danmark–Norge, Kvartfinaler) — et hold spiller højst én kamp i en knockout-fase');
+    // Kontrol: to andre hold onsdag er fine — og havner i SAMME runde.
+    const ons = planFaseKampe(g, findes, [k('2027-01-27', '18:00', 'Spanien', 'Kroatien')], NU_HR_SLUT);
+    expect(ons.fejl).toEqual([]);
+    expect(ons.nye.map((n) => [n.id, n.round])).toEqual([['r14-esp-cro', 14]]);
+    // Og den anden vej: onsdagens kamp lagt ind FØR tirsdagens.
+    const onsFoerst = [...foerKV, { id: 'r14-den-esp', round: 14, home: 'Danmark', away: 'Spanien', kickoff: dk('2027-01-27', '18:00') }];
+    expect(planFaseKampe(g, onsFoerst, [k('2027-01-26', '18:00', 'Frankrig', 'Danmark')], NU_HR_SLUT).fejl[0].tekst)
+      .toBe('Danmark spiller allerede i kvartfinalerne (Danmark–Spanien, Kvartfinaler) — et hold spiller højst én kamp i en knockout-fase');
   });
 
   it('V3 uden for knockout er stadig pr. dag — samme hold på to hovedrundedage er fint', () => {
@@ -624,7 +643,7 @@ describe('opretFaseKampeCore — tør-kørsel, aftryk og create-only', () => {
     });
     expect(res.puljeAfregnet).toEqual({ settled: 3 });
     expect(kald).toHaveLength(1);
-    expect(kald[0].ids).toEqual(expect.arrayContaining(['r16-ger-den', 'r16-swe-esp', 'r14-ger-srb']));
+    expect(kald[0].ids).toEqual(expect.arrayContaining(['r15-ger-den', 'r15-swe-esp', 'r14-ger-srb', 'r14-esp-cro']));
     // Kun den ene semifinale: ingen afregning.
     const kald2 = [];
     const db2 = makeDb(spil(), KV);
@@ -646,7 +665,7 @@ describe('opretFaseKampeCore — tør-kørsel, aftryk og create-only', () => {
     });
     expect(res.skrevet).toBe(true);
     expect(res.puljeAfregnet).toEqual({ settled: 0, fejl: 'Firestore haltede' });
-    expect(db._docs.has('r16-ger-den')).toBe(true);
+    expect(db._docs.has('r15-ger-den')).toBe(true);
   });
 
   it('ukendt spil og manglende id', async () => {
@@ -774,15 +793,20 @@ describe('faseVagtTilstand — alarm kl. 12 dagen før, kun mens dagen kan få k
   it('knockout: semifinalerne alarmerer først, når hver kvartfinale har en VINDER (uafgjort uden slut venter)', () => {
     const foer = [...afgjort, ...hovedrunde()];
     const kl12 = dk('2027-01-28', '12:00');
-    expect(faseVagtTilstand(g, [...foer, ...KV], kl12).alarmer.map((a) => a.kampId)).toEqual(['r16']);
+    expect(faseVagtTilstand(g, [...foer, ...KV], kl12).alarmer.map((a) => a.kampId)).toEqual(['r15']); // før r16
     const udenSlut = KV.map((m) => (m.id === 'r14-den-nor' ? { ...m, slut: undefined } : m));
     const t = faseVagtTilstand(g, [...foer, ...udenSlut], kl12);
     expect(t.alarmer).toEqual([]);
     expect(t.linjer.join('\n')).toMatch(/Semifinaler \(fre 29\/1\) mangler kampe, men kvartfinalerne mangler facit i 1 kamp/);
-    // Kvartfinalernes første dag venter på hovedrunden (25/1 kl. 12: dag 13 er ikke spillet).
+    // Kvartfinalerunden venter på hovedrunden (25/1 kl. 12: dag 13 er ikke spillet)
+    // — men kun til den hårde frist kl. 12 på rundens første dato (QC B1).
     const hrUafgjort = [...afgjort, ...hovedrunde().map((m) => (m.round === 13 ? { ...m, result: null, homeGoals: null, awayGoals: null } : m))];
     expect(faseVagtTilstand(g, hrUafgjort, dk('2027-01-25', '12:00')).alarmer).toEqual([]);
-    expect(faseVagtTilstand(g, [...afgjort, ...hovedrunde()], dk('2027-01-25', '12:00')).alarmer.map((a) => a.kampId)).toEqual(['r14']);
+    expect(faseVagtTilstand(g, hrUafgjort, dk('2027-01-26', '12:00')).alarmer.map((a) => a.kampId)).toEqual(['r14']);
+    // Med facit: ÉN alarm r14 for alle fire (før: r14 og dagen efter r15).
+    const medFacit = faseVagtTilstand(g, [...afgjort, ...hovedrunde()], dk('2027-01-25', '12:00'));
+    expect(medFacit.alarmer.map((a) => a.kampId)).toEqual(['r14']);
+    expect(medFacit.alarmer[0].besked).toMatch(/Kvartfinaler \(tir 26\/1–ons 27\/1\): 0 af 4 kampe er lagt ind\./);
   });
   it('udtømt, når kalenderens sidste dag er forbi', () => {
     expect(faseVagtTilstand(g, indledende(), dk('2027-02-01', '01:00')).udtoemt).toBe(true);
@@ -824,6 +848,12 @@ describe('D9 med én runde over to datoer (kvartfinalerne 26/1 + 27/1)', () => {
   ];
   const FRIST = 'Alle 4 kvartfinaler skal lægges ind før den første kamp tirsdag 26/1 — også onsdagens';
   const NU_25 = dk('2027-01-25', '23:30');
+
+  // Produktionens kalender (scripts/games.mjs) har nu samme form, så blokken
+  // her beviser også det rigtige spil. Drifter de fra hinanden, er det rødt.
+  it('produktionens kalender ER testkalenderen for én kvartfinalerunde', () => {
+    expect(spil().faser).toEqual([...TEST_FASER_EN_KVARTRUNDE]);
+  });
 
   it('V4: 26/1 og 27/1 er begge runde 14 — hviledagen 28/1 ingen, semi 15, finale 16', () => {
     expect(['2027-01-25', '2027-01-26', '2027-01-27', '2027-01-28', '2027-01-29', '2027-01-31'].map((d) => rundeForDato(g, d)))

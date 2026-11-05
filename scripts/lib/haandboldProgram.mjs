@@ -11,8 +11,15 @@
 //     med. Bronzekampen ER med (på finaledagen).
 //   - En runde er en SPILLEDAG MED MINDST ÉN KAMP, DER ER MED. En dag med kun
 //     Presidents Cup eller placering er ikke en runde — ellers står der en tom
-//     runde midt i kalenderen, og «Dag 7 af 17» passer ikke. Kalenderen
+//     runde midt i kalenderen, og «Dag 7 af 16» passer ikke. Kalenderen
 //     bygges derfor af det FILTREREDE program, aldrig af turneringens dagliste.
+//   - UNDTAGEN efter hovedrunden: kvartfinalerne, semifinalerne og finaledagen
+//     er hver ÉN runde (én tipdag), også når fasen spilles over flere datoer
+//     (ejeren 5/11 2026: «1 tip dag … alle kvartfinalen, begge semifinaler og
+//     finalen»). Kvartfinalerne 26/1 + 27/1 er derfor runde 14 med
+//     `sidsteDato` 27/1, og turneringen har 16 runder. Valget står som
+//     `enRunde` på fasen i VM_FASER — et eksplicit valg, ikke afledt af
+//     `knockout` (CLAUDE.md: gate på evnen, ikke på en nabo-egenskab).
 //   - Der oprettes aldrig en kamp uden kickoff (QC): kickoff ER tip-deadline,
 //     og en kamp uden giver straks en strandede-alarm.
 //
@@ -27,17 +34,20 @@ import { HAANDBOLD_VM2027_HOLD, holdForKode } from '../../src/data/haandboldVm20
 
 // Faserne i kalenderens rækkefølge. `bestemt` er den bøjede form til
 // sætninger («Hovedrunden lægges ind …», src/lib/faser.js).
+// `enRunde`: hele fasen er ÉN runde (én tipdag), uanset hvor mange datoer den
+// spilles over; ellers er hver spilledag sin egen runde. Et script-felt — det
+// når ikke `game.faser` (dér står `sidsteDato`, når runden har flere datoer).
 export const VM_FASER = [
-  { noegle: 'indledende', navn: 'Indledende runde', bestemt: 'Den indledende runde', knockout: false },
-  { noegle: 'hoved', navn: 'Hovedrunde', bestemt: 'Hovedrunden', knockout: false },
-  { noegle: 'kvart', navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', knockout: true },
-  { noegle: 'semi', navn: 'Semifinaler', bestemt: 'Semifinalerne', knockout: true },
-  { noegle: 'finale', navn: 'Finaledag', bestemt: 'Finaledagen', knockout: true },
+  { noegle: 'indledende', navn: 'Indledende runde', bestemt: 'Den indledende runde', knockout: false, enRunde: false },
+  { noegle: 'hoved', navn: 'Hovedrunde', bestemt: 'Hovedrunden', knockout: false, enRunde: false },
+  { noegle: 'kvart', navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', knockout: true, enRunde: true },
+  { noegle: 'semi', navn: 'Semifinaler', bestemt: 'Semifinalerne', knockout: true, enRunde: true },
+  { noegle: 'finale', navn: 'Finaledag', bestemt: 'Finaledagen', knockout: true, enRunde: true },
 ];
 
 // VM 2027's FORMAT (32 hold, 8 grupper à 4 → 4 hovedrundegrupper à 6). Står
 // siden med et andet antal, er formen ændret — eller siden halvt redigeret —
-// og så hellere stop end en kalender med forkerte tal i «Dag 7 af 17».
+// og så hellere stop end en kalender med forkerte tal i «Dag 7 af 16».
 export const VM2027_FORMAT = {
   antalHold: 32,
   grupper: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
@@ -163,12 +173,15 @@ export function klassificeredeKampe(wikitekst) {
 }
 
 /**
- * Fasekalenderen af de MEDTAGNE kampe: runde = spilledag.
+ * Fasekalenderen af de MEDTAGNE kampe: runde = spilledag — undtagen i en
+ * `enRunde`-fase, hvor alle fasens datoer er én runde (og fasen får
+ * `sidsteDato`, når der er mere end én).
+ * @param {Array} kampe
+ * @param {Array} [vmFaser] faserne (VM_FASER; en parameter, så testen kan vende valget)
  * @returns {{faser: Array, rundeForDato: Map<string, number>}}
  */
-export function byggFaser(kampe) {
+export function byggFaser(kampe, vmFaser = VM_FASER) {
   const datoer = [...new Set(kampe.map((k) => k.dato))].sort();
-  const rundeForDato = new Map(datoer.map((d, i) => [d, i + 1]));
   // Én fase pr. dag. En dag med både hovedrunde og kvartfinale ville give en
   // runde, der både er og ikke er knockout.
   const faseForDato = new Map();
@@ -177,18 +190,36 @@ export function byggFaser(kampe) {
     if (f && f !== k.fase) throw new Error(`${k.dato} har kampe fra både «${f}» og «${k.fase}» — en runde kan kun høre til én fase.`);
     faseForDato.set(k.dato, k.fase);
   }
+  // Rundenumrene i dato-rækkefølge: en ny runde pr. dato, undtagen når datoen
+  // fortsætter samme `enRunde`-fase som dagen før.
+  const enRunde = new Set(vmFaser.filter((f) => f.enRunde).map((f) => f.noegle));
+  const rundeForDato = new Map();
+  let runde = 0;
+  datoer.forEach((d, i) => {
+    const fase = faseForDato.get(d);
+    if (!(i > 0 && enRunde.has(fase) && faseForDato.get(datoer[i - 1]) === fase)) runde += 1;
+    rundeForDato.set(d, runde);
+  });
   const faser = [];
-  for (const f of VM_FASER) {
+  for (const f of vmFaser) {
     const dage = datoer.filter((d) => faseForDato.get(d) === f.noegle);
     if (!dage.length) throw new Error(`Siden har ingen kampe i fasen «${f.navn}» — formen er ændret, eller siden er ufuldstændig.`);
+    const fra = rundeForDato.get(dage[0]);
+    const til = rundeForDato.get(dage[dage.length - 1]);
+    // En enRunde-fase, hvis datoer er afbrudt af en anden fase, ville få to
+    // runder — den form kender kalenderen ikke, så hellere stop.
+    if (f.enRunde && fra !== til) {
+      throw new Error(`Fasen «${f.navn}» skal være én runde, men dens datoer (${dage.join(', ')}) er afbrudt af en anden fase.`);
+    }
     const fase = {
       navn: f.navn,
       bestemt: f.bestemt,
-      fra: rundeForDato.get(dage[0]),
-      til: rundeForDato.get(dage[dage.length - 1]),
+      fra,
+      til,
       start: dage[0],
-      antalKampe: kampe.filter((k) => k.fase === f.noegle).length,
     };
+    if (f.enRunde && dage.length > 1) fase.sidsteDato = dage[dage.length - 1];
+    fase.antalKampe = kampe.filter((k) => k.fase === f.noegle).length;
     if (f.knockout) fase.knockout = true;
     faser.push(fase);
   }
@@ -449,6 +480,12 @@ export function utcTekst(min) {
 /** Wikipedias adresse for en side (til kildeangivelsen). */
 export const wikiSideUrl = (titel) => `https://en.wikipedia.org/wiki/${encodeURIComponent(String(titel).replace(/ /g, '_')).replace(/%27/g, "'")}`;
 
+// Noten nævner de faser, der er én runde — afledt af VM_FASER, ikke skrevet.
+const ENRUNDE_NAVNE = (() => {
+  const n = VM_FASER.filter((f) => f.enRunde).map((f) => f.bestemt.toLowerCase());
+  return n.length > 1 ? `${n.slice(0, -1).join(', ')} og ${n.at(-1)}` : n.join('');
+})();
+
 /**
  * Filen, scriptet skriver (scripts/haandbold-vm2027-program.json). seed-football
  * læser `fixtures` og viser `_note`; `faser` og `grupper` kopieres ordret til
@@ -459,7 +496,8 @@ export function programFil(p, { titel, revid = null, hentet = null }) {
   return {
     _note: `Håndbold-VM 2027 (herrer), den indledende runde: ${p.fixtures.length} kampe. Bygget af scripts/haandbold-program.mjs `
       + `fra Wikipedia («${titel}», revision ${revid ?? 'ukendt'}, hentet ${dato}); indholdet er CC BY-SA 4.0. `
-      + `kickoff er UTC (siden angiver lokal tid ${utcTekst(p.forskydningMin)}). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp. `
+      + `kickoff er UTC (siden angiver lokal tid ${utcTekst(p.forskydningMin)}). id = r{runde}-{hjemmekode}-{udekode}, runde = spilledag med mindst én medtaget kamp `
+      + `(${ENRUNDE_NAVNE} er dog hver én runde, også over flere datoer: sidsteDato). `
       + 'kickoffSenest står kun, hvor siden har et tidsvindue — deadline er da det tidligste. '
       + 'kickoffSenest og gruppe når IKKE kampene i databasen (seed-football skriver kun round, home, away, kickoff, Elo og odds); vinduet huskes kun her, '
       + 'men gruppen når spillet via grupper. faser og grupper er game.faser og game.grupper (holdene i programrækkefølge) og kopieres ordret til scripts/games.mjs. '

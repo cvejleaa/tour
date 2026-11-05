@@ -36,7 +36,7 @@ describe('stadigMed — reglen', () => {
     expect(tæller).toEqual(['Indledende runde', 'Hovedrunde', 'Kvartfinaler', 'Semifinaler']);
     // Hele turneringen lagt ind: pulsen står på semifinalerne.
     const p = stadigMed(HVM27, [...INDLEDENDE, ...HOVED, ...KVART, ...SEMI, ...FINALE]);
-    expect(p.fase).toEqual({ navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 16 });
+    expect(p.fase).toEqual({ navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 15 }); // før 16: kvartfinalerne er nu én runde (14)
   });
 
   it('kun den indledende runde: alle 32 er med', () => {
@@ -148,10 +148,16 @@ describe('stadigMed — reglen', () => {
   // Knockout (DATA: fasens knockout-flag) kræver hvert hold PRÆCIS én gang —
   // også når fordelingen er ens: fire hold, der hver står to gange, er ikke
   // fire kvartfinaler.
+  // Alle fire i runde 14: kvartfinalerne er ÉN runde (tir 26/1 + ons 27/1).
+  // Før stod c og d i runde 15 — den er nu SEMIFINALERNE, og så havde testen
+  // skiftet betydning (to «semifinaler» med kvartfinalisterne) uden at blive rød
+  // på det, den var skrevet for.
   it('knockout: fire hold to gange hver er ikke en hel kvartfinalerunde — i en gruppefase ville det være', () => {
+    expect(faseFor(HVM27, 14)).toMatchObject({ navn: 'Kvartfinaler', sidsteDato: '2027-01-27' });
+    expect(faseFor(HVM27, 15).navn).toBe('Semifinaler');
     const toGange = [
       { id: 'a', round: 14, home: 'Danmark', away: 'Norge' }, { id: 'b', round: 14, home: 'Island', away: 'Kroatien' },
-      { id: 'c', round: 15, home: 'Danmark', away: 'Island' }, { id: 'd', round: 15, home: 'Norge', away: 'Kroatien' },
+      { id: 'c', round: 14, home: 'Danmark', away: 'Island' }, { id: 'd', round: 14, home: 'Norge', away: 'Kroatien' },
     ];
     const p = stadigMed(HVM27, [...INDLEDENDE, ...HOVED, ...toGange]);
     expect(p.fase.navn).toBe('Hovedrunde');

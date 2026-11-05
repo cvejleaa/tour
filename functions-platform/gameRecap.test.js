@@ -1180,7 +1180,7 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
       game: { puljeUdeFortalt: ['Hovedrunde', 'Kvartfinaler'] },
       matches: [...medFacit, ...HOVED, ...KVART27, ...SEMI27.map((m) => ({ ...m, result: '1', homeGoals: 30, awayGoals: 28, odds: { 1: 2, X: 9, 2: 2 } }))],
     }));
-    await runGameRoundRecap(db, FieldValue, anth, 'g1', 16, { nowMs: NU });
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
     expect(JSON.parse(kald[0].messages[0].content)).not.toHaveProperty('puljeUde');
     expect(db._laest.puljeBets).toBe(0);
   });
@@ -1189,7 +1189,7 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     const { kald, anth } = optag();
     const kv = KVART27.map((m) => ({ ...m, odds: { 1: 2, X: 9, 2: 2 } }));
     const db = makeDb(fix({ game: { puljeUdeFortalt: ['Hovedrunde'] }, matches: [...medFacit, ...HOVED, ...kv] }));
-    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 14, { nowMs: NU });
     const f = JSON.parse(kald[0].messages[0].content);
     expect(f.puljeUde.fase).toBe('kvartfinalerne');
     // Anna: Sverige nåede hovedrunden, men ikke kvartfinalerne.
@@ -1204,7 +1204,7 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     const { kald, anth } = optag();
     const kv = KVART27.map((m) => ({ ...m, odds: { 1: 2, X: 9, 2: 2 } }));
     const db = makeDb(fix({ game: { puljeUdeFortalt: ['Hovedrunde'] }, matches: [...medFacit, ...HOVED, ...kv] }));
-    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 14, { nowMs: NU });
     const pu = JSON.parse(kald[0].messages[0].content).puljeUde;
     // Uruguay, Angola og Kuwait røg ud i HOVEDRUNDEN (Bo og Carla) — den
     // historie er fortalt. Kvartfinalernes eneste nye udskilte pulje-hold er Annas Sverige.
@@ -1235,7 +1235,7 @@ describe('Runde-Botten fortæller, hvem der mistede pulje-hold', () => {
     const { kald, anth } = optag();
     const dublet = KVART27.map((m, i) => ({ ...m, odds: { 1: 2, X: 9, 2: 2 }, ...(i === 1 ? { home: 'Danmark' } : {}) }));
     const db = makeDb(fix({ matches: [...medFacit, ...HOVED, ...dublet] }));
-    await runGameRoundRecap(db, FieldValue, anth, 'g1', 15, { nowMs: NU });
+    await runGameRoundRecap(db, FieldValue, anth, 'g1', 14, { nowMs: NU });
     expect(JSON.parse(kald[0].messages[0].content)).not.toHaveProperty('puljeUde');
     expect(db._laest.puljeBets).toBe(0);
   });

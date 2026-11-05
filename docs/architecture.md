@@ -122,9 +122,9 @@ Runde-Botten springer runder før ligaens start over og skriver ligaens egne
 totaler.
 
 **En turnering har en fasekalender.** `games/{id}.faser`
-(`[{navn, bestemt?, fra, til, start, knockout?, antalKampe?}]`, seedet fra
-`scripts/games.mjs`) er den eneste kilde til, hvad en runde (= spilledag)
-hedder ("Indledende runde · dag 2"), hvor mange der er ("Dag 7 af 17"), om
+(`[{navn, bestemt?, fra, til, start, sidsteDato?, knockout?, antalKampe?}]`, seedet fra
+`scripts/games.mjs`) er den eneste kilde til, hvad en runde (= en tipdag)
+hedder ("Indledende runde · dag 2"), hvor mange der er ("Dag 7 af 16"), om
 en fase kommer, før dens kampe er oprettet, og om en runde er knockout. En kamp
 har intet fase-felt — det udledes af `round`. Logikken bor i `faser.js`
 (spejlet src/lib ⇄ functions-platform); fladerne og Runde-Botten gater på
@@ -132,8 +132,18 @@ evnen `harFaseKalender`, og uden kalender (Superligaen, Premier League) — elle
 med en, der ikke består `faseKalenderFejl` — er hver tekst den gamle ("Runde N
 af M"). Tilbagefaldet er ikke tavst: `faseKalenderAdvarsel` melder fejlene i
 Runde-Bottens log og som rød linje under Admin → Spil-tidsplan (et spil uden
-`faser`-felt advarer ikke). Formkontrollen forudsætter én runde pr. dag: næste
-fase kan tidligst starte forrige fases `start` + dens antal dage.
+`faser`-felt advarer ikke). En runde er som udgangspunkt én spilledag, og
+formkontrollen forudsætter højst én runde pr. dato: næste fase kan tidligst
+starte forrige fases `start` + dens antal runder. Undtagelsen er `sidsteDato`:
+en fase med ÉN runde (`fra` = `til`) kan spilles over flere datoer — én tipdag
+over to aftener, som Håndbold-VM 2027's kvartfinaler (runde 14, tir 26/1 + ons
+27/1; 16 runder i alt). Runden dækker `start..sidsteDato`, og næste fase kan
+tidligst starte dagen efter `sidsteDato`. En fase med flere runder kan ikke
+have feltet (datoer pr. runde i et gruppespil over flere dage er ikke
+understøttet og afvises). Hvilke datoer en runde har, og hvilken runde en dato
+hører til, svarer `rundeDatoer`/`rundeForDato` i `faser.js` på — ét sted for
+D9, puljen og etiketterne. `scripts/lib/haandboldProgram.mjs` bygger feltet:
+faser med `enRunde` i `VM_FASER` (kvart, semi, finale) bliver én runde.
 
 **En turnering kan have grupper.** `games/{id}.grupper` (`{point, faser:
 [{fase, videre, grupper: [{navn, hold} | {navn, fra}]}]}`, seedet fra

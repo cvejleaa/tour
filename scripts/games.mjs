@@ -39,9 +39,11 @@
 //          "semifinalerne") kommer af kalenderen, ikke af labels.
 //          `maksStartRunde` er den sidste startrunde, en liga må have og stadig
 //          få puljen med (standard 3 i KODEN — se ligaPoint.js — men kun for
-//          Superligaen og Premier League). I en turnering er en runde en DAG,
-//          så 3 betyder, at en liga oprettet på 4. spilledag mister
-//          puljebonussen. Ejeren 2/11: et NYT spil sætter værdien eksplicit
+//          Superligaen og Premier League). I en turnering er en runde en
+//          TIPDAG (i den indledende runde og hovedrunden én spilledag; efter
+//          hovedrunden én hel fase — kvartfinalerne er én runde over to
+//          datoer, se `sidsteDato` i src/lib/faser.js), så 3 betyder, at en
+//          liga oprettet på 4. spilledag mister puljebonussen. Ejeren 2/11: et NYT spil sætter værdien eksplicit
 //          (håndbold-VM: 1 — kun ligaer fra første spilledag), og
 //          games.test.mjs afviser en runde-pulje uden den.
 //          DEADLINEN — ÉN af to former, og altid i SAMME post som `pulje` (en
@@ -183,7 +185,10 @@ export const GAMES = [
     // Spil-tidsplan), og facit-vagten vogter det (functions-platform/
     // facitVagt.js: spilUdenSynk). Navngivet i syncProviders.test.js.
     //
-    // FASEKALENDEREN — én runde pr. spilledag. Kopieret fra `faser` i
+    // FASEKALENDEREN — én runde pr. spilledag til og med hovedrunden; derefter
+    // er hver fase ÉN runde (én tipdag), også over flere datoer: kvartfinalerne
+    // 26/1 + 27/1 er runde 14 med `sidsteDato` (ejeren 5/11 2026), 16 runder i
+    // alt. Kopieret fra `faser` i
     // scripts/haandbold-vm2027-program.json (bygget af det FILTREREDE program:
     // uden Presidents Cup og placeringskampe 5-8, med bronzekampen på
     // finaledagen). games.test.mjs binder de to ordret: bygges programmet om,
@@ -191,9 +196,9 @@ export const GAMES = [
     faser: [
       { navn: 'Indledende runde', bestemt: 'Den indledende runde', fra: 1, til: 7, start: '2027-01-13', antalKampe: 48 },
       { navn: 'Hovedrunde', bestemt: 'Hovedrunden', fra: 8, til: 13, start: '2027-01-20', antalKampe: 36 },
-      { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14, til: 15, start: '2027-01-26', antalKampe: 4, knockout: true },
-      { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 16, til: 16, start: '2027-01-29', antalKampe: 2, knockout: true },
-      { navn: 'Finaledag', bestemt: 'Finaledagen', fra: 17, til: 17, start: '2027-01-31', antalKampe: 2, knockout: true },
+      { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14, til: 14, start: '2027-01-26', sidsteDato: '2027-01-27', antalKampe: 4, knockout: true },
+      { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 15, til: 15, start: '2027-01-29', antalKampe: 2, knockout: true },
+      { navn: 'Finaledag', bestemt: 'Finaledagen', fra: 16, til: 16, start: '2027-01-31', antalKampe: 2, knockout: true },
     ],
     // GRUPPERNE — hvem der er i hvilken gruppe, og hvilke indledende grupper
     // en hovedrundegruppe kommer fra. Kopieret ordret fra `grupper` i

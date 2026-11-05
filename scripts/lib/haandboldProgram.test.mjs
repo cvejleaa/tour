@@ -7,7 +7,7 @@
 //      PRÆCIS det, modulet bygger af fixturen. Rettes den ene i hånden, er
 //      testen rød (CLAUDE.md: «Et spejl af levende data er en løgn med
 //      forsinkelse» — her er spejlet bundet til sin kilde).
-//   2. TALLENE: 48 kampe, 17 dage, faserne med fra/til/start — skrevet ud som
+//   2. TALLENE: 48 kampe, 16 runder, faserne med fra/til/start — skrevet ud som
 //      tal, ikke som «noget i et bånd».
 //   3. VAGTERNE: hver strukturvagt gøres rød af en ændret fixture, med
 //      beskeden asserteret.
@@ -17,7 +17,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import {
-  byggProgram, byggFaser, klassificer, programFil, utcTekst, VM_FASER, VM2027_FORMAT, zoneForskydning, tjekTidszone,
+  byggProgram, byggFaser, klassificer, klassificeredeKampe, programFil, utcTekst, VM_FASER, VM2027_FORMAT, zoneForskydning, tjekTidszone,
   gruppeTabeller,
 } from './haandboldProgram.mjs';
 import { faseKalenderFejl, dagTaeller, rundeEtiket, erKnockout, ventetekst } from '../../src/lib/faser.js';
@@ -93,14 +93,47 @@ describe('paritet: den committede fil er det, modulet bygger', () => {
 });
 
 describe('fasekalenderen', () => {
-  it('er præcis de fem faser — 17 spilledage, knockout fra kvartfinalerne', () => {
+  // 16 RUNDER (ejeren 5/11 2026: én tipdag pr. fase efter hovedrunden). Før
+  // var kvartfinalerne runde 14-15 (én pr. dato), semi 16 og finale 17.
+  it('er præcis de fem faser — 16 runder, kvartfinalerne ÉN runde over 26/1 og 27/1, knockout fra kvartfinalerne', () => {
     expect(P.faser).toEqual([
       { navn: 'Indledende runde', bestemt: 'Den indledende runde', fra: 1, til: 7, start: '2027-01-13', antalKampe: 48 },
       { navn: 'Hovedrunde', bestemt: 'Hovedrunden', fra: 8, til: 13, start: '2027-01-20', antalKampe: 36 },
-      { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14, til: 15, start: '2027-01-26', antalKampe: 4, knockout: true },
-      { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 16, til: 16, start: '2027-01-29', antalKampe: 2, knockout: true },
-      { navn: 'Finaledag', bestemt: 'Finaledagen', fra: 17, til: 17, start: '2027-01-31', antalKampe: 2, knockout: true },
+      { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14, til: 14, start: '2027-01-26', sidsteDato: '2027-01-27', antalKampe: 4, knockout: true },
+      { navn: 'Semifinaler', bestemt: 'Semifinalerne', fra: 15, til: 15, start: '2027-01-29', antalKampe: 2, knockout: true },
+      { navn: 'Finaledag', bestemt: 'Finaledagen', fra: 16, til: 16, start: '2027-01-31', antalKampe: 2, knockout: true },
     ]);
+  });
+
+  // VALGET ER `enRunde`, ikke `knockout`. Vendes det på kvartfinalerne, er
+  // kalenderen den gamle (én runde pr. dato, 17 i alt) — så testen ovenfor
+  // er rød af den gamle byggeregel, og feltet er det, der bærer den.
+  it('enRunde er valget: uden det på kvartfinalerne er hver dato sin runde igen (14-15, ingen sidsteDato, 17 runder)', () => {
+    expect(VM_FASER.filter((f) => f.enRunde).map((f) => f.noegle)).toEqual(['kvart', 'semi', 'finale']);
+    expect(VM_FASER.filter((f) => !f.enRunde).map((f) => f.noegle)).toEqual(['indledende', 'hoved']);
+    const { kampe } = klassificeredeKampe(SIDE);
+    const uden = VM_FASER.map((f) => (f.noegle === 'kvart' ? { ...f, enRunde: false } : f));
+    const { faser } = byggFaser(kampe, uden);
+    expect(faser.find((f) => f.navn === 'Kvartfinaler')).toEqual(
+      { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14, til: 15, start: '2027-01-26', antalKampe: 4, knockout: true },
+    );
+    expect(faser.at(-1).til).toBe(17);
+  });
+
+  it('runde-nummeret pr. dato: 26/1 og 27/1 er begge runde 14, 29/1 er 15, 31/1 er 16 — og 28/1 er ingen runde', () => {
+    const { kampe } = klassificeredeKampe(SIDE);
+    const { rundeForDato } = byggFaser(kampe);
+    expect(['2027-01-25', '2027-01-26', '2027-01-27', '2027-01-28', '2027-01-29', '2027-01-31'].map((d) => rundeForDato.get(d)))
+      .toEqual([13, 14, 14, undefined, 15, 16]);
+  });
+
+  it('KASTER, når en enRunde-fase er afbrudt af en anden fase', () => {
+    const kampe = [
+      { dato: '2027-01-13', fase: 'indledende' }, { dato: '2027-01-20', fase: 'hoved' },
+      { dato: '2027-01-26', fase: 'kvart' }, { dato: '2027-01-27', fase: 'semi' }, { dato: '2027-01-28', fase: 'kvart' },
+      { dato: '2027-01-31', fase: 'finale' },
+    ];
+    expect(() => byggFaser(kampe)).toThrow('Fasen «Kvartfinaler» skal være én runde, men dens datoer (2027-01-26, 2027-01-28) er afbrudt af en anden fase.');
   });
 
   it('består formkontrollen i src/lib/faser.js', () => {
@@ -109,12 +142,17 @@ describe('fasekalenderen', () => {
 
   // D5's funktioner læser kalenderen, som spillet ville få den. Det, ejeren
   // har bestemt (§11.2), skal stå — og ligaens tekst må IKKE.
-  it('giver D5-fladernes tekster: «Indledende runde · dag 2», «Dag 7 af 17», knockout fra dag 14', () => {
+  it('giver D5-fladernes tekster: «Indledende runde · dag 2», «Dag 7 af 16», knockout fra dag 14', () => {
     const game = { faser: P.faser };
     expect(rundeEtiket(game, 2)).toBe('Indledende runde · dag 2');
-    expect(dagTaeller(game, 7, 7)).toBe('Dag 7 af 17');
+    expect(dagTaeller(game, 7, 7)).toBe('Dag 7 af 16'); // før: «af 17»
     expect(dagTaeller(game, 7, 7)).not.toBe('Runde 7 af 7');
-    expect(rundeEtiket(game, 17)).toBe('Finaledag');
+    expect(dagTaeller(game, 14, 14)).toBe('Dag 14 af 16');
+    expect(rundeEtiket(game, 14)).toBe('Kvartfinaler'); // før: «Kvartfinaler · dag 1»
+    expect(rundeEtiket(game, 15)).toBe('Semifinaler'); // før: «Kvartfinaler · dag 2»
+    expect(rundeEtiket(game, 16)).toBe('Finaledag');
+    // Runde 17 findes ikke længere i kalenderen (før: «Finaledag»).
+    expect(rundeEtiket(game, 17)).toBe('Dag 17');
     expect(erKnockout(game, 13)).toBe(false);
     expect(erKnockout(game, 14)).toBe(true);
     expect(ventetekst(game, 7, Date.UTC(2027, 0, 19, 12))).toMatch(/^Hovedrunden lægges ind/);
@@ -122,14 +160,20 @@ describe('fasekalenderen', () => {
 
   // §12.10: en dag med KUN fravalgte kampe er ikke en runde. Flyttes 27/1's
   // to kvartfinaler til 26/1, står 27/1 tilbage med de fire Presidents Cup-
-  // placeringskampe — og så har turneringen 16 dage, ikke 17 med en tom.
+  // placeringskampe. Talte 27/1 med, ville kvartfinalerne få sidsteDato
+  // 27/1 (hvis dagen blev regnet til fasen) eller dagen sin egen runde (så
+  // semi 16 og finale 17). Hovedassertionen er derfor HELE kvartfinalefasen
+  // uden sidsteDato — «16» alene skelner ikke længere før fra efter (QC B6).
   it('en dag med kun Presidents Cup/placering er IKKE en runde', () => {
     let t = SIDE;
     for (const [team1, team2] of [['II1', 'IV2'], ['IV1', 'II2']]) {
       t = retKasse(t, { team1, team2, dato: '27 January 2027' }, (k) => k.replace('|date=27 January 2027', '|date=26 January 2027'));
     }
     const p = byggProgram(t);
-    expect(p.faser.find((f) => f.navn === 'Kvartfinaler')).toMatchObject({ fra: 14, til: 14, start: '2027-01-26', antalKampe: 4 });
+    expect(p.faser.find((f) => f.navn === 'Kvartfinaler')).toEqual(
+      { navn: 'Kvartfinaler', bestemt: 'Kvartfinalerne', fra: 14, til: 14, start: '2027-01-26', antalKampe: 4, knockout: true },
+    );
+    expect(p.faser.some((f) => 'sidsteDato' in f)).toBe(false);
     expect(p.faser.at(-1)).toMatchObject({ navn: 'Finaledag', fra: 16, til: 16 });
     expect(dagTaeller({ faser: p.faser }, 1, 1)).toBe('Dag 1 af 16');
   });
@@ -316,7 +360,7 @@ describe('strukturvagterne', () => {
   });
 
   // En kamp FOR MEGET i en fase (en dubleret kasse i hovedrunden) er lige så
-  // forkert som en for lidt — «Dag 7 af 17» og antalKampe ville passe ikke.
+  // forkert som en for lidt — «Dag 7 af 16» og antalKampe ville passe ikke.
   it('KASTER, når en fase har en kamp for meget (37 i hovedrunden)', () => {
     const t = retKasse(SIDE, { team1: 'A1', team2: 'B3', dato: '20 January 2027' }, (k) => `${k}\n${k}`);
     expect(() => byggProgram(t)).toThrow('Fasen «hoved» har 37 kampe på siden, men formatet siger 36. Intet er skrevet.');
@@ -636,7 +680,8 @@ describe('krydstjek mod IHF\'s dagsider for VM 2027', () => {
     expect(placering).toHaveLength(2);
     expect(semi.length + placering.length).toBe(ihf.length);
     const f = P.faser.find((x) => x.navn === 'Semifinaler');
-    expect(f).toMatchObject({ start: '2027-01-29', fra: 16, til: 16, antalKampe: semi.length, knockout: true });
+    expect(f).toMatchObject({ start: '2027-01-29', fra: 15, til: 15, antalKampe: semi.length, knockout: true });
+    expect(f).not.toHaveProperty('sidsteDato');
     // Ingen fase i kalenderen tæller placeringskampene med.
     expect(P.faser.reduce((n, x) => n + x.antalKampe, 0)).toBe(48 + 36 + 4 + 2 + 2);
   });

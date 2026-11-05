@@ -28,7 +28,7 @@ vi.mock('./adminActions', () => ({
 import FaseKampe, {
   KNAP_TEKST, ADVARSEL_FORTRYD, FORKLARING, retteKandidater, forudfyldDato, rundensDatoListe,
 } from './FaseKampe';
-import { TEST_FASER_EN_KVARTRUNDE } from '../../test/faseKalender';
+import { TEST_FASER, TEST_FASER_EN_KVARTRUNDE } from '../../test/faseKalender';
 import { GAMES } from '../../../scripts/games.mjs';
 import { HAANDBOLD_VM2027_HOLD } from '../../data/haandboldVm2027Hold';
 
@@ -248,7 +248,12 @@ describe('en runde over to datoer (kvartfinalerne 26/1 + 27/1)', () => {
     expect(forudfyldDato(HVM_EN, '2027-01-27')).toBe('');
     expect(forudfyldDato(HVM_EN, '2027-01-29')).toBe('2027-01-29');
     expect(forudfyldDato(HVM_EN, '2027-01-20')).toBe('2027-01-20');
-    expect(forudfyldDato(HVM, '2027-01-26')).toBe('2027-01-26');
+    // Produktionens kalender HAR nu kvartfinalerne som én runde over to datoer
+    // (før forudfyldtes 26/1 her) — og en kvartfinale over FLERE runder
+    // (TEST_FASER: én runde pr. dato) forudfyldes stadig.
+    expect(forudfyldDato(HVM, '2027-01-26')).toBe('');
+    expect(forudfyldDato(HVM, '2027-01-27')).toBe('');
+    expect(forudfyldDato({ ...HVM, faser: TEST_FASER }, '2027-01-27')).toBe('2027-01-27');
     expect(forudfyldDato(HVM_EN, '')).toBe('');
     expect(rundensDatoListe(HVM_EN, 14)).toEqual(['2027-01-26', '2027-01-27']);
     expect(rundensDatoListe(HVM_EN, 8)).toEqual(['2027-01-20']);
