@@ -1,14 +1,14 @@
 {
- "generatedAt": "2026-11-02T13:00:44.453Z",
+ "generatedAt": "2026-11-09T13:32:07.462Z",
  "e2eMedregnet": true,
  "renderMaalt": true,
  "totals": {
-  "elementer": 463,
-  "aktiverede": 201,
-  "renderede": 398,
-  "logposter": 1044,
-  "interaktioner": 873,
-  "filer": 75
+  "elementer": 481,
+  "aktiverede": 221,
+  "renderede": 416,
+  "logposter": 1162,
+  "interaktioner": 984,
+  "filer": 76
  },
  "elementer": [
   {
@@ -923,7 +923,7 @@
   },
   {
    "fil": "src/features/admin/DriftTab.jsx",
-   "linje": 101,
+   "linje": 102,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -937,7 +937,7 @@
   },
   {
    "fil": "src/features/admin/DriftTab.jsx",
-   "linje": 146,
+   "linje": 147,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -953,7 +953,7 @@
   },
   {
    "fil": "src/features/admin/DriftTab.jsx",
-   "linje": 147,
+   "linje": 148,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -965,6 +965,246 @@
     "src/features/admin/DriftTab.test.jsx"
    ],
    "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 184,
+   "kolonne": 9,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "RetKickoff",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 196,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": "Ny dato (inden for runden)",
+   "komponent": "RetKickoff",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 205,
+   "kolonne": 9,
+   "tag": "input",
+   "type": "time",
+   "tekst": "Nyt kickoff (dansk tid)",
+   "komponent": "RetKickoff",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 209,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "Vis rettelsen",
+   "komponent": "RetKickoff",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 210,
+   "kolonne": 18,
+   "tag": "button",
+   "type": null,
+   "tekst": "Ret kickoff",
+   "komponent": "RetKickoff",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 301,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "date",
+   "tekst": null,
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 302,
+   "kolonne": 11,
+   "tag": "input",
+   "type": "time",
+   "tekst": null,
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 303,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 308,
+   "kolonne": 11,
+   "tag": "select",
+   "type": null,
+   "tekst": null,
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 313,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "✕",
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 318,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "＋ Tilføj kamp",
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 321,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 325,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": "Opret de",
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 334,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": "🕒 Ret kickoff på en kamp",
+   "komponent": "Panel",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/FaseKampe.jsx",
+   "linje": 352,
+   "kolonne": 9,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "FaseKampe",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/FaseKampe.test.jsx"
+   ],
+   "renderAntal": 2,
    "status": "roert"
   },
   {
@@ -1139,7 +1379,7 @@
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
-   "linje": 156,
+   "linje": 160,
    "kolonne": 11,
    "tag": "select",
    "type": null,
@@ -1153,7 +1393,7 @@
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
-   "linje": 168,
+   "linje": 172,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -1169,7 +1409,7 @@
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
-   "linje": 227,
+   "linje": 231,
    "kolonne": 15,
    "tag": "select",
    "type": null,
@@ -1185,7 +1425,7 @@
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
-   "linje": 270,
+   "linje": 278,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -1201,7 +1441,7 @@
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
-   "linje": 283,
+   "linje": 291,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -1215,7 +1455,7 @@
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
-   "linje": 288,
+   "linje": 296,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -1231,7 +1471,7 @@
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
-   "linje": 331,
+   "linje": 339,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -1245,7 +1485,7 @@
   },
   {
    "fil": "src/features/admin/GameReminderTab.jsx",
-   "linje": 335,
+   "linje": 343,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -1259,7 +1499,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 107,
+   "linje": 116,
    "kolonne": 7,
    "tag": "select",
    "type": null,
@@ -1275,7 +1515,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 478,
+   "linje": 614,
    "kolonne": 11,
    "tag": "input",
    "type": "datetime-local",
@@ -1291,7 +1531,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 505,
+   "linje": 641,
    "kolonne": 13,
    "tag": "button",
    "type": "button",
@@ -1307,21 +1547,23 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 520,
+   "linje": 656,
    "kolonne": 13,
    "tag": "input",
    "type": "datetime-local",
    "tekst": null,
    "komponent": "GameRow",
    "app": "faelles",
-   "aktiveret": false,
-   "tests": [],
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ],
    "renderAntal": 1,
-   "status": "vist"
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 553,
+   "linje": 694,
    "kolonne": 9,
    "tag": "select",
    "type": null,
@@ -1337,7 +1579,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 578,
+   "linje": 727,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -1353,7 +1595,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 614,
+   "linje": 763,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -1369,7 +1611,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 629,
+   "linje": 778,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -1383,7 +1625,39 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 649,
+   "linje": 794,
+   "kolonne": 11,
+   "tag": "button",
+   "type": null,
+   "tekst": null,
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 798,
+   "kolonne": 13,
+   "tag": "button",
+   "type": null,
+   "tekst": "Afregn de",
+   "komponent": "GameRow",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/features/admin/GameScheduleTab.jsx",
+   "linje": 819,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -1399,7 +1673,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 653,
+   "linje": 823,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -1415,7 +1689,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 709,
+   "linje": 879,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -1431,7 +1705,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 713,
+   "linje": 883,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -1447,7 +1721,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 733,
+   "linje": 903,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -1463,7 +1737,7 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 768,
+   "linje": 947,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -1479,17 +1753,19 @@
   },
   {
    "fil": "src/features/admin/GameScheduleTab.jsx",
-   "linje": 783,
+   "linje": 962,
    "kolonne": 9,
    "tag": "button",
    "type": null,
    "tekst": null,
    "komponent": "GameRow",
    "app": "faelles",
-   "aktiveret": false,
-   "tests": [],
+   "aktiveret": true,
+   "tests": [
+    "src/features/admin/GameScheduleTab.test.jsx"
+   ],
    "renderAntal": 1,
-   "status": "vist"
+   "status": "roert"
   },
   {
    "fil": "src/features/admin/LeaguesAdminTab.jsx",
@@ -1649,7 +1925,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 252,
+   "linje": 255,
    "kolonne": 7,
    "tag": "select",
    "type": null,
@@ -1666,7 +1942,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 270,
+   "linje": 274,
    "kolonne": 13,
    "tag": "input",
    "type": "number",
@@ -1682,7 +1958,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 273,
+   "linje": 277,
    "kolonne": 13,
    "tag": "input",
    "type": "number",
@@ -1698,7 +1974,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 279,
+   "linje": 283,
    "kolonne": 15,
    "tag": "input",
    "type": "number",
@@ -1714,7 +1990,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 282,
+   "linje": 286,
    "kolonne": 15,
    "tag": "input",
    "type": "number",
@@ -1730,7 +2006,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 284,
+   "linje": 288,
    "kolonne": 15,
    "tag": "select",
    "type": null,
@@ -1746,7 +2022,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 294,
+   "linje": 298,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -1762,7 +2038,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 298,
+   "linje": 302,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -1778,7 +2054,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 301,
+   "linje": 305,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -1794,7 +2070,7 @@
   },
   {
    "fil": "src/features/admin/ManuelFacit.jsx",
-   "linje": 326,
+   "linje": 330,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -2153,7 +2429,7 @@
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
-   "linje": 140,
+   "linje": 141,
    "kolonne": 9,
    "tag": "input",
    "type": "color",
@@ -2162,12 +2438,12 @@
    "app": "faelles",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 1,
+   "renderAntal": 2,
    "status": "vist"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
-   "linje": 147,
+   "linje": 148,
    "kolonne": 9,
    "tag": "input",
    "type": "text",
@@ -2178,12 +2454,12 @@
    "tests": [
     "src/features/admin/TeamStylesTab.test.jsx"
    ],
-   "renderAntal": 1,
+   "renderAntal": 2,
    "status": "roert"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
-   "linje": 152,
+   "linje": 153,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -2197,7 +2473,7 @@
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
-   "linje": 171,
+   "linje": 172,
    "kolonne": 11,
    "tag": "select",
    "type": null,
@@ -2206,12 +2482,12 @@
    "app": "faelles",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 1,
+   "renderAntal": 2,
    "status": "vist"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
-   "linje": 232,
+   "linje": 259,
    "kolonne": 19,
    "tag": "input",
    "type": "text",
@@ -2222,12 +2498,12 @@
    "tests": [
     "src/features/admin/TeamStylesTab.test.jsx"
    ],
-   "renderAntal": 1,
+   "renderAntal": 2,
    "status": "roert"
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
-   "linje": 241,
+   "linje": 268,
    "kolonne": 21,
    "tag": "button",
    "type": "button",
@@ -2243,7 +2519,7 @@
   },
   {
    "fil": "src/features/admin/TeamStylesTab.jsx",
-   "linje": 271,
+   "linje": 298,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -2254,7 +2530,7 @@
    "tests": [
     "src/features/admin/TeamStylesTab.test.jsx"
    ],
-   "renderAntal": 1,
+   "renderAntal": 2,
    "status": "roert"
   },
   {
@@ -3153,7 +3429,7 @@
   },
   {
    "fil": "src/features/games/GameLayout.jsx",
-   "linje": 29,
+   "linje": 30,
    "kolonne": 9,
    "tag": "Link",
    "type": null,
@@ -3162,7 +3438,7 @@
    "app": "platform",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 9,
+   "renderAntal": 10,
    "status": "vist"
   },
   {
@@ -3453,7 +3729,7 @@
   },
   {
    "fil": "src/features/games/GameProfile.jsx",
-   "linje": 126,
+   "linje": 131,
    "kolonne": 9,
    "tag": "select",
    "type": null,
@@ -3462,12 +3738,12 @@
    "app": "platform",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 4,
+   "renderAntal": 5,
    "status": "vist"
   },
   {
    "fil": "src/features/games/GameProfile.jsx",
-   "linje": 137,
+   "linje": 142,
    "kolonne": 9,
    "tag": "button",
    "type": null,
@@ -3476,12 +3752,12 @@
    "app": "platform",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 4,
+   "renderAntal": 5,
    "status": "vist"
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 111,
+   "linje": 116,
    "kolonne": 5,
    "tag": "button",
    "type": "button",
@@ -3497,7 +3773,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 587,
+   "linje": 594,
    "kolonne": 11,
    "tag": "select",
    "type": null,
@@ -3515,7 +3791,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 628,
+   "linje": 635,
    "kolonne": 11,
    "tag": "button",
    "type": "button",
@@ -3532,7 +3808,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 686,
+   "linje": 693,
    "kolonne": 13,
    "tag": "button",
    "type": "button",
@@ -3548,7 +3824,7 @@
   },
   {
    "fil": "src/features/games/GameStandings.jsx",
-   "linje": 694,
+   "linje": 701,
    "kolonne": 13,
    "tag": "button",
    "type": "button",
@@ -3574,7 +3850,7 @@
    "app": "platform",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 23,
+   "renderAntal": 27,
    "status": "vist"
   },
   {
@@ -4047,7 +4323,7 @@
   },
   {
    "fil": "src/features/games/football/FootballHelp.jsx",
-   "linje": 613,
+   "linje": 882,
    "kolonne": 40,
    "tag": "Link",
    "type": null,
@@ -4056,12 +4332,12 @@
    "app": "platform",
    "aktiveret": false,
    "tests": [],
-   "renderAntal": 5,
+   "renderAntal": 7,
    "status": "vist"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 516,
+   "linje": 528,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -4077,7 +4353,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 553,
+   "linje": 565,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -4093,7 +4369,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 660,
+   "linje": 672,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -4109,7 +4385,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1118,
+   "linje": 1186,
    "kolonne": 19,
    "tag": "button",
    "type": null,
@@ -4120,12 +4396,12 @@
    "tests": [
     "e2e/platform/tip.spec.js"
    ],
-   "renderAntal": 9,
+   "renderAntal": 10,
    "status": "roert"
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1377,
+   "linje": 1448,
    "kolonne": 13,
    "tag": "select",
    "type": null,
@@ -4141,7 +4417,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1392,
+   "linje": 1463,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -4155,7 +4431,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1395,
+   "linje": 1466,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -4171,7 +4447,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1430,
+   "linje": 1501,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -4187,7 +4463,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1439,
+   "linje": 1510,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -4201,7 +4477,7 @@
   },
   {
    "fil": "src/features/games/football/HoldSide.jsx",
-   "linje": 84,
+   "linje": 85,
    "kolonne": 11,
    "tag": "button",
    "type": "button",
@@ -4215,7 +4491,7 @@
   },
   {
    "fil": "src/features/games/football/HoldSide.jsx",
-   "linje": 122,
+   "linje": 136,
    "kolonne": 13,
    "tag": "button",
    "type": "button",
@@ -4229,7 +4505,7 @@
   },
   {
    "fil": "src/features/games/football/Indbyrdes.jsx",
-   "linje": 67,
+   "linje": 68,
    "kolonne": 7,
    "tag": "button",
    "type": "button",
@@ -4239,9 +4515,10 @@
    "aktiveret": true,
    "tests": [
     "src/features/games/faseFlader.test.jsx",
-    "src/features/games/football/Indbyrdes.test.jsx"
+    "src/features/games/football/Indbyrdes.test.jsx",
+    "src/features/games/knockoutFlader.test.jsx"
    ],
-   "renderAntal": 3,
+   "renderAntal": 4,
    "status": "roert"
   },
   {
@@ -4263,7 +4540,7 @@
   },
   {
    "fil": "src/features/games/football/PuljeAfsloering.jsx",
-   "linje": 215,
+   "linje": 238,
    "kolonne": 15,
    "tag": "select",
    "type": null,
@@ -4279,7 +4556,7 @@
   },
   {
    "fil": "src/features/games/football/PuljeTip.jsx",
-   "linje": 274,
+   "linje": 307,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -4290,12 +4567,12 @@
    "tests": [
     "src/features/games/football/PuljeTip.test.jsx"
    ],
-   "renderAntal": 2,
+   "renderAntal": 3,
    "status": "roert"
   },
   {
    "fil": "src/features/games/football/PuljeTip.jsx",
-   "linje": 413,
+   "linje": 480,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -5339,7 +5616,7 @@
   },
   {
    "fil": "src/pages/GamePage.jsx",
-   "linje": 104,
+   "linje": 114,
    "kolonne": 11,
    "tag": "Link",
    "type": null,
@@ -5353,7 +5630,7 @@
   },
   {
    "fil": "src/pages/GamePage.jsx",
-   "linje": 142,
+   "linje": 154,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -5367,7 +5644,7 @@
   },
   {
    "fil": "src/pages/GamePage.jsx",
-   "linje": 155,
+   "linje": 167,
    "kolonne": 17,
    "tag": "button",
    "type": null,
@@ -5378,9 +5655,10 @@
    "tests": [
     "e2e/platform/tip.spec.js",
     "e2e/platform/vendtilbage.spec.js",
-    "src/pages/GamePageForladt.test.jsx"
+    "src/pages/GamePageForladt.test.jsx",
+    "src/pages/GamePageGrupper.test.jsx"
    ],
-   "renderAntal": 9,
+   "renderAntal": 10,
    "status": "roert"
   },
   {
@@ -5450,7 +5728,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 74,
+   "linje": 83,
    "kolonne": 56,
    "tag": "Link",
    "type": null,
@@ -5464,7 +5742,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 79,
+   "linje": 88,
    "kolonne": 72,
    "tag": "Link",
    "type": null,
@@ -5478,7 +5756,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 98,
+   "linje": 109,
    "kolonne": 41,
    "tag": "a",
    "type": null,
@@ -5492,7 +5770,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 102,
+   "linje": 113,
    "kolonne": 53,
    "tag": "Link",
    "type": null,
@@ -5506,7 +5784,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 122,
+   "linje": 133,
    "kolonne": 62,
    "tag": "Link",
    "type": null,
@@ -5520,7 +5798,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 133,
+   "linje": 144,
    "kolonne": 68,
    "tag": "Link",
    "type": null,
@@ -5534,7 +5812,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 140,
+   "linje": 151,
    "kolonne": 9,
    "tag": "Link",
    "type": null,
@@ -5548,7 +5826,23 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 155,
+   "linje": 163,
+   "kolonne": 16,
+   "tag": "a",
+   "type": null,
+   "tekst": "licenser.txt",
+   "komponent": "PlatformHelp",
+   "app": "faelles",
+   "aktiveret": true,
+   "tests": [
+    "src/pages/HelpPagePlatform.test.jsx"
+   ],
+   "renderAntal": 1,
+   "status": "roert"
+  },
+  {
+   "fil": "src/pages/HelpPage.jsx",
+   "linje": 176,
    "kolonne": 16,
    "tag": "Link",
    "type": null,
@@ -5562,7 +5856,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 158,
+   "linje": 179,
    "kolonne": 69,
    "tag": "Link",
    "type": null,
@@ -5576,7 +5870,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 166,
+   "linje": 187,
    "kolonne": 12,
    "tag": "Link",
    "type": null,
@@ -5590,7 +5884,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 172,
+   "linje": 193,
    "kolonne": 12,
    "tag": "Link",
    "type": null,
@@ -5604,7 +5898,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 179,
+   "linje": 200,
    "kolonne": 12,
    "tag": "Link",
    "type": null,
@@ -5618,7 +5912,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 185,
+   "linje": 206,
    "kolonne": 36,
    "tag": "Link",
    "type": null,
@@ -5632,7 +5926,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 192,
+   "linje": 213,
    "kolonne": 51,
    "tag": "Link",
    "type": null,
@@ -5646,7 +5940,7 @@
   },
   {
    "fil": "src/pages/HelpPage.jsx",
-   "linje": 197,
+   "linje": 218,
    "kolonne": 12,
    "tag": "Link",
    "type": null,
