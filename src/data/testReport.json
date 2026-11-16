@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-09T13:32:07.462Z",
+  "generatedAt": "2026-11-16T13:15:44.935Z",
   "totals": {
     "files": 325,
     "tests": 6748,
-    "passed": 6748,
-    "failed": 0
+    "passed": 6747,
+    "failed": 1
   },
   "suites": [
     {
@@ -26966,8 +26966,8 @@
     {
       "file": "functions-platform/livescoreHold.test.js",
       "area": "platform",
-      "passed": 20,
-      "failed": 0,
+      "passed": 19,
+      "failed": 1,
       "tests": [
         {
           "name": "livescore-koder · 'Premier League' › hvert af VORES hold har en kode, livescore kender",
@@ -27007,7 +27007,7 @@
         },
         {
           "name": "Esd fra /0 er ægte UTC › vintertid (GMT): kildens Esd matcher vores kickoff",
-          "status": "passed"
+          "status": "failed"
         },
         {
           "name": "kampNoegle › oversætter begge hold og nøgler på DATOEN, ikke klokkeslættet",
