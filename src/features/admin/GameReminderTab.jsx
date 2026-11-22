@@ -214,7 +214,7 @@ export default function GameReminderTab() {
         <h4 style={{ margin: '0 0 0.35rem' }}>🎯 Hvem mangler at tippe?</h4>
         <p style={{ color: 'var(--c-muted)', fontSize: '0.85rem', margin: '0 0 0.5rem' }}>
           Her ser du kun, <strong>om</strong> der er tippet — aldrig hvad. Folks 1X2-valg ser du
-          i spillet under <em>Se ligaens tips</em>, når kampen er gået i gang. Listen viser
+          i spillet under kampens 1/X/2-knapper på Tip, når kampen er gået i gang. Listen viser
           <strong> alle</strong> spillets deltagere — også dem, du ikke deler liga med.
         </p>
 

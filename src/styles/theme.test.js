@@ -87,3 +87,62 @@ describe('theme.css: den gule accent har sit eget blæk', () => {
     expect(CSS).not.toMatch(/var\(--c-accent\);?\s*color: var\(--c-pitch-dark\)/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// HVEM TIPPEDE HVAD (LeagueBets): fed grøn til de rigtige, læselig dæmpning
+// til de forkerte. jsdom anvender ingen CSS, så komponenttesten kan kun se
+// KLASSEN hvem--ramt; at klassen er fed grøn og læselig, måles her.
+// ---------------------------------------------------------------------------
+
+/** Alle regler som [selektor, krop] — kommentarer fjernet. */
+const REGLER = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+  .split('}')
+  .map((del) => del.split('{'))
+  .filter((d) => d.length === 2)
+  .map(([sel, krop]) => [sel.trim(), krop]);
+/** Kroppene af de regler, hvis selektorliste indeholder `sel` præcist. */
+const kroppe = (sel) => REGLER
+  .filter(([s]) => s.split(',').map((x) => x.trim()).includes(sel))
+  .map(([, k]) => k);
+
+describe('theme.css: hvem tippede hvad', () => {
+  const LYS = ':root {';
+  const MOERK = "[data-theme='dark'] {";
+
+  it('de rigtige navne er fed i et grønt BLÆK, der holder 4,5:1 i begge temaer', () => {
+    const krop = kroppe('.hvem--ramt li').join(' ');
+    expect(krop).toMatch(/color:\s*var\(--c-ok-blaek\)/);
+    expect(krop).toMatch(/font-weight:\s*700/);
+    expect(kontrast(variabel(LYS, '--c-ok-blaek'), variabel(LYS, '--c-surface'))).toBeGreaterThanOrEqual(4.5);
+    expect(kontrast(variabel(MOERK, '--c-ok-blaek'), variabel(MOERK, '--c-surface'))).toBeGreaterThanOrEqual(4.5);
+    // Grunden til, at --c-ok ikke selv blev brugt: som tekst på hvidt kort er
+    // den 3,49:1 — rødt, hvis nogen bytter blækket tilbage.
+    expect(kontrast(variabel(LYS, '--c-ok'), variabel(LYS, '--c-surface'))).toBeCloseTo(3.49, 2);
+  });
+
+  it('de forkerte dæmpes med --c-muted, der holder 4,5:1 — og ALDRIG med opacity', () => {
+    // «Joe tippede 2 igen» er halvdelen af sjovet; navnet skal kunne læses.
+    expect(kroppe('.hvem--forbi li').join(' ')).toMatch(/color:\s*var\(--c-muted\)/);
+    expect(kontrast(variabel(LYS, '--c-muted'), variabel(LYS, '--c-surface'))).toBeGreaterThanOrEqual(4.5);
+    expect(kontrast(variabel(MOERK, '--c-muted'), variabel(MOERK, '--c-surface'))).toBeGreaterThanOrEqual(4.5);
+    const hvemRegler = REGLER.filter(([s]) => /\.hvem/.test(s));
+    expect(hvemRegler.length).toBeGreaterThan(5);
+    for (const [s, k] of hvemRegler) expect(k, s).not.toMatch(/opacity/);
+  });
+
+  it('grønt kun i den RAMTE kolonne — og «Dig» aldrig i accentfarven', () => {
+    // --c-pitch er spillerens holdtema og som standard grøn. Et fed grønt «Dig»
+    // i en forkert kolonne ville ligne "ramt" (QC).
+    for (const [s, k] of REGLER.filter(([sel]) => /\.hvem/.test(sel))) {
+      if (!/hvem--ramt/.test(s)) expect(k, s).not.toMatch(/--c-ok|--c-pitch/);
+    }
+    expect(kroppe('.hvem__dig').join(' ')).toMatch(/font-weight:\s*700/);
+  });
+
+  it('kolonnerne kan ikke blive bredere end deres tredjedel', () => {
+    // 1fr er minmax(auto,1fr): ét langt navn uden mellemrum ville skubbe
+    // gitteret ud af flugt med knapperne.
+    expect(kroppe('.hvem-grid').join(' ')).toMatch(/repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+    expect(kroppe('.hvem li').join(' ')).toMatch(/overflow-wrap:\s*anywhere/);
+  });
+});

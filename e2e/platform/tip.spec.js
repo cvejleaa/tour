@@ -13,7 +13,8 @@ test('et X-tip på en åben kamp vises i Mine tips', async ({ page }) => {
   // Ligaens tips hører til LÅSTE kampe. På den åbne runde må panelet ikke
   // findes — laas.spec ser kun runde 19, hvor alt er låst, så uden denne
   // assertion kunne gaten `{locked && <LeagueBets/>}` fjernes med grøn suite.
-  await expect(page.getByRole('button', { name: 'Se ligaens tips' })).toHaveCount(0);
+  // (.hvem-blok bæres af panelet i alle dets tilstande, også "Bliv med i en liga".)
+  await expect(page.locator('.hvem-blok')).toHaveCount(0);
 
   // Rundens EGET første kort — ikke den lånte fra runde 18, som står øverst,
   // fordi den låser først (laant.spec.js). Et tip dér ville tælle i runde 18.

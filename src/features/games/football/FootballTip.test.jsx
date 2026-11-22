@@ -25,7 +25,15 @@ vi.mock('../betActions', () => ({
   setChance: vi.fn().mockResolvedValue({ ok: true, indsats: 0, flyttetFra: [] }),
 }));
 import { setBet, setChance } from '../betActions';
-vi.mock('./LeagueBets', () => ({ default: () => <div data-testid="liga-tips" /> }));
+// Attrappen gemmer sine props, så det kan bevises, hvad KORTET sender med —
+// LeagueBets.test.jsx dækker kun, hvad panelet gør med dem.
+const mockLigaTips = vi.fn();
+vi.mock('./LeagueBets', () => ({
+  default: (p) => {
+    mockLigaTips(p);
+    return <div data-testid="liga-tips" data-kamp={p.match?.id} data-mit-tip={p.myBet?.pick ?? ''} />;
+  },
+}));
 vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
 // Delingsteksten var slet ikke testet, så combi-tegnet havde to grene og kun
 // den ene var dækket.
@@ -256,6 +264,59 @@ describe('FootballTip — Elo på kampkortene', () => {
     expect(screen.getByTestId('url').textContent).toContain('runde=2');
     expect(screen.getByTestId('url').textContent).not.toContain('kamp=');
     expect(document.querySelectorAll('[data-fremhaevet]')).toHaveLength(0);
+  });
+
+  // ── Hvem tippede hvad: kortet sender sit eget tip med ─────────────────────
+  // «Dig» skal komme fra kortets bet (betsByMatch), ikke fra panelets
+  // forespørgsel — ellers mangler det, til leagueIds er spejlet ud på tippet.
+  it('sender kortets EGET tip med til liga-panelet — på det rigtige kort', () => {
+    vi.setSystemTime(new Date('2026-09-01T19:00:00Z')); // runde 1 er låst
+    mockBets.mockReturnValue({ betsByMatch: { m1: { id: 'me_m1', uid: 'me', pick: '2' } }, loading: false });
+    setup({}, '/spil/sl?runde=1');
+    const paneler = screen.getAllByTestId('liga-tips');
+    expect(paneler.map((p) => [p.dataset.kamp, p.dataset.mitTip])).toEqual([['m1', '2'], ['m2', '']]);
+  });
+
+  it('viser intet liga-panel før kickoff', () => {
+    setup({}, '/spil/sl?runde=1');
+    expect(screen.queryByTestId('liga-tips')).not.toBeInTheDocument();
+  });
+
+  // Kortene ovenover vokser, når deres tips kommer — EFTER den første
+  // rulning. Så skal ?kamp=-kortet rulles ind igen, indtil brugeren selv ruller.
+  it('ruller ?kamp=-kortet ind IGEN, når et kort er færdigt med at hente — indtil brugeren rører siden', () => {
+    vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+    const rulletPaa = [];
+    scrollStub = vi.fn(function ruller() { rulletPaa.push(this.id); });
+    Element.prototype.scrollIntoView = scrollStub;
+    setup({}, '/spil/sl?runde=1&kamp=m2');
+    expect(rulletPaa).toEqual(['kamp-m2']);
+    const ovenover = mockLigaTips.mock.calls.map((c) => c[0]).find((p) => p.match.id === 'm1');
+    act(() => ovenover.onHentet());
+    expect(rulletPaa).toEqual(['kamp-m2', 'kamp-m2']);
+    // Brugeren ruller selv — så er det hans rulning, ikke vores.
+    fireEvent.wheel(window);
+    act(() => ovenover.onHentet());
+    expect(rulletPaa).toEqual(['kamp-m2', 'kamp-m2']);
+  });
+
+  it('ruller ikke igen, når ?kamp= er væk — heller ikke tilbage på samme runde', () => {
+    // Frem og tilbage fjerner ?kamp=, men kortet m2 står der igen, og dets
+    // naboer henter på ny ved mount. Uden vagten blev siden trukket tilbage til
+    // et kort, brugeren for længst havde forladt. (Klik i testen sender ingen
+    // pointerdown, så det er ?kamp=-vagten alene, der bæres her.)
+    vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+    const rulletPaa = [];
+    scrollStub = vi.fn(function ruller() { rulletPaa.push(this.id); });
+    Element.prototype.scrollIntoView = scrollStub;
+    setup({}, '/spil/sl?runde=1&kamp=m2');
+    const onHentet = mockLigaTips.mock.calls[0][0].onHentet;
+    fireEvent.click(screen.getByRole('button', { name: /Næste runde/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Forrige runde/ }));
+    expect(document.getElementById('kamp-m2')).not.toBeNull();
+    expect(screen.getByTestId('url').textContent).not.toContain('kamp=');
+    act(() => onHentet());
+    expect(rulletPaa).toEqual(['kamp-m2']);
   });
 
   it('skriver runden i URL\'en, når man bladrer', () => {

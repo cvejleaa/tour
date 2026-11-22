@@ -3,7 +3,7 @@
  * Tipper 1X2 pr. kamp i den aktive runde og kan (valgfrit) bruge "Chancen ⚡"
  * på ÉN kamp: sæt point på spil på dit 1X2-valg til elo-lite fair odds.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useGameBets } from '../useGameBets';
 import { setBet, setChance } from '../betActions';
@@ -232,13 +232,35 @@ export default function FootballTip({ game, me, matches }) {
   // fladen gentegnes hvert 30. sekund under en live-kamp (liveNu), og uden
   // ref-vagten blev brugeren trukket tilbage til kortet hvert halve minut (QC).
   const rulletTil = useRef(null);
+  const kampParamRef = useRef(kampParam);
+  kampParamRef.current = kampParam;
+  const brugerenRullede = useRef(false);
   useEffect(() => {
     if (!kampParam || rulletTil.current === kampParam) return;
     const el = document.getElementById(`kamp-${kampParam}`);
     if (!el) return; // ukendt id, eller kortet er ikke i denne runde — ingen fejl
     rulletTil.current = kampParam;
+    brugerenRullede.current = false;
     if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
   });
+  // ...OG IGEN, når kortene ovenover er vokset. Hvert låst kort henter
+  // ligaens tips ved mount (LeagueBets) og bliver højere, når de kommer — efter
+  // den første rulning. Så blev det fremhævede kort skubbet ned, og Safari har
+  // ingen scroll-anchoring til at holde det på plads. Når et kort melder sig
+  // færdigt, rulles der derfor igen — men kun indtil brugeren selv har rørt
+  // siden; derefter er det brugerens rulning, ikke vores.
+  useEffect(() => {
+    const slip = () => { brugerenRullede.current = true; };
+    const typer = ['wheel', 'touchstart', 'keydown', 'pointerdown'];
+    typer.forEach((t) => window.addEventListener(t, slip, { passive: true }));
+    return () => typer.forEach((t) => window.removeEventListener(t, slip));
+  }, []);
+  const rulIgen = useCallback(() => {
+    const id = rulletTil.current;
+    if (!id || id !== kampParamRef.current || brugerenRullede.current) return;
+    const el = document.getElementById(`kamp-${id}`);
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+  }, []);
 
   const { current, roundMatches, idx } = useMemo(() => {
     const cur = rounds.find((r) => r.round === roundNo)
@@ -1174,8 +1196,8 @@ export default function FootballTip({ game, me, matches }) {
               {OUTCOMES.map((o) => {
                 const selected = bet?.pick === o;
                 // Når scoren står ovenover, skal kortet også svare på HVILKEN
-                // knap der så var den rigtige. LeagueBets farver allerede den
-                // vindende udfaldsgruppe; her manglede det samme.
+                // knap der så var den rigtige. LeagueBets farver navnene i
+                // kolonnen under den vindende knap; her manglede det samme.
                 const won = m.result === o;
                 const odds = matchOdds(m, o);
                 // Tallet på knappen SKAL være det, man faktisk får — altså
@@ -1202,13 +1224,18 @@ export default function FootballTip({ game, me, matches }) {
               })}
             </div>
 
-            {/* Efter kickoff: hvad tippede de andre i mine ligaer? */}
+            {/* Efter kickoff: hvem i mine ligaer tippede hvad — én kolonne
+                under hver knap ovenfor. Mit eget tip sendes med fra KORTET
+                (betsByMatch), så «Dig» står under min valgte knap, også før
+                tippets leagueIds er spejlet ud og forespørgslen kan se det. */}
             {locked && (
               <LeagueBets
                 gameId={gameId}
                 match={m}
                 myUid={me?.uid}
+                myBet={bet}
                 leagueIds={me?.leagueIds || []}
+                onHentet={rulIgen}
               />
             )}
           </div>
