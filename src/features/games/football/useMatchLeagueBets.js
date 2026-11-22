@@ -90,17 +90,23 @@ export async function hentNavne(uids) {
  * @returns {{ bets: Array<object>, loading: boolean, error: string }}
  */
 export function useMatchLeagueBets(gameId, matchId, leagueIds, enabled) {
-  const [bets, setBets] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
   // Primitiv nøgle, så effekten ikke kører igen på en ny array-reference med
   // samme indhold.
   const key = Array.isArray(leagueIds) ? [...leagueIds].sort().join(',') : '';
+  const henter = Boolean(enabled && gameId && matchId && key);
+
+  const [bets, setBets] = useState([]);
+  // QC/RM (BØR): loading starter SAND, når der skal hentes. Startede den
+  // falsk, var første billede «ingen tips» (bets=[], loading=false) på hvert
+  // låst kort — en forkert sætning og et ekstra layout-hop, før effekten nåede
+  // at tænde spinneren. Panelet var før foldet, så det kunne ikke ses.
+  const [loading, setLoading] = useState(henter);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!enabled || !gameId || !matchId || !key) {
+    if (!henter) {
       setBets([]);
+      setLoading(false);
       return undefined;
     }
     let cancelled = false;
@@ -140,7 +146,7 @@ export function useMatchLeagueBets(gameId, matchId, leagueIds, enabled) {
     })();
 
     return () => { cancelled = true; };
-  }, [gameId, matchId, key, enabled]);
+  }, [gameId, matchId, key, henter]);
 
   return { bets, loading, error };
 }

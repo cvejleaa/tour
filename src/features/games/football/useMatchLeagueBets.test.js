@@ -52,6 +52,28 @@ describe('chunk', () => {
 });
 
 describe('useMatchLeagueBets', () => {
+  // QC/RM (BØR): første billede må ikke være «ingen tips» — LeagueBets viser
+  // den forsigtige sætning, når loading er falsk og der ingen tips er.
+  it('første render siger «henter», ikke «ingen tips», når der skal hentes', () => {
+    mockGetDocs.mockReturnValue(new Promise(() => {}));
+    // renderHook kører effekten i act(), før result læses — derfor optages
+    // HVER render, og det er den FØRSTE, der skal stå til eftersyn.
+    const renders = [];
+    renderHook(() => {
+      const r = useMatchLeagueBets('sl', 'm1', ['L1'], true);
+      renders.push(r);
+      return r;
+    });
+    expect(renders[0]).toEqual({ bets: [], loading: true, error: '' });
+  });
+
+  it('uden noget at hente er loading falsk fra første render', () => {
+    const { result } = renderHook(() => useMatchLeagueBets('sl', 'm1', [], true));
+    expect(result.current.loading).toBe(false);
+    const { result: r2 } = renderHook(() => useMatchLeagueBets('sl', 'm1', ['L1'], false));
+    expect(r2.current.loading).toBe(false);
+  });
+
   it('henter ikke, når enabled er false', () => {
     renderHook(() => useMatchLeagueBets('sl', 'm1', ['L1'], false));
     expect(mockGetDocs).not.toHaveBeenCalled();
