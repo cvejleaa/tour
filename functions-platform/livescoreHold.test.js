@@ -139,51 +139,74 @@ describe.each(SPIL)('livescore-koder · $navn', ({ fil, sti }) => {
 // ---------------------------------------------------------------------------
 describe('Esd fra /0 er ægte UTC', () => {
   // ÉN kamp pr. periode var en skrøbelig sandhed: Bournemouth–Brighton (r13)
-  // blev flyttet af TV efter at testen var skrevet, og så fejlede den — på
-  // main og i hver PR — uden at offset-fejlen var tilbage. Nu sammenlignes
-  // ALLE vores kampe i perioden, som kilden også har (samme hold, samme dato),
-  // og FLERTALLET skal passe på minuttet. Offset-fejlen (/2 eller dansk tid)
-  // forskyder HVER kamp lige meget, så den gør flertallet forkert; en flyttet
-  // kamp eller to gør det ikke.
+  // blev flyttet af TV (20.00 → 20.15 UTC), og så fejlede testen — på main og
+  // i hver PR — uden at offset-fejlen var tilbage.
+  //
+  // Nu sammenlignes ALLE vores kampe i perioden, som kilden også har (samme
+  // hold, samme dato), og forskellen 0 skal være den HYPPIGSTE forskel
+  // (pluralitet, ikke flertal). Offset-fejlen (/2 eller «dansk tid») flytter
+  // hele klumpen væk fra 0, så en anden forskel bliver hyppigst. TV-flytninger
+  // spreder sig over mange forskellige forskelle — et flertalskrav ville
+  // blive rødt af almindelig TV-planlægning (QC målte 42 af 86 = 49 % ens i de
+  // allerede TV-valgte runder r9–r23).
+  //
+  // Nulpunkt 22/11 2026: BST 57 af 63 ens; GMT 112 af 156 ens, næsthyppigste
+  // forskel 24 kampe. Mutation +1 t på vores kickoff: 0 ens i begge → rød.
+  //
+  // `it` i en løkke, ikke `it.each`: i vitest 1.6 får it.each-tests IKKE
+  // test-contexten som sidste argument, så `ctx?.skip?.()` var et tavst
+  // grønt return (Test Manager og QC målte `typeof ctx` = undefined).
   const PERIODER = [
     ['sommertid (BST)', (iso) => iso >= '2026-08-01' && iso < '2026-10-25'],
     ['vintertid (GMT)', (iso) => iso >= '2026-10-26' && iso < '2027-03-28'],
   ];
   const MINDST = 3;
+  const minutter = (esd) => Date.UTC(+esd.slice(0, 4), +esd.slice(4, 6) - 1, +esd.slice(6, 8),
+    +esd.slice(8, 10), +esd.slice(10, 12)) / 60000;
 
-  it.each(PERIODER)('%s: flertallet af kildens Esd matcher vores kickoff', async (_navn, iPerioden, ctx) => {
-    let kampe = null;
-    try {
-      const res = await fetch(`${API}/stage/soccer/england/premier-league/0`, {
-        ...OPT, signal: AbortSignal.timeout(25000),
+  for (const [navn, iPerioden] of PERIODER) {
+    it(`${navn}: forskellen 0 er den hyppigste mellem kildens Esd og vores kickoff`, async (ctx) => {
+      let kampe = null;
+      try {
+        const res = await fetch(`${API}/stage/soccer/england/premier-league/0`, {
+          ...OPT, signal: AbortSignal.timeout(25000),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const d = await res.json();
+        kampe = (d.Stages || []).flatMap((x) => x.Events || []);
+      } catch { ctx.skip(); return; }
+      if (!kampe || kampe.length < 100) { ctx.skip(); return; }
+
+      // KODEN, IKKE NAVNET: livescore skriver "AFC Bournemouth", hvor vores
+      // program skriver "Bournemouth" — en navnematch var den fælde, modulet
+      // findes for at lukke. Begge hold, for tre kampe starter i samme minut.
+      const kort = voresHold('premierLeagueTeams2026.js');
+      // Vagten mod et tavst nul: skifter holdfilens format, er kortet tomt,
+      // ingen kampe parres, og testen ville sige «skip» uden at have kigget.
+      expect(kort.size).toBeGreaterThan(9);
+      const vores = JSON.parse(
+        readFileSync(new URL('../scripts/premier-league-fixtures-2627.json', import.meta.url), 'utf8'),
+      ).fixtures.filter((f) => iPerioden(f.kickoff));
+      const deres = new Map(kampe.map((e) => [
+        `${String(e.Esd).slice(0, 8)}|${e.T1?.[0]?.Abr}|${e.T2?.[0]?.Abr}`, String(e.Esd),
+      ]));
+      const par = vores.flatMap((f) => {
+        const ventet = f.kickoff.replace(/[-:TZ]/g, '');
+        const esd = deres.get(`${ventet.slice(0, 8)}|${livescoreKode(kort.get(f.home))}|${livescoreKode(kort.get(f.away))}`);
+        return esd ? [{ id: f.id, ventet, esd, delta: minutter(esd) - minutter(ventet) }] : [];
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json();
-      kampe = (d.Stages || []).flatMap((x) => x.Events || []);
-    } catch { return ctx?.skip?.(); }
-    if (!kampe || kampe.length < 100) return ctx?.skip?.();
+      if (par.length < MINDST) { ctx.skip(); return; } // kilden har ikke perioden (endnu/længere)
 
-    // KODEN, IKKE NAVNET: livescore skriver "AFC Bournemouth", hvor vores
-    // program skriver "Bournemouth" — en navnematch var den fælde, modulet
-    // findes for at lukke. Begge hold, for tre kampe starter i samme minut.
-    const kort = voresHold('premierLeagueTeams2026.js');
-    const vores = JSON.parse(
-      readFileSync(new URL('../scripts/premier-league-fixtures-2627.json', import.meta.url), 'utf8'),
-    ).fixtures.filter((f) => iPerioden(f.kickoff));
-    const deres = new Map(kampe.map((e) => [
-      `${String(e.Esd).slice(0, 8)}|${e.T1?.[0]?.Abr}|${e.T2?.[0]?.Abr}`, String(e.Esd),
-    ]));
-    const par = vores.flatMap((f) => {
-      const ventet = f.kickoff.replace(/[-:TZ]/g, '');
-      const esd = deres.get(`${ventet.slice(0, 8)}|${livescoreKode(kort.get(f.home))}|${livescoreKode(kort.get(f.away))}`);
-      return esd ? [{ id: f.id, ventet, esd }] : [];
-    });
-    if (par.length < MINDST) return ctx?.skip?.(); // kilden har ikke perioden (endnu/længere)
-    const ens = par.filter((p) => p.esd === p.ventet);
-    expect(ens.length * 2, `kun ${ens.length} af ${par.length} kampe passer på minuttet — `
-      + `forskudt: ${par.filter((p) => p.esd !== p.ventet).slice(0, 3).map((p) => `${p.id} ${p.ventet}→${p.esd}`).join(', ')}`)
-      .toBeGreaterThan(par.length);
-  }, 30000);
+      const antal = new Map();
+      for (const p of par) antal.set(p.delta, (antal.get(p.delta) || 0) + 1);
+      const ens = antal.get(0) || 0;
+      const [andenDelta, andenAntal] = [...antal].filter(([dl]) => dl !== 0)
+        .sort((a, b) => b[1] - a[1])[0] || [null, 0];
+      expect(ens, `${ens} af ${par.length} ens, men forskellen ${andenDelta} min ses ${andenAntal} gange — `
+        + `fx ${par.filter((p) => p.delta === andenDelta).slice(0, 3).map((p) => `${p.id} ${p.ventet}→${p.esd}`).join(', ')}`)
+        .toBeGreaterThan(andenAntal);
+    }, 30000);
+  }
 });
 
 describe('kampNoegle', () => {
