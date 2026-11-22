@@ -30,6 +30,9 @@
   --c-muted: #6b7682;
   --c-border: #e2e8ee;
   --c-ok: #1f9d55;
+  /* Grøn som TEKST (fx de rigtige navne under kampkortet). --c-ok er en
+     flade-/ikonfarve: som tekst på hvidt er den 3,49:1. Denne er 5,38:1. */
+  --c-ok-blaek: #177a45;
   --c-warn: #e8a317;
   --c-err: #d64545;
   --radius: 14px;
@@ -61,6 +64,8 @@
   --c-text: #eef3f7;
   --c-muted: #9aa7b2;
   --c-border: #26323d;
+  /* I mørkt tema holder --c-ok selv som tekst (4,82:1 på --c-surface). */
+  --c-ok-blaek: #1f9d55;
   --shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
@@ -960,6 +965,43 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
 }
 .pick--won.pick--selected { border-color: var(--c-pitch); box-shadow: 0 0 0 1px var(--c-pitch); }
 .pick--won:disabled { opacity: 0.85; }
+
+/* HVEM TIPPEDE HVAD — én kolonne under hver 1/X/2-knap (LeagueBets).
+   minmax(0,1fr), ikke 1fr: 1fr er minmax(auto,1fr), og så ville ét langt navn
+   uden mellemrum gøre sin kolonne bredere, og gitteret holdt op med at flugte
+   med knapperne. Samme gap som .pick-grid af samme grund. */
+.hvem-blok { margin-top: 0.45rem; }
+.hvem-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.hvem { min-width: 0; padding: 0.1rem 0.35rem 0; }
+.hvem__antal {
+  display: block; font-size: 0.68rem; font-weight: 700; color: var(--c-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem;
+}
+.hvem ul { list-style: none; margin: 0; padding: 0; }
+.hvem li {
+  font-size: 0.85rem; line-height: 1.3; color: var(--c-text); overflow-wrap: anywhere;
+  padding: 0.12rem 0; border-top: 1px solid var(--c-border);
+}
+.hvem li:first-child { border-top: 0; }
+.hvem__tom { font-size: 0.85rem; color: var(--c-muted); }
+/* «Dig» er fed i TEKSTFARVEN, aldrig i accenten: --c-pitch er spillerens
+   holdtema og som standard grøn, og et fed grønt «Dig» i en forkert kolonne
+   ville ligne «ramt» ved siden af de fed grønne navne (QC). */
+.hvem__dig { font-weight: 700; }
+.hvem__flere {
+  background: none; border: 0; padding: 0; font: inherit; font-size: 0.8rem;
+  color: var(--c-text); text-decoration: underline; cursor: pointer;
+}
+/* Efter facit: de rigtige navne i fed grøn (ejerens krav). --c-ok-blaek, ikke
+   --c-ok: --c-ok på hvidt kort er 3,49:1, under kravet for tekst i denne
+   størrelse. ✓ ved antallet bærer «rigtigt» uden farve. */
+.hvem--ramt .hvem__antal,
+.hvem--ramt li,
+.hvem--ramt .hvem__tom { color: var(--c-ok-blaek); font-weight: 700; }
+/* De forkerte dæmpes med --c-muted — ALDRIG med opacity, så kommer de under
+   kravet. theme.test.js måler begge. */
+.hvem--forbi li { color: var(--c-muted); }
+.hvem-linje { margin: 0.1rem 0 0.4rem; font-weight: 700; font-size: 0.9rem; text-align: center; }
 
 /* Rundens facit-skærm */
 .facit { border-left: 4px solid var(--c-pitch); }

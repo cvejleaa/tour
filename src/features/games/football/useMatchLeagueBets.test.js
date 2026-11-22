@@ -23,7 +23,7 @@ vi.mock('firebase/firestore', () => ({
 
 vi.mock('../../../firebase', () => ({ db: {} }));
 
-import { useMatchLeagueBets, chunk } from './useMatchLeagueBets';
+import { useMatchLeagueBets, chunk, hentNavne, nulstilNavneCache } from './useMatchLeagueBets';
 
 /** Byg et snapshot, som forEach kan gå igennem. */
 const snap = (docs) => ({ forEach: (fn) => docs.forEach(fn) });
@@ -31,6 +31,9 @@ const betDoc = (id, data) => ({ id, data: () => data });
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Navnecachen ligger på modulniveau — uden nulstilling ville én tests navne
+  // lække ind i den næste.
+  nulstilNavneCache();
   mockGetDocs.mockResolvedValue(snap([]));
 });
 
@@ -49,7 +52,29 @@ describe('chunk', () => {
 });
 
 describe('useMatchLeagueBets', () => {
-  it('henter ikke, før visningen er foldet ud', () => {
+  // QC/RM (BØR): første billede må ikke være «ingen tips» — LeagueBets viser
+  // den forsigtige sætning, når loading er falsk og der ingen tips er.
+  it('første render siger «henter», ikke «ingen tips», når der skal hentes', () => {
+    mockGetDocs.mockReturnValue(new Promise(() => {}));
+    // renderHook kører effekten i act(), før result læses — derfor optages
+    // HVER render, og det er den FØRSTE, der skal stå til eftersyn.
+    const renders = [];
+    renderHook(() => {
+      const r = useMatchLeagueBets('sl', 'm1', ['L1'], true);
+      renders.push(r);
+      return r;
+    });
+    expect(renders[0]).toEqual({ bets: [], loading: true, error: '' });
+  });
+
+  it('uden noget at hente er loading falsk fra første render', () => {
+    const { result } = renderHook(() => useMatchLeagueBets('sl', 'm1', [], true));
+    expect(result.current.loading).toBe(false);
+    const { result: r2 } = renderHook(() => useMatchLeagueBets('sl', 'm1', ['L1'], false));
+    expect(r2.current.loading).toBe(false);
+  });
+
+  it('henter ikke, når enabled er false', () => {
     renderHook(() => useMatchLeagueBets('sl', 'm1', ['L1'], false));
     expect(mockGetDocs).not.toHaveBeenCalled();
   });
@@ -118,5 +143,96 @@ describe('useMatchLeagueBets', () => {
     await waitFor(() => expect(result.current.error).toBeTruthy());
     expect(result.current.error).toMatch(/kunne ikke hente/i);
     expect(result.current.bets).toEqual([]);
+  });
+});
+
+// --- Prisen: en fælles navnecache ------------------------------------------
+//
+// Panelet henter nu automatisk for HVERT låst kort, ikke kun ved et tryk. En
+// spillet PL-runde er ti kort. Uden cachen slog hvert kort de samme venners
+// navne op igen: 10 × (tips + navne) = 20 forespørgsler pr. visning.
+
+/** Ruter getDocs efter samling: tips svarer med fem venner, users med navnene. */
+function routedGetDocs(navneKald) {
+  const VENNER = ['u1', 'u2', 'u3', 'u4', 'u5'];
+  mockGetDocs.mockImplementation(async (q) => {
+    const sti = q._col._path;
+    if (sti[0] === 'users') {
+      navneKald.push(q._clauses[0]._where[2]);
+      return snap(q._clauses[0]._where[2].map((u) => ({ id: u, data: () => ({ displayName: `Navn ${u}` }) })));
+    }
+    const matchId = q._clauses[0]._where[2];
+    return snap(VENNER.map((u) => betDoc(`${u}_${matchId}`, { uid: u, matchId, pick: '1' })));
+  });
+}
+
+describe('navnecachen', () => {
+  it('MÅLT: ti låste kort med de samme fem navne giver 11 forespørgsler — ikke 20', async () => {
+    const navneKald = [];
+    routedGetDocs(navneKald);
+    const kort = Array.from({ length: 10 }, (_, i) => `m${i}`);
+    const hooks = kort.map((m) => renderHook(() => useMatchLeagueBets('pl', m, ['L1'], true)));
+    await waitFor(() => hooks.forEach((h) => expect(h.result.current.loading).toBe(false)));
+    // Hvert kort fik stadig navnene.
+    hooks.forEach((h) => expect(h.result.current.bets.map((r) => r.name))
+      .toEqual(['Navn u1', 'Navn u2', 'Navn u3', 'Navn u4', 'Navn u5']));
+    // 10 på tips + 1 på navne. Uden cachen: 10 + 10 = 20.
+    expect(mockGetDocs).toHaveBeenCalledTimes(11);
+    expect(navneKald).toEqual([['u1', 'u2', 'u3', 'u4', 'u5']]);
+  });
+
+  it('slår kun de NYE navne op', async () => {
+    const navneKald = [];
+    routedGetDocs(navneKald);
+    await hentNavne(['u1', 'u2']);
+    const navne = await hentNavne(['u2', 'u3']);
+    expect(navneKald).toEqual([['u1', 'u2'], ['u3']]);
+    expect(navne).toEqual({ u2: 'Navn u2', u3: 'Navn u3' });
+  });
+
+  it('beholder ikke et mislykket opslag — næste forsøg spørger igen', async () => {
+    mockGetDocs.mockRejectedValueOnce(new Error('netværk'));
+    await expect(hentNavne(['u1'])).rejects.toThrow('netværk');
+    mockGetDocs.mockResolvedValue(snap([{ id: 'u1', data: () => ({ displayName: 'Anne' }) }]));
+    expect(await hentNavne(['u1'])).toEqual({ u1: 'Anne' });
+    expect(mockGetDocs).toHaveBeenCalledTimes(2);
+  });
+
+  it('deler KUN displayName — en profil uden navn bliver «Ukendt spiller», aldrig email eller andre felter', async () => {
+    // Cachen er delt mellem alle kort. Den må ikke kunne bære andet end det
+    // navn, reglen i forvejen lader en liga-kammerat se.
+    mockGetDocs.mockResolvedValue(snap([
+      { id: 'u1', data: () => ({ email: 'hemmelig@example.dk', phone: '12345678', displayName: '' }) },
+      { id: 'u2', data: () => ({ email: 'anden@example.dk', displayName: 'Bo' }) },
+    ]));
+    const navne = await hentNavne(['u1', 'u2']);
+    expect(navne).toEqual({ u1: 'Ukendt spiller', u2: 'Bo' });
+    expect(JSON.stringify(navne)).not.toMatch(/example|1234/);
+  });
+
+  it('slår hvert uid op én gang, også når det står flere gange på listen', async () => {
+    const navneKald = [];
+    routedGetDocs(navneKald);
+    await hentNavne(['u1', 'u1', 'u2']);
+    expect(navneKald).toEqual([['u1', 'u2']]);
+  });
+
+  it('et sent svar for en FORRIGE kamp overskriver ikke den nuværende', async () => {
+    // Kortet skifter kamp, mens første hentning stadig er undervejs.
+    let slip;
+    const sent = new Promise((r) => { slip = r; });
+    mockGetDocs.mockImplementation(async (q) => {
+      const sti = q._col._path;
+      if (sti[0] === 'users') return snap([{ id: 'u1', data: () => ({ displayName: 'Anne' }) }]);
+      const matchId = q._clauses[0]._where[2];
+      if (matchId === 'm1') await sent;
+      return snap([betDoc(`u1_${matchId}`, { uid: 'u1', matchId, pick: matchId === 'm1' ? '1' : '2' })]);
+    });
+    const { result, rerender } = renderHook(({ m }) => useMatchLeagueBets('sl', m, ['L1'], true), { initialProps: { m: 'm1' } });
+    rerender({ m: 'm2' });
+    await waitFor(() => expect(result.current.bets.map((b) => b.pick)).toEqual(['2']));
+    slip();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.bets.map((b) => b.pick)).toEqual(['2']);
   });
 });

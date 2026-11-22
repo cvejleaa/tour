@@ -1,13 +1,13 @@
 {
- "generatedAt": "2026-11-16T13:15:44.935Z",
+ "generatedAt": "2026-11-22T15:37:16.099Z",
  "e2eMedregnet": true,
  "renderMaalt": true,
  "totals": {
   "elementer": 481,
   "aktiverede": 221,
   "renderede": 416,
-  "logposter": 1160,
-  "interaktioner": 984,
+  "logposter": 1151,
+  "interaktioner": 974,
   "filer": 76
  },
  "elementer": [
@@ -4323,7 +4323,7 @@
   },
   {
    "fil": "src/features/games/football/FootballHelp.jsx",
-   "linje": 882,
+   "linje": 883,
    "kolonne": 40,
    "tag": "Link",
    "type": null,
@@ -4337,7 +4337,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 528,
+   "linje": 550,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -4353,7 +4353,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 565,
+   "linje": 587,
    "kolonne": 11,
    "tag": "button",
    "type": null,
@@ -4369,7 +4369,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 672,
+   "linje": 694,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -4385,7 +4385,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1186,
+   "linje": 1208,
    "kolonne": 19,
    "tag": "button",
    "type": null,
@@ -4401,7 +4401,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1448,
+   "linje": 1475,
    "kolonne": 13,
    "tag": "select",
    "type": null,
@@ -4417,7 +4417,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1463,
+   "linje": 1490,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -4431,7 +4431,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1466,
+   "linje": 1493,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -4447,7 +4447,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1501,
+   "linje": 1528,
    "kolonne": 13,
    "tag": "button",
    "type": null,
@@ -4463,7 +4463,7 @@
   },
   {
    "fil": "src/features/games/football/FootballTip.jsx",
-   "linje": 1510,
+   "linje": 1537,
    "kolonne": 15,
    "tag": "button",
    "type": null,
@@ -4523,19 +4523,18 @@
   },
   {
    "fil": "src/features/games/football/LeagueBets.jsx",
-   "linje": 108,
-   "kolonne": 7,
+   "linje": 140,
+   "kolonne": 15,
    "tag": "button",
-   "type": null,
-   "tekst": null,
-   "komponent": "LeagueBets",
+   "type": "button",
+   "tekst": "+",
+   "komponent": "HvemKolonne",
    "app": "platform",
    "aktiveret": true,
    "tests": [
-    "e2e/platform/laas.spec.js",
     "src/features/games/football/LeagueBets.test.jsx"
    ],
-   "renderAntal": 2,
+   "renderAntal": 1,
    "status": "roert"
   },
   {
@@ -5723,7 +5722,7 @@
     "e2e/platform/vendtilbage.spec.js",
     "src/pages/GamesPage.test.jsx"
    ],
-   "renderAntal": 4,
+   "renderAntal": 5,
    "status": "roert"
   },
   {

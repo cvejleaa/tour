@@ -980,6 +980,7 @@ Gør man det omvendt, er der et vindue, hvor brugerne ser tomme lister.
 |---|---|
 | Stillingen er tom for alle | `players/{uid}.leagueIds` mangler → kør backfill, eller brug 🔐 **Genopbyg liga-adgang** i Admin → Spil-tidsplan |
 | "Ingen tips at vise fra dine ligaer" på en spillet kamp | `bets.leagueIds` mangler (tip skrevet før feltet fandtes) → samme backfill |
+| «–» under en 1/X/2-knap på kampkortet, selv om nogen i ligaen tippede det | Samme årsag: kun tips med `leagueIds` kan ses af liga-kammeraterne → samme backfill |
 | "Kunne ikke hente ligaens tips" | Composite-indexet `bets` (matchId + leagueIds) er ikke bygget færdigt → tjek Firestore → Indexes |
 | Stillingen viser kun dig selv | Du er ikke med i en liga endnu — det er den forventede visning |
 | Runde 1 mangler i spillet | `game.startRound` er 2 eller højere. Det er tilsigtet; vælg "ingen gate" for at vise alt |

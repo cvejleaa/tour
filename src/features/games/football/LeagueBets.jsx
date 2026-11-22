@@ -1,16 +1,23 @@
 /**
- * LeagueBets — hvad tippede mine liga-kammerater på DENNE kamp?
+ * LeagueBets — hvem i mine ligaer tippede hvad på DENNE kamp?
  *
  * Vises kun under kampe, der er gået i gang. Før kickoff ville det være at
  * kigge i kortene, og security-reglen afviser det alligevel.
  *
- * Foldet sammen som standard: de fleste kampe kigger man ikke efter, og hver
- * udfoldning koster en forespørgsel plus et navneopslag.
+ * Altid fremme efter kickoff (ejerens beslutning): ingen fold-knap. Under hver
+ * 1/X/2-knap står en kolonne med antal og navne — ens eget tip som «Dig»
+ * øverst i sin kolonne. Efter kampen står navnene i den RIGTIGE kolonne i fed
+ * grøn med ✓ ved antallet; de forkerte kolonner dæmpes, men forbliver
+ * læselige («Joe tippede 2 igen» er halvdelen af sjovet).
+ *
+ * Prisen: hvert låst kort henter én gang ved mount (se useMatchLeagueBets —
+ * navnene går gennem en fælles cache).
  */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMatchLeagueBets } from './useMatchLeagueBets';
 import GameTabLink from '../GameTabLink';
 import { fmtDec } from '../../../lib/daNum';
+import { OUTCOMES } from '../../../lib/superligaScoring';
 import { ensomRet } from './holdStatistik';
 
 /**
@@ -21,10 +28,17 @@ import { ensomRet } from './holdStatistik';
 export const ENSOM_MINIMUM = 3;
 
 /**
+ * Så mange navne vises i en kolonne, før resten foldes bag «+N flere».
+ * Én skjult er værre end ingen — «+1 flere» fylder alligevel en linje — så
+ * ved MAKS_VIST + 1 navne vises alle.
+ */
+export const MAKS_VIST = 5;
+
+/**
  * Den ensomme ret som én sætning — eller null, hvis der ikke er nogen.
  *
  * Det eneste i dette panel, der ikke kan slås op andre steder, er hvad
- * VENNERNE gjorde. Sætningen løfter den ud af tabellen, så man ser den uden
+ * VENNERNE gjorde. Sætningen løfter den ud af gitteret, så man ser den uden
  * at tælle navne.
  *
  * REGLEN, DEN SKAL HOLDE (h2h.js, Pokaler.test.jsx): et navn må kun stå her,
@@ -48,29 +62,88 @@ export function ensomRetLinje(bets, result, myUid) {
   return null;
 }
 
-const OUTCOME_LABEL = { 1: '1', X: 'X', 2: '2' };
+/**
+ * Én samlet liste: de andres tips plus mit eget som «Dig» — uden dubletter.
+ *
+ * Mit tip tages fra kortets EGET bet (betsByMatch), ikke fra forespørgslen:
+ * det er kun med i forespørgslen, hvis `leagueIds` er spejlet ud på tippet,
+ * og det sker asynkront. Ellers kunne «Dig» mangle lige under min valgte knap.
+ * Mangler kortets bet, bruges forespørgslens række som reserve.
+ *
+ * Kolonnerne OG ensomRetLinje regnes af denne ene liste, så «1 af 11» altid er
+ * summen af kolonnernes tal.
+ *
+ * @returns {{ andre: Array<object>, alle: Array<object> }}
+ */
+export function samletListe(bets, myBet, myUid) {
+  const liste = Array.isArray(bets) ? bets : [];
+  const andre = liste.filter((b) => b.uid !== myUid);
+  const eget = myBet?.pick ? myBet : liste.find((b) => b.uid === myUid);
+  const mig = eget
+    ? [{ ...eget, id: eget.id || 'mig', uid: myUid, name: 'Dig', erMig: true }]
+    : [];
+  return { andre, alle: [...mig, ...andre] };
+}
 
-/** Ét udfald med antal og hvem — grupperingen gør fordelingen læsbar. */
-function PickGroup({ outcome, rows, result }) {
-  const hit = result ? outcome === result : null;
-  const cls = hit === true ? 'badge badge--green' : hit === false ? 'badge badge--muted' : 'badge';
+/** «Dig» øverst, derefter navnene i dansk alfabetisk orden. */
+function migFoerst(a, b) {
+  if (a.erMig !== b.erMig) return a.erMig ? -1 : 1;
+  return String(a.name).localeCompare(String(b.name), 'da');
+}
+
+/**
+ * Bind en emoji til ordet foran med et hårdt mellemrum, så «⚽» ikke kan stå
+ * alene på sin egen linje i en smal kolonne. Et hårdt mellemrum frem for
+ * nowrap: et langt navn kan stadig knækkes inde i ordet (overflow-wrap).
+ */
+export function bindEmoji(navn) {
+  return String(navn ?? '').replace(/\s+(?=\p{Extended_Pictographic})/gu, '\u00A0');
+}
+
+/** Hvilke navne vises, og hvor mange gemmes bag «+N flere»? */
+export function synligeNavne(rows, foldet) {
+  if (!foldet || rows.length <= MAKS_VIST + 1) return { vis: rows, rest: 0 };
+  return { vis: rows.slice(0, MAKS_VIST), rest: rows.length - MAKS_VIST };
+}
+
+/** Én kolonne under en 1/X/2-knap: antal og navne, ét pr. linje. */
+function HvemKolonne({ udfald, rows, facit }) {
+  const [udfoldet, setUdfoldet] = useState(false);
+  const ramt = facit ? udfald === facit : null;
+  // De rigtige navne er belønningen — de foldes aldrig, når facit er sat.
+  const { vis, rest } = synligeNavne(rows, ramt !== true && !udfoldet);
+  const kls = `hvem${ramt === true ? ' hvem--ramt' : ''}${ramt === false ? ' hvem--forbi' : ''}`;
   return (
-    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'baseline', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-      <span className={cls} style={{ minWidth: '2.2rem', textAlign: 'center' }}>
-        {OUTCOME_LABEL[outcome]}
+    <div className={kls} role="group" aria-label={`Tippede ${udfald}`} data-udfald={udfald}>
+      <span className="hvem__antal">
+        {ramt === true && <span aria-hidden="true">✓ </span>}
+        {rows.length} tippede
+        {ramt === true && <span className="sr-only"> – rigtigt udfald</span>}
       </span>
-      <span style={{ color: 'var(--c-muted)', fontSize: '0.85rem' }}>{rows.length} ·</span>
-      <span style={{ fontSize: '0.9rem' }}>
-        {rows.map((r, i) => (
-          <span key={r.id}>
-            {i > 0 && ', '}
-            {r.name}
-            {Number(r.chanceStake) > 0 && (
-              <span title={`Chancen: ${fmtDec(r.chanceStake)} point på spil`}> ⚡</span>
-            )}
-          </span>
-        ))}
-      </span>
+      {rows.length === 0 ? (
+        // «–», ikke «Ingen»: en tom kolonne kan også være tips, der ikke er
+        // bagfyldt med liga-feltet endnu. Kun efter facit, i den rigtige
+        // kolonne, siges det højt — dét er øjeblikket, der kan prales med.
+        <span className="hvem__tom">{ramt === true ? 'Ingen så den komme' : '–'}</span>
+      ) : (
+        <ul>
+          {vis.map((r) => (
+            <li key={r.id} className={r.erMig ? 'hvem__dig' : undefined}>
+              {bindEmoji(r.name)}
+              {Number(r.chanceStake) > 0 && (
+                <span title={`Chancen: ${fmtDec(r.chanceStake)} point på spil`}>{'\u00A0'}⚡</span>
+              )}
+            </li>
+          ))}
+          {rest > 0 && (
+            <li>
+              <button type="button" className="hvem__flere" onClick={() => setUdfoldet(true)}>
+                +{rest} flere
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   );
 }
@@ -80,62 +153,68 @@ function PickGroup({ outcome, rows, result }) {
  * @param {string} o.gameId
  * @param {object} o.match      – kampen (skal være gået i gang)
  * @param {string} o.myUid
+ * @param {object} [o.myBet]    – kortets eget tip (betsByMatch[match.id])
  * @param {string[]} o.leagueIds – mine ligaer i spillet
+ * @param {() => void} [o.onHentet] – kaldes, når hentningen er færdig (kortet
+ *   er vokset) — FootballTip bruger det til at rulle ?kamp=-kortet ind igen
  */
-export default function LeagueBets({ gameId, match, myUid, leagueIds }) {
-  const [open, setOpen] = useState(false);
-  const { bets, loading, error } = useMatchLeagueBets(gameId, match?.id, leagueIds, open);
+export default function LeagueBets({ gameId, match, myUid, myBet, leagueIds, onHentet }) {
+  const harLiga = Boolean(leagueIds?.length);
+  const { bets, loading, error } = useMatchLeagueBets(gameId, match?.id, leagueIds, harLiga);
+
+  // Når hentningen går fra "i gang" til "færdig", er kortet vokset.
+  const varIGang = useRef(false);
+  useEffect(() => {
+    if (loading) { varIGang.current = true; return; }
+    if (varIGang.current) {
+      varIGang.current = false;
+      onHentet?.();
+    }
+  }, [loading, onHentet]);
 
   // Er man ikke i nogen liga, er der ingen at sammenligne med — og reglen ville
   // afvise forespørgslen. Sig hvorfor i stedet for at vise en tom liste.
-  if (!leagueIds?.length) {
+  if (!harLiga) {
     return (
-      <p style={{ margin: '0.6rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
+      <p className="hvem-blok" style={{ margin: '0.6rem 0 0', fontSize: '0.8rem', color: 'var(--c-muted)' }}>
         <GameTabLink fane="ligaer">Bliv med i en liga</GameTabLink> for at se, hvad de andre tippede.
       </p>
     );
   }
 
-  const others = bets.filter((b) => b.uid !== myUid);
-  // Bemærk: linjen regnes af ALLE tips, ikke af `others` — se ensomRetLinje.
-  const ensomLinje = ensomRetLinje(bets, match?.result, myUid);
-  const byOutcome = ['1', 'X', '2']
-    .map((o) => ({ outcome: o, rows: others.filter((b) => b.pick === o) }))
-    .filter((g) => g.rows.length > 0);
+  const { andre, alle } = samletListe(bets, myBet, myUid);
+  const facit = OUTCOMES.includes(match?.result) ? match.result : null;
+  // Samme liste som kolonnerne — se samletListe.
+  const ensomLinje = ensomRetLinje(alle, facit, myUid);
+  const kolonner = OUTCOMES.map((o) => ({
+    udfald: o,
+    rows: alle.filter((b) => b.pick === o).sort(migFoerst),
+  }));
+  const klar = !loading && !error;
 
   return (
-    <div style={{ marginTop: '0.6rem', borderTop: '1px solid var(--c-line, #e5e7eb)', paddingTop: '0.5rem' }}>
-      <button
-        className="btn btn--ghost btn--sm"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-      >
-        {open ? '▾ Skjul ligaens tips' : '▸ Se ligaens tips'}
-      </button>
-
-      {open && (
-        <div style={{ marginTop: '0.5rem' }}>
-          {loading && <div className="spinner" role="status" aria-label="Indlæser" />}
-          {error && <p className="badge badge--red" role="alert">{error}</p>}
-          {/* Bevidst forsigtig formulering: en tom liste kan også betyde, at
-              tippene er ældre end liga-feltet og endnu ikke bagfyldt. At sige
-              "ingen tippede" ville pege det forkerte sted hen. */}
-          {!loading && !error && others.length === 0 && (
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--c-muted)' }}>
-              Ingen tips at vise fra dine ligaer på denne kamp.
-            </p>
-          )}
-          {/* Øverst, over tabellen: den ene sætning, man kan læse højt.
-              (Den kræver stadig en udfoldning — panelet henter først dér, og
-              en hentning pr. låst kamp på siden ville koste en forespørgsel
-              hver. At gøre den synlig uden udfoldning er en egen opgave.) */}
-          {!loading && !error && ensomLinje && (
-            <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>{ensomLinje}</p>
-          )}
-          {!loading && !error && byOutcome.map((g) => (
-            <PickGroup key={g.outcome} outcome={g.outcome} rows={g.rows} result={match?.result} />
-          ))}
-        </div>
+    <div className="hvem-blok">
+      {loading && <div className="spinner" role="status" aria-label="Indlæser" />}
+      {error && <p className="badge badge--red" role="alert">{error}</p>}
+      {/* Bevidst forsigtig formulering: en tom liste kan også betyde, at
+          tippene er ældre end liga-feltet og endnu ikke bagfyldt. At sige
+          "ingen tippede" ville pege det forkerte sted hen. Har kun jeg
+          tippet, er der intet at sammenligne med — og så intet gitter. */}
+      {klar && andre.length === 0 && (
+        <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: 'var(--c-muted)' }}>
+          Ingen tips at vise fra dine ligaer på denne kamp.
+        </p>
+      )}
+      {klar && andre.length > 0 && (
+        <>
+          {/* Over gitteret: den ene sætning, man kan læse højt. */}
+          {ensomLinje && <p className="hvem-linje">{ensomLinje}</p>}
+          <div className="hvem-grid" role="group" aria-label="Hvem i dine ligaer tippede hvad">
+            {kolonner.map((k) => (
+              <HvemKolonne key={k.udfald} udfald={k.udfald} rows={k.rows} facit={facit} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

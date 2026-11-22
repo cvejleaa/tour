@@ -195,9 +195,10 @@ export default function FootballHelp({ game }) {
             ) : (
               <>jeres indbyrdes</>
             )}
-            {' '}<Tab fane="stilling">🏆 Stilling</Tab>. Når en kamp er <strong>gået i gang</strong>, kan du folde
-            {' '}<em>Se ligaens tips</em> ud under kampen på <Tab fane="tip">Tip</Tab> og se, hvad de andre i dine
-            ligaer valgte — og de kan se dit. Du kan også klikke på et navn i
+            {' '}<Tab fane="stilling">🏆 Stilling</Tab>. Når en kamp er <strong>gået i gang</strong>, står det
+            {' '}under hver 1/X/2-knap på <Tab fane="tip">Tip</Tab>, hvem i dine ligaer der valgte hvad (du selv
+            {' '}som <em>Dig</em>) — og de kan se dit. Efter kampen står de, der ramte, med fed grøn. Du kan også
+            {' '}klikke på et navn i
             {' '}<Tab fane="stilling">🏆 Stilling</Tab> og se den spillers tip på <strong>alle</strong> afgjorte
             kampe — og de kan se dine på samme måde. Før kampstart er alles tips skjult, så ingen kan
             kigge efter.

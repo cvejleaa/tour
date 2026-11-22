@@ -283,7 +283,7 @@ gennem fladen og gemmer tilstandene (IndexedDB, hvor Firebase Auth bor).
 Testene skriver og læser gennem de ægte `firestore.rules`:
 - Godkendt spiller lander på `/spil` og kan åbne sit spil (Deltag-kortet vises ikke)
 - Et X-tip på en åben kamp vises i Mine tips med præcis det bogstav
-- Kampe med passeret kickoff kan ikke tippes: knapperne er låst, og ligaens tips vises i stedet
+- Kampe med passeret kickoff kan ikke tippes: knapperne er låst, og ligaens tips står fremme i stedet (hvert låst kort henter selv — ingen fold-knap)
 - Ny bruger opretter sig → /afventer → ejeren godkender under Admin → Brugere → brugeren
   kommer ind uden genindlæsning (to browser-contexts, ejerens login gemt af setup)
 - Stillingen viser præcis liga-kammeraterne med serverens point, i rækkefølge, og uden

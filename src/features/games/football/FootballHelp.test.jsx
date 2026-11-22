@@ -639,15 +639,31 @@ describe('ligaens guide er byte-uændret (Superligaen og Premier League)', () =>
   };
   const RUBRIK_NY = '(point fra pulje-tippet — bonusspørgsmålet ved siden af kampene)';
   const RUBRIK_GAMMEL = '(point fra pulje-tippet — sæsonens bonusspørgsmål)';
+  //   3. Hvem tippede hvad (hvem-tippede): fold-knappen «Se ligaens tips» er
+  //      væk — navnene står nu under hver 1/X/2-knap, og de rigtige med fed
+  //      grøn efter kampen. Sætningen om det skulle derfor skrives om; den står
+  //      i begge ligaer, så begge ruller den tilbage i to stykker (før og efter
+  //      Tip-linket, som er uændret).
+  const hvemTilbage = (h) => tilbage(
+    tilbage(
+      h,
+      '</strong>, står det under hver 1/X/2-knap på ',
+      '</strong>, kan du folde <em>Se ligaens tips</em> ud under kampen på ',
+    ),
+    ', hvem i dine ligaer der valgte hvad (du selv som <em>Dig</em>) — og de kan se dit. Efter kampen står de, der ramte, med fed grøn. Du kan også klikke på et navn i ',
+    ' og se, hvad de andre i dine ligaer valgte — og de kan se dit. Du kan også klikke på et navn i ',
+  );
 
-  it('Superligaen: kun pulje-rubrikken er ændret', () => {
-    const h = tilbage(html({ ...spil('superliga2627'), standings: { rows: [] } }), RUBRIK_NY, RUBRIK_GAMMEL);
+  it('Superligaen: kun pulje-rubrikken og hvem-tippede-sætningen er ændret', () => {
+    let h = tilbage(html({ ...spil('superliga2627'), standings: { rows: [] } }), RUBRIK_NY, RUBRIK_GAMMEL);
+    h = hvemTilbage(h);
     expect(sha(h)).toBe('627bbe82c683e729b99fd6b9d2eb73509cb153937e012f2ca02d8de531047c96');
   });
 
-  it('Premier League: pulje-rubrikken og «i den officielle tabel» (ingen standings)', () => {
+  it('Premier League: pulje-rubrikken, «i den officielle tabel» (ingen standings) og hvem-tippede-sætningen', () => {
     let h = tilbage(html(spil('pl2627-efteraar')), RUBRIK_NY, RUBRIK_GAMMEL);
     h = tilbage(h, '— i Elo-tabellen, i trøjeoversigten under', '— i Elo-tabellen, i den officielle tabel, i trøjeoversigten under');
+    h = hvemTilbage(h);
     expect(sha(h)).toBe('d631d0f77d172840cd7e487a0d8357e84195cf2ca1ba5f135acc7c9f1d785585');
   });
 });

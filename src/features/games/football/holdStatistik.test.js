@@ -369,7 +369,7 @@ describe('ensomRet', () => {
   });
 
   it('tæller ens EGET tip med — ellers er ens egen ensomme ret usynlig', () => {
-    // Fjernes ens eget tip (som LeagueBets gør i sin egen visning), falder
+    // Fjernes ens eget tip (som LeagueBets' tabel gjorde, før «Dig» kom med), falder
     // antallet til 0, og linjen ville sige "ingen så den her" til den, der så den.
     expect(ensomRet(bets, '2').ramte[0].uid).toBe('mig');
   });
