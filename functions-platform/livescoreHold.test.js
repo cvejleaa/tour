@@ -138,12 +138,20 @@ describe.each(SPIL)('livescore-koder · $navn', ({ fil, sti }) => {
 // Sandheden er vores EGET kampprogram, som er committet og i UTC.
 // ---------------------------------------------------------------------------
 describe('Esd fra /0 er ægte UTC', () => {
-  const SANDHED = [
-    ['sommertid (BST)', 2645195, '20260821190000'],   // Arsenal-Coventry, r1
-    ['vintertid (GMT)', 2645315, '20261202200000'],   // Bournemouth-Brighton, r13
+  // ÉN kamp pr. periode var en skrøbelig sandhed: Bournemouth–Brighton (r13)
+  // blev flyttet af TV efter at testen var skrevet, og så fejlede den — på
+  // main og i hver PR — uden at offset-fejlen var tilbage. Nu sammenlignes
+  // ALLE vores kampe i perioden, som kilden også har (samme hold, samme dato),
+  // og FLERTALLET skal passe på minuttet. Offset-fejlen (/2 eller dansk tid)
+  // forskyder HVER kamp lige meget, så den gør flertallet forkert; en flyttet
+  // kamp eller to gør det ikke.
+  const PERIODER = [
+    ['sommertid (BST)', (iso) => iso >= '2026-08-01' && iso < '2026-10-25'],
+    ['vintertid (GMT)', (iso) => iso >= '2026-10-26' && iso < '2027-03-28'],
   ];
+  const MINDST = 3;
 
-  it.each(SANDHED)('%s: kildens Esd matcher vores kickoff', async (_navn, matchId, ventet, ctx) => {
+  it.each(PERIODER)('%s: flertallet af kildens Esd matcher vores kickoff', async (_navn, iPerioden, ctx) => {
     let kampe = null;
     try {
       const res = await fetch(`${API}/stage/soccer/england/premier-league/0`, {
@@ -155,25 +163,26 @@ describe('Esd fra /0 er ægte UTC', () => {
     } catch { return ctx?.skip?.(); }
     if (!kampe || kampe.length < 100) return ctx?.skip?.();
 
-    // Deres Eid er ikke vores matchId, så kampen findes på holdparret. Begge
-    // hold, ikke ét: tre kampe starter rutinemæssigt i samme minut.
+    // KODEN, IKKE NAVNET: livescore skriver "AFC Bournemouth", hvor vores
+    // program skriver "Bournemouth" — en navnematch var den fælde, modulet
+    // findes for at lukke. Begge hold, for tre kampe starter i samme minut.
+    const kort = voresHold('premierLeagueTeams2026.js');
     const vores = JSON.parse(
       readFileSync(new URL('../scripts/premier-league-fixtures-2627.json', import.meta.url), 'utf8'),
-    ).fixtures.find((f) => f.id.endsWith(String(matchId)));
-    expect(vores, `vores kamp ${matchId}`).toBeTruthy();
-
-    // KODEN, IKKE NAVNET — og det er ikke en detalje. Første udgave af denne
-    // test matchede på navn og fejlede på vinterkampen, fordi livescore
-    // skriver "AFC Bournemouth" hvor vores program skriver "Bournemouth".
-    // Tiderne var identiske. Det er nøjagtig den fælde, hele modulet findes
-    // for at lukke, og testen faldt selv i den.
-    const kode = livescoreKode(voresHold('premierLeagueTeams2026.js').get(vores.home));
-    expect(kode, `ingen kortkode for ${vores.home}`).toBeTruthy();
-    const traef = kampe.find((e) => String(e.Esd) === ventet
-      && (e.T1 || []).some((t) => t.Abr === kode));
-    expect(traef, `ingen livescore-kamp på ${ventet} med ${kode}`).toBeTruthy();
-    // Og vores eget program skal sige det samme — ellers er "sandheden" flyttet.
-    expect(vores.kickoff.replace(/[-:TZ]/g, '')).toBe(ventet);
+    ).fixtures.filter((f) => iPerioden(f.kickoff));
+    const deres = new Map(kampe.map((e) => [
+      `${String(e.Esd).slice(0, 8)}|${e.T1?.[0]?.Abr}|${e.T2?.[0]?.Abr}`, String(e.Esd),
+    ]));
+    const par = vores.flatMap((f) => {
+      const ventet = f.kickoff.replace(/[-:TZ]/g, '');
+      const esd = deres.get(`${ventet.slice(0, 8)}|${livescoreKode(kort.get(f.home))}|${livescoreKode(kort.get(f.away))}`);
+      return esd ? [{ id: f.id, ventet, esd }] : [];
+    });
+    if (par.length < MINDST) return ctx?.skip?.(); // kilden har ikke perioden (endnu/længere)
+    const ens = par.filter((p) => p.esd === p.ventet);
+    expect(ens.length * 2, `kun ${ens.length} af ${par.length} kampe passer på minuttet — `
+      + `forskudt: ${par.filter((p) => p.esd !== p.ventet).slice(0, 3).map((p) => `${p.id} ${p.ventet}→${p.esd}`).join(', ')}`)
+      .toBeGreaterThan(par.length);
   }, 30000);
 });
 
