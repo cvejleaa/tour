@@ -31,7 +31,7 @@ const mockLigaTips = vi.fn();
 vi.mock('./LeagueBets', () => ({
   default: (p) => {
     mockLigaTips(p);
-    return <div data-testid="liga-tips" data-kamp={p.match?.id} data-mit-tip={p.myBet?.pick ?? ''} />;
+    return <div data-testid="liga-tips" data-kamp={p.match?.id} data-mit-tip={p.myBet?.pick ?? ''} data-ligaer={(p.leagueIds || []).join(',')} />;
   },
 }));
 vi.mock('../../../components/ClubBadge', () => ({ default: () => <span /> }));
@@ -78,7 +78,7 @@ function UrlProbe() {
   return <output data-testid="url">{search}</output>;
 }
 
-const setup = (game = {}, url = '/spil/sl', matches = MATCHES) => render(
+const setup = (game = {}, url = '/spil/sl', matches = MATCHES, me = { uid: 'me', totalPoints: 100 }) => render(
   <MemoryRouter initialEntries={[url]}>
     <Routes>
       <Route
@@ -86,7 +86,7 @@ const setup = (game = {}, url = '/spil/sl', matches = MATCHES) => render(
         element={(
           <FootballTip
             game={{ id: 'sl', type: 'football', teams: TEAMS, eloHistory: HISTORY, ...game }}
-            me={{ uid: 'me', totalPoints: 100 }}
+            me={me}
             matches={matches}
           />
         )}
@@ -275,6 +275,12 @@ describe('FootballTip — Elo på kampkortene', () => {
     setup({}, '/spil/sl?runde=1');
     const paneler = screen.getAllByTestId('liga-tips');
     expect(paneler.map((p) => [p.dataset.kamp, p.dataset.mitTip])).toEqual([['m1', '2'], ['m2', '']]);
+  });
+
+  it('sender spillerens ligaer med til panelet — uden dem hentes intet', () => {
+    vi.setSystemTime(new Date('2026-09-01T19:00:00Z'));
+    setup({}, '/spil/sl?runde=1', MATCHES, { uid: 'me', totalPoints: 100, leagueIds: ['L1', 'L2'] });
+    expect(screen.getAllByTestId('liga-tips').map((p) => p.dataset.ligaer)).toEqual(['L1,L2', 'L1,L2']);
   });
 
   it('viser intet liga-panel før kickoff', () => {

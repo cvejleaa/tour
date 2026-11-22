@@ -175,4 +175,42 @@ describe('navnecachen', () => {
     expect(await hentNavne(['u1'])).toEqual({ u1: 'Anne' });
     expect(mockGetDocs).toHaveBeenCalledTimes(2);
   });
+
+  it('deler KUN displayName — en profil uden navn bliver «Ukendt spiller», aldrig email eller andre felter', async () => {
+    // Cachen er delt mellem alle kort. Den må ikke kunne bære andet end det
+    // navn, reglen i forvejen lader en liga-kammerat se.
+    mockGetDocs.mockResolvedValue(snap([
+      { id: 'u1', data: () => ({ email: 'hemmelig@example.dk', phone: '12345678', displayName: '' }) },
+      { id: 'u2', data: () => ({ email: 'anden@example.dk', displayName: 'Bo' }) },
+    ]));
+    const navne = await hentNavne(['u1', 'u2']);
+    expect(navne).toEqual({ u1: 'Ukendt spiller', u2: 'Bo' });
+    expect(JSON.stringify(navne)).not.toMatch(/example|1234/);
+  });
+
+  it('slår hvert uid op én gang, også når det står flere gange på listen', async () => {
+    const navneKald = [];
+    routedGetDocs(navneKald);
+    await hentNavne(['u1', 'u1', 'u2']);
+    expect(navneKald).toEqual([['u1', 'u2']]);
+  });
+
+  it('et sent svar for en FORRIGE kamp overskriver ikke den nuværende', async () => {
+    // Kortet skifter kamp, mens første hentning stadig er undervejs.
+    let slip;
+    const sent = new Promise((r) => { slip = r; });
+    mockGetDocs.mockImplementation(async (q) => {
+      const sti = q._col._path;
+      if (sti[0] === 'users') return snap([{ id: 'u1', data: () => ({ displayName: 'Anne' }) }]);
+      const matchId = q._clauses[0]._where[2];
+      if (matchId === 'm1') await sent;
+      return snap([betDoc(`u1_${matchId}`, { uid: 'u1', matchId, pick: matchId === 'm1' ? '1' : '2' })]);
+    });
+    const { result, rerender } = renderHook(({ m }) => useMatchLeagueBets('sl', m, ['L1'], true), { initialProps: { m: 'm1' } });
+    rerender({ m: 'm2' });
+    await waitFor(() => expect(result.current.bets.map((b) => b.pick)).toEqual(['2']));
+    slip();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.bets.map((b) => b.pick)).toEqual(['2']);
+  });
 });

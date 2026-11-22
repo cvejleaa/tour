@@ -145,4 +145,23 @@ describe('theme.css: hvem tippede hvad', () => {
     expect(kroppe('.hvem-grid').join(' ')).toMatch(/repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
     expect(kroppe('.hvem li').join(' ')).toMatch(/overflow-wrap:\s*anywhere/);
   });
+
+  it('de forkerte kolonner er hverken grønne eller fede — fed grøn er KUN de rigtiges belønning', () => {
+    // Selv om .hvem--forbi li senere overskriver farven, ville en fælles regel
+    // med .hvem--ramt stadig gøre de forkerte fede.
+    const forbi = REGLER.filter(([s]) => /hvem--forbi/.test(s));
+    expect(forbi.length).toBeGreaterThan(0);
+    for (const [s, k] of forbi) {
+      expect(k, s).not.toMatch(/c-ok/);
+      expect(k, s).not.toMatch(/font-weight:\s*700/);
+    }
+    const ramt = REGLER.filter(([s]) => /hvem--ramt/.test(s));
+    for (const [s] of ramt) expect(s, 'ramt-regel må ikke dele selektor med forbi').not.toMatch(/hvem--forbi/);
+  });
+
+  it('«Ingen så den komme» i den rigtige kolonne er også fed grøn', () => {
+    const krop = kroppe('.hvem--ramt .hvem__tom').join(' ');
+    expect(krop).toMatch(/color:\s*var\(--c-ok-blaek\)/);
+    expect(krop).toMatch(/font-weight:\s*700/);
+  });
 });
