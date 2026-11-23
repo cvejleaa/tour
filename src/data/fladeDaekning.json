@@ -1,12 +1,12 @@
 {
- "generatedAt": "2026-11-22T15:37:16.099Z",
+ "generatedAt": "2026-11-23T15:34:49.029Z",
  "e2eMedregnet": true,
  "renderMaalt": true,
  "totals": {
   "elementer": 481,
   "aktiverede": 221,
   "renderede": 416,
-  "logposter": 1151,
+  "logposter": 1150,
   "interaktioner": 974,
   "filer": 76
  },

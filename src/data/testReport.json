@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-16T13:15:44.935Z",
+  "generatedAt": "2026-11-23T15:34:49.029Z",
   "totals": {
     "files": 325,
-    "tests": 6748,
-    "passed": 6747,
-    "failed": 1
+    "tests": 6790,
+    "passed": 6790,
+    "failed": 0
   },
   "suites": [
     {
@@ -8974,11 +8974,11 @@
           "status": "passed"
         },
         {
-          "name": "ligaens guide er byte-uændret (Superligaen og Premier League) › Superligaen: kun pulje-rubrikken er ændret",
+          "name": "ligaens guide er byte-uændret (Superligaen og Premier League) › Superligaen: kun pulje-rubrikken og hvem-tippede-sætningen er ændret",
           "status": "passed"
         },
         {
-          "name": "ligaens guide er byte-uændret (Superligaen og Premier League) › Premier League: pulje-rubrikken og «i den officielle tabel» (ingen standings)",
+          "name": "ligaens guide er byte-uændret (Superligaen og Premier League) › Premier League: pulje-rubrikken, «i den officielle tabel» (ingen standings) og hvem-tippede-sætningen",
           "status": "passed"
         },
         {
@@ -9366,7 +9366,7 @@
     {
       "file": "src/features/games/football/FootballTip.test.jsx",
       "area": "frontend",
-      "passed": 178,
+      "passed": 183,
       "failed": 0,
       "tests": [
         {
@@ -9431,6 +9431,26 @@
         },
         {
           "name": "FootballTip — Elo på kampkortene › et rundeskift fjerner ?kamp= — fremhævningen hører til én runde",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — Elo på kampkortene › sender kortets EGET tip med til liga-panelet — på det rigtige kort",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — Elo på kampkortene › sender spillerens ligaer med til panelet — uden dem hentes intet",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — Elo på kampkortene › viser intet liga-panel før kickoff",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — Elo på kampkortene › ruller ?kamp=-kortet ind IGEN, når et kort er færdigt med at hente — indtil brugeren rører siden",
+          "status": "passed"
+        },
+        {
+          "name": "FootballTip — Elo på kampkortene › ruller ikke igen, når ?kamp= er væk — heller ikke tilbage på samme runde",
           "status": "passed"
         },
         {
@@ -11082,59 +11102,151 @@
     {
       "file": "src/features/games/football/LeagueBets.test.jsx",
       "area": "frontend",
-      "passed": 16,
+      "passed": 39,
       "failed": 0,
       "tests": [
         {
-          "name": "LeagueBets › henter først når man folder ud — udfoldningen koster en forespørgsel",
+          "name": "LeagueBets — altid fremme efter kickoff › henter med det samme — der er ingen fold-knap at trykke på",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › grupperer de andres tips på udfald med navne",
+          "name": "LeagueBets — altid fremme efter kickoff › henter IKKE uden liga — og forklarer, at man skal være i en",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › viser ikke mit eget tip blandt de andres",
+          "name": "LeagueBets — altid fremme efter kickoff › sætter navnene i kolonnen under det udfald, de tippede — præcis dem",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › siger forsigtigt til, når der ikke er noget at vise",
+          "name": "LeagueBets — altid fremme efter kickoff › sætter MIG som «Dig» øverst i min kolonne — og ingen andre steder",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › forklarer, at man skal være i en liga — og henter ikke",
+          "name": "LeagueBets — altid fremme efter kickoff › tager «Dig» fra kortets eget tip, selv når forespørgslen ikke har det",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › viser en dansk fejl, hvis hentningen fejler",
+          "name": "LeagueBets — altid fremme efter kickoff › viser mig ÉN gang, når både kortet og forespørgslen har mit tip",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › siger \"Kun du\", når man SELV stod alene med det rigtige",
+          "name": "LeagueBets — altid fremme efter kickoff › falder tilbage på forespørgslens række, når kortet ikke har mit tip",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › siger navnet, når det var en ANDEN, der stod alene",
+          "name": "LeagueBets — altid fremme efter kickoff › kortets tip vinder over et forældet i forespørgslen",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › siger til, når INGEN i ligaen ramte",
+          "name": "LeagueBets — altid fremme efter kickoff › sætter ⚡ på Chance-tips — også på «Dig», ud fra kortets eget tip",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › tier, når FLERE ramte — så er der ingen historie",
+          "name": "LeagueBets — altid fremme efter kickoff › skriver «–» i en tom kolonne før facit — aldrig «Ingen»",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › tier før facit er sat",
+          "name": "LeagueBets — altid fremme efter kickoff › siger forsigtigt til, når ingen andre har tippet — og viser intet gitter",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › viser IKKE linjen, mens der hentes — rækkerne kan være forældede",
+          "name": "LeagueBets — altid fremme efter kickoff › viser en dansk fejl, hvis hentningen fejler — og intet gitter",
           "status": "passed"
         },
         {
-          "name": "LeagueBets › markerer det rigtige udfald, når facit er sat",
+          "name": "LeagueBets — altid fremme efter kickoff › viser en spinner og intet gitter, mens der hentes",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — facit: de rigtige navne i fed grøn › farver INGEN kolonne før facit — og «Dig» er fed, men ikke \"ramt\"",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — facit: de rigtige navne i fed grøn › markerer KUN den rigtige kolonne, med ✓ ved antallet",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — facit: de rigtige navne i fed grøn › «Dig» følger samme regel som de andre navne",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — facit: de rigtige navne i fed grøn › «Dig» i en forkert kolonne står dæmpet sammen med de andre forkerte",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — facit: de rigtige navne i fed grøn › skriver «Ingen så den komme» i en tom RIGTIG kolonne — og «–» i en tom forkert",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — facit: de rigtige navne i fed grøn › ignorerer et facit, der ikke er 1/X/2",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — mange navne: «+N flere» › viser fem og folder resten bag «+N flere» — og folder ud ved klik",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — mange navne: «+N flere» › viser aldrig «+1 flere» — seks navne står alle sammen",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — mange navne: «+N flere» › «Dig» står øverst, også i en foldet kolonne",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — mange navne: «+N flere» › folder ALDRIG den rigtige kolonne efter facit — kun de forkerte",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — mange navne: «+N flere» › MAKS_VIST er 5",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — linjen og kolonnerne regnes af SAMME liste › «N af M» er altid summen af kolonnernes tal",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — onHentet (til ?kamp=-rulningen i FootballTip) › kaldes, når hentningen går fra i gang til færdig — ikke før",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — onHentet (til ?kamp=-rulningen i FootballTip) › kaldes ikke, når der aldrig blev hentet",
+          "status": "passed"
+        },
+        {
+          "name": "samletListe og bindEmoji › lægger mit tip først som «Dig» og fjerner forespørgslens kopi",
+          "status": "passed"
+        },
+        {
+          "name": "samletListe og bindEmoji › binder emojien til ordet foran med et hårdt mellemrum",
+          "status": "passed"
+        },
+        {
+          "name": "samletListe og bindEmoji › bruger det bundne navn i kolonnen",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — den ensomme ret › siger \"Kun du\", når man SELV stod alene med det rigtige",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — den ensomme ret › siger navnet, når det var en ANDEN, der stod alene",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — den ensomme ret › siger til, når INGEN i ligaen ramte",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — den ensomme ret › tier, når FLERE ramte — så er der ingen historie",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — den ensomme ret › tier før facit er sat",
+          "status": "passed"
+        },
+        {
+          "name": "LeagueBets — den ensomme ret › viser IKKE linjen, mens der hentes — rækkerne kan være forældede",
           "status": "passed"
         },
         {
@@ -12430,7 +12542,7 @@
     {
       "file": "src/features/games/football/useMatchLeagueBets.test.js",
       "area": "frontend",
-      "passed": 10,
+      "passed": 18,
       "failed": 0,
       "tests": [
         {
@@ -12442,7 +12554,15 @@
           "status": "passed"
         },
         {
-          "name": "useMatchLeagueBets › henter ikke, før visningen er foldet ud",
+          "name": "useMatchLeagueBets › første render siger «henter», ikke «ingen tips», når der skal hentes",
+          "status": "passed"
+        },
+        {
+          "name": "useMatchLeagueBets › uden noget at hente er loading falsk fra første render",
+          "status": "passed"
+        },
+        {
+          "name": "useMatchLeagueBets › henter ikke, når enabled er false",
           "status": "passed"
         },
         {
@@ -12471,6 +12591,30 @@
         },
         {
           "name": "useMatchLeagueBets › giver en dansk fejl, når forespørgslen afvises",
+          "status": "passed"
+        },
+        {
+          "name": "navnecachen › MÅLT: ti låste kort med de samme fem navne giver 11 forespørgsler — ikke 20",
+          "status": "passed"
+        },
+        {
+          "name": "navnecachen › slår kun de NYE navne op",
+          "status": "passed"
+        },
+        {
+          "name": "navnecachen › beholder ikke et mislykket opslag — næste forsøg spørger igen",
+          "status": "passed"
+        },
+        {
+          "name": "navnecachen › deler KUN displayName — en profil uden navn bliver «Ukendt spiller», aldrig email eller andre felter",
+          "status": "passed"
+        },
+        {
+          "name": "navnecachen › slår hvert uid op én gang, også når det står flere gange på listen",
+          "status": "passed"
+        },
+        {
+          "name": "navnecachen › et sent svar for en FORRIGE kamp overskriver ikke den nuværende",
           "status": "passed"
         }
       ]
@@ -21302,7 +21446,7 @@
     {
       "file": "src/styles/theme.test.js",
       "area": "frontend",
-      "passed": 6,
+      "passed": 12,
       "failed": 0,
       "tests": [
         {
@@ -21327,6 +21471,30 @@
         },
         {
           "name": "theme.css: den gule accent har sit eget blæk › bruger --c-on-accent, ikke --c-pitch-dark",
+          "status": "passed"
+        },
+        {
+          "name": "theme.css: hvem tippede hvad › de rigtige navne er fed i et grønt BLÆK, der holder 4,5:1 i begge temaer",
+          "status": "passed"
+        },
+        {
+          "name": "theme.css: hvem tippede hvad › de forkerte dæmpes med --c-muted, der holder 4,5:1 — og ALDRIG med opacity",
+          "status": "passed"
+        },
+        {
+          "name": "theme.css: hvem tippede hvad › grønt kun i den RAMTE kolonne — og «Dig» aldrig i accentfarven",
+          "status": "passed"
+        },
+        {
+          "name": "theme.css: hvem tippede hvad › kolonnerne kan ikke blive bredere end deres tredjedel",
+          "status": "passed"
+        },
+        {
+          "name": "theme.css: hvem tippede hvad › de forkerte kolonner er hverken grønne eller fede — fed grøn er KUN de rigtiges belønning",
+          "status": "passed"
+        },
+        {
+          "name": "theme.css: hvem tippede hvad › «Ingen så den komme» i den rigtige kolonne er også fed grøn",
           "status": "passed"
         }
       ]
@@ -26966,8 +27134,8 @@
     {
       "file": "functions-platform/livescoreHold.test.js",
       "area": "platform",
-      "passed": 19,
-      "failed": 1,
+      "passed": 20,
+      "failed": 0,
       "tests": [
         {
           "name": "livescore-koder · 'Premier League' › hvert af VORES hold har en kode, livescore kender",
@@ -27002,12 +27170,12 @@
           "status": "passed"
         },
         {
-          "name": "Esd fra /0 er ægte UTC › sommertid (BST): kildens Esd matcher vores kickoff",
+          "name": "Esd fra /0 er ægte UTC › sommertid (BST): forskellen 0 er den hyppigste mellem kildens Esd og vores kickoff",
           "status": "passed"
         },
         {
-          "name": "Esd fra /0 er ægte UTC › vintertid (GMT): kildens Esd matcher vores kickoff",
-          "status": "failed"
+          "name": "Esd fra /0 er ægte UTC › vintertid (GMT): forskellen 0 er den hyppigste mellem kildens Esd og vores kickoff",
+          "status": "passed"
         },
         {
           "name": "kampNoegle › oversætter begge hold og nøgler på DATOEN, ikke klokkeslættet",
