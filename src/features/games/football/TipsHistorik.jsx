@@ -81,7 +81,11 @@ function ResultCell({ row }) {
   // «✓ +11,1 (⚡» / «+9)». På telefon står parentesen i stedet på sin egen
   // linje i pillen; inline pressede den holdnavnet ned på ét bogstav pr. linje
   // (se theme.css ved .mytips__delt).
-  const delt = row.isChance && row.chanceAfregnet;
+  //
+  // Gaten er row.isChance ALENE: en chance, der ikke er afregnet, er allerede
+  // returneret ovenfor. Et `&& row.chanceAfregnet` her var en vagt nr. to om
+  // samme beslutning, og den kunne fjernes med hele suiten grøn (mutationstest).
+  const delt = row.isChance;
   return (
     <span
       className={`badge badge--green${delt ? ' mytips__delt' : ''}`}
