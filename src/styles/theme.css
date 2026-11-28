@@ -1437,3 +1437,20 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
 /* Rundens vildeste — eget kort, aldrig sammen med point eller placering. */
 .xgvild { font-size: 0.9rem; }
 .xgvild__titel { font-weight: 700; }
+
+/* Liga-quiz (admin) */
+.quiz__liste { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.9rem; }
+.quiz__q { border-top: 1px solid var(--c-border); padding-top: 0.75rem; }
+.quiz__q:first-child { border-top: 0; padding-top: 0; }
+.quiz__hoved { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.quiz__nr { font-weight: 800; font-size: 1.05rem; }
+.quiz__tekst { margin: 0.35rem 0; font-weight: 600; font-size: 1.02rem; }
+.quiz__valg { list-style: none; padding: 0; margin: 0.25rem 0 0.4rem; display: grid; gap: 0.2rem; }
+.quiz__valg li { padding: 0.15rem 0.4rem; border-radius: var(--radius-sm); }
+.quiz__valg--rigtigt { background: color-mix(in srgb, var(--c-ok) 14%, transparent); font-weight: 700; }
+.quiz__svar { margin: 0.3rem 0 0; }
+.quiz__kilder { list-style: none; padding: 0; margin: 0.6rem 0 0; color: var(--c-muted); font-size: 0.88rem; }
+.quiz__runde { margin-top: 1rem; }
+@media print {
+  .quiz__form, .quiz__knapper, .quiz__vis, .quiz__kilder, .tabs { display: none !important; }
+}
