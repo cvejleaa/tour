@@ -46,9 +46,10 @@ function ResultCell({ row }) {
   // serveren gemmer kun summen, og ved et forkert tip ER summen chance-tabet
   // (outcomePoints giver 0, når man tipper forkert).
   //
-  // Ingen ⚡ her: rækken bærer allerede to — klassen mytips__row--chance og
-  // ⚡'et ved siden af tippet. Et tredje ville være støj, og det røde
-  // fortegnstal siger det selv.
+  // Ingen ⚡ i mærket her, selv om det ramte mærke har et: dér skal ⚡-tallet
+  // skille Chancens del fra tippets, men ved et forkert tip ER hele tallet
+  // chance-tabet. «✗ −4 (⚡ −4)» ville sige det samme to gange — og rækken
+  // bærer allerede ⚡'et ved tippet og klassen mytips__row--chance.
   //
   // Teksten udledes af DELTAET, ikke af chanceStake. Reglerne validerer ikke
   // feltet, og serveren scorer uden bank-loft, så clampStake klipper ved 8: en
@@ -65,18 +66,48 @@ function ResultCell({ row }) {
 
   // RAMT. Tallet rummer både tippet og en evt. chance-gevinst, og uden en
   // forklaring kunne man ikke se, hvorfor en kamp til odds 3,0 gav 19 point.
-  // Fordelingen ligger i title'en frem for i cellen: to tegn i en tabelcelle
-  // presser kolonnen, og ⚡ står allerede på rækken.
+  //
+  // DELINGEN STÅR PÅ MÆRKET, ikke kun i en title. Den lå før alene i title'en
+  // for ikke at presse kolonnen — men title findes ikke på en telefon, og så
+  // stod to spillere med samme tip på samme kamp som «✓ +11» og «✓ +9» uden
+  // en synlig grund (indsatsen er spillerens eget valg, 1–8). Samme begrundelse
+  // som i den ikke-afregnede gren ovenfor.
+  //
+  // Parentesen er "HERAF", ikke "oveni": totalen står først og rummer ⚡-tallet.
+  // Kampkortet viser i stedet to mærker, der lægges sammen («Ramt +2,1» og
+  // «⚡ +9») — derfor står forklaringen i hjælpen under Mine tips.
+  //
+  // Pillen brydes aldrig midt i en del (mytips__delt er nowrap) — ikke som
+  // «✓ +11,1 (⚡» / «+9)». På telefon står parentesen i stedet på sin egen
+  // linje i pillen; inline pressede den holdnavnet ned på ét bogstav pr. linje
+  // (se theme.css ved .mytips__delt).
+  //
+  // Gaten er row.isChance ALENE: en chance, der ikke er afregnet, er allerede
+  // returneret ovenfor. Et `&& row.chanceAfregnet` her var en vagt nr. to om
+  // samme beslutning, og den kunne fjernes med hele suiten grøn (mutationstest).
+  const delt = row.isChance;
   return (
     <span
-      className="badge badge--green"
-      title={row.isChance
+      className={`badge badge--green${delt ? ' mytips__delt' : ''}`}
+      title={delt
         ? `${fmtPoints(row.tipPoints)} for tippet + ${fmtPoints(row.chanceDelta)} fra Chancen`
         : undefined}
     >
       ✓ {fmtSignedPoints(row.points)}
+      {delt && <>{' '}<span className="mytips__chance-del">{chanceDelTekst(row.chanceDelta)}</span></>}
     </span>
   );
+}
+
+/**
+ * Chancens del af et ramt tip, som den står i parentes på mærket: «(heraf ⚡ +9)».
+ * «heraf» er ejerens valg (28/11): kampkortets «Ramt +2,1» og «⚡ +9» lægges
+ * SAMMEN, og uden ordet kunne parentesen læses som et tillæg (11 + 9 = 20).
+ * Eksporteret, så hjælpens eksempel er SAMME tekst som mærket — ikke en kopi,
+ * der kan drive fra det.
+ */
+export function chanceDelTekst(chanceDelta) {
+  return `(heraf ⚡ ${fmtSignedPoints(chanceDelta)})`;
 }
 
 /**

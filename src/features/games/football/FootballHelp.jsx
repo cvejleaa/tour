@@ -10,12 +10,13 @@ import {
 } from '../../../lib/superligaScoring';
 import { puljeMaksStartRunde } from '../../../lib/ligaPoint';
 import { rundePuljeTekster, antalOrd } from '../../../lib/puljeFacit';
-import { fmtDec } from '../../../lib/daNum';
+import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
 // Rubrik-navnene HENTES og skrives ikke af. Ellers hedder de noget andet på
 // hjælpesiden end på skærmen, næste gang et ord ændres — præcis den drift,
 // denne fils formål er at undgå.
 import { harXg, harKampdetaljer, harLiveStilling } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
+import { chanceDelTekst } from './TipsHistorik';
 import { harLandeflag } from './teamInfo';
 import { harGrupper } from '../../../lib/grupper';
 import { ringOgTemaTekst } from './yndlingsholdTekst';
@@ -59,6 +60,9 @@ function bonusAfProdukt(produkt) {
 
 // Rækkerne i tabellen: fra "to sikre rammer" til over loftet.
 const PRODUKTER = [4, 9, 16, 25, 50, 100, 156.25, 300];
+
+// Eksemplet på historikkens chance-mærke (Mine tips): odds 2,1 og 8 i indsats.
+const EKS_CHANCE = { tip: 2.1, chance: 9 };
 
 function Section({ emoji, title, children }) {
   return (
@@ -476,6 +480,17 @@ export default function FootballHelp({ game }) {
           </span>
         ))} og i alt. Det er de <strong>samme fire tal</strong> som i stillingen — de kommer fra
         serveren, ikke fra to forskellige regnestykker.
+        {/* Mærket på en ramt kamp med Chancen. Parentesen er "heraf", ikke
+            "oveni" — kampkortet viser de samme to tal som mærker, der LÆGGES
+            sammen, så uden denne sætning kan man regne 11,1 + 9 til 20.
+            Eksemplet er bygget af samme funktion som mærket. Tallene er en
+            rigtig afregning: odds 2,1 og 8 i indsats giver 2,1 + round(8 × 1,1). */}
+        <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-chance-maerke">
+          Har du brugt ⚡ på en kamp, du ramte, står Chancens del i parentes:{' '}
+          <strong>✓ {fmtSignedPoints(EKS_CHANCE.tip + EKS_CHANCE.chance)} {chanceDelTekst(EKS_CHANCE.chance)}</strong>
+          {' '}betyder {fmtPoints(EKS_CHANCE.tip + EKS_CHANCE.chance)} point for kampen i alt —{' '}
+          <strong>heraf</strong> {fmtPoints(EKS_CHANCE.chance)} fra Chancen og {fmtPoints(EKS_CHANCE.tip)} for tippet.
+        </p>
       </Section>
 
       <Section emoji="🏆" title="Stilling & tabel">

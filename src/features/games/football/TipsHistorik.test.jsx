@@ -10,6 +10,9 @@ import { render, screen } from '@testing-library/react';
 import { groupByRound } from './footballRounds';
 import { buildTipsHistory } from './tipsHistory';
 import TipsHistorik from './TipsHistorik';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const MATCHES = [
   { id: 'm1', round: 1, home: 'AGF', away: 'OB', kickoff: new Date('2026-08-01T17:00:00Z'), result: '1', odds: { 1: 2.5, X: 4, 2: 4 } },
@@ -145,7 +148,9 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
   it('viser hvad en TABT chance kostede', () => {
     tegn({ c1: { pick: '2', points: -4, chanceStake: 4 } });
     const celle = screen.getByText(/✗/);
-    expect(celle).toHaveTextContent('−4');
+    // HELE teksten: ved et forkert tip ER tallet chance-tabet, så der må ikke
+    // komme en «(heraf ⚡ −4)» med, nu hvor det ramte mærke har fået en parentes.
+    expect(celle.textContent).toBe('✗ −4');
     expect(celle).toHaveAttribute('title', 'Chancen tabt: 4 point');
   });
 
@@ -187,28 +192,56 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
     const udenOdds = [{ ...CH[0], odds: null }];
     tegn({ c1: { pick: '1', points: 4, chanceStake: 4 } }, udenOdds);
     expect(screen.getByText(/ingen odds/)).toHaveTextContent('✓ +4');
+    // Ingen deling: chancen er ikke afregnet, så der findes intet ⚡-tal.
+    expect(screen.getByText(/ingen odds/).textContent).not.toMatch(/heraf|\(⚡/);
   });
 
   // En vundet chance: tallet rummer både tippet og gevinsten, og uden
   // forklaringen kunne man ikke se, hvorfor en kamp til odds 3,9 gav 15,9.
-  it('forklarer fordelingen, når en chance er vundet', () => {
+  //
+  // DELINGEN STÅR PÅ MÆRKET, ikke kun i title'en — title findes ikke på en
+  // telefon. Fixturen er en rigtig afregning: 3,9 + round(4 × 2,9) = 3,9 + 12.
+  // HELE teksten asserteres: en substring-match på «+15,9» var grøn både før
+  // og efter, og ville også være grøn, hvis parentesen viste totalen.
+  it('viser fordelingen på mærket, når en chance er vundet', () => {
     tegn({ c1: { pick: '1', points: 15.9, chanceStake: 4 } });
     const celle = screen.getByText(/✓/);
-    expect(celle).toHaveTextContent('+15,9');
+    expect(celle.textContent).toBe('✓ +15,9 (heraf ⚡ +12)');
     expect(celle).toHaveAttribute('title', '3,9 for tippet + 12 fra Chancen');
+    // Klassen bærer stablingen på telefon (theme.css, testen nederst).
+    expect(celle).toHaveClass('mytips__delt');
+  });
+
+  // EJERENS TILFÆLDE (PL runde 12): to spillere tippede begge 1 med ⚡ på
+  // samme kamp og fik «✓ +11» og «✓ +9» uden synlig grund. Indsatsen er
+  // spillerens eget valg (1–8). Odds 2,1: 2,1 + round(8 × 1,1) = 2,1 + 9 og
+  // 2,1 + round(6 × 1,1) = 2,1 + 7. Tippets del er ens — det er det, mærket
+  // skal gøre synligt.
+  it('viser hvorfor samme tip på samme kamp gav forskellige point', () => {
+    const odds21 = [{ ...CH[0], odds: { 1: 2.1, X: 3.4, 2: 3.5 } }];
+    const { unmount } = tegn({ c1: { pick: '1', points: 11.1, chanceStake: 8 } }, odds21);
+    expect(screen.getByText(/✓/).textContent).toBe('✓ +11,1 (heraf ⚡ +9)');
+    unmount();
+    tegn({ c1: { pick: '1', points: 9.1, chanceStake: 6 } }, odds21);
+    expect(screen.getByText(/✓/).textContent).toBe('✓ +9,1 (heraf ⚡ +7)');
   });
 
   // Et træf uden chance skal IKKE have en forklaring — der er intet at dele op.
+  // Hverken title, parentes eller ⚡ i mærket.
   it('forklarer ikke noget på et træf uden chance', () => {
     tegn({ c1: { pick: '1', points: 3.9, chanceStake: 0 } });
-    expect(screen.getByText(/✓/)).not.toHaveAttribute('title');
+    const celle = screen.getByText(/✓/);
+    expect(celle).not.toHaveAttribute('title');
+    expect(celle.textContent).toBe('✓ +3,9');
+    expect(celle).not.toHaveClass('mytips__delt');
   });
 
-  // Point er heltal eller én decimal — ikke "+19,0".
+  // Point er heltal eller én decimal — ikke "+19,0". Fixturen var før 16 point
+  // til odds 3,9, hvilket gav et ⚡-tal på 12,1, som aldrig kan forekomme
+  // (settleChance giver et heltal). Nu odds 4: 4 + round(4 × 3) = 4 + 12.
   it('skriver hele point uden en meningsløs decimal', () => {
-    tegn({ c1: { pick: '1', points: 16, chanceStake: 4 } });
-    expect(screen.getByText(/✓/)).toHaveTextContent('+16');
-    expect(screen.getByText(/✓/).textContent).not.toMatch(/16,0/);
+    tegn({ c1: { pick: '1', points: 16, chanceStake: 4 } }, [{ ...CH[0], odds: { 1: 4, X: 3.5, 2: 2 } }]);
+    expect(screen.getByText(/✓/).textContent).toBe('✓ +16 (heraf ⚡ +12)');
   });
 
   // RÆKKEFØLGEN i ResultCell. Bytter man om på "afventer" og chance-grenen,
@@ -232,6 +265,26 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
     const celle = screen.getByText(/✓/);
     expect(celle).toHaveClass('badge--green');
     expect(celle).toHaveAttribute('title', '1,1 for tippet + 0 fra Chancen');
+    // «(heraf ⚡ +0)» er et BEVIDST valg: det er ærligt (chancen ER afregnet, og
+    // gevinsten blev 0) og spejler kampkortets «⚡ +0». At skjule parentesen
+    // ville gøre rækken umulig at skelne fra et træf uden chance.
+    expect(celle.textContent).toBe('✓ +1,1 (heraf ⚡ +0)');
+  });
+
+  // STABLINGEN PÅ TELEFON. Inline tog mærket ~115 px ved 360 px og pressede
+  // holdnavnet ned på ~15 px (målt med Playwright). jsdom anvender ingen CSS,
+  // så reglen bindes som TEKST — groft, men uden den kan stablingen fjernes
+  // med hele suiten grøn.
+  it('stabler delingen under 600 px og bryder aldrig midt i en del', () => {
+    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../styles/theme.css'), 'utf8');
+    expect(css).toMatch(/\.mytips__delt \{ white-space: nowrap; \}/);
+    const mq = css.indexOf('@media (max-width: 600px) {\n  .mytips__delt');
+    expect(mq).toBeGreaterThan(-1);
+    const blok = css.slice(mq, css.indexOf('\n}', mq));
+    expect(blok).toMatch(/\.mytips__delt \{[^}]*flex-direction: column/);
+    // «heraf» gjorde andenlinjen bredest: i fuld størrelse 99 px mærke og 31 px
+    // holdnavn ved 360 px; med 0,72em 77 px og 53 px (målt med Playwright).
+    expect(blok).toMatch(/\.mytips__delt \.mytips__chance-del \{ font-size: 0\.72em; \}/);
   });
 });
 
