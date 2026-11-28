@@ -2,9 +2,32 @@
  * Ren hjælper til "Mine tips"-historikken: sammenstil spillerens tips med
  * kampenes facit + point pr. runde. Ingen Firebase-afhængigheder (testbar).
  */
-import { round1, outcomePoints } from '../../../lib/superligaScoring';
+import { round1, outcomePoints, CHANCE } from '../../../lib/superligaScoring';
 import { buildRoundContext, combiBonus } from '../../../lib/pointOpdeling';
 import { kampSlut, stillingTekst } from '../../../lib/facit';
+
+/**
+ * DEN INDSATS, SERVEREN AFREGNEDE — ikke den, der står i feltet.
+ *
+ * `chanceStake` er ikke et tal, fladen må vise råt. Gamle dokumenter kan bære
+ * en værdi, reglerne ikke dengang stoppede (i dag må klienten slet ikke skrive
+ * feltet — firestore.rules, og setGameChance afviser alt uden for 1–8). Serveren
+ * afregner med clampStake UDEN saldo (gameScoring kalder scoreBet uden bank),
+ * og det klipper til et helt tal og højst CHANCE.MAX_ABS. En indsats på 100
+ * blev altså afregnet som 8, og så må historikken ikke sige «100 sat på spil»
+ * ved siden af et «✗ −8». En brøk under 1 blev slet ikke afregnet, og så var
+ * der ingen Chance.
+ *
+ * Spejl af clampStake(stake) i functions-platform/superligaScoring.js — bundet
+ * af en paritetstest i tipsHistory.test.js, der kalder serverens udgave.
+ *
+ * @param {unknown} chanceStake
+ * @returns {number} 0 = ingen Chance i spil, ellers et heltal 1..CHANCE.MAX_ABS
+ */
+export function afregnetIndsats(chanceStake) {
+  const s = Math.max(0, Math.floor(Number(chanceStake) || 0));
+  return Math.min(s, CHANCE.MAX_ABS);
+}
 
 /**
  * HVAD CHANCEN KOSTEDE ELLER GAV på ét tip.
@@ -26,7 +49,9 @@ import { kampSlut, stillingTekst } from '../../../lib/facit';
  * @returns {{afregnet: boolean, delta: number}|null} null = ingen chance i spil
  */
 export function chanceUdfald(bet, match) {
-  const stake = Number(bet?.chanceStake) || 0;
+  // Den AFREGNEDE indsats: en brøk under 1 har serveren aldrig afregnet, så
+  // et «(heraf ⚡ +0)» på den ville påstå en Chance, der ikke fandtes.
+  const stake = afregnetIndsats(bet?.chanceStake);
   const pick = bet?.pick ?? null;
   const result = match?.result ?? null;
   if (stake <= 0 || !pick || result == null || result === '') return null;
@@ -87,6 +112,10 @@ export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
       const hit = settled && pick ? pick === result : null;
       const points = Number(bet?.points) || 0;
       const chanceStake = Number(bet?.chanceStake) || 0;
+      // Det tal, rækken viser som «⚡ 8 sat på spil» — og det, der afgør, om
+      // rækken ER en Chance-række. Én kilde: ellers kunne en række få ⚡-klassen
+      // uden et tal, eller et tal uden klassen.
+      const chanceIndsats = afregnetIndsats(chanceStake);
       if (pick) tipped += 1;
       if (pick && settled) { settledTips += 1; if (hit) hits += 1; }
       betPointsSum += points;
@@ -100,7 +129,7 @@ export function buildTipsHistory(rounds, betsByMatch = {}, puljeBonus = 0) {
 
       return {
         id: m.id, home: m.home, away: m.away, kickoff: m.kickoff, odds: m.odds,
-        pick, result, settled, hit, points, chanceStake, isChance: chanceStake > 0,
+        pick, result, settled, hit, points, chanceStake, chanceIndsats, isChance: chanceIndsats > 0,
         chanceAfregnet, chanceDelta, chanceGrund: udfald?.grund ?? null, tipPoints,
         // KNOCKOUT UD OVER ORDINÆR TID: «30-30 · 35-34 e.f.». Ellers stod der
         // ✗ på et 1-tip til det hold, der gik videre, uden et ord om hvorfor.

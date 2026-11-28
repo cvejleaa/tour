@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { buildTipsHistory, chanceUdfald } from './tipsHistory';
+import { createRequire } from 'node:module';
+import { buildTipsHistory, chanceUdfald, afregnetIndsats } from './tipsHistory';
 import { groupByRound } from './footballRounds';
+
+const { clampStake, scoreBet } = createRequire(import.meta.url)('../../../../functions-platform/superligaScoring.js');
 
 // To runder à to kampe. Runde 1 spillet, runde 2 kun tippet.
 const rounds = [
@@ -224,5 +227,67 @@ describe('chanceUdfald — facit før pointene', () => {
   it('skelner de to grunde fra hinanden', () => {
     expect(chanceUdfald({ pick: '2', chanceStake: 4 }, kamp).grund).toBe('afventer');
     expect(chanceUdfald({ pick: '2', points: 0, chanceStake: 4 }, { ...kamp, odds: null }).grund).toBe('ingen-odds');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DEN AFREGNEDE INDSATS. Historikken skriver «⚡ 8 sat på spil», og tallet må
+// ikke være feltet råt: gamle dokumenter kan bære en værdi fra før reglerne
+// lukkede for klient-skrivning, og serveren afregnede den klippet. Et
+// «100 sat på spil» ved siden af «✗ −8» ville være en løgn.
+// ---------------------------------------------------------------------------
+describe('afregnetIndsats — spejl af serverens clampStake uden saldo', () => {
+  // PARITET med SERVERENS kode, ikke med en kopi af den: gameScoring kalder
+  // scoreBet uden bank, så clampStake(x) uden bank ER den afregnede indsats.
+  it('giver præcis det, serveren afregner med — for hver slags værdi', () => {
+    const vaerdier = [0, 0.4, 0.9, 1, 1.5, 2, 4, 7.9, 8, 8.5, 9, 100, 1e9, -3, -0.5, '6', '100', 'abc', '', null, undefined, NaN, Infinity, true, [], {}];
+    for (const v of vaerdier) {
+      expect(afregnetIndsats(v), `chanceStake = ${String(v)}`).toBe(clampStake(v));
+    }
+  });
+
+  // Og end-to-end mod scoreBet: et tabt tip koster præcis den indsats, rækken
+  // viser — så «⚡ N sat på spil» og «✗ −N» altid står med samme N.
+  it('et tabt tip koster præcis den viste indsats', () => {
+    const odds = { 1: 2.2, X: 3.3, 2: 3.4 };
+    for (const stake of [1, 4, 8, 9, 100, 0.9]) {
+      // `+ 0`: −0 og 0 er det samme point, men ikke det samme for Object.is.
+      expect(scoreBet({ pick: '1', chanceStake: stake }, '2', odds) + 0, `stake ${stake}`).toBe(-afregnetIndsats(stake) + 0);
+    }
+  });
+
+  it('klipper til loftet, runder ned og giver 0 for alt under 1', () => {
+    expect(afregnetIndsats(100)).toBe(8);
+    expect(afregnetIndsats(8)).toBe(8);
+    expect(afregnetIndsats(7.9)).toBe(7);
+    expect(afregnetIndsats(0.9)).toBe(0);
+    expect(afregnetIndsats(-3)).toBe(0);
+    expect(afregnetIndsats(undefined)).toBe(0);
+  });
+});
+
+describe('buildTipsHistory — chanceIndsats og isChance følger den afregnede indsats', () => {
+  const m = [{ id: 'k', round: 1, home: 'A', away: 'B', result: '2', odds: { 1: 2.2, X: 3.3, 2: 3.4 } }];
+  const raekke = (bet) => buildTipsHistory(groupByRound(m), { k: bet }).rounds[0].rows[0];
+
+  it('en forfalsket indsats på 100 står som 8 — og er stadig en Chance', () => {
+    const r = raekke({ pick: '1', points: -8, chanceStake: 100 });
+    expect(r.chanceIndsats).toBe(8);
+    expect(r.isChance).toBe(true);
+    expect(r.chanceDelta).toBe(-8);
+  });
+
+  // En brøk under 1 afregnede serveren aldrig (clampStake → 0). Så er der
+  // ingen Chance på rækken — heller ikke en «(heraf ⚡ +0)» på kampkortet.
+  it('en indsats på 0,9 er ingen Chance', () => {
+    const r = raekke({ pick: '2', points: 3.4, chanceStake: 0.9 });
+    expect(r.chanceIndsats).toBe(0);
+    expect(r.isChance).toBe(false);
+    expect(chanceUdfald({ pick: '2', points: 3.4, chanceStake: 0.9 }, m[0])).toBeNull();
+  });
+
+  it('en almindelig indsats står uændret', () => {
+    expect(raekke({ pick: '1', points: -5, chanceStake: 5 }).chanceIndsats).toBe(5);
+    expect(raekke({ pick: '1', points: 0 }).chanceIndsats).toBe(0);
   });
 });
