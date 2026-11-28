@@ -658,7 +658,7 @@ describe('ligaens guide er byte-uændret (Superligaen og Premier League)', () =>
   );
 
   //   4. Chance-mærket (chance-maerke): én ny sætning under Mine tips, der
-  //      forklarer «✓ +11,1 (⚡ +9)». Den står i begge ligaer og fjernes hel —
+  //      forklarer «✓ +11,1 (heraf ⚡ +9)». Den står i begge ligaer og fjernes hel —
   //      præcis én gang.
   const CHANCE_MAERKE = /<p style="[^"]*" data-testid="hjaelp-chance-maerke">.*?<\/p>/;
   const maerkeTilbage = (h) => {
@@ -726,7 +726,7 @@ describe('guiden forklarer «stadig med» — kun for runde-puljen', () => {
   });
 });
 
-// CHANCE-MÆRKET I HISTORIKKEN. «✓ +11,1 (⚡ +9)» betyder "heraf", men
+// CHANCE-MÆRKET I HISTORIKKEN. «✓ +11,1 (heraf ⚡ +9)» betyder "heraf", men
 // kampkortet viser de samme to tal som mærker, der LÆGGES sammen («Ramt +2,1»
 // og «⚡ +9»). Uden en forklaring kan man regne det til 20.
 describe('guiden forklarer chance-mærket i Mine tips', () => {
@@ -741,7 +741,7 @@ describe('guiden forklarer chance-mærket i Mine tips', () => {
     const p = screen.getByTestId('hjaelp-chance-maerke');
     expect(p.textContent).toBe(
       'Har du brugt ⚡ på en kamp, du ramte, står Chancens del i parentes: '
-      + '✓ +11,1 (⚡ +9) betyder 11,1 point for kampen i alt — heraf 9 fra Chancen og 2,1 for tippet.',
+      + '✓ +11,1 (heraf ⚡ +9) betyder 11,1 point for kampen i alt — heraf 9 fra Chancen og 2,1 for tippet.',
     );
     expect(p.textContent).not.toMatch(/oveni|20/);
   });

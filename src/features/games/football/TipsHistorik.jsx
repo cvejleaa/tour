@@ -100,12 +100,14 @@ function ResultCell({ row }) {
 }
 
 /**
- * Chancens del af et ramt tip, som den står i parentes på mærket: «(⚡ +9)».
+ * Chancens del af et ramt tip, som den står i parentes på mærket: «(heraf ⚡ +9)».
+ * «heraf» er ejerens valg (28/11): kampkortets «Ramt +2,1» og «⚡ +9» lægges
+ * SAMMEN, og uden ordet kunne parentesen læses som et tillæg (11 + 9 = 20).
  * Eksporteret, så hjælpens eksempel er SAMME tekst som mærket — ikke en kopi,
  * der kan drive fra det.
  */
 export function chanceDelTekst(chanceDelta) {
-  return `(⚡ ${fmtSignedPoints(chanceDelta)})`;
+  return `(heraf ⚡ ${fmtSignedPoints(chanceDelta)})`;
 }
 
 /**

@@ -149,7 +149,7 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
     tegn({ c1: { pick: '2', points: -4, chanceStake: 4 } });
     const celle = screen.getByText(/✗/);
     // HELE teksten: ved et forkert tip ER tallet chance-tabet, så der må ikke
-    // komme en «(⚡ −4)» med, nu hvor det ramte mærke har fået en parentes.
+    // komme en «(heraf ⚡ −4)» med, nu hvor det ramte mærke har fået en parentes.
     expect(celle.textContent).toBe('✗ −4');
     expect(celle).toHaveAttribute('title', 'Chancen tabt: 4 point');
   });
@@ -193,7 +193,7 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
     tegn({ c1: { pick: '1', points: 4, chanceStake: 4 } }, udenOdds);
     expect(screen.getByText(/ingen odds/)).toHaveTextContent('✓ +4');
     // Ingen deling: chancen er ikke afregnet, så der findes intet ⚡-tal.
-    expect(screen.getByText(/ingen odds/).textContent).not.toMatch(/\(⚡/);
+    expect(screen.getByText(/ingen odds/).textContent).not.toMatch(/heraf|\(⚡/);
   });
 
   // En vundet chance: tallet rummer både tippet og gevinsten, og uden
@@ -206,7 +206,7 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
   it('viser fordelingen på mærket, når en chance er vundet', () => {
     tegn({ c1: { pick: '1', points: 15.9, chanceStake: 4 } });
     const celle = screen.getByText(/✓/);
-    expect(celle.textContent).toBe('✓ +15,9 (⚡ +12)');
+    expect(celle.textContent).toBe('✓ +15,9 (heraf ⚡ +12)');
     expect(celle).toHaveAttribute('title', '3,9 for tippet + 12 fra Chancen');
     // Klassen bærer stablingen på telefon (theme.css, testen nederst).
     expect(celle).toHaveClass('mytips__delt');
@@ -220,10 +220,10 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
   it('viser hvorfor samme tip på samme kamp gav forskellige point', () => {
     const odds21 = [{ ...CH[0], odds: { 1: 2.1, X: 3.4, 2: 3.5 } }];
     const { unmount } = tegn({ c1: { pick: '1', points: 11.1, chanceStake: 8 } }, odds21);
-    expect(screen.getByText(/✓/).textContent).toBe('✓ +11,1 (⚡ +9)');
+    expect(screen.getByText(/✓/).textContent).toBe('✓ +11,1 (heraf ⚡ +9)');
     unmount();
     tegn({ c1: { pick: '1', points: 9.1, chanceStake: 6 } }, odds21);
-    expect(screen.getByText(/✓/).textContent).toBe('✓ +9,1 (⚡ +7)');
+    expect(screen.getByText(/✓/).textContent).toBe('✓ +9,1 (heraf ⚡ +7)');
   });
 
   // Et træf uden chance skal IKKE have en forklaring — der er intet at dele op.
@@ -241,7 +241,7 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
   // (settleChance giver et heltal). Nu odds 4: 4 + round(4 × 3) = 4 + 12.
   it('skriver hele point uden en meningsløs decimal', () => {
     tegn({ c1: { pick: '1', points: 16, chanceStake: 4 } }, [{ ...CH[0], odds: { 1: 4, X: 3.5, 2: 2 } }]);
-    expect(screen.getByText(/✓/).textContent).toBe('✓ +16 (⚡ +12)');
+    expect(screen.getByText(/✓/).textContent).toBe('✓ +16 (heraf ⚡ +12)');
   });
 
   // RÆKKEFØLGEN i ResultCell. Bytter man om på "afventer" og chance-grenen,
@@ -265,10 +265,10 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
     const celle = screen.getByText(/✓/);
     expect(celle).toHaveClass('badge--green');
     expect(celle).toHaveAttribute('title', '1,1 for tippet + 0 fra Chancen');
-    // «(⚡ +0)» er et BEVIDST valg: det er ærligt (chancen ER afregnet, og
+    // «(heraf ⚡ +0)» er et BEVIDST valg: det er ærligt (chancen ER afregnet, og
     // gevinsten blev 0) og spejler kampkortets «⚡ +0». At skjule parentesen
     // ville gøre rækken umulig at skelne fra et træf uden chance.
-    expect(celle.textContent).toBe('✓ +1,1 (⚡ +0)');
+    expect(celle.textContent).toBe('✓ +1,1 (heraf ⚡ +0)');
   });
 
   // STABLINGEN PÅ TELEFON. Inline tog mærket ~115 px ved 360 px og pressede
@@ -282,6 +282,9 @@ describe('TipsHistorik — chancens udfald pr. kamp', () => {
     expect(mq).toBeGreaterThan(-1);
     const blok = css.slice(mq, css.indexOf('\n}', mq));
     expect(blok).toMatch(/\.mytips__delt \{[^}]*flex-direction: column/);
+    // «heraf» gjorde andenlinjen bredest: i fuld størrelse 99 px mærke og 31 px
+    // holdnavn ved 360 px; med 0,72em 77 px og 53 px (målt med Playwright).
+    expect(blok).toMatch(/\.mytips__delt \.mytips__chance-del \{ font-size: 0\.72em; \}/);
   });
 });
 

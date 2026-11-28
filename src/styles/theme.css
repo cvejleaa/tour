@@ -1066,6 +1066,10 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
 .mytips__delt { white-space: nowrap; }
 @media (max-width: 600px) {
   .mytips__delt { flex-direction: column; gap: 0; border-radius: var(--radius-sm); line-height: 1.3; }
+  /* «heraf» (ejerens valg 28/11) gjorde linje 2 til den bredeste og pressede
+     holdnavnet ned på ~31 px ved 360 px. Mindre skrift på andenlinjen holder
+     pillen på samme bredde som før ordet kom til. */
+  .mytips__delt .mytips__chance-del { font-size: 0.72em; }
 }
 .mytips__res { text-align: right; font-variant-numeric: tabular-nums; }
 .mytips__none, .mytips__pending { color: var(--c-muted); font-size: 0.8rem; }
