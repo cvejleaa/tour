@@ -498,6 +498,6 @@ describe('TipsHistorik — tippet i en boks og indsatsen med ord', () => {
   // De hårde mellemrum er grunden til, at linjen brydes som «⚡ 8 sat / på spil».
   it('holder «⚡ 8» og «på spil» sammen med hårde mellemrum', () => {
     const { container } = tegn([K('a', '1')], { a: { pick: '1', points: 11.1, chanceStake: 8 } });
-    expect(container.querySelector('.mytips__indsats').textContent).toBe('⚡\u00a08 sat på\u00a0spil');
+    expect(container.querySelector('.mytips__indsats').textContent).toBe('⚡\u00a08\u00a0sat på\u00a0spil');
   });
 });

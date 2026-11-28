@@ -117,13 +117,14 @@ export function chanceDelTekst(chanceDelta) {
  * fortegnet hører til deltaet i mærket («(heraf ⚡ +9)», «✗ −8»). Eksporteret,
  * så hjælpens eksempel er samme tekst som rækken.
  *
- * Hårde mellemrum (\u00a0) efter ⚡ og i «på spil»: ved 360 px er
- * kampkolonnen ofte under 90 px, og linjen brydes så som «⚡ 8 sat / på spil»
- * i stedet for «⚡ 8 sat på / spil» eller et ⚡ alene på en linje (målt med
- * Playwright). nowrap på hele linjen blev prøvet og gav vandret scroll.
+ * Hårde mellemrum (\u00a0) i «⚡ 8 sat» og i «på spil»: ved 360 px er
+ * kampkolonnen ofte under 90 px, og linjen brydes så højst som
+ * «⚡ 8 sat / på spil» — ikke «⚡ 8 / sat / på spil» (målt med Playwright på
+ * lange holdnavne), «⚡ 8 sat på / spil» eller et ⚡ alene på en linje.
+ * nowrap på hele linjen blev prøvet og gav vandret scroll.
  */
 export function indsatsTekst(indsats) {
-  return `⚡\u00a0${indsats} sat på\u00a0spil`;
+  return `⚡\u00a0${indsats}\u00a0sat på\u00a0spil`;
 }
 
 /**
