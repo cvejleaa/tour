@@ -49,11 +49,13 @@ function ResultCell({ row }) {
   // Ingen ⚡ i mærket her, selv om det ramte mærke har et: dér skal ⚡-tallet
   // skille Chancens del fra tippets, men ved et forkert tip ER hele tallet
   // chance-tabet. «✗ −4 (⚡ −4)» ville sige det samme to gange — og rækken
-  // bærer allerede ⚡'et ved tippet og klassen mytips__row--chance.
+  // bærer allerede ⚡'et ved indsatsen og klassen mytips__row--chance.
   //
-  // Teksten udledes af DELTAET, ikke af chanceStake. Reglerne validerer ikke
-  // feltet, og serveren scorer uden bank-loft, så clampStake klipper ved 8: en
-  // forfalsket indsats på 100 ville give mærket −8 og en tekst om 100 point.
+  // Teksten udledes af DELTAET, ikke af chanceStake. Klienten må i dag slet
+  // ikke skrive feltet (firestore.rules), men gamle dokumenter kan bære en
+  // værdi fra før — og serveren afregner med clampStake, der klipper ved 8: en
+  // forfalsket indsats på 100 gav −8. Indsatsen over mærket er af samme grund
+  // den AFREGNEDE (chanceIndsats fra tipsHistory), ikke feltet.
   if (!row.hit) {
     return row.isChance
       ? (
@@ -108,6 +110,20 @@ function ResultCell({ row }) {
  */
 export function chanceDelTekst(chanceDelta) {
   return `(heraf ⚡ ${fmtSignedPoints(chanceDelta)})`;
+}
+
+/**
+ * Indsatsen på en Chance-række: «⚡ 8 sat på spil». Et heltal UDEN fortegn —
+ * fortegnet hører til deltaet i mærket («(heraf ⚡ +9)», «✗ −8»). Eksporteret,
+ * så hjælpens eksempel er samme tekst som rækken.
+ *
+ * Hårde mellemrum (\u00a0) efter ⚡ og i «på spil»: ved 360 px er
+ * kampkolonnen ofte under 90 px, og linjen brydes så som «⚡ 8 sat / på spil»
+ * i stedet for «⚡ 8 sat på / spil» eller et ⚡ alene på en linje (målt med
+ * Playwright). nowrap på hele linjen blev prøvet og gav vandret scroll.
+ */
+export function indsatsTekst(indsats) {
+  return `⚡\u00a0${indsats} sat på\u00a0spil`;
 }
 
 /**
@@ -200,10 +216,34 @@ export default function TipsHistorik({
                   {row.stilling && (
                     <span className="mytips__slut" data-testid={`slut-${row.id}`} title={AFGJORT_NAVN[row.afgjort]}>{row.stilling}</span>
                   )}
+                  {/* INDSATSEN, MED ORD. Før stod ⚡ lige op ad tippet som
+                      «1 ⚡», og ejeren læste 1-tallet som indsatsen (28/11).
+                      Nu står tallet her med «sat på spil» — hans egne ord, og
+                      de passer i alle tilstande: før kampen, efter den, og på
+                      en kamp uden odds, hvor der var sat 8 på spil, men intet
+                      blev afregnet.
+                      UNDER KAMPNAVNET, ikke i tip-kolonnen: rækken er et
+                      gitter (auto 1fr auto auto), og tekst i tip-kolonnen tog
+                      bredden fra holdnavnet — samme fejl, der gav ét bogstav
+                      pr. linje (se .mytips__delt i theme.css).
+                      ALDRIG FORTEGN. På en ramt række står to ⚡-tal: «8 sat
+                      på spil» og «(heraf ⚡ +9)». Indsatsen er et beløb, deltaet
+                      er en ændring — fortegnet er det, der skiller dem. */}
+                  {row.isChance && (
+                    <span className="mytips__indsats" data-testid={`indsats-${row.id}`}>
+                      {indsatsTekst(row.chanceIndsats)}
+                    </span>
+                  )}
                 </span>
+                {/* TIPPET I EN BOKS, i 1/X/2-knappernes form, så det læses som
+                    et udfald og ikke som et tal. Neutral: grøn og rød bærer
+                    mærket til højre, og en farvet boks i en historik ligner
+                    noget, man kan trykke på. Intet før udfaldet i kolonnen
+                    (e2e/platform/tip.spec.js læser den med /^X/). */}
                 <span className="mytips__pick">
-                  {row.pick ? OUTCOME_LABEL[row.pick] : '–'}
-                  {row.isChance && <span title="Chancen brugt" className="mytips__chance">⚡</span>}
+                  {row.pick
+                    ? <span className="mytips__udfald">{OUTCOME_LABEL[row.pick]}</span>
+                    : '–'}
                 </span>
                 <span className="mytips__res"><ResultCell row={row} /></span>
               </div>

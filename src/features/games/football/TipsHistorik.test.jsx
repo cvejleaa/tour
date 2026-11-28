@@ -353,3 +353,151 @@ describe('TipsHistorik — holdnavn', () => {
     expect(kampe).toContain('Brøndby IF');
   });
 });
+
+// ---------------------------------------------------------------------------
+// TIPPET OG INDSATSEN (28/11)
+//
+// Ejeren læste «1 ⚡» som «én chance» eller en indsats på 1 — men 1-tallet var
+// tippet. Nu står tippet i en boks (et udfald, ikke et tal), og indsatsen står
+// med ord under kampen: «⚡ 8 sat på spil». Hans egne ord.
+//
+// Teksten bruger hårde mellemrum (se indsatsTekst); de normaliseres her, så
+// testene læser det, en spiller ser.
+// ---------------------------------------------------------------------------
+describe('TipsHistorik — tippet i en boks og indsatsen med ord', () => {
+  const K = (id, result, odds = { 1: 2.1, X: 3.4, 2: 3.5 }) => ({
+    id, round: 1, home: `Hjem ${id}`, away: `Ude ${id}`, kickoff: new Date('2026-08-01T17:00:00Z'), result, odds,
+  });
+  const tekst = (el) => el.textContent.replace(/\u00a0/g, ' ');
+  const tegn = (matches, bets) => render(
+    <TipsHistorik history={buildTipsHistory(groupByRound(matches), bets)} total={0} />,
+  );
+  const raekke = (container, id) => [...container.querySelectorAll('.mytips__row')]
+    .find((r) => r.querySelector('.mytips__match').textContent.startsWith(`Hjem ${id}`));
+
+  // DEN RAMTE RÆKKE: to ⚡-tal side om side. Indsatsen er et beløb (intet
+  // fortegn), Chancens del en ændring (altid fortegn). Uden den regel kan
+  // «8» og «+9» læses som det samme slags tal.
+  it('en ramt Chance: boks, indsats uden fortegn og delta med fortegn', () => {
+    const { container } = tegn([K('a', '1')], { a: { pick: '1', points: 11.1, chanceStake: 8 } });
+    const r = raekke(container, 'a');
+    expect(r.querySelector('.mytips__pick').textContent).toBe('1');
+    expect(r.querySelector('.mytips__udfald').textContent).toBe('1');
+    expect(tekst(r.querySelector('.mytips__indsats'))).toBe('⚡ 8 sat på spil');
+    expect(r.querySelector('.mytips__res').textContent).toBe('✓ +11,1 (heraf ⚡ +9)');
+    // Fortegnsreglen, læst på hele rækken: «8» står ALDRIG med fortegn, og
+    // ⚡-deltaet står ALDRIG uden.
+    expect(tekst(r)).not.toMatch(/[+−-]\s?8 sat/);
+    expect(tekst(r)).toMatch(/\(heraf ⚡ \+9\)/);
+    // Tip-kolonnen har intet andet end udfaldet — ⚡'et er flyttet til indsatsen.
+    expect(r.querySelector('.mytips__pick').textContent).not.toMatch(/⚡/);
+    expect(r.querySelector('.mytips__chance')).toBeNull();
+  });
+
+  it('en tabt Chance: samme N i indsatsen og i mærket', () => {
+    const { container } = tegn([K('d', 'X')], { d: { pick: '1', points: -4, chanceStake: 4 } });
+    const r = raekke(container, 'd');
+    expect(tekst(r.querySelector('.mytips__indsats'))).toBe('⚡ 4 sat på spil');
+    expect(r.querySelector('.mytips__res').textContent).toBe('✗ −4');
+  });
+
+  // DEN FORFALSKEDE INDSATS. Serveren afregnede 100 som 8 (clampStake), og så
+  // må rækken hverken sige 100 eller noget andet tal over loftet.
+  it('en forfalsket indsats på 100 står som 8 — og 100 står ingen steder', () => {
+    const { container } = tegn([K('g', 'X')], { g: { pick: '2', points: -8, chanceStake: 100 } });
+    const r = raekke(container, 'g');
+    expect(tekst(r.querySelector('.mytips__indsats'))).toBe('⚡ 8 sat på spil');
+    expect(r.querySelector('.mytips__res').textContent).toBe('✗ −8');
+    expect(container.textContent).not.toMatch(/100/);
+  });
+
+  // Under 1 afregnede serveren ingen Chance. Så er rækken en almindelig række:
+  // ingen indsats, ingen ⚡-farve, intet «heraf».
+  it('en indsats på 0,9 er ingen Chance — ingen indsats-linje', () => {
+    const { container } = tegn([K('e', '1')], { e: { pick: '1', points: 2.1, chanceStake: 0.9 } });
+    expect(container.querySelector('.mytips__indsats')).toBeNull();
+    expect(container.querySelector('.mytips__row--chance')).toBeNull();
+    expect(raekke(container, 'e').querySelector('.mytips__res').textContent).toBe('✓ +2,1');
+    expect(raekke(container, 'e').textContent).not.toMatch(/på spil|⚡/);
+  });
+
+  // «på spil» KUN på Chance-rækker. En runde med og uden Chance side om side.
+  it('«sat på spil» står kun på Chance-rækkerne', () => {
+    const { container } = tegn(
+      [K('a', '1'), K('b', '1'), K('c', '2'), K('n', '1')],
+      {
+        a: { pick: '1', points: 11.1, chanceStake: 8 },
+        b: { pick: '1', points: 2.1, chanceStake: 0 },
+        c: { pick: '1', points: 0 },
+        // n: ikke tippet
+      },
+    );
+    const medIndsats = [...container.querySelectorAll('.mytips__row')]
+      .filter((r) => /på.spil/.test(r.textContent))
+      .map((r) => r.querySelector('.mytips__match').textContent);
+    expect(medIndsats).toHaveLength(1);
+    expect(medIndsats[0]).toMatch(/^Hjem a/);
+    expect(container.querySelectorAll('.mytips__indsats')).toHaveLength(1);
+  });
+
+  // ÆRLIG FØR AFREGNING. Indsatsen ER sat, også når intet er afgjort endnu —
+  // men mærket må stadig hverken gætte et tal eller kalde den vundet/tabt.
+  it('ikke spillet, venter på serveren og uden odds: indsatsen står, mærket gætter ikke', () => {
+    const { container } = tegn(
+      [K('h', null), K('v', '2'), K('f', '2', null)],
+      {
+        h: { pick: 'X', chanceStake: 5 },
+        v: { pick: '1', chanceStake: 3 }, // facit, men endnu ikke scoret
+        f: { pick: '1', points: 0, chanceStake: 8 },
+      },
+    );
+    const res = (id) => raekke(container, id).querySelector('.mytips__res').textContent;
+    const ind = (id) => tekst(raekke(container, id).querySelector('.mytips__indsats'));
+    expect(ind('h')).toBe('⚡ 5 sat på spil');
+    expect(res('h')).toBe('afventer');
+    expect(ind('v')).toBe('⚡ 3 sat på spil');
+    expect(res('v')).toBe('✗ · ⚡ afregnes om lidt');
+    expect(ind('f')).toBe('⚡ 8 sat på spil');
+    expect(res('f')).toBe('✗ · ⚡ ingen odds, hverken vundet eller tabt');
+    // Intet fortegnstal på de ikke-afregnede.
+    for (const id of ['h', 'v', 'f']) expect(res(id)).not.toMatch(/[+−-]\d/);
+  });
+
+  // Ingen boks uden et tip: en boks siger "dit udfald", og der er intet.
+  it('en ikke-tippet kamp har en streg, ikke en tom boks', () => {
+    const { container } = tegn([K('a', '1'), K('n', '1')], { a: { pick: '1', points: 2.1 } });
+    const r = raekke(container, 'n');
+    expect(r.querySelector('.mytips__pick').textContent).toBe('–');
+    expect(r.querySelector('.mytips__udfald')).toBeNull();
+    expect(container.querySelectorAll('.mytips__udfald')).toHaveLength(1);
+  });
+
+  // NEUTRAL BOKS. jsdom anvender ingen CSS, så reglerne bindes som TEKST:
+  // boksen har 1/X/2-knappens kant, men ingen af dens farvetilstande, og
+  // indsatsen står som en blok-linje under navnet, der aldrig brydes midt i et
+  // ord (ellers stod «s / pil» ved 360 px — målt med Playwright).
+  it('boksen er neutral, og indsats-linjen brydes kun mellem ord', () => {
+    const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../../styles/theme.css'), 'utf8');
+    const regel = (sel) => {
+      const i = css.indexOf(`\n${sel} {`);
+      expect(i, sel).toBeGreaterThan(-1);
+      return css.slice(i, css.indexOf('}', i));
+    };
+    const boks = regel('.mytips__udfald');
+    expect(boks).toMatch(/border: 1\.5px solid var\(--c-border\)/);
+    expect(boks).not.toMatch(/--c-pitch|--c-danger|--c-accent|--c-red|--c-green/);
+    const ind = regel('.mytips__indsats');
+    expect(ind).toMatch(/display: block/);
+    expect(ind).toMatch(/overflow-wrap: normal/);
+    expect(ind).not.toMatch(/nowrap/); // nowrap gav vandret scroll ved 360 px
+    // Boksen har kun sin egen klasse — ingen pick--/badge--farveklasser.
+    const { container } = tegn([K('a', '1')], { a: { pick: '1', points: 11.1, chanceStake: 8 } });
+    expect(container.querySelector('.mytips__udfald').className).toBe('mytips__udfald');
+  });
+
+  // De hårde mellemrum er grunden til, at linjen brydes som «⚡ 8 sat / på spil».
+  it('holder «⚡ 8» og «på spil» sammen med hårde mellemrum', () => {
+    const { container } = tegn([K('a', '1')], { a: { pick: '1', points: 11.1, chanceStake: 8 } });
+    expect(container.querySelector('.mytips__indsats').textContent).toBe('⚡\u00a08 sat på\u00a0spil');
+  });
+});

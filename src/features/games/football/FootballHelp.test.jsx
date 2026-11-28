@@ -657,9 +657,11 @@ describe('ligaens guide er byte-uændret (Superligaen og Premier League)', () =>
     ' og se, hvad de andre i dine ligaer valgte — og de kan se dit. Du kan også klikke på et navn i ',
   );
 
-  //   4. Chance-mærket (chance-maerke): én ny sætning under Mine tips, der
-  //      forklarer «✓ +11,1 (heraf ⚡ +9)». Den står i begge ligaer og fjernes hel —
-  //      præcis én gang.
+  //   4. Chance-mærket (chance-maerke): ét nyt afsnit under Mine tips, der
+  //      forklarer indsatsen «⚡ 8 sat på spil» og mærket «✓ +11,1 (heraf ⚡ +9)».
+  //      Det står i begge ligaer og fjernes helt — præcis én gang. Hashen er
+  //      derfor uændret, når afsnittets indhold ændres; indholdet bindes af
+  //      testene i «guiden forklarer chance-mærket» nedenfor.
   const CHANCE_MAERKE = /<p style="[^"]*" data-testid="hjaelp-chance-maerke">.*?<\/p>/;
   const maerkeTilbage = (h) => {
     expect(h.match(new RegExp(CHANCE_MAERKE.source, 'g'))).toHaveLength(1);
@@ -736,26 +738,46 @@ describe('guiden forklarer chance-mærket i Mine tips', () => {
     </MemoryRouter>,
   );
 
-  it('siger at parentesen er en del af totalen — ikke et tillæg', () => {
+  // INDSATS OG GEVINST (28/11). Rækken har nu to ⚡-tal: «⚡ 8 sat på spil» og
+  // «(heraf ⚡ +9)». Uden sætningen om, at de 9 ER gevinsten på de 8, kan man
+  // regne 8 + 9 — ligesom man før kunne regne 11,1 + 9.
+  it('siger at parentesen er en del af totalen, og at indsatsen ikke lægges til', () => {
     visHjaelp();
     const p = screen.getByTestId('hjaelp-chance-maerke');
-    expect(p.textContent).toBe(
-      'Har du brugt ⚡ på en kamp, du ramte, står Chancens del i parentes: '
-      + '✓ +11,1 (heraf ⚡ +9) betyder 11,1 point for kampen i alt — heraf 9 fra Chancen og 2,1 for tippet.',
+    expect(p.textContent.replace(/\u00a0/g, ' ')).toBe(
+      'Har du brugt ⚡ på en kamp, står din indsats under kampen: ⚡ 8 sat på spil. '
+      + 'Ramte du, står Chancens del i parentes: '
+      + '✓ +11,1 (heraf ⚡ +9) betyder 11,1 point for kampen i alt — heraf 9 fra Chancen og 2,1 for tippet. '
+      + 'De 9 er gevinsten på de 8 til odds 2,1; indsatsen selv lægges ikke til. '
+      + 'Ramte du forkert, mister du indsatsen: ✗ −8.',
     );
-    expect(p.textContent).not.toMatch(/oveni|20/);
+    // Hverken et tillæg eller summerne af en forkert læsning (11,1 + 9 og 8 + 9).
+    expect(p.textContent).not.toMatch(/oveni|oven i|20|17/);
+    // Indsatsen står ALDRIG med fortegn — fortegnet er deltaets.
+    expect(p.textContent).not.toMatch(/[+−-]\s?8 sat/);
   });
 
-  // PARITET: eksemplet skal være SAMME tekst, som mærket viser for præcis den
-  // afregning (odds 2,1, indsats 8: 2,1 + round(8 × 1,1)). En kopi i guiden,
-  // der ikke er bundet, er den næste tekst, der driver fra fladen.
-  it('eksemplet er det mærke, historikken faktisk tegner', () => {
+  // PARITET: eksemplerne skal være SAMME tekst, som rækken viser for præcis den
+  // afregning (odds 2,1, indsats 8: 2,1 + round(8 × 1,1)) — og det tabte mærke
+  // for samme indsats. En kopi i guiden, der ikke er bundet, er den næste
+  // tekst, der driver fra fladen.
+  it('eksemplerne er dem, historikken faktisk tegner', () => {
     const m = [{ id: 'k', round: 1, home: 'A', away: 'B', kickoff: new Date('2026-08-01T17:00:00Z'), result: '1', odds: { 1: 2.1, X: 3.4, 2: 3.5 } }];
-    const { container } = render(
-      <TipsHistorik history={buildTipsHistory(groupByRound(m), { k: { pick: '1', points: 11.1, chanceStake: 8 } })} total={11.1} />,
-    );
-    const maerke = container.querySelector('.mytips__res .badge').textContent;
+    const tegn = (bet) => {
+      const { container, unmount } = render(
+        <TipsHistorik history={buildTipsHistory(groupByRound(m), { k: bet })} total={11.1} />,
+      );
+      const ud = {
+        indsats: container.querySelector('.mytips__indsats').textContent,
+        maerke: container.querySelector('.mytips__res .badge').textContent,
+      };
+      unmount();
+      return ud;
+    };
+    const ramt = tegn({ pick: '1', points: 11.1, chanceStake: 8 });
+    const tabt = tegn({ pick: '2', points: -8, chanceStake: 8 });
     visHjaelp();
-    expect(screen.getByTestId('hjaelp-chance-maerke').querySelector('strong').textContent).toBe(maerke);
+    const fede = [...screen.getByTestId('hjaelp-chance-maerke').querySelectorAll('strong')].map((e) => e.textContent);
+    expect(fede).toEqual([ramt.indsats, ramt.maerke, 'heraf', tabt.maerke]);
   });
 });

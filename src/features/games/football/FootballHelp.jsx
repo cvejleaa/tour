@@ -16,11 +16,13 @@ import { fmtDec, fmtPoints, fmtSignedPoints } from '../../../lib/daNum';
 // denne fils formål er at undgå.
 import { harXg, harKampdetaljer, harLiveStilling } from '../spilEvner';
 import { RUBRIKKER } from './PointOpdeling';
-import { chanceDelTekst } from './TipsHistorik';
+import { chanceDelTekst, indsatsTekst } from './TipsHistorik';
 import { harLandeflag } from './teamInfo';
 import { harGrupper } from '../../../lib/grupper';
 import { ringOgTemaTekst } from './yndlingsholdTekst';
-import { sportOrd, harHjemmebane, oddsLoft } from '../../../lib/superligaScoring';
+import {
+  sportOrd, harHjemmebane, oddsLoft, outcomePoints, settleChance,
+} from '../../../lib/superligaScoring';
 import {
   harFaseKalender, harKnockout, rundeKort, rundeOrd, rundeOrdene, sidsteKalenderRunde, kortDato, fmtFaseStart,
 } from '../../../lib/faser';
@@ -61,8 +63,18 @@ function bonusAfProdukt(produkt) {
 // Rækkerne i tabellen: fra "to sikre rammer" til over loftet.
 const PRODUKTER = [4, 9, 16, 25, 50, 100, 156.25, 300];
 
-// Eksemplet på historikkens chance-mærke (Mine tips): odds 2,1 og 8 i indsats.
-const EKS_CHANCE = { tip: 2.1, chance: 9 };
+// Eksemplet på historikkens chance-række (Mine tips): odds 2,1 og 8 i indsats.
+// Tallene REGNES af de rigtige formler — de skrives ikke af. Tippets del er
+// outcomePoints og Chancens del settleChance, som serveren afregner efter:
+// 2,1 + round(8 × 1,1) = 2,1 + 9.
+const EKS_ODDS = { 1: 2.1, X: 3.4, 2: 3.5 };
+const EKS_INDSATS = 8;
+const EKS_CHANCE = {
+  odds: EKS_ODDS[1],
+  indsats: EKS_INDSATS,
+  tip: outcomePoints('1', '1', EKS_ODDS),
+  chance: settleChance({ correct: true, stake: EKS_INDSATS, fairOdds: EKS_ODDS[1] }).delta,
+};
 
 function Section({ emoji, title, children }) {
   return (
@@ -480,16 +492,22 @@ export default function FootballHelp({ game }) {
           </span>
         ))} og i alt. Det er de <strong>samme fire tal</strong> som i stillingen — de kommer fra
         serveren, ikke fra to forskellige regnestykker.
-        {/* Mærket på en ramt kamp med Chancen. Parentesen er "heraf", ikke
-            "oveni" — kampkortet viser de samme to tal som mærker, der LÆGGES
-            sammen, så uden denne sætning kan man regne 11,1 + 9 til 20.
-            Eksemplet er bygget af samme funktion som mærket. Tallene er en
-            rigtig afregning: odds 2,1 og 8 i indsats giver 2,1 + round(8 × 1,1). */}
+        {/* Rækken med Chancen. To ⚡-tal står på samme række: indsatsen (et
+            beløb, uden fortegn) og Chancens del af pointene (en ændring, med
+            fortegn). Parentesen er "heraf", ikke et tillæg — kampkortet viser
+            de samme to tal som mærker, der LÆGGES sammen, så uden denne
+            sætning kan man regne 11,1 + 9 til 20. Og man kan regne 8 + 9, hvis
+            ikke det står, at de 9 ER gevinsten på de 8.
+            Eksemplet er bygget af samme funktioner som rækken. */}
         <p style={{ margin: '0.5rem 0 0' }} data-testid="hjaelp-chance-maerke">
-          Har du brugt ⚡ på en kamp, du ramte, står Chancens del i parentes:{' '}
+          Har du brugt ⚡ på en kamp, står din indsats under kampen:{' '}
+          <strong>{indsatsTekst(EKS_CHANCE.indsats)}</strong>. Ramte du, står Chancens del i parentes:{' '}
           <strong>✓ {fmtSignedPoints(EKS_CHANCE.tip + EKS_CHANCE.chance)} {chanceDelTekst(EKS_CHANCE.chance)}</strong>
           {' '}betyder {fmtPoints(EKS_CHANCE.tip + EKS_CHANCE.chance)} point for kampen i alt —{' '}
           <strong>heraf</strong> {fmtPoints(EKS_CHANCE.chance)} fra Chancen og {fmtPoints(EKS_CHANCE.tip)} for tippet.
+          {' '}De {fmtPoints(EKS_CHANCE.chance)} er gevinsten på de {EKS_CHANCE.indsats} til odds {fmtDec(EKS_CHANCE.odds)};
+          {' '}indsatsen selv lægges ikke til. Ramte du forkert, mister du indsatsen:{' '}
+          <strong>✗ {fmtSignedPoints(-EKS_CHANCE.indsats)}</strong>.
         </p>
       </Section>
 
