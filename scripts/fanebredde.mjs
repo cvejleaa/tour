@@ -36,7 +36,7 @@ const SPIL_FANER = ['Tip', '📋 Mine tips', '🏆 Stilling', '🎖️ Pulje', '
 // LISTEN ER ET SPEJL af AdminPage.jsx og bindes af fanebredde.test.mjs. Uden
 // den paritetstest kunne en ny fane landes uden at komme med her, og harnesset
 // ville tavst måle en række, der ikke findes — et tal uden dækning.
-const ADMIN_FANER = ['Brugere', '🗓️ Spil-tidsplan', '🎨 Hold-farver og navne', '🔔 Påmindelser', '🤖 Runde-Botten', '🧑‍🤝‍🧑 Liga-medlemmer', 'Tests', '🩺 Driftstatus', '✉️ Mail-log', '📈 Aktivitet', '📣 Send mail'];
+const ADMIN_FANER = ['Brugere', '🗓️ Spil-tidsplan', '🎨 Hold-farver og navne', '🔔 Påmindelser', '🤖 Runde-Botten', '🧑‍🤝‍🧑 Liga-medlemmer', '🧠 Liga-quiz', 'Tests', '🩺 Driftstatus', '✉️ Mail-log', '📈 Aktivitet', '📣 Send mail'];
 
 const faneRaekke = (faner) => `
   <div class="tabs" role="tablist">

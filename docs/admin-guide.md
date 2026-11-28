@@ -18,7 +18,7 @@ Liga-admin følger med at have oprettet ligaen.
 
 **Begge apps:** Brugere · Tests · ✉️ Mail-log · 📈 Aktivitet · 📣 Send mail (ejer)
 
-**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver og navne · 🔔 Påmindelser · 🤖 Runde-Botten · 🧑‍🤝‍🧑 Liga-medlemmer · 🩺 Driftstatus
+**Kun platformen:** 🗓️ Spil-tidsplan · 🎨 Hold-farver og navne · 🔔 Påmindelser · 🤖 Runde-Botten · 🧑‍🤝‍🧑 Liga-medlemmer · 🧠 Liga-quiz · 🩺 Driftstatus
 
 **Kun Tour:** 🚴 Tour · 🏷️ Ryttertyper · Bonus · Ligaer · 📋 Køreplan · ⚙️ Indstillinger
 
@@ -233,6 +233,28 @@ spillere fra andre ligaer. De blev taget ned den 5. august 2026 med et
 engangs-panel, der er fjernet igen. De ramte beskeder bærer stadig felterne
 `oprindeligTekst` og `rettetAt` — se [drift.md](drift.md), hvis en af dem
 skal gendannes.
+
+## Liga-quiz (platformen)
+
+**🧠 Liga-quiz** laver en quiz på 2 × 10 spørgsmål (multiple choice og åbne)
+om, hvordan det går og er gået for én liga — som standard **Dreamteam**. Skriv
+ligaens navn og tryk **Lav quizzen**.
+
+- **Runde 1 · Sommerens spil**: VM 2026 og Tour de France. De to spil kørte i
+  hver sin gamle app, så der kendes kun ligaens **top 5 og antal deltagere**
+  (`legacyLeagueResults`, eksporteret af *Export legacy leagues*). Er ligaen
+  ikke eksporteret, springes spillet over.
+- **Runde 2 · Sæsonen lige nu**: Superligaen og Premier League, regnet af
+  ligaens stilling (samme tal som Stilling-fanen), ligamedlemmernes tips og
+  kampene — hver gang du trykker, så quizzen altid er dagsaktuel.
+- Ligaen findes blandt de ligaer, **du selv er med i** (reglerne lader kun
+  medlemmer læse en liga). Står der «du er ikke med i ligaen her», er du ikke
+  medlem af den i det spil.
+- Et spørgsmål med et delt svar (fx to på førstepladsen) springes over og
+  erstattes af et reservespørgsmål. Er der ikke data nok, siger runden det.
+- **Vis svar** pr. spørgsmål, **Vis alle svar**, og **🖨️ Udskriv** (knapperne
+  og svar-knapperne kommer ikke med på papiret; slå svarene til før udskrift,
+  hvis du vil have et facitark).
 
 ## Liga-medlemmer (platformen)
 

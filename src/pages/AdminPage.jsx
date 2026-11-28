@@ -24,6 +24,7 @@ import GameScheduleTab from '../features/admin/GameScheduleTab';
 import GameReminderTab from '../features/admin/GameReminderTab';
 import GameRecapBotTab from '../features/admin/GameRecapBotTab';
 import DriftTab from '../features/admin/DriftTab';
+import QuizTab from '../features/admin/QuizTab';
 import ScrollRaekke from '../components/ScrollRaekke';
 
 // Fane-id'er
@@ -44,6 +45,7 @@ const TAB_REMINDERS = 'reminders';
 const TAB_RECAPBOT = 'recapbot';
 const TAB_LIGAMEDLEM = 'ligamedlem';
 const TAB_DRIFT = 'drift';
+const TAB_QUIZ = 'quiz';
 
 export default function AdminPage() {
   const { isOwner, isGlobalAdmin } = useAuth();
@@ -78,6 +80,9 @@ export default function AdminPage() {
       // (GamePage), og samme emoji + næsten samme ord i to navigationer er en
       // forveksling, der venter. Her styres MEDLEMMERNE, ikke ligaerne selv.
       { key: TAB_LIGAMEDLEM, label: '🧑‍🤝‍🧑 Liga-medlemmer' },
+      // Quiz om en liga på tværs af spillene (ejerens ønske 28/11) — ligger
+      // ved liga-fanen, for det er en ligas historie, den fortæller.
+      { key: TAB_QUIZ, label: '🧠 Liga-quiz' },
     ] : []),
     { key: TAB_TESTS,   label: 'Tests' },
     ...(PLATFORM_MODE ? [] : [{ key: TAB_RUNBOOK, label: '📋 Køreplan' }]),
@@ -156,6 +161,7 @@ export default function AdminPage() {
         {tab === TAB_BONUS   && <BonusTab />}
         {tab === TAB_LEAGUES && <LeaguesAdminTab />}
         {tab === TAB_LIGAMEDLEM && <GameLeagueMembersTab />}
+        {tab === TAB_QUIZ && <QuizTab />}
         {tab === TAB_TESTS   && <TestsTab />}
         {tab === TAB_RUNBOOK && <RunbookTab />}
         {tab === TAB_DRIFT   && <DriftTab />}
