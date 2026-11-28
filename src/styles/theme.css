@@ -1055,6 +1055,18 @@ a.holdside__kamp:hover { background: var(--c-bg); text-decoration: none; }
 .mytips__dash { color: var(--c-muted); margin: 0 0.25rem; }
 .mytips__pick { font-weight: 800; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 0.15rem; }
 .mytips__chance { font-size: 0.8rem; }
+/* «(⚡ +9)» på det ramte mærke: holdes samlet, så pillen aldrig brydes midt i
+   parentesen.
+
+   PÅ TELEFON står delingen på sin egen linje i pillen. Inline ved 360 px tog
+   mærket ~115 px (værst «✓ +202,4 (⚡ +179)» ~127 px og klippet), og
+   holdnavnet — kolonnen med 1fr — blev presset ned på ~15 px: et bogstav pr.
+   linje og rækker på 400-700 px. Stablet er pillen ikke bredere end før.
+   Målt med Playwright ved 360 og 412 px; harnesset ligger uden for repoet. */
+.mytips__delt { white-space: nowrap; }
+@media (max-width: 600px) {
+  .mytips__delt { flex-direction: column; gap: 0; border-radius: var(--radius-sm); line-height: 1.3; }
+}
 .mytips__res { text-align: right; font-variant-numeric: tabular-nums; }
 .mytips__none, .mytips__pending { color: var(--c-muted); font-size: 0.8rem; }
 

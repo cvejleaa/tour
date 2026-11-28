@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import FootballHelp from './FootballHelp';
+import TipsHistorik from './TipsHistorik';
+import { buildTipsHistory } from './tipsHistory';
+import { groupByRound } from './footballRounds';
 import { RUBRIKKER } from './PointOpdeling';
 import { COMBI, ODDS, TRAEF_BONUS, SPORT_PROFILER } from '../../../lib/superligaScoring';
 import { medProeveSport, PROEVE } from '../../../test/proeveSport';
@@ -654,16 +657,27 @@ describe('ligaens guide er byte-uændret (Superligaen og Premier League)', () =>
     ' og se, hvad de andre i dine ligaer valgte — og de kan se dit. Du kan også klikke på et navn i ',
   );
 
-  it('Superligaen: kun pulje-rubrikken og hvem-tippede-sætningen er ændret', () => {
+  //   4. Chance-mærket (chance-maerke): én ny sætning under Mine tips, der
+  //      forklarer «✓ +11,1 (⚡ +9)». Den står i begge ligaer og fjernes hel —
+  //      præcis én gang.
+  const CHANCE_MAERKE = /<p style="[^"]*" data-testid="hjaelp-chance-maerke">.*?<\/p>/;
+  const maerkeTilbage = (h) => {
+    expect(h.match(new RegExp(CHANCE_MAERKE.source, 'g'))).toHaveLength(1);
+    return h.replace(CHANCE_MAERKE, '');
+  };
+
+  it('Superligaen: kun pulje-rubrikken, hvem-tippede-sætningen og chance-mærket er ændret', () => {
     let h = tilbage(html({ ...spil('superliga2627'), standings: { rows: [] } }), RUBRIK_NY, RUBRIK_GAMMEL);
     h = hvemTilbage(h);
+    h = maerkeTilbage(h);
     expect(sha(h)).toBe('627bbe82c683e729b99fd6b9d2eb73509cb153937e012f2ca02d8de531047c96');
   });
 
-  it('Premier League: pulje-rubrikken, «i den officielle tabel» (ingen standings) og hvem-tippede-sætningen', () => {
+  it('Premier League: pulje-rubrikken, «i den officielle tabel» (ingen standings), hvem-tippede-sætningen og chance-mærket', () => {
     let h = tilbage(html(spil('pl2627-efteraar')), RUBRIK_NY, RUBRIK_GAMMEL);
     h = tilbage(h, '— i Elo-tabellen, i trøjeoversigten under', '— i Elo-tabellen, i den officielle tabel, i trøjeoversigten under');
     h = hvemTilbage(h);
+    h = maerkeTilbage(h);
     expect(sha(h)).toBe('d631d0f77d172840cd7e487a0d8357e84195cf2ca1ba5f135acc7c9f1d785585');
   });
 });
@@ -709,5 +723,39 @@ describe('guiden forklarer «stadig med» — kun for runde-puljen', () => {
       expect(document.body.textContent).not.toMatch(/stadig er med|streges over/);
       unmount();
     }
+  });
+});
+
+// CHANCE-MÆRKET I HISTORIKKEN. «✓ +11,1 (⚡ +9)» betyder "heraf", men
+// kampkortet viser de samme to tal som mærker, der LÆGGES sammen («Ramt +2,1»
+// og «⚡ +9»). Uden en forklaring kan man regne det til 20.
+describe('guiden forklarer chance-mærket i Mine tips', () => {
+  const visHjaelp = () => render(
+    <MemoryRouter initialEntries={['/spil/pl2627-efteraar?fane=hjaelp']}>
+      <Routes><Route path="/spil/:gameId" element={<FootballHelp game={GAMES.find((g) => g.id === 'pl2627-efteraar')} />} /></Routes>
+    </MemoryRouter>,
+  );
+
+  it('siger at parentesen er en del af totalen — ikke et tillæg', () => {
+    visHjaelp();
+    const p = screen.getByTestId('hjaelp-chance-maerke');
+    expect(p.textContent).toBe(
+      'Har du brugt ⚡ på en kamp, du ramte, står Chancens del i parentes: '
+      + '✓ +11,1 (⚡ +9) betyder 11,1 point for kampen i alt — heraf 9 fra Chancen og 2,1 for tippet.',
+    );
+    expect(p.textContent).not.toMatch(/oveni|20/);
+  });
+
+  // PARITET: eksemplet skal være SAMME tekst, som mærket viser for præcis den
+  // afregning (odds 2,1, indsats 8: 2,1 + round(8 × 1,1)). En kopi i guiden,
+  // der ikke er bundet, er den næste tekst, der driver fra fladen.
+  it('eksemplet er det mærke, historikken faktisk tegner', () => {
+    const m = [{ id: 'k', round: 1, home: 'A', away: 'B', kickoff: new Date('2026-08-01T17:00:00Z'), result: '1', odds: { 1: 2.1, X: 3.4, 2: 3.5 } }];
+    const { container } = render(
+      <TipsHistorik history={buildTipsHistory(groupByRound(m), { k: { pick: '1', points: 11.1, chanceStake: 8 } })} total={11.1} />,
+    );
+    const maerke = container.querySelector('.mytips__res .badge').textContent;
+    visHjaelp();
+    expect(screen.getByTestId('hjaelp-chance-maerke').querySelector('strong').textContent).toBe(maerke);
   });
 });
